@@ -68,7 +68,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .cards{padding:8px;display:flex;flex-direction:column;gap:7px;min-height:50px;}
 .cards.dov{background:rgba(255,255,255,.03);border-radius:7px;}
 .card{background:var(--card);border:1px solid var(--bor);border-radius:9px;padding:9px 11px;cursor:grab;transition:transform .15s,box-shadow .15s,border-color .15s;position:relative;overflow:hidden;}
-.card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3);border-color:#3a4060;}
+.card:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 12px 28px rgba(0,0,0,.45);border-color:#5b8dee;z-index:10;}
 .card.dragging{opacity:.4;transform:scale(.96);}
 .card.pago{border-color:rgba(62,207,142,.3);background:#1a2a20;}
 .cbar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;}
@@ -306,6 +306,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       <button class="nb admin-only" id="nav-pgforn" onclick="setView('pgforn')">💰 Pagar Fornecedor</button>
       <button class="nb admin-only" id="nav-usr" onclick="setView('usr')">👥 Usuários</button>
       <button class="nb" id="nav-clientes" onclick="setView('clientes')">👥 Clientes</button>
+      <button class="nb" id="nav-hist" onclick="setView('hist')">🏆 Histórico</button>
       <button class="nb" id="nav-perfil" onclick="setView('perfil')">👤 Perfil</button>
     </div>
     <div class="hright">
@@ -446,6 +447,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
         </div>
       </div>
       <div id="clientesList" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="view" id="view-hist">
+    <div class="pw">
+      <div class="ph">
+        <div class="ptitle">🏆 Histórico de Ordens Concluídas</div>
+        <div style="font-size:13px;color:var(--mut)" id="hist_count"></div>
+      </div>
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1.5px solid var(--bor);border-radius:10px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+        <input type="month" id="hist_mes" oninput="renderHistoricoPagina()" style="background:var(--card);border:1.5px solid var(--bor);border-radius:10px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+      </div>
+      <div id="hist_lista" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
 
@@ -1012,6 +1028,7 @@ function setView(v){
   if(v==='perfil')renderPerfil();
   if(v==='clientes')renderClientes();
   if(v==='pgforn')initPgForn();
+  if(v==='hist')renderHistoricoPagina();
 }
 
 // ═══════════════════════════════════════
@@ -1063,13 +1080,14 @@ function cHTML(c,color){
     ondragstart="oDS(event,'${c.id}')" ondragend="oDE()" onclick="onCardClick(event,'${c.id}')">
     <div class="cbar" style="background:${color}"></div>
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${sel?'✓':''}</div>
+    <div class="card-trophy" onclick="event.stopPropagation();concluirCard('${c.id}')" title="Concluir ordem" style="position:absolute;bottom:6px;right:6px;width:20px;height:20px;border-radius:5px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;z-index:5">🏆</div>
     <div class="cqact">
       <button class="cqbtn" title="OS" onclick="event.stopPropagation();openOS('${c.id}')">📄</button>
       <button class="cqbtn" title="Pix" onclick="event.stopPropagation();openPixForCard('${c.id}')">⚡</button>
       <button class="cqbtn" title="WhatsApp" onclick="event.stopPropagation();sendWAForCard('${c.id}')">📲</button>
     </div>
-    <div class="ctitle">${c.tipo||''}</div>
-    <div class="caddr">${c.end_logradouro||''}${c.cid?'<br><span style="color:var(--mut);font-size:10px">'+c.cid+'</span>':''}</div>
+    <div class="caddr" style="font-weight:700;font-size:12px;color:var(--txt)">${c.end_logradouro||''}${c.cid?'<br><span style="color:var(--mut);font-size:10px">'+c.cid+'</span>':''}</div>
+    <div class="ctitle" style="font-size:11px;color:var(--mut);margin-top:2px">${c.tipo||''}</div>
     <div class="cmeta">
       ${c.nome?`<span class="chip" data-tip="Cliente">👤 ${c.nome.split(' ')[0]}</span>`:''}
       ${c.cel?`<span class="chip" data-tip="Celular">📱 ${c.cel}</span>`:''}
@@ -1164,7 +1182,7 @@ function openDetail(id){
   detailId=id;
   const c=cards.find(x=>x.id===id);if(!c)return;
   fillDetail(c);
-  renderHistorico(id);
+  renderCardHistorico(id);
   document.getElementById('editSec').style.display='none';
   document.getElementById('detailInfo').style.display='block';
   document.getElementById('detailModal').classList.add('open');
@@ -1281,12 +1299,20 @@ async function saveEdit(){
   c.nome=get('e_nome');c.cel=get('e_cel');c.tipo=get('e_tipo');c.data=get('e_data');
   c.end_logradouro=get('e_end');c.cid=get('e_cid');c.cep=get('e_cep');c.cpf=get('e_cpf');
   c.rec=parseFloat(get('e_rec'))||0;c.cst=parseFloat(document.getElementById('e_cst').value)||0;
+  const oldSid = c.sid;
   c.sid=get('e_sup');c.obs=get('e_obs');
-  addHistorico(c.id,'Editado','');
+  // auto-move to entrega when supplier first assigned from contratar
+  if(c.sid && c.sid !== oldSid && c.col === 'contratar'){
+    c.col = 'entrega';
+    addHistorico(c.id,'Movido','Contratar → Entrega OK? (fornecedor atribuído)');
+    toast('🚛 Fornecedor atribuído → movido para Entrega OK!');
+  } else {
+    addHistorico(c.id,'Editado','');
+  }
   render();fillDetail(c);cancelEdit();
   try{
     setSyncDot('loading');
-    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs},currentUser?.access_token);
+    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs,col:c.col},currentUser?.access_token);
     setSyncDot('ok');toast('✅ Atualizado!');
   }catch(e){setSyncDot('err');toast('Erro','#e05252');}
 }
@@ -1960,7 +1986,7 @@ function addHistorico(cardId, acao, detalhe=''){
   });
 }
 
-function renderHistorico(cardId){
+function renderCardHistorico(cardId){
   const sec = document.getElementById('d_hist_sec');
   const div = document.getElementById('d_hist');
   const hist = historicos[cardId] || [];
@@ -3099,6 +3125,131 @@ async function pgfornSalvar(){
   pgfornSelecionados.clear();
   renderBoard();
   initPgForn(); // recarrega a tela
+}
+
+
+// ═══════════════════════════════════════
+// CONCLUIR CARD → HISTÓRICO
+// ═══════════════════════════════════════
+async function concluirCard(id){
+  if(!confirm('Marcar esta ordem como concluída? Ela sairá do funil e irá para o Histórico.')) return;
+  const c = cards.find(x=>x.id===id);
+  if(!c) return;
+  c.col = 'concluido';
+  c.concluido_em = new Date().toISOString();
+  addHistorico(id,'Concluído','🏆 Ordem marcada como concluída');
+  try{
+    await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
+    toast('🏆 Ordem concluída e arquivada!');
+    renderBoard();
+  }catch(e){ toast('Erro ao concluir','#e05252'); }
+}
+
+function renderHistoricoPagina(){
+  const q = (document.getElementById('hist_q')?.value||'').toLowerCase();
+  const mes = document.getElementById('hist_mes')?.value||'';
+  const concluidos = cards.filter(c=>c.col==='concluido').sort((a,b)=>(b.concluido_em||b.criado_em||'').localeCompare(a.concluido_em||a.criado_em||''));
+
+  const filtrados = concluidos.filter(c=>{
+    if(q && ![ c.nome, c.end_logradouro, c.cid, c.crm_id, c.tipo ].some(f=>(f||'').toLowerCase().includes(q))) return false;
+    if(mes && c.data && !c.data.startsWith(mes)) return false;
+    return true;
+  });
+
+  document.getElementById('hist_count').textContent = filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') + ' concluída' + (filtrados.length!==1?'s':'');
+
+  const sup_map = {};
+  sups.forEach(s=>sup_map[s.id]=s.nome);
+
+  const lista = document.getElementById('hist_lista');
+  if(!filtrados.length){
+    lista.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--mut)"><div style="font-size:48px;margin-bottom:12px">🏆</div><div style="font-weight:700;font-size:16px">Nenhuma ordem concluída ainda</div></div>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.map(c=>{
+    const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    const concFmt = c.concluido_em ? new Date(c.concluido_em).toLocaleDateString('pt-BR') : '-';
+    const mg = (parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
+    const supNome = sup_map[c.sid]||'-';
+    return `
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px">${c.end_logradouro||'-'}${c.cid?', '+c.cid:''}</span>
+          ${c.crm_id?`<span style="font-size:10px;color:var(--acc);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);border-radius:4px;padding:1px 6px">${c.crm_id}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--mut);display:flex;gap:12px;flex-wrap:wrap">
+          <span>👤 ${c.nome||'-'}</span>
+          <span>📲 ${c.cel||'-'}</span>
+          <span>🗑️ ${c.tipo||'-'}</span>
+          <span>📅 Serviço: ${dataFmt}</span>
+          <span>✅ Concluído: ${concFmt}</span>
+          <span>🚛 ${supNome}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;text-align:center;flex-wrap:wrap">
+        <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px 12px">
+          <div style="font-size:10px;color:var(--mut)">Cobrado</div>
+          <div style="font-weight:800;color:var(--g)">R$ ${fmt(c.rec||0)}</div>
+        </div>
+        <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:8px 12px">
+          <div style="font-size:10px;color:var(--mut)">Custo</div>
+          <div style="font-weight:800;color:#f87171">R$ ${fmt(c.cst||0)}</div>
+        </div>
+        <div style="background:rgba(91,141,238,.08);border:1px solid rgba(91,141,238,.2);border-radius:8px;padding:8px 12px">
+          <div style="font-size:10px;color:var(--mut)">Margem</div>
+          <div style="font-weight:800;color:#7ba7f5">R$ ${fmt(mg)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// ALERTA 3 DIAS — MENSAGEM AUTOMÁTICA
+// ═══════════════════════════════════════
+function verificarAlerta3Dias(){
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  const limite = new Date(hoje);
+  limite.setDate(hoje.getDate() - 3);
+
+  // cards ativos (não concluídos, não inadimplentes) com data há 3+ dias
+  const vencendo = cards.filter(c=>{
+    if(!c.data || c.col==='concluido' || c.col==='inadimp') return false;
+    const dt = new Date(c.data+'T12:00:00');
+    return dt <= limite && c.cel;
+  });
+
+  if(!vencendo.length) return;
+
+  // mostra toast com opção de enviar
+  const msg = '⏰ ' + vencendo.length + ' cliente' + (vencendo.length>1?'s':'') + ' com caçamba vencendo! Enviar avisos?';
+  const toast_el = document.getElementById('toast');
+  if(toast_el){
+    toast_el.textContent = msg;
+    toast_el.style.background = '#f5a623';
+    toast_el.style.color = '#000';
+    toast_el.style.display = 'block';
+    toast_el.style.cursor = 'pointer';
+    toast_el.onclick = ()=>{ enviarAvisos3Dias(vencendo); toast_el.style.display='none'; toast_el.onclick=null; toast_el.style.cursor=''; };
+    setTimeout(()=>{ toast_el.style.display='none'; toast_el.onclick=null; }, 12000);
+  }
+}
+
+function enviarAvisos3Dias(lista){
+  let i = 0;
+  function enviarProximo(){
+    if(i >= lista.length) return;
+    const c = lista[i++];
+    const tel = (c.cel||'').replace(/\D/g,'');
+    const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    const msg = 'Olá, ' + (c.nome?.split(' ')[0]||'') + '!\n\nSua locação está chegando ao fim ⏳\nO prazo da sua caçamba vence no próximo dia útil 📅\n\nNos avise se deseja:\n🔄 TROCAR ou\n🚛 RETIRAR\n\nNA AUSÊNCIA DE UM RETORNO, SEGUIREMOS COM A RETIRADA AUTOMATICAMENTE\n\nObrigado, conte com o Grupo CaçambaSP! 😊';
+    window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
+    setTimeout(enviarProximo, 1500);
+  }
+  enviarProximo();
 }
 
 // ═══════════════════════════════════════
