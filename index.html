@@ -797,7 +797,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       </div>
       <div class="fr"><label>Endereço</label><input type="text" id="e_end"></div>
       <div class="fg">
-        <div class="fr"><label>Bairro</label><input type="text" id="e_bairro" placeholder="Ex: Vila Mariana" oninput="sugerirFornecedor();updEditFin()"></div>
+        <div class="fr"><label>Bairro</label><input type="text" id="e_bairro" placeholder="Ex: Vila Mariana" oninput="updEditFin(true)"></div>
         <div class="fr"><label>Cidade</label><input type="text" id="e_cid" oninput="updEditFin()"></div>
       </div>
       <div class="fg">
@@ -807,7 +807,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="fg">
         <div class="fr">
           <label>Fornecedor</label>
-          <select id="e_sup" onchange="updEditFin()"><option value="">- Nenhum -</option></select>
+          <select id="e_sup" onchange="updEditFin(true)"><option value="">- Nenhum -</option></select>
           <div id="e_sup_sugestao" style="display:none;font-size:11px;margin-top:5px;padding:6px 10px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;color:var(--acc);cursor:pointer" onclick="aplicarSugestaoForn()"></div>
         </div>
         <div class="fr"><label>Cobrado (R$)</label><input type="number" id="e_rec" step="0.01" oninput="updEditFin()"></div>
@@ -1475,24 +1475,46 @@ function toggleEdit(){
   document.getElementById('e_obs').value=c.obs||'';
   const sel=document.getElementById('e_sup');sel.innerHTML='<option value="">- Nenhum -</option>';
   sups.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.nome;sel.appendChild(o);});
-  sel.value=c.sid||'';updEditFin();
+  sel.value=c.sid||'';
+  // Use nextTick to ensure select value is set before triggering fin update
+  setTimeout(()=>{
+    // If sid exists but select didn't match (value reset to ''), try matching by name
+    if(c.sid && !sel.value){
+      // try to find by iterating options
+      for(let o of sel.options){ if(o.value===c.sid){o.selected=true;break;} }
+    }
+    updEditFin(false);
+  },0);
 }
 function cancelEdit(){document.getElementById('editSec').style.display='none';document.getElementById('detailInfo').style.display='block';}
-function updEditFin(){
+function updEditFin(autoFill=false){
   const bairro = document.getElementById('e_bairro')?.value.trim()||'';
   const cid    = document.getElementById('e_cid')?.value.trim()||'';
   const supId  = document.getElementById('e_sup')?.value||'';
-  // Auto-fill custo if supplier selected and bairro/city matches
-  if(supId){
+  const hint   = document.getElementById('e_cst_hint');
+
+  // Auto-fill custo only when user actively changes supplier or bairro (autoFill=true)
+  // Not when just opening the edit form
+  if(supId && autoFill){
     const {custo,regiao} = getMatchedCusto(supId, bairro, cid);
     if(custo>0){
       document.getElementById('e_cst').value=custo;
-      const hint = document.getElementById('e_cst_hint');
-      if(hint) hint.textContent = regiao ? '📍 Preço da região: '+regiao : '';
+      if(hint) hint.textContent = '📍 Preço da região: '+(regiao||bairro||cid);
+    } else {
+      if(hint) hint.textContent = '';
     }
+  } else if(supId && hint){
+    // Show region info without overwriting
+    const {custo,regiao} = getMatchedCusto(supId, bairro, cid);
+    if(hint) hint.textContent = custo>0 ? '📍 Preço tabelado: R$ '+fmt(custo)+(regiao?' ('+regiao+')':'') : '';
   }
-  // Show supplier suggestion when no supplier selected yet
-  sugerirFornecedor();
+
+  // Show supplier suggestion only if no supplier selected yet
+  if(!supId) sugerirFornecedor();
+  else {
+    const div = document.getElementById('e_sup_sugestao');
+    if(div) div.style.display='none';
+  }
   updEditFinD();
 }
 function updEditFinD(){
