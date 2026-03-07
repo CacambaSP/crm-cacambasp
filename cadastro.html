@@ -119,10 +119,8 @@ select option{background:#252836;color:#f1f5f9}
     <div class="fr">
       <label>Tipo de serviço <span class="req">*</span></label>
       <select id="c_tipo">
-        <option value="troca">Troca</option>
-        <option value="retirada">Retirada</option>
         <option value="entrega">Entrega nova</option>
-        <option value="outro">Outro</option>
+        <option value="troca">Troca</option>
       </select>
     </div>
   </div>
@@ -135,7 +133,12 @@ select option{background:#252836;color:#f1f5f9}
 
   <div class="fr">
     <label>Observações</label>
-    <textarea id="c_obs" placeholder="Informações adicionais, horário preferido, acesso ao local..."></textarea>
+    <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:12px;color:#c8a45a;line-height:1.6">
+      ⚠️ <strong>Não realizamos agendamento de horário</strong>, apenas de data.<br>
+      Para agilizar sua entrega, informe aqui detalhes como:<br>
+      📍 Ponto de referência · 🚧 Tipo de acesso (rua estreita, ladeira, portão) · 🅿️ Local exato para posicionar a caçamba · 📞 Melhor horário para contato
+    </div>
+    <textarea id="c_obs" placeholder="Ex: Portão azul na lateral, rua sem saída, deixar em frente à garagem..."></textarea>
   </div>
 
   <div class="err" id="err_geral" style="font-size:13px;margin-bottom:8px"></div>
