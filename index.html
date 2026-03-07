@@ -1055,7 +1055,11 @@ function saveSeq(){localStorage.setItem('crm_pixseq',String(pixSeq));localStorag
 const isAdmin=()=>currentPerfil?.nivel==='admin';
 function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
 function fmts(v){return parseFloat(v||0).toLocaleString('pt-BR');}
-function uid(){return 'id'+Date.now()+Math.random().toString(36).slice(2,7);}
+function uid(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
 function toast(msg,col){const t=document.getElementById('toast');t.textContent=msg;t.style.background=col||'var(--g)';t.style.color=col?'#fff':'#000';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
 function setSyncDot(s){const d=document.getElementById('syncDot');d.className='sync-dot '+s;}
 
@@ -1163,6 +1167,8 @@ async function loadApp(){
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,currentUser.access_token) : Promise.resolve([]),
     ]);
     sups=dbSups||[];cards=dbCards||[];usuarios=dbUsers||[];
+    console.log('[CRM] Fornecedores carregados:', sups.map(s=>({id:s.id,nome:s.nome})));
+    console.log('[CRM] Cards com sid:', [...new Set(cards.map(c=>c.sid).filter(Boolean))]);
     setSyncDot('ok');
   }catch(e){console.error(e);setSyncDot('err');}
 
@@ -1803,9 +1809,15 @@ function openSupForm(){['s_nome','s_tel','s_obs'].forEach(id=>{const el=document
 function closeSupForm(){document.getElementById('supModal').classList.remove('open');}
 async function saveSup(){
   const nome=document.getElementById('s_nome').value.trim();if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
-  const sup={id:uid(),nome,atendente:'',tel:(document.getElementById('s_tel')?.value||'').trim(),obs:(document.getElementById('s_obs')?.value||'').trim(),color:ACOLORS[sups.length%ACOLORS.length],precos:[]};
-  sups.push(sup);renderSups();closeSupForm();
-  try{await api('fornecedores','POST',sup,currentUser?.access_token);toast('✅ Criado!');}catch(e){toast('Erro','#e05252');}
+  const sup={nome,atendente:'',tel:(document.getElementById('s_tel')?.value||'').trim(),obs:(document.getElementById('s_obs')?.value||'').trim(),color:ACOLORS[sups.length%ACOLORS.length],precos:[]};
+  closeSupForm();
+  try{
+    const res=await api('fornecedores','POST',sup,currentUser?.access_token);
+    // reload sups to get real IDs from Supabase
+    const fresh=await api('fornecedores?order=criado_em.asc',undefined,undefined,currentUser?.access_token);
+    sups=fresh||[...sups,{...sup,id:uid()}];
+    renderSups();toast('✅ Criado!');
+  }catch(e){toast('Erro ao criar fornecedor','#e05252');}
 }
 
 // ═══════════════════════════════════════
