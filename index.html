@@ -1820,7 +1820,8 @@ async function saveSup(){
     tel:(document.getElementById('s_tel')?.value||'').trim(),
     obs:(document.getElementById('s_obs')?.value||'').trim(),
     color:ACOLORS[sups.length%ACOLORS.length],
-    precos:[]
+    precos:[],
+    criado_em: new Date().toISOString()
   };
   closeSupForm();
   try{
