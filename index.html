@@ -1817,12 +1817,10 @@ async function saveSup(){
   const sup={
     id: uid(),
     nome,
-    atendente:'',
     tel:(document.getElementById('s_tel')?.value||'').trim(),
     obs:(document.getElementById('s_obs')?.value||'').trim(),
     color:ACOLORS[sups.length%ACOLORS.length],
-    precos:[],
-    criado_em: new Date().toISOString()
+    precos:[]
   };
   closeSupForm();
   try{
