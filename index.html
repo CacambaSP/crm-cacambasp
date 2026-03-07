@@ -636,12 +636,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       </div>
       <div class="fr"><label>Endereço</label><input type="text" id="e_end"></div>
       <div class="fg">
+        <div class="fr"><label>Bairro</label><input type="text" id="e_bairro" placeholder="Ex: Vila Mariana" oninput="sugerirFornecedor()"></div>
         <div class="fr"><label>Cidade</label><input type="text" id="e_cid" oninput="updEditFin()"></div>
-        <div class="fr"><label>CEP</label><input type="text" id="e_cep"></div>
       </div>
-      <div class="fr"><label>CPF</label><input type="text" id="e_cpf"></div>
       <div class="fg">
-        <div class="fr"><label>Fornecedor</label><select id="e_sup" onchange="updEditFin()"><option value="">- Nenhum -</option></select></div>
+        <div class="fr"><label>CEP</label><input type="text" id="e_cep"></div>
+        <div class="fr"><label>CPF</label><input type="text" id="e_cpf"></div>
+      </div>
+      <div class="fg">
+        <div class="fr">
+          <label>Fornecedor</label>
+          <select id="e_sup" onchange="updEditFin()"><option value="">- Nenhum -</option></select>
+          <div id="e_sup_sugestao" style="display:none;font-size:11px;margin-top:5px;padding:6px 10px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;color:var(--acc);cursor:pointer" onclick="aplicarSugestaoForn()"></div>
+        </div>
         <div class="fr"><label>Cobrado (R$)</label><input type="number" id="e_rec" step="0.01" oninput="updEditFin()"></div>
       </div>
       <div class="fg">
@@ -1086,7 +1093,7 @@ function cHTML(c,color){
       <button class="cqbtn" title="Pix" onclick="event.stopPropagation();openPixForCard('${c.id}')">⚡</button>
       <button class="cqbtn" title="WhatsApp" onclick="event.stopPropagation();sendWAForCard('${c.id}')">📲</button>
     </div>
-    <div class="caddr" style="font-weight:700;font-size:12px;color:var(--txt)">${c.end_logradouro||''}${c.cid?'<br><span style="color:var(--mut);font-size:10px">'+c.cid+'</span>':''}</div>
+    <div class="caddr" style="font-weight:700;font-size:12px;color:var(--txt)">${c.end_logradouro||''}${c.bairro?'<br><span style="color:var(--acc);font-size:10px;font-weight:600">'+c.bairro+'</span>':''}${c.cid?'<br><span style="color:var(--mut);font-size:10px">'+c.cid+'</span>':''}</div>
     <div class="ctitle" style="font-size:11px;color:var(--mut);margin-top:2px">${c.tipo||''}</div>
     <div class="cmeta">
       ${c.nome?`<span class="chip" data-tip="Cliente">👤 ${c.nome.split(' ')[0]}</span>`:''}
@@ -1167,7 +1174,7 @@ async function saveCard(){
   const cid=get('f_cid'),supId=get('f_sup');
   const{custo}=getMatchedCusto(supId,cid);
   const crmId = nextPixId();
-  const card={id:uid(),col:'contratar',tipo:get('f_tipo'),data:get('f_data'),rec:parseFloat(get('f_rec'))||0,cst:custo,end_logradouro:get('f_end'),cid,cep:get('f_cep'),nome:get('f_nome'),cel:get('f_cel'),cpf:get('f_cpf'),sid:supId,obs:get('f_obs'),usuario_id:currentUser?.user?.id,usuario_nome:currentPerfil?.nome||'',pago:false,pago_em:null,pago_valor:0,pago_obs:'',forn_pago:false,forn_pago_em:null,forn_comprovante:null,crm_id:crmId,grp_id:''};
+  const card={id:uid(),col:'contratar',tipo:get('f_tipo'),data:get('f_data'),rec:parseFloat(get('f_rec'))||0,cst:custo,end_logradouro:get('f_end'),bairro:get('f_bairro')||'',cid,cep:get('f_cep'),nome:get('f_nome'),cel:get('f_cel'),cpf:get('f_cpf'),sid:supId,obs:get('f_obs'),usuario_id:currentUser?.user?.id,usuario_nome:currentPerfil?.nome||'',pago:false,pago_em:null,pago_valor:0,pago_obs:'',forn_pago:false,forn_pago_em:null,forn_comprovante:null,crm_id:crmId,grp_id:''};
   cards.push(card);
   addHistorico(card.id,'Criado',card.tipo||'');
   render();closeForm();
@@ -1195,7 +1202,7 @@ function fillDetail(c){
   document.getElementById('d_cpf').textContent=c.cpf||'-';
   document.getElementById('d_tipo').textContent=c.tipo||'-';
   document.getElementById('d_data').textContent=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'-';
-  document.getElementById('d_end').textContent=c.end_logradouro||'-';
+  document.getElementById('d_end').textContent=(c.end_logradouro||'-')+(c.bairro?' — '+c.bairro:'')+(c.cid?', '+c.cid:'');
   document.getElementById('d_cid').textContent=[c.cid,c.cep].filter(Boolean).join(' · ')||'-';
   document.getElementById('d_forn').textContent=sup?sup.nome:'-';
   document.getElementById('d_resp').textContent=c.usuario_nome||'-';
@@ -1268,7 +1275,7 @@ function toggleEdit(){
   document.getElementById('detailInfo').style.display='none';
   document.getElementById('e_nome').value=c.nome||'';document.getElementById('e_cel').value=c.cel||'';
   document.getElementById('e_tipo').value=c.tipo||'';document.getElementById('e_data').value=c.data||'';
-  document.getElementById('e_end').value=c.end_logradouro||'';document.getElementById('e_cid').value=c.cid||'';
+  document.getElementById('e_end').value=c.end_logradouro||'';document.getElementById('e_bairro').value=c.bairro||'';document.getElementById('e_cid').value=c.cid||'';
   document.getElementById('e_cep').value=c.cep||'';document.getElementById('e_cpf').value=c.cpf||'';
   document.getElementById('e_rec').value=c.rec||'';document.getElementById('e_cst').value=c.cst||'';
   document.getElementById('e_obs').value=c.obs||'';
@@ -1297,7 +1304,7 @@ async function saveEdit(){
   if(!get('e_cel')){toast('⚠ Celular obrigatório','#e05252');return;}
   const c=cards.find(x=>x.id===detailId);if(!c)return;
   c.nome=get('e_nome');c.cel=get('e_cel');c.tipo=get('e_tipo');c.data=get('e_data');
-  c.end_logradouro=get('e_end');c.cid=get('e_cid');c.cep=get('e_cep');c.cpf=get('e_cpf');
+  c.end_logradouro=get('e_end');c.bairro=get('e_bairro');c.cid=get('e_cid');c.cep=get('e_cep');c.cpf=get('e_cpf');
   c.rec=parseFloat(get('e_rec'))||0;c.cst=parseFloat(document.getElementById('e_cst').value)||0;
   const oldSid = c.sid;
   c.sid=get('e_sup');c.obs=get('e_obs');
@@ -1312,7 +1319,7 @@ async function saveEdit(){
   render();fillDetail(c);cancelEdit();
   try{
     setSyncDot('loading');
-    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs,col:c.col},currentUser?.access_token);
+    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,bairro:c.bairro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs,col:c.col},currentUser?.access_token);
     setSyncDot('ok');toast('✅ Atualizado!');
   }catch(e){setSyncDot('err');toast('Erro','#e05252');}
 }
@@ -3139,10 +3146,15 @@ async function concluirCard(id){
   c.concluido_em = new Date().toISOString();
   addHistorico(id,'Concluído','🏆 Ordem marcada como concluída');
   try{
-    await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
+    // tenta salvar com concluido_em, se falhar salva só col
+    try{
+      await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
+    }catch(e2){
+      await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token);
+    }
     toast('🏆 Ordem concluída e arquivada!');
     renderBoard();
-  }catch(e){ toast('Erro ao concluir','#e05252'); }
+  }catch(e){ console.error(e); toast('Erro ao concluir: '+e.message,'#e05252'); }
 }
 
 function renderHistoricoPagina(){
@@ -3250,6 +3262,49 @@ function enviarAvisos3Dias(lista){
     setTimeout(enviarProximo, 1500);
   }
   enviarProximo();
+}
+
+
+// ═══════════════════════════════════════
+// SUGESTÃO DE FORNECEDOR POR BAIRRO
+// ═══════════════════════════════════════
+let _sugestaoFornId = null;
+
+function sugerirFornecedor(){
+  const bairro = (document.getElementById('e_bairro')?.value||'').toLowerCase().trim();
+  const div = document.getElementById('e_sup_sugestao');
+  if(!div) return;
+  if(!bairro || bairro.length < 3){ div.style.display='none'; return; }
+
+  // conta quantas vezes cada fornecedor atendeu aquele bairro
+  const score = {};
+  cards.forEach(c=>{
+    if(!c.sid || !c.bairro) return;
+    const b = c.bairro.toLowerCase();
+    if(b.includes(bairro) || bairro.includes(b)){
+      score[c.sid] = (score[c.sid]||0) + 1;
+    }
+  });
+
+  // pega o mais frequente
+  const sorted = Object.entries(score).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length){ div.style.display='none'; return; }
+
+  const [bestId, count] = sorted[0];
+  const sup = sups.find(s=>s.id===bestId);
+  if(!sup){ div.style.display='none'; return; }
+
+  _sugestaoFornId = bestId;
+  div.style.display = 'block';
+  div.innerHTML = '💡 Sugestão: <strong>'+sup.nome+'</strong> atendeu este bairro '+count+'x — <span style="text-decoration:underline">aplicar</span>';
+}
+
+function aplicarSugestaoForn(){
+  if(!_sugestaoFornId) return;
+  const sel = document.getElementById('e_sup');
+  if(sel){ sel.value = _sugestaoFornId; updEditFin(); }
+  document.getElementById('e_sup_sugestao').style.display='none';
+  toast('✅ Fornecedor sugerido aplicado!');
 }
 
 // ═══════════════════════════════════════
