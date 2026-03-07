@@ -44,7 +44,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .login-err.show{display:block}
 
 /* ── SIDEBAR ── */
-.sidebar{width:var(--sidebar);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto}
+.sidebar{width:var(--sidebar);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto;transition:width .2s,transform .2s}
+.sidebar.collapsed{width:0;transform:translateX(-220px);overflow:hidden}
+.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;min-height:100vh;transition:margin-left .2s}
+.main-wrap.full{margin-left:0}
+.topbar-toggle{width:32px;height:32px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:.15s}
+.topbar-toggle:hover{background:var(--bor2);color:var(--txt)}
 .sidebar-logo{padding:18px 18px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bor)}
 .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#f5a623,#e8920a);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
 .logo-name{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;line-height:1.1}
@@ -69,7 +74,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .sidebar-logout:hover{background:var(--r2);color:var(--r)}
 
 /* ── MAIN WRAPPER ── */
-.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;min-height:100vh}
 
 /* ── TOPBAR ── */
 .topbar{height:54px;border-bottom:1px solid var(--bor);display:flex;align-items:center;padding:0 22px;gap:12px;background:var(--sur);flex-shrink:0;position:sticky;top:0;z-index:40}
@@ -114,8 +118,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .stat-l{font-size:10px;color:var(--mut2);margin-top:1px;text-transform:uppercase;letter-spacing:.4px}
 
 /* ── BOARD ── */
-.bwrap{padding:16px 22px;overflow-x:auto;min-height:calc(100vh - 160px)}
-.board{display:flex;gap:12px;min-width:max-content;align-items:flex-start}
+.bwrap{padding:16px 22px;overflow-x:auto;min-height:calc(100vh - 160px);scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
+.board{display:flex;gap:12px;min-width:max-content;align-items:flex-start;padding-bottom:20px}
 
 /* ── COLUMN ── */
 .col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden}
@@ -439,6 +443,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
   <!-- TOPBAR -->
   <div class="topbar" id="topbar">
+    <button class="topbar-toggle" onclick="toggleSidebar()" title="Ocultar/mostrar menu">☰</button>
     <div class="topbar-title" id="topbarTitle">Funil de Ordens</div>
     <div class="topbar-right">
       <button class="btn-novo" onclick="openForm()" id="btnNovoNeg">+ Nova Ordem</button>
@@ -986,6 +991,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <div class="toast" id="toast"></div>
+
+  </div><!-- /main-wrap -->
+</div><!-- /appPage -->
 
 <script>
 // ═══════════════════════════════════════
@@ -3442,6 +3450,16 @@ function aplicarSugestaoForn(){
   if(sel){ sel.value = _sugestaoFornId; updEditFin(); }
   document.getElementById('e_sup_sugestao').style.display='none';
   toast('✅ Fornecedor sugerido aplicado!');
+}
+
+// ═══════════════════════════════════════
+// SIDEBAR TOGGLE
+// ═══════════════════════════════════════
+function toggleSidebar(){
+  const sb = document.getElementById('mainNav');
+  const mw = document.querySelector('.main-wrap');
+  sb.classList.toggle('collapsed');
+  mw.classList.toggle('full');
 }
 
 // ═══════════════════════════════════════
