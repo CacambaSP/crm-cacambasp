@@ -814,6 +814,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       </div>
       <div class="fg">
         <div class="fr">
+          <label>Região do Fornecedor</label>
+          <select id="e_regiao" onchange="aplicarRegiaoForn()">
+            <option value="">- Selecione a região -</option>
+          </select>
+        </div>
+        <div class="fr">
           <label>Custo Fornecedor (R$)</label>
           <input type="number" id="e_cst" step="0.01" oninput="updEditFinD()">
           <div id="e_cst_hint" style="font-size:11px;color:var(--g);margin-top:4px"></div>
@@ -1499,25 +1505,33 @@ function toggleEdit(){
 }
 function cancelEdit(){document.getElementById('editSec').style.display='none';document.getElementById('detailInfo').style.display='block';}
 function updEditFin(autoFill=false){
-  const bairro = document.getElementById('e_bairro')?.value.trim()||'';
-  const cid    = document.getElementById('e_cid')?.value.trim()||'';
-  const supId  = document.getElementById('e_sup')?.value||'';
-  const hint   = document.getElementById('e_cst_hint');
-
-  // Auto-fill custo only when user actively changes supplier or bairro (autoFill=true)
-  // Not when just opening the edit form
-  if(supId && autoFill){
-    const {custo,regiao} = getMatchedCusto(supId, bairro, cid);
-    if(custo>0){
-      document.getElementById('e_cst').value=custo;
-      if(hint) hint.textContent = '📍 Preço da região: '+(regiao||bairro||cid);
-    } else {
-      if(hint) hint.textContent = '';
+  const supId = document.getElementById('e_sup')?.value||'';
+  
+  // Populate region dropdown based on selected supplier
+  const regiaoSel = document.getElementById('e_regiao');
+  if(regiaoSel){
+    const supAtual = sups.find(s=>s.id===supId);
+    const precos = Array.isArray(supAtual?.precos) ? supAtual.precos : [];
+    regiaoSel.innerHTML = '<option value="">- Selecione a região -</option>';
+    precos.forEach(p=>{
+      const o = document.createElement('option');
+      o.value = p.r;
+      o.dataset.valor = p.v;
+      o.textContent = p.r + ' — R$ ' + fmt(p.v);
+      regiaoSel.appendChild(o);
+    });
+    if(!precos.length){
+      const o = document.createElement('option');
+      o.value=''; o.disabled=true;
+      o.textContent = supId ? 'Nenhuma região cadastrada' : '';
+      regiaoSel.appendChild(o);
     }
-  } else if(supId && hint){
-    // Show region info without overwriting
-    const {custo,regiao} = getMatchedCusto(supId, bairro, cid);
-    if(hint) hint.textContent = custo>0 ? '📍 Preço tabelado: R$ '+fmt(custo)+(regiao?' ('+regiao+')':'') : '';
+    // Try to restore previously saved region/cost
+    if(!autoFill && document.getElementById('e_cst')?.value){
+      const cst = parseFloat(document.getElementById('e_cst').value)||0;
+      const match = precos.find(p=>parseFloat(p.v)===cst);
+      if(match) regiaoSel.value = match.r;
+    }
   }
 
   // Show supplier suggestion only if no supplier selected yet
@@ -1526,6 +1540,17 @@ function updEditFin(autoFill=false){
     const div = document.getElementById('e_sup_sugestao');
     if(div) div.style.display='none';
   }
+  updEditFinD();
+}
+
+function aplicarRegiaoForn(){
+  const sel = document.getElementById('e_regiao');
+  const opt = sel?.options[sel.selectedIndex];
+  if(!opt || !opt.dataset.valor) return;
+  const valor = parseFloat(opt.dataset.valor)||0;
+  document.getElementById('e_cst').value = valor;
+  const hint = document.getElementById('e_cst_hint');
+  if(hint) hint.textContent = valor ? '📍 Preço da região: R$ '+fmt(valor) : '';
   updEditFinD();
 }
 function updEditFinD(){
