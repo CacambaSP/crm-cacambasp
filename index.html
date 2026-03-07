@@ -44,11 +44,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .login-err.show{display:block}
 
 /* ── SIDEBAR ── */
-.sidebar{width:var(--sidebar);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto;transition:width .2s,transform .2s}
-.sidebar.collapsed{width:0;transform:translateX(-220px);overflow:hidden}
-.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;min-height:100vh;transition:margin-left .2s}
-.main-wrap.full{margin-left:0}
-.topbar-toggle{width:32px;height:32px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:.15s}
+.sidebar{width:var(--sidebar);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto;transition:width .25s,opacity .25s}
+.sidebar.collapsed{width:4px;opacity:0;pointer-events:none;overflow:hidden}
+.sidebar.collapsed:hover,.sidebar-hover-zone:hover~.sidebar,.sidebar-hover-zone:hover+* .sidebar{width:var(--sidebar);opacity:1;pointer-events:all}
+.sidebar-hover-zone{position:fixed;left:0;top:0;bottom:0;width:16px;z-index:49}
+.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;min-height:100vh;transition:margin-left .25s}
+.main-wrap.full{margin-left:4px}
+.topbar-toggle{width:30px;height:30px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:.15s}
 .topbar-toggle:hover{background:var(--bor2);color:var(--txt)}
 .sidebar-logo{padding:18px 18px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bor)}
 .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#f5a623,#e8920a);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
@@ -586,10 +588,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="ptitle">🏆 Histórico de Ordens Concluídas</div>
         <div style="font-size:13px;color:var(--mut)" id="hist_count"></div>
       </div>
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap">
-        <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1.5px solid var(--bor);border-radius:10px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
-        <input type="month" id="hist_mes" oninput="renderHistoricoPagina()" style="background:var(--card);border:1.5px solid var(--bor);border-radius:10px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+        <input type="month" id="hist_mes" oninput="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+        <button onclick="document.getElementById('hist_mes').value='';renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--mut2);cursor:pointer">Ver todos</button>
       </div>
+      <div id="hist_totais" style="display:none;background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
       <div id="hist_lista" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
@@ -709,6 +713,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       </div>
     </div>
   </div>
+
+
+
+
+
+
+
+
+
+
+
+<div class="toast" id="toast"></div>
+
+  </div><!-- /main-wrap -->
+</div><!-- /appPage -->
+
 
 <!-- MODAL: NOVO NEGÓCIO -->
 <div class="mbg" id="formModal">
@@ -989,11 +1009,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     </div>
   </div>
 </div>
-
-<div class="toast" id="toast"></div>
-
-  </div><!-- /main-wrap -->
-</div><!-- /appPage -->
 
 <script>
 // ═══════════════════════════════════════
@@ -3313,7 +3328,30 @@ function renderHistoricoPagina(){
     return true;
   });
 
-  document.getElementById('hist_count').textContent = filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') + ' concluída' + (filtrados.length!==1?'s':'');
+  const totalRec = filtrados.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const totalCst = filtrados.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const totalMrg = totalRec - totalCst;
+  const periodoLabel = mes ? (() => { const [y,m]=mes.split('-'); return new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); })() : 'Todo o período';
+
+  document.getElementById('hist_count').textContent = filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') + ' — ' + periodoLabel;
+
+  const totDiv = document.getElementById('hist_totais');
+  if(totDiv && filtrados.length > 0){
+    totDiv.style.display = 'grid';
+    totDiv.innerHTML = `
+      <div style="background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.15);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--mut2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Cobrado</div>
+        <div style="font-size:18px;font-weight:800;color:var(--g);font-family:'Syne',sans-serif">R$ ${fmt(totalRec)}</div>
+      </div>
+      <div style="background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.15);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--mut2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Custo</div>
+        <div style="font-size:18px;font-weight:800;color:var(--r);font-family:'Syne',sans-serif">R$ ${fmt(totalCst)}</div>
+      </div>
+      <div style="background:rgba(107,140,255,.07);border:1px solid rgba(107,140,255,.15);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--mut2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Margem Total</div>
+        <div style="font-size:18px;font-weight:800;color:var(--blue);font-family:'Syne',sans-serif">R$ ${fmt(totalMrg)}</div>
+      </div>`;
+  } else if(totDiv) { totDiv.style.display='none'; }
 
   const sup_map = {};
   sups.forEach(s=>sup_map[s.id]=s.nome);
@@ -3458,8 +3496,16 @@ function aplicarSugestaoForn(){
 function toggleSidebar(){
   const sb = document.getElementById('mainNav');
   const mw = document.querySelector('.main-wrap');
-  sb.classList.toggle('collapsed');
-  mw.classList.toggle('full');
+  const collapsed = sb.classList.toggle('collapsed');
+  mw.classList.toggle('full', collapsed);
+  // re-show on hover when collapsed
+  if(collapsed){
+    sb.onmouseenter = ()=>{ sb.style.width='var(--sidebar)'; sb.style.opacity='1'; sb.style.pointerEvents='all'; };
+    sb.onmouseleave = ()=>{ sb.style.width='4px'; sb.style.opacity='0'; sb.style.pointerEvents='none'; };
+  } else {
+    sb.onmouseenter = null; sb.onmouseleave = null;
+    sb.style.width = ''; sb.style.opacity = ''; sb.style.pointerEvents = '';
+  }
 }
 
 // ═══════════════════════════════════════
