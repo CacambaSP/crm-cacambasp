@@ -1721,11 +1721,11 @@ async function delSup(sId){
   if(!confirm('Excluir?'))return;sups=sups.filter(s=>s.id!==sId);renderSups();
   try{await api('fornecedores?id=eq.'+sId,'DELETE',null,currentUser?.access_token);toast('🗑️ Excluído');}catch(e){}
 }
-function openSupForm(){['s_nome','s_atendente','s_tel','s_obs'].forEach(id=>document.getElementById(id).value='');document.getElementById('supModal').classList.add('open');}
+function openSupForm(){['s_nome','s_tel','s_obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('supModal').classList.add('open');}
 function closeSupForm(){document.getElementById('supModal').classList.remove('open');}
 async function saveSup(){
   const nome=document.getElementById('s_nome').value.trim();if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
-  const sup={id:uid(),nome,atendente:document.getElementById('s_atendente').value.trim(),tel:document.getElementById('s_tel').value.trim(),obs:document.getElementById('s_obs').value.trim(),color:ACOLORS[sups.length%ACOLORS.length],precos:[]};
+  const sup={id:uid(),nome,atendente:'',tel:(document.getElementById('s_tel')?.value||'').trim(),obs:(document.getElementById('s_obs')?.value||'').trim(),color:ACOLORS[sups.length%ACOLORS.length],precos:[]};
   sups.push(sup);renderSups();closeSupForm();
   try{await api('fornecedores','POST',sup,currentUser?.access_token);toast('✅ Criado!');}catch(e){toast('Erro','#e05252');}
 }
