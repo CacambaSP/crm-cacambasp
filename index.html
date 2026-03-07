@@ -590,8 +590,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       </div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
-        <input type="month" id="hist_mes" oninput="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
-        <button onclick="document.getElementById('hist_mes').value='';renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--mut2);cursor:pointer">Ver todos</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label style="font-size:11px;color:var(--mut2);white-space:nowrap">De</label>
+          <input type="date" id="hist_de" onchange="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+          <label style="font-size:11px;color:var(--mut2);white-space:nowrap">Até</label>
+          <input type="date" id="hist_ate" onchange="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+        </div>
+        <button onclick="document.getElementById('hist_de').value='';document.getElementById('hist_ate').value='';renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--mut2);cursor:pointer;white-space:nowrap">Ver todos</button>
       </div>
       <div id="hist_totais" style="display:none;background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
       <div id="hist_lista" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -3318,20 +3323,26 @@ async function concluirCard(id){
 }
 
 function renderHistoricoPagina(){
-  const q = (document.getElementById('hist_q')?.value||'').toLowerCase();
-  const mes = document.getElementById('hist_mes')?.value||'';
+  const q   = (document.getElementById('hist_q')?.value||'').toLowerCase();
+  const de  = document.getElementById('hist_de')?.value||'';
+  const ate = document.getElementById('hist_ate')?.value||'';
   const concluidos = cards.filter(c=>c.col==='concluido').sort((a,b)=>(b.concluido_em||b.criado_em||'').localeCompare(a.concluido_em||a.criado_em||''));
 
   const filtrados = concluidos.filter(c=>{
     if(q && ![ c.nome, c.end_logradouro, c.cid, c.crm_id, c.tipo ].some(f=>(f||'').toLowerCase().includes(q))) return false;
-    if(mes && c.data && !c.data.startsWith(mes)) return false;
+    if(de  && c.data && c.data < de)  return false;
+    if(ate && c.data && c.data > ate) return false;
     return true;
   });
 
   const totalRec = filtrados.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const totalCst = filtrados.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const totalMrg = totalRec - totalCst;
-  const periodoLabel = mes ? (() => { const [y,m]=mes.split('-'); return new Date(y,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); })() : 'Todo o período';
+
+  const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString('pt-BR') : '';
+  const periodoLabel = de||ate
+    ? (de&&ate ? fmtDate(de)+' → '+fmtDate(ate) : de ? 'A partir de '+fmtDate(de) : 'Até '+fmtDate(ate))
+    : 'Todo o período';
 
   document.getElementById('hist_count').textContent = filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') + ' — ' + periodoLabel;
 
