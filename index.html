@@ -797,7 +797,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       </div>
       <div class="fr"><label>Endereço</label><input type="text" id="e_end"></div>
       <div class="fg">
-        <div class="fr"><label>Bairro</label><input type="text" id="e_bairro" placeholder="Ex: Vila Mariana" oninput="sugerirFornecedor()"></div>
+        <div class="fr"><label>Bairro</label><input type="text" id="e_bairro" placeholder="Ex: Vila Mariana" oninput="sugerirFornecedor();updEditFin()"></div>
         <div class="fr"><label>Cidade</label><input type="text" id="e_cid" oninput="updEditFin()"></div>
       </div>
       <div class="fg">
@@ -813,7 +813,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="fr"><label>Cobrado (R$)</label><input type="number" id="e_rec" step="0.01" oninput="updEditFin()"></div>
       </div>
       <div class="fg">
-        <div class="fr"><label>Custo Fornecedor (R$)</label><input type="number" id="e_cst" step="0.01" oninput="updEditFinD()"></div>
+        <div class="fr">
+          <label>Custo Fornecedor (R$)</label>
+          <input type="number" id="e_cst" step="0.01" oninput="updEditFinD()">
+          <div id="e_cst_hint" style="font-size:11px;color:var(--g);margin-top:4px"></div>
+        </div>
         <div class="fr" style="display:flex;align-items:flex-end"><div id="editMrg" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 11px;font-size:11px;font-weight:700;color:var(--g)">-</div></div>
       </div>
       <div class="fr"><label>Obs</label><textarea id="e_obs"></textarea></div>
@@ -1299,13 +1303,47 @@ function openForm(){
   document.getElementById('formModal').classList.add('open');
 }
 function closeForm(){document.getElementById('formModal').classList.remove('open');}
-function getMatchedCusto(supId,cidade){
+function getMatchedCusto(supId, bairro, cidade){
   const sup=sups.find(s=>s.id===supId);
-  if(!sup||!cidade)return{custo:0,regiao:null};
-  const cl=cidade.toLowerCase();
+  if(!sup) return {custo:0,regiao:null};
   const precos=Array.isArray(sup.precos)?sup.precos:[];
-  const m=precos.find(p=>p.r.toLowerCase().includes(cl)||cl.includes(p.r.toLowerCase()));
-  return m?{custo:m.v,regiao:m.r}:{custo:0,regiao:null};
+  if(!precos.length) return {custo:0,regiao:null};
+  // Try bairro first, then cidade
+  const terms = [bairro,cidade].filter(Boolean).map(t=>t.toLowerCase().trim());
+  for(const term of terms){
+    const m = precos.find(p=>p.r&&(p.r.toLowerCase().includes(term)||term.includes(p.r.toLowerCase())));
+    if(m) return {custo:parseFloat(m.v)||0, regiao:m.r};
+  }
+  return {custo:0,regiao:null};
+}
+
+// Find best supplier for a bairro based on precos table + historical frequency
+function getSugestaoFornecedor(bairro, cidade){
+  const term = (bairro||cidade||'').toLowerCase().trim();
+  if(!term || term.length < 2) return null;
+  
+  // Score each supplier: +10 if has this region in table, +1 per historical card
+  const scores = {};
+  sups.forEach(s=>{
+    const precos = Array.isArray(s.precos)?s.precos:[];
+    const hasRegiao = precos.some(p=>p.r&&(p.r.toLowerCase().includes(term)||term.includes(p.r.toLowerCase())));
+    if(hasRegiao) scores[s.id] = (scores[s.id]||0) + 10;
+  });
+  cards.forEach(c=>{
+    if(!c.sid || c.col==='concluido') return;
+    const b = (c.bairro||c.cid||'').toLowerCase();
+    if(b.includes(term)||term.includes(b)){
+      scores[c.sid] = (scores[c.sid]||0) + 1;
+    }
+  });
+  
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length) return null;
+  const [bestId, score] = sorted[0];
+  const sup = sups.find(s=>s.id===bestId);
+  if(!sup) return null;
+  const {custo, regiao} = getMatchedCusto(bestId, bairro, cidade);
+  return {sup, custo, regiao, score};
 }
 function updFin(){
   const rec=parseFloat(document.getElementById('f_rec').value)||0;
@@ -1441,10 +1479,20 @@ function toggleEdit(){
 }
 function cancelEdit(){document.getElementById('editSec').style.display='none';document.getElementById('detailInfo').style.display='block';}
 function updEditFin(){
-  const cid=document.getElementById('e_cid').value.trim();
-  const supId=document.getElementById('e_sup').value;
-  const{custo}=getMatchedCusto(supId,cid);
-  if(custo>0)document.getElementById('e_cst').value=custo;
+  const bairro = document.getElementById('e_bairro')?.value.trim()||'';
+  const cid    = document.getElementById('e_cid')?.value.trim()||'';
+  const supId  = document.getElementById('e_sup')?.value||'';
+  // Auto-fill custo if supplier selected and bairro/city matches
+  if(supId){
+    const {custo,regiao} = getMatchedCusto(supId, bairro, cid);
+    if(custo>0){
+      document.getElementById('e_cst').value=custo;
+      const hint = document.getElementById('e_cst_hint');
+      if(hint) hint.textContent = regiao ? '📍 Preço da região: '+regiao : '';
+    }
+  }
+  // Show supplier suggestion when no supplier selected yet
+  sugerirFornecedor();
   updEditFinD();
 }
 function updEditFinD(){
@@ -3473,32 +3521,28 @@ function enviarAvisos3Dias(lista){
 let _sugestaoFornId = null;
 
 function sugerirFornecedor(){
-  const bairro = (document.getElementById('e_bairro')?.value||'').toLowerCase().trim();
-  const div = document.getElementById('e_sup_sugestao');
+  const bairro = (document.getElementById('e_bairro')?.value||'').trim();
+  const cid    = (document.getElementById('e_cid')?.value||'').trim();
+  const supId  = document.getElementById('e_sup')?.value||'';
+  const div    = document.getElementById('e_sup_sugestao');
   if(!div) return;
-  if(!bairro || bairro.length < 3){ div.style.display='none'; return; }
 
-  // conta quantas vezes cada fornecedor atendeu aquele bairro
-  const score = {};
-  cards.forEach(c=>{
-    if(!c.sid || !c.bairro) return;
-    const b = c.bairro.toLowerCase();
-    if(b.includes(bairro) || bairro.includes(b)){
-      score[c.sid] = (score[c.sid]||0) + 1;
-    }
-  });
+  const term = bairro || cid;
+  if(!term || term.length < 2){ div.style.display='none'; return; }
 
-  // pega o mais frequente
-  const sorted = Object.entries(score).sort((a,b)=>b[1]-a[1]);
-  if(!sorted.length){ div.style.display='none'; return; }
+  const sug = getSugestaoFornecedor(bairro, cid);
+  if(!sug){ div.style.display='none'; return; }
 
-  const [bestId, count] = sorted[0];
-  const sup = sups.find(s=>s.id===bestId);
-  if(!sup){ div.style.display='none'; return; }
+  // Don't suggest if already selected
+  if(supId === sug.sup.id){ div.style.display='none'; return; }
 
-  _sugestaoFornId = bestId;
+  _sugestaoFornId = sug.sup.id;
+  const motivo = sug.score >= 10
+    ? (sug.regiao ? '📍 Atende a região <strong>'+sug.regiao+'</strong>' + (sug.custo?` — R$ ${fmt(sug.custo)}`:'') : '📍 Tem cobertura nesta região')
+    : '📊 Atendeu este bairro '+sug.score+'x';
+
   div.style.display = 'block';
-  div.innerHTML = '💡 Sugestão: <strong>'+sup.nome+'</strong> atendeu este bairro '+count+'x — <span style="text-decoration:underline">aplicar</span>';
+  div.innerHTML = '💡 <strong>'+sug.sup.nome+'</strong> · '+motivo+' — <span style="text-decoration:underline;cursor:pointer" onclick="aplicarSugestaoForn()">aplicar</span>';
 }
 
 function aplicarSugestaoForn(){
