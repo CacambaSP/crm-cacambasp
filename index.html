@@ -1167,8 +1167,13 @@ async function loadApp(){
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,currentUser.access_token) : Promise.resolve([]),
     ]);
     sups=dbSups||[];cards=dbCards||[];usuarios=dbUsers||[];
-    console.log('[CRM] Fornecedores carregados:', sups.map(s=>({id:s.id,nome:s.nome})));
-    console.log('[CRM] Cards com sid:', [...new Set(cards.map(c=>c.sid).filter(Boolean))]);
+    // Re-render active view after data loads
+    const curView = document.querySelector('.view.act')?.id?.replace('view-','');
+    if(curView==='sup') renderSups();
+    if(curView==='dash') renderDash();
+    if(curView==='usr') renderUsers();
+    if(curView==='clientes') renderClientes();
+    if(curView==='funil'||!curView){ initFilters(); render(); }
     setSyncDot('ok');
   }catch(e){console.error(e);setSyncDot('err');}
 
