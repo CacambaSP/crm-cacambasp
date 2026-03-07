@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guia CRM CaçambaSP</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --sur: #111318;
+    --card: #16181f;
+    --acc: #f5a623;
+    --g: #3ecf8e;
+    --r: #f87171;
+    --blue: #6b8cff;
+    --txt: #e8eaf0;
+    --mut: #8b90a4;
+    --bor: rgba(255,255,255,.07);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--txt); font-family:'DM Sans',sans-serif; line-height:1.6; }
+
+  /* HEADER */
+  .hero {
+    background: linear-gradient(135deg, #0a0b0f 0%, #111318 50%, #0d0f14 100%);
+    border-bottom: 1px solid var(--bor);
+    padding: 60px 40px 50px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content:'';
+    position:absolute;inset:0;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,166,35,.12) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display:inline-block;
+    background:rgba(245,166,35,.1);
+    border:1px solid rgba(245,166,35,.3);
+    color:var(--acc);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:5px 14px;
+    border-radius:20px;
+    margin-bottom:20px;
+  }
+  .hero h1 {
+    font-family:'Syne',sans-serif;
+    font-size:clamp(28px,5vw,52px);
+    font-weight:800;
+    margin-bottom:12px;
+    position:relative;
+  }
+  .hero h1 span { color:var(--acc); }
+  .hero p {
+    font-size:16px;
+    color:var(--mut);
+    max-width:500px;
+    margin:0 auto;
+    position:relative;
+  }
+
+  /* LAYOUT */
+  .container { max-width:860px; margin:0 auto; padding:40px 20px 80px; }
+
+  /* SECTION */
+  .section { margin-bottom:50px; }
+  .section-title {
+    font-family:'Syne',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--acc);
+    margin-bottom:20px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-title::after {
+    content:'';flex:1;height:1px;background:var(--bor);
+  }
+
+  /* STEP CARDS */
+  .steps { display:flex; flex-direction:column; gap:12px; }
+  .step {
+    background:var(--sur);
+    border:1px solid var(--bor);
+    border-radius:14px;
+    padding:20px 22px;
+    display:flex;
+    gap:18px;
+    align-items:flex-start;
+    transition:border-color .2s;
+  }
+  .step:hover { border-color:rgba(245,166,35,.3); }
+  .step-num {
+    width:36px;height:36px;flex-shrink:0;
+    background:rgba(245,166,35,.1);
+    border:1px solid rgba(245,166,35,.25);
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Syne',sans-serif;
+    font-weight:800;font-size:15px;
+    color:var(--acc);
+  }
+  .step-content h3 {
+    font-family:'Syne',sans-serif;
+    font-weight:700;font-size:15px;
+    margin-bottom:5px;
+  }
+  .step-content p { font-size:13px;color:var(--mut);line-height:1.6; }
+  .step-content p strong { color:var(--txt); }
+
+  /* TIP BOX */
+  .tip {
+    background:rgba(62,207,142,.07);
+    border:1px solid rgba(62,207,142,.2);
+    border-radius:12px;
+    padding:14px 18px;
+    font-size:13px;
+    color:#3ecf8e;
+    margin-top:10px;
+    display:flex;gap:10px;align-items:flex-start;
+  }
+  .tip-icon { font-size:16px;flex-shrink:0;margin-top:1px; }
+
+  .warn {
+    background:rgba(248,113,113,.07);
+    border:1px solid rgba(248,113,113,.2);
+    border-radius:12px;
+    padding:14px 18px;
+    font-size:13px;
+    color:#f87171;
+    margin-top:10px;
+    display:flex;gap:10px;align-items:flex-start;
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display:flex;
+    gap:0;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    margin:20px 0;
+  }
+  .flow-item {
+    background:var(--card);
+    border:1px solid var(--bor);
+    border-radius:12px;
+    padding:14px 18px;
+    text-align:center;
+    min-width:110px;
+  }
+  .flow-item .fi-icon { font-size:22px;margin-bottom:6px; }
+  .flow-item .fi-label { font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.5px; }
+  .flow-item .fi-name { font-size:13px;font-weight:700;font-family:'Syne',sans-serif;margin-top:2px; }
+  .flow-arrow {
+    font-size:20px;color:var(--acc);
+    padding:0 8px;
+    flex-shrink:0;
+  }
+
+  /* BUTTON GUIDE */
+  .btn-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+  .btn-item {
+    background:var(--card);
+    border:1px solid var(--bor);
+    border-radius:12px;
+    padding:14px 16px;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .btn-icon {
+    width:36px;height:36px;flex-shrink:0;
+    border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;
+  }
+  .btn-item h4 { font-size:13px;font-weight:700;margin-bottom:3px; }
+  .btn-item p { font-size:12px;color:var(--mut); }
+
+  /* SIDEBAR GUIDE */
+  .sidebar-guide {
+    background:var(--sur);
+    border:1px solid var(--bor);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .sg-section { padding:16px 20px;border-bottom:1px solid var(--bor); }
+  .sg-section:last-child { border-bottom:none; }
+  .sg-label { font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);margin-bottom:10px; }
+  .sg-items { display:flex;flex-direction:column;gap:6px; }
+  .sg-item { display:flex;gap:10px;align-items:center;font-size:13px; }
+  .sg-item span:first-child { font-size:16px;width:24px;text-align:center; }
+  .sg-item .sg-name { font-weight:600; }
+  .sg-item .sg-desc { color:var(--mut);font-size:12px;margin-left:auto; }
+
+  /* DIVIDER */
+  hr { border:none;border-top:1px solid var(--bor);margin:40px 0; }
+
+  /* FOOTER */
+  .footer {
+    text-align:center;
+    padding:30px;
+    color:var(--mut);
+    font-size:12px;
+    border-top:1px solid var(--bor);
+  }
+  .footer strong { color:var(--acc); }
+
+  /* HIGHLIGHT */
+  .hl { color:var(--acc);font-weight:600; }
+  .hl-g { color:var(--g);font-weight:600; }
+  .hl-b { color:var(--blue);font-weight:600; }
+
+  @media(max-width:600px){
+    .hero { padding:40px 20px 35px; }
+    .flow { flex-direction:column; }
+    .flow-arrow { transform:rotate(90deg); }
+  }
+
+  @media print {
+    body { background:#fff;color:#000; }
+    .hero { background:#f5a623;color:#000; }
+    .hero p, .section-title, .mut { color:#555; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">🚛 CaçambaSP — Gestão</div>
+  <h1>Guia Rápido do <span>CRM</span></h1>
+  <p>Tudo que você precisa saber para operar o sistema no dia a dia</p>
+</div>
+
+<div class="container">
+
+  <!-- MENU LATERAL -->
+  <div class="section">
+    <div class="section-title">📌 Menu Lateral</div>
+    <div class="sidebar-guide">
+      <div class="sg-section">
+        <div class="sg-label">Principal</div>
+        <div class="sg-items">
+          <div class="sg-item"><span>📋</span><span class="sg-name">Funil</span><span class="sg-desc">Tela principal — ordens em andamento</span></div>
+          <div class="sg-item"><span>📊</span><span class="sg-name">Dashboard</span><span class="sg-desc">Resumo financeiro e estatísticas</span></div>
+          <div class="sg-item"><span>🏆</span><span class="sg-name">Histórico</span><span class="sg-desc">Ordens concluídas com totais</span></div>
+        </div>
+      </div>
+      <div class="sg-section">
+        <div class="sg-label">Financeiro</div>
+        <div class="sg-items">
+          <div class="sg-item"><span>🔄</span><span class="sg-name">Conciliação</span><span class="sg-desc">Conferir pagamentos recebidos</span></div>
+          <div class="sg-item"><span>💰</span><span class="sg-name">Pagar Fornecedor</span><span class="sg-desc">Registrar pagamentos aos fornecedores</span></div>
+        </div>
+      </div>
+      <div class="sg-section">
+        <div class="sg-label">Cadastros</div>
+        <div class="sg-items">
+          <div class="sg-item"><span>🚛</span><span class="sg-name">Fornecedores</span><span class="sg-desc">Empresas que entregam as caçambas</span></div>
+          <div class="sg-item"><span>👥</span><span class="sg-name">Clientes</span><span class="sg-desc">Base de clientes cadastrados</span></div>
+          <div class="sg-item"><span>👤</span><span class="sg-name">Usuários</span><span class="sg-desc">Quem acessa o sistema (admin)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUNIL DE ORDENS -->
+  <div class="section">
+    <div class="section-title">🔄 Funil de Ordens — Etapas</div>
+    <div class="flow">
+      <div class="flow-item">
+        <div class="fi-icon">📥</div>
+        <div class="fi-label">Etapa 1</div>
+        <div class="fi-name">Contratar</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="fi-icon">🚛</div>
+        <div class="fi-label">Etapa 2</div>
+        <div class="fi-name">Entrega OK?</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="fi-icon">✅</div>
+        <div class="fi-label">Etapa 3</div>
+        <div class="fi-name">Entregue</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="fi-icon">💰</div>
+        <div class="fi-label">Etapa 4</div>
+        <div class="fi-name">Cobrar</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="fi-icon">🏆</div>
+        <div class="fi-label">Concluído</div>
+        <div class="fi-name">Histórico</div>
+      </div>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">💡</span>
+      <span>Os cards se movem entre as etapas arrastando ou clicando no card e editando. Quando o fornecedor é atribuído, o card vai automaticamente para <strong>Entrega OK?</strong></span>
+    </div>
+  </div>
+
+  <!-- COMO ABRIR UMA NOVA ORDEM -->
+  <div class="section">
+    <div class="section-title">➕ Como Abrir uma Nova Ordem</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Envie o link de cadastro ao cliente</h3>
+          <p>Antes de abrir manualmente, prefira enviar o link <strong>cacambasp-crm.vercel.app/cadastro.html</strong> pelo WhatsApp. O cliente preenche os dados e o card é criado automaticamente.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Ou clique em "+ Nova Ordem" no topo</h3>
+          <p>Preencha: <strong>nome, celular, endereço, bairro, CEP, tipo de serviço, data</strong> e valor cobrado. O CEP preenche o endereço automaticamente.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Atribua o fornecedor</h3>
+          <p>Clique no card → <strong>Editar</strong> → escolha o <strong>Fornecedor</strong> → escolha a <strong>Região</strong> (o custo preenche automaticamente com o valor tabelado).</p>
+          <div class="tip">
+            <span class="tip-icon">💡</span>
+            <span>O sistema sugere o fornecedor que mais atendeu aquele bairro!</span>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3>Envie a OS ao cliente</h3>
+          <p>Clique no card → botão <strong>OS</strong> → <strong>📎 PDF + WhatsApp</strong>. O PDF é gerado e o WhatsApp abre com a mensagem já preenchida.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTÕES DO CARD -->
+  <div class="section">
+    <div class="section-title">🔘 Botões do Card (Modal)</div>
+    <div class="btn-grid">
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(245,166,35,.1);color:var(--acc)">✏️</div>
+        <div><h4>Editar</h4><p>Alterar dados, fornecedor, valor e endereço</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(62,207,142,.1);color:var(--g)">✅</div>
+        <div><h4>Cliente pagou</h4><p>Registrar o recebimento do pagamento</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(107,140,255,.1);color:var(--blue)">⚡</div>
+        <div><h4>Pix</h4><p>Gerar cobrança Pix e enviar ao cliente</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(37,211,102,.1);color:#25d366">💬</div>
+        <div><h4>WA</h4><p>Abrir WhatsApp direto com o cliente</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(245,166,35,.1);color:var(--acc)">📄</div>
+        <div><h4>OS</h4><p>Gerar Ordem de Serviço e enviar por PDF</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(248,113,113,.1);color:var(--r)">💸</div>
+        <div><h4>Pagar forn.</h4><p>Registrar pagamento ao fornecedor</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(107,140,255,.1);color:var(--blue)">🎫</div>
+        <div><h4>Voucher</h4><p>Gerar comprovante de pagamento ao fornecedor</p></div>
+      </div>
+      <div class="btn-item">
+        <div class="btn-icon" style="background:rgba(248,113,113,.1);color:var(--r)">🗑</div>
+        <div><h4>Excluir</h4><p>Apagar o card permanentemente (cuidado!)</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCLUIR UMA ORDEM -->
+  <div class="section">
+    <div class="section-title">🏆 Como Concluir uma Ordem</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Confirme que o cliente pagou</h3>
+          <p>Clique no card → <strong>Cliente pagou</strong> → informe o valor e a data do recebimento.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Clique no 🏆 no card</h3>
+          <p>Passe o mouse sobre o card no funil → aparece o ícone <strong>🏆</strong> no canto inferior direito → clique para mover para o <strong>Histórico</strong>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Consulte no Histórico</h3>
+          <p>Menu → <strong>Histórico</strong> → filtre por período para ver os totais de <span class="hl-g">Cobrado</span>, <span class="hl">Custo</span> e <span class="hl-b">Margem</span>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERTAS IMPORTANTES -->
+  <div class="section">
+    <div class="section-title">⚠️ Alertas Importantes</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">!</div>
+        <div class="step-content">
+          <h3>Alerta de vencimento (3 dias)</h3>
+          <p>Ao entrar no sistema, se houver clientes com caçamba há <strong>3 dias ou mais</strong>, aparece um aviso laranja. Clique nele para enviar mensagem de renovação pelo WhatsApp automaticamente.</p>
+        </div>
+      </div>
+      <div class="warn">
+        <span>⚠️</span>
+        <span>Nunca exclua um card sem ter certeza. A exclusão é <strong>permanente</strong> e não pode ser desfeita.</span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon">💡</span>
+        <span>Dúvidas? Fale com o administrador do sistema: <strong>Douglas</strong> ou <strong>Luciana</strong>.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACESSO -->
+  <div class="section">
+    <div class="section-title">🔗 Acesso ao Sistema</div>
+    <div class="step" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:18px;align-items:center">
+        <div class="step-num" style="font-size:20px;width:44px;height:44px">🌐</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:3px">CRM CaçambaSP</div>
+          <div style="font-size:13px;color:var(--mut)">Acesse pelo navegador em qualquer dispositivo</div>
+        </div>
+      </div>
+      <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 18px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--acc)">
+        cacambasp-crm.vercel.app
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Guia interno — <strong>CaçambaSP Gestão CRM</strong> · Versão 2026
+</div>
+
+</body>
+</html>

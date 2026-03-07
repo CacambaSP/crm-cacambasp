@@ -1020,9 +1020,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div class="mh"><div class="mt">📄 Ordem de Serviço</div><button class="mx" onclick="document.getElementById('osModal').classList.remove('open')">✕</button></div>
     <div class="mb">
       <div id="osPreview" style="background:#fff;color:#000;border-radius:10px;padding:20px;font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px"></div>
-      <div style="display:flex;gap:8px;justify-content:center">
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-p" onclick="imprimirOS()">🖨️ Imprimir / Salvar PDF</button>
-        <button class="btn btn-wa" onclick="enviarOSWhatsApp()">📲 Enviar no WhatsApp</button>
+        <button class="btn btn-wa" onclick="enviarOSWhatsApp()">📲 WhatsApp (texto)</button>
+        <button class="btn btn-g" onclick="baixarPDFeWhatsApp()" style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none">📎 PDF + WhatsApp</button>
       </div>
     </div>
   </div>
@@ -2247,8 +2248,72 @@ function openOS(cardId){
 function imprimirOS(){
   const conteudo = document.getElementById('osPreview').innerHTML;
   const printWin = window.open('','_blank','width=500,height=700');
-  printWin.document.write(`<html><head><title>OS ${osPixId}</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000}*{box-sizing:border-box}</style></head><body>${conteudo}<script>window.onload=function(){window.print();}<\/script></body></html>`);
+  printWin.document.write(`<html><head><title>OS ${osPixId}</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000}*{box-sizing:border-box}@media print{body{padding:10px}}</style></head><body>${conteudo}<script>window.onload=function(){window.print();}<\/script></body></html>`);
   printWin.document.close();
+}
+
+function baixarPDFeWhatsApp(){
+  const c = cards.find(x=>x.id===osCardId); if(!c){ toast('Erro','#e05252'); return; }
+  
+  // Step 1: open print window (user saves as PDF)
+  const conteudo = document.getElementById('osPreview').innerHTML;
+  const printWin = window.open('','_blank','width=500,height=700');
+  printWin.document.write(`<!DOCTYPE html><html><head><title>OS_${osPixId}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}
+      *{box-sizing:border-box}
+      @media print{
+        body{padding:15px}
+        @page{margin:10mm;size:A4}
+      }
+    </style>
+  </head><body>
+    ${conteudo}
+    <script>
+      window.onload=function(){
+        window.print();
+        // After print dialog closes, notify opener to open WhatsApp
+        window.onafterprint=function(){ 
+          window.opener && window.opener.abrirWhatsAppAposPDF && window.opener.abrirWhatsAppAposPDF();
+          window.close();
+        };
+        // Fallback: open WA after 3s
+        setTimeout(function(){
+          window.opener && window.opener.abrirWhatsAppAposPDF && window.opener.abrirWhatsAppAposPDF();
+        }, 3000);
+      };
+    <\/script>
+  </body></html>`);
+  printWin.document.close();
+
+  // Step 2: define callback to open WhatsApp after PDF saved
+  window.abrirWhatsAppAposPDF = function(){
+    if(!c.cel){ toast('⚠ Celular não cadastrado','#e05252'); return; }
+    const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    const msg = `Olá ${c.nome}! 👋
+
+Segue sua *Ordem de Serviço* — *OS Nº ${osPixId}* 📄
+
+🗑️ *Serviço:* ${c.tipo||'-'}
+📍 *Endereço:* ${c.end_logradouro||''}${c.bairro?', '+c.bairro:''}${c.cid?', '+c.cid:''}
+📅 *Data:* ${dataFmt}
+💰 *Valor:* R$ ${fmt(c.rec)}
+
+💳 *Pagamento após receber a caçamba*
+⚡ Pague via *Pix*:
+Chave: *${PIX_KEY}* (CNPJ)
+
+📋 *Pix Copia e Cola:*
+${osPixPayload}
+
+🏦 Banco Itaú | Ag 1637 | C/C 99.742-8
+Luciana Cristina Testa
+
+_📎 O PDF da OS foi gerado — por favor, anexe o arquivo nesta conversa._`;
+    window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+    toast('📲 PDF gerado! Anexe no WhatsApp que abriu.','#25d366');
+    window.abrirWhatsAppAposPDF = null;
+  };
 }
 
 function enviarOSWhatsApp(){
