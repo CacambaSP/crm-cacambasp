@@ -1814,7 +1814,7 @@ function openSupForm(){['s_nome','s_tel','s_obs'].forEach(id=>{const el=document
 function closeSupForm(){document.getElementById('supModal').classList.remove('open');}
 async function saveSup(){
   const nome=document.getElementById('s_nome').value.trim();if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
-  const sup={
+  const supLocal={
     id: uid(),
     nome,
     tel:(document.getElementById('s_tel')?.value||'').trim(),
@@ -1823,13 +1823,19 @@ async function saveSup(){
     precos:[],
     criado_em: new Date().toISOString()
   };
+  // Only send fields Supabase accepts — precos as JSON string if needed
+  const sup={ nome: supLocal.nome, tel: supLocal.tel, obs: supLocal.obs, color: supLocal.color, criado_em: supLocal.criado_em };
   closeSupForm();
   try{
     await api('fornecedores','POST',sup,currentUser?.access_token);
-    // reload to get real data from Supabase
+    // reload to get real data + ID from Supabase
     const fresh=await api('fornecedores?order=criado_em.asc',undefined,undefined,currentUser?.access_token);
-    if(fresh) sups=fresh;
-    else sups.push(sup);
+    if(fresh){ 
+      sups=fresh;
+      // patch precos onto the newly created record
+      const novo = fresh.find(s=>s.nome===sup.nome && !s.precos?.length);
+      if(novo) await api('fornecedores?id=eq.'+novo.id,'PATCH',{precos:[]},currentUser?.access_token);
+    } else sups.push(supLocal);
     renderSups();
     toast('✅ Fornecedor criado!');
   }catch(e){
