@@ -585,8 +585,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   <div class="view" id="view-hist">
     <div class="pw">
       <div class="ph">
-        <div class="ptitle">🏆 Histórico de Ordens Concluídas</div>
-        <div style="font-size:13px;color:var(--mut)" id="hist_count"></div>
+        <div>
+          <div class="ptitle">🏆 Histórico de Ordens Concluídas</div>
+          <div style="font-size:12px;color:var(--mut2);margin-top:2px" id="hist_count"></div>
+        </div>
+        <button onclick="excluirTodosConcluidos()" class="btn btn-dan btn-sm">🗑 Excluir todos</button>
       </div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
@@ -3379,13 +3382,15 @@ function renderHistoricoPagina(){
     const mg = (parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
     const supNome = sup_map[c.sid]||'-';
     return `
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;cursor:pointer;transition:border-color .15s" 
+         onmouseover="this.style.borderColor='var(--bor2)'" onmouseout="this.style.borderColor='var(--bor)'"
+         onclick="openDetail('${c.id}')">
       <div style="flex:1;min-width:200px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px">${c.end_logradouro||'-'}${c.cid?', '+c.cid:''}</span>
+          <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px">${c.end_logradouro||'-'}${c.bairro?' · <span style=\'color:var(--acc);font-size:12px\'>${c.bairro}</span>':''}</span>
           ${c.crm_id?`<span style="font-size:10px;color:var(--acc);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);border-radius:4px;padding:1px 6px">${c.crm_id}</span>`:''}
         </div>
-        <div style="font-size:12px;color:var(--mut);display:flex;gap:12px;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--mut2);display:flex;gap:12px;flex-wrap:wrap">
           <span>👤 ${c.nome||'-'}</span>
           <span>📲 ${c.cel||'-'}</span>
           <span>🗑️ ${c.tipo||'-'}</span>
@@ -3394,19 +3399,22 @@ function renderHistoricoPagina(){
           <span>🚛 ${supNome}</span>
         </div>
       </div>
-      <div style="display:flex;gap:8px;text-align:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;text-align:center;flex-wrap:wrap;align-items:center">
         <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:8px;padding:8px 12px">
-          <div style="font-size:10px;color:var(--mut)">Cobrado</div>
+          <div style="font-size:10px;color:var(--mut2)">Cobrado</div>
           <div style="font-weight:800;color:var(--g)">R$ ${fmt(c.rec||0)}</div>
         </div>
         <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:8px 12px">
-          <div style="font-size:10px;color:var(--mut)">Custo</div>
-          <div style="font-weight:800;color:#f87171">R$ ${fmt(c.cst||0)}</div>
+          <div style="font-size:10px;color:var(--mut2)">Custo</div>
+          <div style="font-weight:800;color:var(--r)">R$ ${fmt(c.cst||0)}</div>
         </div>
-        <div style="background:rgba(91,141,238,.08);border:1px solid rgba(91,141,238,.2);border-radius:8px;padding:8px 12px">
-          <div style="font-size:10px;color:var(--mut)">Margem</div>
-          <div style="font-weight:800;color:#7ba7f5">R$ ${fmt(mg)}</div>
+        <div style="background:rgba(107,140,255,.08);border:1px solid rgba(107,140,255,.2);border-radius:8px;padding:8px 12px">
+          <div style="font-size:10px;color:var(--mut2)">Margem</div>
+          <div style="font-weight:800;color:var(--blue)">R$ ${fmt(mg)}</div>
         </div>
+        <button onclick="event.stopPropagation();deletarCard('${c.id}')" 
+                style="width:30px;height:30px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--r);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center"
+                title="Excluir esta ordem">🗑</button>
       </div>
     </div>`;
   }).join('');
@@ -3499,6 +3507,26 @@ function aplicarSugestaoForn(){
   if(sel){ sel.value = _sugestaoFornId; updEditFin(); }
   document.getElementById('e_sup_sugestao').style.display='none';
   toast('✅ Fornecedor sugerido aplicado!');
+}
+
+// ═══════════════════════════════════════
+// EXCLUIR TODOS CONCLUÍDOS
+// ═══════════════════════════════════════
+async function excluirTodosConcluidos(){
+  const concluidos = cards.filter(c=>c.col==='concluido');
+  if(!concluidos.length){ toast('Nenhuma ordem concluída','#f5a623'); return; }
+  if(!confirm(`Excluir permanentemente ${concluidos.length} ordem(ns) do histórico? Esta ação não pode ser desfeita.`)) return;
+  try{
+    setSyncDot('loading');
+    // delete in batches
+    for(const c of concluidos){
+      await api('negocios?id=eq.'+c.id,'DELETE',null,currentUser?.access_token);
+    }
+    cards = cards.filter(c=>c.col!=='concluido');
+    setSyncDot('ok');
+    toast('🗑 Histórico limpo!');
+    renderHistoricoPagina();
+  }catch(e){ setSyncDot('err'); toast('Erro ao excluir','#f87171'); }
 }
 
 // ═══════════════════════════════════════
