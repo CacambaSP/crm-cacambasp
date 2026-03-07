@@ -1132,11 +1132,11 @@ async function loadApp(){
   }catch(e){console.error(e);setSyncDot('err');}
 
   // UI por nível
-  document.getElementById('headerUserName').textContent=currentPerfil?.nome||'';
-  const roleEl=document.getElementById('headerRole');
-  roleEl.textContent=isAdmin()?'Admin':'Operador';
-  roleEl.className='role '+(isAdmin()?'role-admin':'role-op');
-  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin()?'':'none');
+  const uname = currentPerfil?.nome || currentUser?.user?.email || '';
+  const el_un = document.getElementById('sidebarUserName'); if(el_un) el_un.textContent = uname;
+  const el_ur = document.getElementById('sidebarUserRole'); if(el_ur) el_ur.textContent = isAdmin()?'Admin':'Operador';
+  const el_av = document.getElementById('sidebarUserAv'); if(el_av) el_av.textContent = (uname[0]||'?').toUpperCase();
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin()?'flex':'none');
 
   document.getElementById('loginPage').style.display='none';
   document.getElementById('appPage').style.display='flex';
@@ -2178,7 +2178,8 @@ async function salvarPerfil(){
     setSyncDot('loading');
     await api('perfis?id=eq.'+currentPerfil.id,'PATCH',{nome},currentUser?.access_token);
     currentPerfil.nome = nome;
-    document.getElementById('headerUserName').textContent = nome;
+    const _un=document.getElementById('sidebarUserName');if(_un)_un.textContent=nome;
+    const _av=document.getElementById('sidebarUserAv');if(_av)_av.textContent=(nome[0]||'?').toUpperCase();
     setSyncDot('ok');
     toast('✅ Nome atualizado!');
   }catch(e){
