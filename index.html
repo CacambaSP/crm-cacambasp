@@ -19,7 +19,7 @@
   --rad:12px;--rad2:8px;--sidebar:220px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -373,7 +373,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- LOGIN -->
-<div id="loginPage" style="display:none">
+<div id="loginPage" style="display:none;width:100%;min-height:100vh;align-items:center;justify-content:center">
   <div class="login-wrap">
     <div class="login-box">
       <div class="login-logo">
@@ -1085,7 +1085,7 @@ async function restoreSession(){
 
 function showLogin(){
   document.getElementById('loadingOverlay').classList.add('hide');
-  document.getElementById('loginPage').style.display='block';
+  document.getElementById('loginPage').style.display='flex';
   document.getElementById('appPage').style.display='none';
 }
 
@@ -1093,7 +1093,7 @@ function doLogout(){
   localStorage.removeItem('crm_session');
   currentUser=null;currentPerfil=null;
   document.getElementById('appPage').style.display='none';
-  document.getElementById('loginPage').style.display='block';
+  document.getElementById('loginPage').style.display='flex';
 }
 
 // ═══════════════════════════════════════
@@ -1139,7 +1139,7 @@ async function loadApp(){
   document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin()?'':'none');
 
   document.getElementById('loginPage').style.display='none';
-  document.getElementById('appPage').style.display='block';
+  document.getElementById('appPage').style.display='flex';
   document.getElementById('loadingOverlay').classList.add('hide');
   initFilters();
   render();
