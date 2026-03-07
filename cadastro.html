@@ -78,19 +78,25 @@ select option{background:#252836;color:#f1f5f9}
   <!-- Dados do serviço -->
   <div class="fr">
     <label>Endereço completo <span class="req">*</span></label>
-    <input type="text" id="c_end" placeholder="Rua, número, bairro">
+    <input type="text" id="c_end" placeholder="Rua e número — Ex: Rua das Flores, 123">
     <div class="err" id="err_end">Endereço obrigatório</div>
   </div>
 
   <div class="row2">
     <div class="fr">
+      <label>Bairro <span class="req">*</span></label>
+      <input type="text" id="c_bairro" placeholder="Ex: Vila Mariana">
+      <div class="err" id="err_bairro">Bairro obrigatório</div>
+    </div>
+    <div class="fr">
       <label>CEP</label>
       <input type="text" id="c_cep" placeholder="00000-000" oninput="maskCep(this)" onblur="buscaCep()">
     </div>
-    <div class="fr">
-      <label>Cidade</label>
-      <input type="text" id="c_cid" placeholder="São Paulo">
-    </div>
+  </div>
+
+  <div class="fr">
+    <label>Cidade</label>
+    <input type="text" id="c_cid" placeholder="São Paulo">
   </div>
 
   <div class="row2">
@@ -176,7 +182,11 @@ async function buscaCep(){
     const d = await r.json();
     if(!d.erro){
       const end = document.getElementById('c_end');
-      if(!end.value) end.value = (d.logradouro||'') + (d.bairro?', '+d.bairro:'');
+      if(!end.value) end.value = d.logradouro||'';
+      const bairroEl = document.getElementById('c_bairro');
+      if(bairroEl && !bairroEl.value && d.bairro) bairroEl.value = d.bairro;
+      const cidEl = document.getElementById('c_cid');
+      if(cidEl && !cidEl.value && d.localidade) cidEl.value = d.localidade;
       document.getElementById('c_cid').value = d.localidade||'';
     }
   }catch(e){}
@@ -225,12 +235,14 @@ async function enviarCadastro(){
   const obs  = document.getElementById('c_obs').value.trim();
 
   // Validações
+  const bairro = document.getElementById('c_bairro').value.trim();
   let ok = true;
-  showErr('err_nome', !nome); if(!nome) ok=false;
-  showErr('err_cpf',  !cpf);  if(!cpf)  ok=false;
-  showErr('err_cel',  !cel);  if(!cel)  ok=false;
-  showErr('err_end',  !end);  if(!end)  ok=false;
-  showErr('err_data', !data); if(!data) ok=false;
+  showErr('err_nome',  !nome);  if(!nome)  ok=false;
+  showErr('err_cpf',   !cpf);   if(!cpf)   ok=false;
+  showErr('err_cel',   !cel);   if(!cel)   ok=false;
+  showErr('err_end',   !end);   if(!end)   ok=false;
+  showErr('err_bairro',!bairro);if(!bairro)ok=false;
+  showErr('err_data',  !data);  if(!data)  ok=false;
   if(!ok) return;
 
   const btn = document.getElementById('btnEnviar');
@@ -255,6 +267,7 @@ async function enviarCadastro(){
         data,
         rec: 0, cst: 0,
         end_logradouro: end,
+        bairro: bairro,
         cid: cid||'São Paulo',
         cep, nome, cel, cpf,
         obs: (qtd>1?'Caçamba '+(i+1)+' de '+qtd+' — ':'') + obs,
@@ -278,7 +291,7 @@ async function enviarCadastro(){
       '👤 *Cliente:* '+nome+'\n'+
       '📄 *CPF/CNPJ:* '+cpf+'\n'+
       '📲 *WhatsApp:* '+cel+'\n'+
-      '📍 *Endereço:* '+end+(cid?', '+cid:'')+(cep?' - CEP '+cep:'')+'\n'+
+      '📍 *Endereço:* '+end+(bairro?', '+bairro:'')+(cid?', '+cid:'')+(cep?' - CEP '+cep:'')+'\n'+
       '📅 *Data:* '+dataFmt+'\n'+
       '🗑️ *Serviço:* '+qtd+'x '+tipoLabel+'\n'+
       (obs?'📝 *Obs:* '+obs+'\n':'')+
