@@ -1255,6 +1255,32 @@ async function loadApp(){
   render();
   // alerta de pendentes ao abrir
   setTimeout(()=>{ if(isAdmin()) checkPendentes(); }, 800);
+  // inicia auto-refresh se ainda não iniciado
+  if(!window._autoRefreshId){
+    window._autoRefreshId = setInterval(async ()=>{
+      try{
+        const token = currentUser?.access_token;
+        const userId = currentUser?.user?.id || currentUser?.id;
+        const novos = isAdmin()
+          ? await api('negocios?order=criado_em.asc',undefined,undefined,token)
+          : await api('negocios?usuario_id=eq.'+userId+'&order=criado_em.asc',undefined,undefined,token);
+        if(!novos) return;
+        // detecta qualquer mudança incluindo novos cards
+        const antes = JSON.stringify(cards.map(c=>c.id+c.col+c.pago+c.rec+c.cst));
+        const depois = JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec+c.cst));
+        const qtdAntes = cards.length;
+        if(antes !== depois){
+          cards = novos;
+          const curView = document.querySelector('.view.act')?.id?.replace('view-','');
+          if(!curView || curView==='funil') render();
+          if(curView==='dash') renderDash();
+          setSyncDot('ok');
+          // notifica se chegou novo card do formulário
+          if(novos.length > qtdAntes) toast('🔔 Nova ordem recebida!','#25d366');
+        }
+      }catch(e){}
+    }, 15000); // a cada 15 segundos
+  }
 }
 
 // ═══════════════════════════════════════

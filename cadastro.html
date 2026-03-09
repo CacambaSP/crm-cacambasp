@@ -311,11 +311,11 @@ async function enviarCadastro(){
       (obs?'📝 *Obs:* '+obs+'\n':'')+
       '\n🔑 *Código'+( qtd>1?'s':'')+':* '+codigos.join(', ');
 
-    // Abre WhatsApp para os dois números
-    const WA_NUMBERS = ['551142378757', '5511963436452'];
-    const waUrl = 'https://wa.me/'+WA_NUMBERS[0]+'?text='+encodeURIComponent(msg);
-    window.open(waUrl, '_blank');
-    setTimeout(()=>{ window.open('https://wa.me/'+WA_NUMBERS[1]+'?text='+encodeURIComponent(msg),'_blank'); }, 1500);
+    // Salva msg para o botão manual
+    window._notifMsg = msg;
+
+    // Tenta abrir automaticamente
+    try { window.open('https://wa.me/5511963436452?text='+encodeURIComponent(msg), '_blank'); } catch(e){}
 
     // Mostra sucesso
     document.getElementById('formCard').style.display = 'none';
@@ -333,8 +333,8 @@ async function enviarCadastro(){
 }
 
 function notificarEquipe(tel){
-  if(!window._notifMsg){ alert('Mensagem não disponível. Recarregue a página.'); return; }
-  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(window._notifMsg),'_blank');
+  const msg = window._notifMsg || 'Nova solicitação CaçambaSP — verifique o sistema.';
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 // Set min date to today
