@@ -363,35 +363,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 /* ── MOBILE RESPONSIVE ── */
 @media(max-width:700px){
   :root{--sidebar:240px}
-  /* Sidebar always hidden on mobile, shows on toggle */
   .sidebar{transform:translateX(-100%);width:var(--sidebar)!important;opacity:1!important;pointer-events:all!important;transition:transform .25s;z-index:100;box-shadow:4px 0 30px rgba(0,0,0,.5)}
   .sidebar.mob-open{transform:translateX(0)}
   .sidebar-hover-zone{display:none}
-  .main-wrap{margin-left:0!important;width:100%}
-  /* Topbar */
-  .topbar{padding:10px 12px}
-  .topbar-title{font-size:15px}
-  /* Board */
-  .bwrap{padding:10px 8px}
-  .board{gap:10px;padding-bottom:16px}
-  .col{min-width:260px}
-  /* Cards bigger touch targets */
-  .card{padding:13px 14px 12px}
-  .card-addr{font-size:13px}
+  .main-wrap{margin-left:0!important;width:100%;height:100dvh}
+  .topbar{padding:10px 12px;height:50px}
+  .topbar-title{font-size:14px}
+  .btn-novo{font-size:11px;padding:7px 10px}
+  #view-funil.act{height:calc(100dvh - 50px)}
+  .view.act{height:calc(100dvh - 50px)}
+  .bwrap{padding:8px 6px 0}
+  .board{gap:8px;padding-bottom:12px}
+  .col{min-width:240px}
+  .card{padding:12px 13px 11px}
+  .card-addr{font-size:12px}
   .card-del,.card-trophy{width:30px;height:30px;font-size:13px;opacity:1}
-  /* Modal full screen on mobile */
+  .card:hover{transform:none;box-shadow:none}
+  .cmeta{max-height:none}
   .mbg{padding:0;align-items:flex-end}
-  .mbox{border-radius:20px 20px 0 0;max-height:92vh;max-width:100%!important;width:100%}
-  /* Filter bar wrap */
-  .filter-bar{flex-direction:column;gap:8px}
-  .filter-bar select,.filter-bar input{width:100%}
-  /* Buttons in modal */
+  .mbox{border-radius:20px 20px 0 0;max-height:93dvh;max-width:100%!important;width:100%}
+  .filter-bar{flex-direction:column;gap:6px;padding:8px 10px}
+  .filter-bar select,.filter-bar input{width:100%;box-sizing:border-box}
+  .stats{padding:8px 10px;gap:6px;flex-wrap:nowrap;overflow-x:auto}
   .act-row{gap:6px}
   .btn-sm{padding:8px 10px;font-size:12px}
-  /* Detail modal action buttons */
   .dact{flex-wrap:wrap;gap:6px}
   .dact .btn{flex:1;min-width:70px;padding:10px 6px;font-size:11px}
-  /* Overlay when sidebar open */
+  .fg{flex-direction:column;gap:8px}
+  .fr{width:100%}
+  .ds{padding:10px 14px}
   .mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
   .mob-overlay.show{display:block}
 }
@@ -463,6 +463,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="nav-label">Financeiro</div>
       <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nbi">🔄</span> Conciliação</button>
       <button class="nb admin-only" id="nav-pgforn" onclick="setView('pgforn')"><span class="nbi">💰</span> Pagar Fornecedor</button>
+      <button class="nb admin-only" id="nav-relatorios" onclick="setViewMob('relatorios')"><span class="nbi">📈</span> Relatórios</button>
+      <button class="nb admin-only" id="nav-nfs" onclick="setViewMob('nfs')"><span class="nbi">🧾</span> Notas Fiscais</button>
     </div>
 
     <div class="nav-section">
@@ -782,6 +784,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 <div class="mob-overlay" id="mobOverlay" onclick="closeMobSidebar()"></div>
 <div class="toast" id="toast"></div>
+
+  <!-- RELATÓRIOS -->
+  <div class="view" id="view-relatorios">
+    <div class="ph" style="padding:18px 22px 12px">
+      <div class="ptitle">📈 Relatórios</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="relMes" onchange="renderRelatorios()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none">
+        </select>
+        <select id="relAno" onchange="renderRelatorios()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none">
+        </select>
+        <button class="btn btn-p btn-sm" onclick="exportRelPDF()">⬇️ PDF</button>
+      </div>
+    </div>
+    <div id="relConteudo" style="padding:0 22px 30px;display:flex;flex-direction:column;gap:20px"></div>
+  </div>
+
+  <!-- NOTAS FISCAIS -->
+  <div class="view" id="view-nfs">
+    <div class="ph" style="padding:18px 22px 12px">
+      <div class="ptitle">🧾 Notas Fiscais</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="nfMes" onchange="renderNFs()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none"></select>
+        <select id="nfAno" onchange="renderNFs()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none"></select>
+        <input type="text" id="nfBusca" placeholder="🔍 Buscar NF ou cliente..." oninput="renderNFs()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 11px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none;width:200px">
+      </div>
+    </div>
+    <div id="nfsConteudo" style="padding:0 22px 30px"></div>
+  </div>
 
   </div><!-- /main-wrap -->
 </div><!-- /appPage -->
@@ -1343,6 +1373,8 @@ function setView(v){
   if(v==='clientes')renderClientes();
   if(v==='pgforn')initPgForn();
   if(v==='hist')renderHistoricoPagina();
+  if(v==='relatorios')renderRelatorios();
+  if(v==='nfs')renderNFs();
 }
 
 // ═══════════════════════════════════════
@@ -3119,6 +3151,242 @@ function cobrarCliente(nomeCliente){
 // ═══════════════════════════════════════
 // IMPORTAR XLS DO ITAÚ — CONVERSÃO AUTO
 // ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// RELATÓRIOS
+// ═══════════════════════════════════════
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function initRelSelect(mesId, anoId){
+  const now = new Date();
+  const ms = document.getElementById(mesId);
+  const as = document.getElementById(anoId);
+  if(!ms || !as) return;
+  if(ms.options.length === 0){
+    MESES.forEach((m,i)=>{ const o=document.createElement('option');o.value=i+1;o.textContent=m;ms.appendChild(o); });
+    ms.value = now.getMonth()+1;
+  }
+  if(as.options.length === 0){
+    for(let y=now.getFullYear(); y>=2024; y--){ const o=document.createElement('option');o.value=y;o.textContent=y;as.appendChild(o); }
+    as.value = now.getFullYear();
+  }
+}
+
+function getCardsDoMes(mes, ano){
+  return cards.filter(c => {
+    if(!c.data) return false;
+    const d = new Date(c.data+'T12:00:00');
+    return d.getMonth()+1 === parseInt(mes) && d.getFullYear() === parseInt(ano);
+  });
+}
+
+function renderRelatorios(){
+  initRelSelect('relMes','relAno');
+  const mes = document.getElementById('relMes')?.value || new Date().getMonth()+1;
+  const ano = document.getElementById('relAno')?.value || new Date().getFullYear();
+  const src = getCardsDoMes(mes, ano);
+  const nomeMes = MESES[parseInt(mes)-1]+' '+ano;
+  const el = document.getElementById('relConteudo');
+  if(!el) return;
+
+  // ── Totais gerais ──
+  const totalRec = src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const totalCst = src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const totalNFImp = src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*0.12,0);
+  const mgBruta = totalRec - totalCst;
+  const mgReal = mgBruta - totalNFImp;
+  const qtdNF = src.filter(c=>c.nf_num).length;
+
+  // ── Por vendedor ──
+  const porVend = {};
+  src.forEach(c=>{
+    const v = c.usuario_nome||'Sem vendedor';
+    if(!porVend[v]) porVend[v]={nome:v,rec:0,cst:0,imp:0,qtd:0,pagos:0};
+    porVend[v].rec += parseFloat(c.rec)||0;
+    porVend[v].cst += parseFloat(c.cst)||0;
+    if(c.nf_num) porVend[v].imp += (parseFloat(c.rec)||0)*0.12;
+    porVend[v].qtd++;
+    if(c.pago) porVend[v].pagos++;
+  });
+  const vendedores = Object.values(porVend).sort((a,b)=>b.rec-a.rec);
+
+  el.innerHTML = `
+  <!-- RESUMO GERAL -->
+  <div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📊 Resumo — ${nomeMes}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+      ${statBox('Receita Total','R$ '+fmt(totalRec),'var(--acc)')}
+      ${statBox('Custo Total','R$ '+fmt(totalCst),'var(--dan)')}
+      ${statBox('Margem Bruta','R$ '+fmt(mgBruta),mgBruta>=0?'var(--g)':'var(--dan)')}
+      ${statBox('Imposto NF (12%)','- R$ '+fmt(totalNFImp),'#f97316')}
+      ${statBox('Margem Real','R$ '+fmt(mgReal),mgReal>=0?'var(--g)':'var(--dan)')}
+      ${statBox('Ordens no Mês',src.length,'var(--bl)')}
+      ${statBox('Com Nota Fiscal',qtdNF,'#10b981')}
+      ${statBox('Pagos',src.filter(c=>c.pago).length,'var(--g)')}
+    </div>
+  </div>
+
+  <!-- FATURAMENTO POR VENDEDOR -->
+  <div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👤 Faturamento por Vendedor</div>
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;padding:8px 14px;border-bottom:1px solid var(--bor);font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">
+        <span>Vendedor</span><span style="text-align:right">Ordens</span><span style="text-align:right">Receita</span><span style="text-align:right">Custo</span><span style="text-align:right">Mg Bruta</span><span style="text-align:right">Mg Real</span>
+      </div>
+      ${vendedores.map((v,i)=>{
+        const mg=v.rec-v.cst; const mgr=mg-v.imp;
+        return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--bor);font-size:12px;background:${i%2===0?'transparent':'rgba(255,255,255,.02)'}">
+          <span style="font-weight:600">${v.nome}</span>
+          <span style="text-align:right;color:var(--mut)">${v.qtd}</span>
+          <span style="text-align:right;color:var(--acc)">R$ ${fmt(v.rec)}</span>
+          <span style="text-align:right;color:var(--dan)">R$ ${fmt(v.cst)}</span>
+          <span style="text-align:right;color:${mg>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(mg)}</span>
+          <span style="text-align:right;font-weight:700;color:${mgr>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(mgr)}</span>
+        </div>`;
+      }).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;padding:10px 14px;font-size:12px;font-weight:700;background:rgba(255,255,255,.04)">
+        <span>TOTAL</span>
+        <span style="text-align:right">${src.length}</span>
+        <span style="text-align:right;color:var(--acc)">R$ ${fmt(totalRec)}</span>
+        <span style="text-align:right;color:var(--dan)">R$ ${fmt(totalCst)}</span>
+        <span style="text-align:right;color:${mgBruta>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(mgBruta)}</span>
+        <span style="text-align:right;color:${mgReal>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(mgReal)}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARGEM COM E SEM NF -->
+  <div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📉 Margem: Com NF vs Sem NF</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px">
+        <div style="font-size:11px;color:var(--mut);margin-bottom:6px">Ordens SEM nota fiscal</div>
+        ${(()=>{
+          const s=src.filter(c=>!c.nf_num);
+          const r=s.reduce((a,c)=>a+(parseFloat(c.rec)||0),0);
+          const cs=s.reduce((a,c)=>a+(parseFloat(c.cst)||0),0);
+          const m=r-cs;
+          return `<div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:${m>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(m)}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px">${s.length} ordens · Receita R$ ${fmt(r)}</div>`;
+        })()}
+      </div>
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px">
+        <div style="font-size:11px;color:var(--mut);margin-bottom:6px">Ordens COM nota fiscal</div>
+        ${(()=>{
+          const s=src.filter(c=>c.nf_num);
+          const r=s.reduce((a,c)=>a+(parseFloat(c.rec)||0),0);
+          const cs=s.reduce((a,c)=>a+(parseFloat(c.cst)||0),0);
+          const imp=r*0.12; const m=r-cs-imp;
+          return `<div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:${m>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(m)}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px">${s.length} ordens · Imposto R$ ${fmt(imp)}</div>`;
+        })()}
+      </div>
+    </div>
+  </div>
+
+  <!-- INADIMPLÊNCIA -->
+  <div>
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">⚠️ Inadimplência no Mês</div>
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden">
+      ${(()=>{
+        const inadimp = src.filter(c=>!c.pago && c.col!=='concluido');
+        if(!inadimp.length) return '<div style="padding:20px;text-align:center;color:var(--g);font-size:13px">✅ Todas as ordens do mês foram pagas!</div>';
+        return inadimp.map((c,i)=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bor);font-size:12px;background:${i%2===0?'transparent':'rgba(255,255,255,.02)'}">
+            <div>
+              <div style="font-weight:600">${c.nome||'-'}</div>
+              <div style="color:var(--mut);font-size:11px">${c.end_logradouro||''} · ${c.tipo||''}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:700;color:var(--dan)">R$ ${fmt(c.rec)}</div>
+              <div style="font-size:10px;color:var(--mut)">${c.usuario_nome||'-'}</div>
+            </div>
+          </div>`).join('');
+      })()}
+    </div>
+  </div>`;
+}
+
+function statBox(label, val, color){
+  return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px 16px">
+    <div style="font-size:11px;color:var(--mut);margin-bottom:4px">${label}</div>
+    <div style="font-size:18px;font-weight:800;font-family:'Syne',sans-serif;color:${color}">${val}</div>
+  </div>`;
+}
+
+function exportRelPDF(){
+  const mes = document.getElementById('relMes')?.value;
+  const ano = document.getElementById('relAno')?.value;
+  const nomeMes = MESES[parseInt(mes)-1]+' '+ano;
+  const conteudo = document.getElementById('relConteudo')?.innerHTML||'';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Relatório ${nomeMes}</title>
+  <style>body{font-family:'DM Sans',Arial,sans-serif;padding:28px;color:#111;background:#fff;font-size:12px}
+  *{box-sizing:border-box} @media print{body{padding:14px}@page{margin:8mm;size:A4}}
+  </style></head><body>
+  <h2 style="margin-bottom:20px;font-size:18px">📈 Relatório — ${nomeMes}</h2>
+  ${conteudo}
+  <script>window.onload=function(){window.print();}<\/script></body></html>`);
+  w.document.close();
+}
+
+// ═══════════════════════════════════════
+// NOTAS FISCAIS
+// ═══════════════════════════════════════
+function renderNFs(){
+  initRelSelect('nfMes','nfAno');
+  const mes = document.getElementById('nfMes')?.value || new Date().getMonth()+1;
+  const ano = document.getElementById('nfAno')?.value || new Date().getFullYear();
+  const q = (document.getElementById('nfBusca')?.value||'').toLowerCase().trim();
+  const el = document.getElementById('nfsConteudo');
+  if(!el) return;
+
+  let src = getCardsDoMes(mes, ano).filter(c=>c.nf_num);
+  if(q) src = src.filter(c=>(c.nf_num||'').toLowerCase().includes(q)||(c.nome||'').toLowerCase().includes(q));
+
+  const totalRec = src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const totalImp = totalRec*0.12;
+  const totalMg = src.reduce((s,c)=>s+((parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)),0) - totalImp;
+  const nomeMes = MESES[parseInt(mes)-1]+' '+ano;
+
+  if(!src.length){
+    el.innerHTML=`<div style="text-align:center;padding:50px;color:var(--mut)">🧾 Nenhuma nota fiscal em ${nomeMes}</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
+    ${statBox('NFs em '+nomeMes, src.length, 'var(--acc)')}
+    ${statBox('Receita c/ NF','R$ '+fmt(totalRec),'var(--g)')}
+    ${statBox('Total Impostos','R$ '+fmt(totalImp),'#f97316')}
+    ${statBox('Margem Real','R$ '+fmt(totalMg),totalMg>=0?'var(--g)':'var(--dan)')}
+  </div>
+  <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:1fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr;padding:8px 14px;border-bottom:1px solid var(--bor);font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">
+      <span>NF Nº</span><span>Cliente</span><span>Endereço</span><span style="text-align:right">Valor</span><span style="text-align:right">Imposto</span><span style="text-align:right">Mg Real</span><span style="text-align:right">Vendedor</span>
+    </div>
+    ${src.sort((a,b)=>(a.nf_num||'').localeCompare(b.nf_num||'')).map((c,i)=>{
+      const imp=(parseFloat(c.rec)||0)*0.12;
+      const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)-imp;
+      return `<div style="display:grid;grid-template-columns:1fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--bor);font-size:11px;background:${i%2===0?'transparent':'rgba(255,255,255,.02)'}">
+        <span style="font-weight:700;color:#10b981">🧾 ${c.nf_num}</span>
+        <span style="font-weight:600">${c.nome||'-'}</span>
+        <span style="color:var(--mut)">${c.end_logradouro||'-'}</span>
+        <span style="text-align:right;color:var(--acc)">R$ ${fmt(c.rec)}</span>
+        <span style="text-align:right;color:#f97316">R$ ${fmt(imp)}</span>
+        <span style="text-align:right;font-weight:700;color:${mg>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(mg)}</span>
+        <span style="text-align:right;color:var(--mut)">${c.usuario_nome||'-'}</span>
+      </div>`;
+    }).join('')}
+    <div style="display:grid;grid-template-columns:1fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr;padding:10px 14px;font-size:11px;font-weight:700;background:rgba(255,255,255,.04)">
+      <span>TOTAL</span><span></span><span></span>
+      <span style="text-align:right;color:var(--acc)">R$ ${fmt(totalRec)}</span>
+      <span style="text-align:right;color:#f97316">R$ ${fmt(totalImp)}</span>
+      <span style="text-align:right;color:${totalMg>=0?'var(--g)':'var(--dan)'}">R$ ${fmt(totalMg)}</span>
+      <span></span>
+    </div>
+  </div>`;
+}
+
 function onDropXLS(e){
   e.preventDefault();
   const file = e.dataTransfer?.files?.[0];
