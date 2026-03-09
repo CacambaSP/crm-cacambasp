@@ -790,6 +790,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           </div>
           <button class="btn btn-p" onclick="salvarPerfil()">Salvar nome</button>
         </div>
+
+        <!-- LINK DE CADASTRO -->
+        <div style="background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:22px;margin-bottom:16px">
+          <div style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;margin-bottom:6px">📲 Meu Link de Cadastro</div>
+          <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Envie este link para o cliente preencher o cadastro. A confirmação chegará no seu WhatsApp.</div>
+          <div style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--acc);word-break:break-all;margin-bottom:12px;font-family:monospace" id="meuLinkCadastro">—</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-p btn-sm" onclick="copiarLinkCadastro()">📋 Copiar link</button>
+            <button class="btn btn-wa btn-sm" onclick="compartilharLinkWhatsApp()">📲 Compartilhar no WhatsApp</button>
+          </div>
+          <div style="font-size:11px;color:var(--mut);margin-top:10px">⚠️ Para receber notificações, certifique-se que seu número de WhatsApp está salvo no perfil.</div>
+          <div class="fr" style="margin-top:12px">
+            <label>Meu WhatsApp (com DDD, só números)</label>
+            <input type="tel" id="perfil_whatsapp" placeholder="11999999999" oninput="this.value=this.value.replace(/\D/g,'')">
+          </div>
+          <button class="btn btn-g btn-sm" onclick="salvarWhatsapp()">💾 Salvar número</button>
+        </div>
+
         <div style="background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:22px">
           <div style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;margin-bottom:14px">🔐 Alterar Senha</div>
           <div class="fr"><label>Nova Senha</label><input type="password" id="perfil_pass1" placeholder="Mínimo 6 caracteres"></div>
@@ -2866,8 +2884,40 @@ async function renderPerfil(){
     nivelEl.textContent = nivel === 'admin' ? '👑 Admin' : '👤 Operador';
     nivelEl.style.color = nivel === 'admin' ? 'var(--acc)' : 'var(--bl)';
   }
+  // Link de cadastro
+  const uid = currentPerfil.id || currentUser?.user?.id || '';
+  const baseUrl = window.location.origin + '/cadastro.html';
+  const link = baseUrl + '?v=' + encodeURIComponent(uid);
+  const linkEl = document.getElementById('meuLinkCadastro');
+  if(linkEl) linkEl.textContent = link;
+  // WhatsApp salvo
+  const waEl = document.getElementById('perfil_whatsapp');
+  if(waEl) waEl.value = currentPerfil.whatsapp || '';
 }
 
+function copiarLinkCadastro(){
+  const link = document.getElementById('meuLinkCadastro')?.textContent||'';
+  navigator.clipboard.writeText(link).then(()=>toast('📋 Link copiado!')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=link;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('📋 Link copiado!');
+  });
+}
+function compartilharLinkWhatsApp(){
+  const link = document.getElementById('meuLinkCadastro')?.textContent||'';
+  const nome = currentPerfil?.nome || 'Vendedor';
+  const msg = 'Olá! Clique no link abaixo para solicitar sua caçamba com ' + nome + ':\n\n' + link;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+async function salvarWhatsapp(){
+  const wa = document.getElementById('perfil_whatsapp')?.value.replace(/\D/g,'')||'';
+  if(!wa){ toast('⚠ Informe o número','#e05252'); return; }
+  try{
+    setSyncDot('loading');
+    await api('perfis?id=eq.'+currentPerfil.id,'PATCH',{whatsapp:wa},currentUser?.access_token);
+    currentPerfil.whatsapp = wa;
+    setSyncDot('ok');
+    toast('✅ WhatsApp salvo!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao salvar','#e05252'); }
+}
 async function salvarPerfil(){
   const nome = document.getElementById('perfil_nome').value.trim();
   if(!nome){ toast('⚠ Informe seu nome','#e05252'); return; }

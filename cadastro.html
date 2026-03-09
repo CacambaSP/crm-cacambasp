@@ -49,6 +49,9 @@ select option{background:#252836;color:#f1f5f9}
       <div class="logo-sub">Solicitação de serviço</div>
     </div>
   </div>
+  <div id="vendedor_box" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#f5a623">
+    👤 Atendimento: <strong id="vendedor_nome"></strong>
+  </div>
 
   <h2>Solicitar Caçamba</h2>
   <div class="desc">Preencha os dados abaixo e entraremos em contato para confirmar o serviço.</div>
@@ -159,7 +162,7 @@ select option{background:#252836;color:#f1f5f9}
     <div style="font-size:13px;font-weight:700;color:#25d366;margin-bottom:8px">📲 Notificar equipe CaçambaSP</div>
     <div style="font-size:12px;color:#888;margin-bottom:12px">Se a notificação automática não abriu, clique abaixo:</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button onclick="notificarEquipe('5511963436452')" style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;border-radius:10px">
+      <button onclick="notificarEquipe(window._vendedorTel||'551142378757')" style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;border-radius:10px">
         📲 Enviar Pedido
       </button>
     </div>
@@ -168,6 +171,33 @@ select option{background:#252836;color:#f1f5f9}
 
 <script>
 const SUPA_URL = 'https://ifdxqbbhmunyquzbrwcx.supabase.co';
+
+// Lê o vendedor da URL (?v=uid) e busca o WhatsApp dele
+(async function(){
+  const params = new URLSearchParams(window.location.search);
+  const vid = params.get('v');
+  if(!vid) return;
+  try{
+    const res = await fetch(SUPA_URL+'/rest/v1/perfis?id=eq.'+encodeURIComponent(vid)+'&select=nome,whatsapp', {
+      headers:{
+        'apikey':'sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC',
+        'Authorization':'Bearer sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC'
+      }
+    });
+    const data = await res.json();
+    if(data?.[0]){
+      const p = data[0];
+      if(p.whatsapp) window._vendedorTel = '55'+p.whatsapp.replace(/\D/g,'');
+      if(p.nome){
+        // Mostra nome do vendedor na página
+        const el = document.getElementById('vendedor_nome');
+        if(el){ el.textContent = p.nome; document.getElementById('vendedor_box').style.display='block'; }
+      }
+    }
+  }catch(e){}
+  // Salva o uid do vendedor para associar no card
+  window._vendedorId = vid;
+})();
 const SUPA_KEY = 'sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC';
 
 function maskTel(el){
@@ -315,7 +345,7 @@ async function enviarCadastro(){
     window._notifMsg = msg;
 
     // Tenta abrir automaticamente
-    try { window.open('https://wa.me/5511963436452?text='+encodeURIComponent(msg), '_blank'); } catch(e){}
+    try { window.open('https://wa.me/'+(window._vendedorTel||'551142378757')+'?text='+encodeURIComponent(msg), '_blank'); } catch(e){}
 
     // Mostra sucesso
     document.getElementById('formCard').style.display = 'none';
