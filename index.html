@@ -2073,6 +2073,7 @@ function applyFilters(){
     return true;
   });
   renderBoard();
+  renderStats();
 }
 
 function clearFilters(){
@@ -2084,6 +2085,7 @@ function clearFilters(){
   const fim = document.getElementById('filterDataFim'); if(fim) fim.value='';
   filteredCards = null;
   renderBoard();
+  renderStats();
 }
 
 // ═══════════════════════════════════════
