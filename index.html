@@ -1180,26 +1180,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   </div>
 </div>
 
-  <div class="mbox" style="max-width:390px">
-    <div class="mh"><div class="mt">👤 Novo Usuário</div><button class="mx" onclick="document.getElementById('userModal').classList.remove('open')">✕</button></div>
-    <div class="mb">
-      <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="u_nome" placeholder="Nome completo"></div>
-      <div class="fr"><label>E-mail <span class="req">*</span></label><input type="email" id="u_email" placeholder="email@exemplo.com"></div>
-      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres"></div>
-      <div class="fr"><label>Nível de acesso</label>
-        <select id="u_nivel">
-          <option value="operador">Operador - vê apenas seus negócios, sem financeiro</option>
-          <option value="admin">Admin - acesso total</option>
-        </select>
-      </div>
-      <div class="ffoot">
-        <button class="btn btn-g" onclick="document.getElementById('userModal').classList.remove('open')">Cancelar</button>
-        <button class="btn btn-p" onclick="saveUser()">Criar usuário</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL: PIX AGRUPADO -->
 <div class="mbg" id="grpPixModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:420px">
