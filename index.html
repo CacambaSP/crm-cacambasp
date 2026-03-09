@@ -499,7 +499,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div class="filter-bar" id="searchBar">
         <input type="text" id="searchInput" placeholder="🔍 Buscar por nome, endereço, cidade ou celular..." oninput="applyFilters()">
         <select id="filterForn" onchange="applyFilters()"><option value="">Todos os fornecedores</option></select>
-        <select id="filterCol" onchange="applyFilters()"><option value="">Todas as colunas</option></select>
+        <select id="filterVend" onchange="applyFilters()"><option value="">Todos os vendedores</option></select>
         <select id="filterPago" onchange="applyFilters()">
           <option value="">Pago + Pendente</option>
           <option value="pago">Apenas pagos</option>
@@ -869,6 +869,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="fr" style="display:flex;align-items:flex-end"><div id="editMrg" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 11px;font-size:11px;font-weight:700;color:var(--g)">-</div></div>
       </div>
       <div class="fr"><label>Obs</label><textarea id="e_obs"></textarea></div>
+      <div class="fg admin-only">
+        <div class="fr">
+          <label>Nota Fiscal Nº</label>
+          <input type="text" id="e_nf_num" placeholder="Ex: 001234" oninput="updNfCalc()">
+        </div>
+        <div class="fr" style="display:flex;align-items:flex-end">
+          <div id="nfCalcBox" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 11px;font-size:11px;font-weight:700;color:var(--mut)">-</div>
+        </div>
+      </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-g btn-sm" style="flex:1" onclick="cancelEdit()">Cancelar</button>
         <button class="btn btn-p btn-sm" style="flex:1" onclick="saveEdit()">Salvar</button>
@@ -1364,6 +1373,7 @@ function cHTML(c,color){
       ${isAdmin()&&c.cst?`<span class="chip cst" data-tip="Custo fornecedor">↓ R$${fmts(c.cst)}</span>`:''}
       ${isAdmin()&&c.rec&&c.cst?`<span class="chip mrg" data-tip="Margem">= R$${fmts(mg)}</span>`:''}
       ${c.crm_id?`<span class="chip" data-tip="Código CRM" style="font-size:9px;color:var(--acc);border-color:rgba(245,166,35,.2)">${c.crm_id}</span>`:''}
+      ${c.nf_num?`<span class="chip" data-tip="Nota Fiscal" style="font-size:9px;color:#10b981;border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.08)">🧾 NF</span>`:''}
       ${c.forn_pago?'<span style="font-size:9px;color:#5b8dee;background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.2);border-radius:4px;padding:1px 5px">💰 F.Pago</span>':''}
       ${c.pago?`<span class="chip pago-chip" data-tip="Pagamento confirmado">✅ Pago</span>`:''}
       ${sup?`<span class="chip" data-tip="Fornecedor">🚛 ${sup.nome.split(' ')[0]}</span>`:''}
@@ -1503,6 +1513,18 @@ function fillDetail(c){
   document.getElementById('d_cid').textContent=[c.cid,c.cep].filter(Boolean).join(' · ')||'-';
   document.getElementById('d_forn').textContent=sup?sup.nome:'-';
   document.getElementById('d_resp').textContent=c.usuario_nome||'-';
+  // NF info
+  const nfRow = document.getElementById('d_nf_row');
+  const nfInfo = document.getElementById('d_nf_info');
+  if(nfRow && nfInfo){
+    if(c.nf_num){
+      const impostos=(c.rec||0)*0.12;
+      const mgBruta=(c.rec||0)-(c.cst||0);
+      const mgReal=mgBruta-impostos;
+      nfInfo.innerHTML='NF Nº '+c.nf_num+'<br><span style="font-size:11px;color:var(--mut)">Imposto 12% s/ R$'+fmt(c.rec||0)+': -R$ '+fmt(impostos)+' · Margem real: <strong style="color:'+(mgReal>=0?'var(--g)':'var(--dan)')+'">R$ '+fmt(mgReal)+'</strong></span>';
+      nfRow.style.display='flex';
+    } else { nfRow.style.display='none'; }
+  }
   // Populate reatribuir dropdown
   const vendSel = document.getElementById('d_vend_sel');
   if(vendSel){
@@ -1581,6 +1603,8 @@ function toggleEdit(){
   document.getElementById('e_end').value=c.end_logradouro||'';document.getElementById('e_bairro').value=c.bairro||'';document.getElementById('e_cid').value=c.cid||'';
   document.getElementById('e_cep').value=c.cep||'';document.getElementById('e_cpf').value=c.cpf||'';
   document.getElementById('e_rec').value=c.rec||'';document.getElementById('e_cst').value=c.cst||'';
+  if(document.getElementById('e_nf_num')) document.getElementById('e_nf_num').value=c.nf_num||'';
+  updNfCalc();
   document.getElementById('e_obs').value=c.obs||'';
   // Populate vendedor select
   const eVend = document.getElementById('e_vend');
@@ -1660,6 +1684,21 @@ function updEditFinD(){
   const mg=rec-cst;
   const el=document.getElementById('editMrg');
   el.textContent=rec||cst?'Margem: R$ '+fmt(mg):'-';el.style.color=mg>=0?'var(--g)':'var(--dan)';
+  updNfCalc();
+}
+
+function updNfCalc(){
+  const rec=parseFloat(document.getElementById('e_rec').value)||0;
+  const cst=parseFloat(document.getElementById('e_cst').value)||0;
+  const nfNum=(document.getElementById('e_nf_num')?.value||'').trim();
+  const box=document.getElementById('nfCalcBox');
+  if(!box) return;
+  if(!nfNum){ box.textContent='-'; box.style.color='var(--mut)'; return; }
+  const impostos=rec*0.12;
+  const mgBruta=rec-cst;
+  const mgReal=mgBruta-impostos;
+  box.innerHTML='🧾 Imposto 12% s/ R$'+fmt(rec)+': <span style="color:var(--dan)">-R$ '+fmt(impostos)+'</span><br>💰 Margem real: <span style="color:'+(mgReal>=0?'var(--g)':'var(--dan)')+'">R$ '+fmt(mgReal)+'</span>';
+  box.style.color='var(--txt)';
 }
 async function saveEdit(){
   const get=id=>document.getElementById(id).value.trim();
@@ -1674,6 +1713,7 @@ async function saveEdit(){
   c.rec=parseFloat(get('e_rec'))||0;c.cst=parseFloat(document.getElementById('e_cst').value)||0;
   const oldSid = c.sid;
   c.sid=get('e_sup');c.obs=get('e_obs');
+  c.nf_num=get('e_nf_num')||'';
   // auto-move to entrega when supplier first assigned from contratar
   if(c.sid && c.sid !== oldSid && c.col === 'contratar'){
     c.col = 'entrega';
@@ -2084,14 +2124,14 @@ function initFilters(){
 function applyFilters(){
   const q = (document.getElementById('searchInput').value||'').toLowerCase().trim();
   const forn = document.getElementById('filterForn').value;
-  const col = document.getElementById('filterCol').value;
+  const vend = document.getElementById('filterVend')?.value||'';
   const pago = document.getElementById('filterPago').value;
   const dataIni = document.getElementById('filterDataIni')?.value || '';
   const dataFim = document.getElementById('filterDataFim')?.value || '';
   filteredCards = cards.filter(c => {
     if(q && ![ c.nome, c.end_logradouro, c.cid, c.cel, c.tipo ].some(f => (f||'').toLowerCase().includes(q))) return false;
     if(forn && c.sid !== forn) return false;
-    if(col && c.col !== col) return false;
+    if(vend && c.usuario_nome !== vend) return false;
     if(pago === 'pago' && !c.pago) return false;
     if(pago === 'pendente' && c.pago) return false;
     if(dataIni && c.data && c.data < dataIni) return false;
@@ -2105,7 +2145,7 @@ function applyFilters(){
 function clearFilters(){
   document.getElementById('searchInput').value = '';
   document.getElementById('filterForn').value = '';
-  document.getElementById('filterCol').value = '';
+  const fv=document.getElementById('filterVend');if(fv)fv.value='';
   document.getElementById('filterPago').value = '';
   const ini = document.getElementById('filterDataIni'); if(ini) ini.value='';
   const fim = document.getElementById('filterDataFim'); if(fim) fim.value='';
@@ -2320,11 +2360,11 @@ function renderOSCli(c){
     '</div>',
     '<div style="font-size:14px;font-weight:700;color:#1E3A5F;margin-bottom:10px">ORDEM DE SERVIÇO</div>',
     '<table style="width:100%;font-size:12px;margin-bottom:14px;border-collapse:collapse">',
-      '<tr><td style="color:#666;width:120px;padding:3px 0">Cliente</td><td style="font-weight:600">'+(c.nome||'-')+'</td></tr>',
-      '<tr><td style="color:#666;padding:3px 0">Celular</td><td>'+(c.cel||'-')+'</td></tr>',
-      '<tr><td style="color:#666;padding:3px 0">CPF</td><td>'+(c.cpf||'-')+'</td></tr>',
-      '<tr><td style="color:#666;padding:3px 0">Serviço</td><td style="font-weight:600">'+(c.tipo||'-')+'</td></tr>',
-      '<tr><td style="color:#666;padding:3px 0">Data</td><td>'+dataFmt+'</td></tr>',
+      '<tr><td style="color:#666;width:130px;padding:4px 0">Cliente</td><td style="font-weight:600">'+(c.nome||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:4px 0">Celular</td><td>'+(c.cel||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:4px 0">CPF/CNPJ</td><td>'+(c.cpf||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:4px 0">Tipo</td><td><span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">'+(c.tipo||'-')+'</span></td></tr>',
+      '<tr><td style="color:#666;padding:4px 0">Data do serviço</td><td><strong style="color:#1E3A5F">'+dataFmt+'</strong></td></tr>',
       '<tr><td style="color:#666;padding:3px 0">Endereço</td><td>'+(c.end_logradouro||'-')+(c.cid?', '+c.cid:'')+'</td></tr>',
       '<tr><td style="color:#666;padding:3px 0">CEP</td><td>'+(c.cep||'-')+'</td></tr>',
       obsRow,
@@ -2419,10 +2459,56 @@ function renderOSForn(c){
 
 function openOS(cardId){
   const c = cards.find(x=>x.id===cardId); if(!c) return;
+
+  // ── Verificar cobrança duplicada hoje ──
+  const hoje = new Date().toISOString().slice(0,10);
+  const logKey = 'cobranca_log';
+  let log = {};
+  try { log = JSON.parse(localStorage.getItem(logKey)||'{}'); } catch(e){}
+  const ultimaCobranca = log[cardId];
+  if(ultimaCobranca && ultimaCobranca.startsWith(hoje)){
+    if(!confirm('⚠️ Você já gerou uma cobrança para este cliente hoje.\n\nDeseja gerar novamente?')) return;
+  }
+
+  // ── Verificar outros cards não pagos do mesmo cliente ──
+  if(c.nome){
+    const outrosNaoPagos = cards.filter(x =>
+      x.id !== cardId &&
+      x.nome === c.nome &&
+      !x.pago &&
+      x.col !== 'concluido'
+    );
+    if(outrosNaoPagos.length > 0){
+      const lista = outrosNaoPagos.map(x =>
+        '• ' + (x.end_logradouro||'Sem endereço') + ' — R$ ' + fmt(x.rec) +
+        (x.data ? ' (' + new Date(x.data+'T12:00:00').toLocaleDateString('pt-BR') + ')' : '')
+      ).join('\n');
+      const totalExtra = outrosNaoPagos.reduce((s,x)=>s+(parseFloat(x.rec)||0),0);
+      const agrupar = confirm(
+        '📋 ' + c.nome + ' tem ' + outrosNaoPagos.length + ' outro(s) serviço(s) em aberto:\n\n' +
+        lista + '\n\nTotal adicional: R$ ' + fmt(totalExtra) +
+        '\n\nDeseja agrupar tudo em uma cobrança só?'
+      );
+      if(agrupar){
+        // Seleciona todos e abre Pix Agrupado
+        selectedCards.clear();
+        selectedCards.add(cardId);
+        outrosNaoPagos.forEach(x => selectedCards.add(x.id));
+        updateSelBar();
+        renderBoard();
+        gerarPixAgrupado();
+        return;
+      }
+    }
+  }
+
+  // ── Registra cobrança no log ──
+  log[cardId] = new Date().toISOString();
+  try { localStorage.setItem(logKey, JSON.stringify(log)); } catch(e){}
+
   osCardId = cardId;
   osPixId = nextPixId();
   osPixPayload = buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec)||0,osPixId);
-  // Always start on client tab
   osTabAtual = 'cli';
   document.getElementById('os_tab_cli').style.background = 'var(--acc)';
   document.getElementById('os_tab_cli').style.color = '#000';
