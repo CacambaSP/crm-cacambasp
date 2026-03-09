@@ -129,11 +129,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .stat-l{font-size:10px;color:var(--mut2);margin-top:1px;text-transform:uppercase;letter-spacing:.4px}
 
 /* ── BOARD ── */
-.bwrap{padding:16px 22px 0;overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--bor2) transparent;display:flex;flex-direction:column}
-.board{display:flex;gap:12px;min-width:max-content;align-items:stretch;flex:1;min-height:0;padding-bottom:16px}
+.bwrap{padding:16px 22px 0;overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
+.board{display:flex;gap:12px;align-items:stretch;height:100%;padding-bottom:16px;width:max-content}
 
 /* ── COLUMN ── */
-.col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;height:100%}
 .chead{padding:10px 12px 9px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:7px;flex-shrink:0}
 .cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .ctit{font-family:'Syne',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;flex:1}
@@ -568,7 +568,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   </div>
 
   <!-- MODAL: VOUCHER FORNECEDOR -->
-<div class="mbg" id="voucherModal">
+<div class="mbg" id="voucherModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:600px;max-height:90vh;overflow-y:auto">
     <div class="mh">
       <div class="mt">🧾 Voucher de Pagamento ao Fornecedor</div>
@@ -863,7 +863,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 
 <!-- MODAL: NOVO NEGÓCIO -->
-<div class="mbg" id="formModal">
+<div class="mbg" id="formModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:500px">
     <div class="mh"><div class="mt">📋 Nova Solicitação</div><button class="mx" onclick="closeForm()">✕</button></div>
     <div class="mb">
@@ -902,7 +902,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: DETALHE -->
-<div class="mbg" id="detailModal">
+<div class="mbg" id="detailModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:450px">
     <div class="mh">
       <div class="mh-icon">📍</div>
@@ -1050,7 +1050,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: MARCAR PAGO -->
-<div class="mbg" id="pagoModal">
+<div class="mbg" id="pagoModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:380px">
     <div class="mh"><div class="mt">✅ Marcar como Pago</div><button class="mx" onclick="document.getElementById('pagoModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1066,7 +1066,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: PAGAR FORNECEDOR -->
-<div class="mbg" id="fornPagoModal">
+<div class="mbg" id="fornPagoModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:440px">
     <div class="mh"><div class="mt">💰 Pagamento ao Fornecedor</div><button class="mx" onclick="document.getElementById('fornPagoModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1091,7 +1091,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: PIX -->
-<div class="mbg" id="pixModal">
+<div class="mbg" id="pixModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">⚡ Cobrança Pix</div><button class="mx" onclick="closePixModal()">✕</button></div>
     <div class="mb">
@@ -1109,7 +1109,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: FORNECEDOR -->
-<div class="mbg" id="supModal">
+<div class="mbg" id="supModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">🚛 Novo Fornecedor</div><button class="mx" onclick="closeSupForm()">✕</button></div>
     <div class="mb">
@@ -1125,7 +1125,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: EDITAR FORNECEDOR -->
-<div class="mbg" id="editSupModal">
+<div class="mbg" id="editSupModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">✏️ Editar Fornecedor</div><button class="mx" onclick="document.getElementById('editSupModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1142,7 +1142,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: NOVO USUÁRIO -->
-<div class="mbg" id="userModal">
+<div class="mbg" id="userModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">👤 Novo Usuário</div><button class="mx" onclick="document.getElementById('userModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1164,7 +1164,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: EDITAR USUÁRIO -->
-<div class="mbg" id="editUserModal">
+<div class="mbg" id="editUserModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">✏️ Editar Usuário</div><button class="mx" onclick="document.getElementById('editUserModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1201,7 +1201,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: PIX AGRUPADO -->
-<div class="mbg" id="grpPixModal">
+<div class="mbg" id="grpPixModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:420px">
     <div class="mh"><div class="mt">⚡ Pix Agrupado</div><button class="mx" onclick="document.getElementById('grpPixModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1221,7 +1221,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: ALERTA PENDENTES -->
-<div class="mbg" id="alertModal">
+<div class="mbg" id="alertModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:500px">
     <div class="mh"><div class="mt">🔔 Cobranças Pendentes</div><button class="mx" onclick="document.getElementById('alertModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1235,7 +1235,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: OS PDF -->
-<div class="mbg" id="osModal">
+<div class="mbg" id="osModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:480px">
     <div class="mh"><div class="mt">📄 Ordem de Serviço</div><button class="mx" onclick="document.getElementById('osModal').classList.remove('open')">✕</button></div>
     <div class="mb">
