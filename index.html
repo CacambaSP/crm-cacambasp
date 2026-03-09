@@ -1071,7 +1071,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <button id="os_tab_cli" onclick="switchOSTab('cli')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#000;font-weight:700;font-size:12px;cursor:pointer">👤 Cliente</button>
         <button id="os_tab_forn" onclick="switchOSTab('forn')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut2);font-weight:600;font-size:12px;cursor:pointer">🚛 Fornecedor</button>
       </div>
-      <div id="osPreview" style="background:#fff;color:#111;border-radius:10px;padding:20px;font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px;min-height:120px"></div>
+      <iframe id="osPreview" style="width:100%;min-height:380px;border:none;border-radius:10px;margin-bottom:14px;background:#fff" scrolling="yes"></iframe>
       <div id="os_btns_cli" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-p" onclick="imprimirOS()">🖨️ Imprimir / Salvar PDF</button>
         <button class="btn btn-wa" onclick="enviarOSWhatsApp()">📲 WhatsApp (texto)</button>
@@ -1287,7 +1287,7 @@ function renderStats(){
   let html=`
     <div class="stat"><div class="stat-v" style="color:var(--acc)">${cards.length}</div><div class="stat-l">Negócios</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--g)">${pagos}</div><div class="stat-l">Pagos</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--c4)">${cards.filter(c=>c.col==='faltapg').length}</div><div class="stat-l">Faltapg</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c4)">${cards.filter(c=>c.col!=='concluido').length}</div><div class="stat-l">Faltapg</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--c6)">${cards.filter(c=>c.col==='inadimp').length}</div><div class="stat-l">Inadimp.</div></div>`;
   if(isAdmin()) html+=`
     <div class="stat"><div class="stat-v" style="color:var(--g)">R$${fmts(tr)}</div><div class="stat-l">Receita</div></div>
@@ -2274,101 +2274,117 @@ function renderOSCli(c){
   osPixId = osPixId || nextPixId();
   osPixPayload = buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec)||0,osPixId);
   const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  const emitidoFmt = new Date().toLocaleDateString('pt-BR');
+  const obsRow = c.obs ? '<tr><td style="color:#666;padding:3px 0">Obs</td><td>'+c.obs+'</td></tr>' : '';
+  const html = [
+    '<div style="border-bottom:3px solid #1E3A5F;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">',
+      '<div>',
+        '<div style="font-size:18px;font-weight:800;color:#1E3A5F">🪣 CacambaSP</div>',
+        '<div style="font-size:11px;color:#666;margin-top:3px">CNPJ: 44.538.708/0001-76</div>',
+        '<div style="font-size:11px;color:#666">cacambasp@gmail.com</div>',
+      '</div>',
+      '<div style="text-align:right">',
+        '<div style="font-size:11px;color:#666">OS Nº '+osPixId+'</div>',
+        '<div style="font-size:11px;color:#666">Emitido: '+emitidoFmt+'</div>',
+      '</div>',
+    '</div>',
+    '<div style="font-size:14px;font-weight:700;color:#1E3A5F;margin-bottom:10px">ORDEM DE SERVIÇO</div>',
+    '<table style="width:100%;font-size:12px;margin-bottom:14px;border-collapse:collapse">',
+      '<tr><td style="color:#666;width:120px;padding:3px 0">Cliente</td><td style="font-weight:600">'+(c.nome||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">Celular</td><td>'+(c.cel||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">CPF</td><td>'+(c.cpf||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">Serviço</td><td style="font-weight:600">'+(c.tipo||'-')+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">Data</td><td>'+dataFmt+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">Endereço</td><td>'+(c.end_logradouro||'-')+(c.cid?', '+c.cid:'')+'</td></tr>',
+      '<tr><td style="color:#666;padding:3px 0">CEP</td><td>'+(c.cep||'-')+'</td></tr>',
+      obsRow,
+    '</table>',
+    '<div style="background:#f5f7fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">',
+      '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">',
+        '<span>Valor do Serviço</span>',
+        '<span style="color:#1D6A40;font-size:15px">R$ '+fmt(c.rec)+'</span>',
+      '</div>',
+    '</div>',
+    '<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px">',
+      '<div style="font-size:12px;font-weight:700;color:#1E3A5F;margin-bottom:8px">⚡ Pague via Pix</div>',
+      '<div style="display:flex;gap:14px;align-items:flex-start">',
+        '<div id="osQrHolder" style="flex-shrink:0"></div>',
+        '<div style="font-size:11px">',
+          '<div style="margin-bottom:4px"><strong>Chave:</strong> '+PIX_KEY+'</div>',
+          '<div style="margin-bottom:4px"><strong>Beneficiário:</strong> Luciana Cristina Testa</div>',
+          '<div style="margin-bottom:4px"><strong>Banco:</strong> Itaú · Ag 1637 · C/C 99.742-8</div>',
+          '<div style="margin-bottom:6px"><strong>Código CRM:</strong> '+osPixId+'</div>',
+          '<div style="font-size:9px;color:#888;word-break:break-all">'+osPixPayload+'</div>',
+        '</div>',
+      '</div>',
+    '</div>',
+    '<div style="font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:8px">',
+      'Ao realizar o pagamento, envie o comprovante para '+PIX_KEY,
+    '</div>'
+  ].join('');
+  const osFrame = document.getElementById('osPreview');
+  const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
+  osDoc.open();
+  osDoc.write('<!DOCTYPE html><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.close();
+  // Inject QR after frame loads
   let qrImg = null;
   try {
     const qrDiv = document.createElement('div');
-    new QRCode(qrDiv,{text:osPixPayload||'CacambaSP',width:120,height:120,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    new QRCode(qrDiv,{text:osPixPayload||'CacambaSP',width:110,height:110,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
     qrImg = qrDiv.querySelector('img')||qrDiv.querySelector('canvas');
-  } catch(e){ console.warn('QR falhou:',e); }
-  document.getElementById('osPreview').innerHTML = `
-    <div style="all:initial;display:block;font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6">
-    <div style="border-bottom:3px solid #1E3A5F;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="font-size:18px;font-weight:800;color:#1E3A5F">🪣 CacambaSP</div>
-        <div style="font-size:11px;color:#666;margin-top:3px">CNPJ: 44.538.708/0001-76</div>
-        <div style="font-size:11px;color:#666">cacambasp@gmail.com</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:11px;color:#666">OS Nº ${osPixId}</div>
-        <div style="font-size:11px;color:#666">Emitido: ${new Date().toLocaleDateString('pt-BR')}</div>
-      </div>
-    </div>
-    <div style="font-size:14px;font-weight:700;color:#1E3A5F;margin-bottom:10px">ORDEM DE SERVIÇO</div>
-    <table style="width:100%;font-size:12px;margin-bottom:14px;border-collapse:collapse">
-      <tr><td style="color:#666;width:120px;padding:3px 0">Cliente</td><td style="font-weight:600">${c.nome||'-'}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">Celular</td><td>${c.cel||'-'}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">CPF</td><td>${c.cpf||'-'}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">Serviço</td><td style="font-weight:600">${c.tipo||'-'}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">Data</td><td>${dataFmt}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">Endereço</td><td>${c.end_logradouro||'-'}${c.cid?', '+c.cid:''}</td></tr>
-      <tr><td style="color:#666;padding:3px 0">CEP</td><td>${c.cep||'-'}</td></tr>
-      ${c.obs?`<tr><td style="color:#666;padding:3px 0">Obs</td><td>${c.obs}</td></tr>`:''}
-    </table>
-    <div style="background:#f5f7fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
-        <span>Valor do Serviço</span>
-        <span style="color:#1D6A40;font-size:15px">R$ ${fmt(c.rec)}</span>
-      </div>
-    </div>
-    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#1E3A5F;margin-bottom:8px">⚡ Pague via Pix</div>
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div id="osQrHolder" style="flex-shrink:0"></div>
-        <div style="font-size:11px">
-          <div style="margin-bottom:4px"><strong>Chave:</strong> ${PIX_KEY}</div>
-          <div style="margin-bottom:4px"><strong>Beneficiário:</strong> Luciana Cristina Testa</div>
-          <div style="margin-bottom:4px"><strong>Banco:</strong> Itaú · Ag 1637 · C/C 99.742-8</div>
-          <div style="margin-bottom:6px"><strong>Código CRM:</strong> ${osPixId}</div>
-          <div style="font-size:9px;color:#888;word-break:break-all">${osPixPayload}</div>
-        </div>
-      </div>
-    </div>
-    <div style="font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:8px">
-      Ao realizar o pagamento, envie o comprovante para ${PIX_KEY}
-    </div>
-    </div>`;
-  setTimeout(()=>{ const h=document.getElementById('osQrHolder'); if(h&&qrImg)h.appendChild(qrImg); },200);
+  } catch(e){}
+  setTimeout(()=>{
+    try{ const h=osDoc.getElementById('osQrHolder'); if(h&&qrImg)h.appendChild(qrImg); }catch(e){}
+  },300);
 }
 
 function renderOSForn(c){
   const sup = sups.find(s=>s.id===c.sid);
   const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
   const emitidoFmt = new Date().toLocaleDateString('pt-BR');
-  document.getElementById('osPreview').innerHTML = `
-  <div style="border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <div style="font-size:18px;font-weight:900;font-family:Arial,sans-serif;color:#1a3a5c">CacambaSP</div>
-      <div style="font-size:10px;color:#666">CNPJ: 44.538.708/0001-76</div>
-      <div style="font-size:10px;color:#666">cacambasp@gmail.com</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:11px;color:#666">OS Fornecedor Nº ${c.crm_id||'-'}</div>
-      <div style="font-size:11px;color:#666">Emitido: ${emitidoFmt}</div>
-    </div>
-  </div>
-  <div style="background:#f5a62315;border:1px solid #f5a62340;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Fornecedor</div>
-    <div style="font-weight:800;font-size:15px;color:#1a3a5c">${sup?.nome||'Não atribuído'}</div>
-    ${sup?.tel?`<div style="font-size:12px;color:#555;margin-top:2px">📞 ${sup.tel}</div>`:''}
-  </div>
-  <div style="margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">Dados do Serviço</div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:4px 0;color:#666;width:40%">Tipo de Serviço</td><td style="font-weight:700">${c.tipo||'-'}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Data</td><td style="font-weight:700">${dataFmt}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Endereço</td><td style="font-weight:700">${c.end_logradouro||'-'}${c.bairro?', '+c.bairro:''}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Cidade</td><td style="font-weight:700">${c.cid||'-'}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">CEP</td><td style="font-weight:700">${c.cep||'-'}</td></tr>
-      ${c.obs?`<tr><td style="padding:4px 0;color:#666;vertical-align:top">Obs.</td><td style="font-weight:600">${c.obs}</td></tr>`:''}
-    </table>
-  </div>
-  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contato do Cliente</div>
-    <div style="font-size:13px"><strong>${c.nome||'-'}</strong> · ${c.cel||'-'}</div>
-  </div>
-  <div style="border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#aaa;text-align:center">
-    CaçambaSP Gestão · ${emitidoFmt} · OS ${c.crm_id||'-'}
-  </div>`;
+  const obsRow = c.obs ? '<tr><td style="padding:4px 0;color:#666;vertical-align:top">Obs.</td><td style="font-weight:600">'+c.obs+'</td></tr>' : '';
+  const html = [
+    '<div style="border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">',
+      '<div>',
+        '<div style="font-size:18px;font-weight:900;color:#1a3a5c">CacambaSP</div>',
+        '<div style="font-size:10px;color:#666">CNPJ: 44.538.708/0001-76</div>',
+        '<div style="font-size:10px;color:#666">cacambasp@gmail.com</div>',
+      '</div>',
+      '<div style="text-align:right">',
+        '<div style="font-size:11px;color:#666">OS Fornecedor Nº '+(c.crm_id||'-')+'</div>',
+        '<div style="font-size:11px;color:#666">Emitido: '+emitidoFmt+'</div>',
+      '</div>',
+    '</div>',
+    '<div style="background:#f5a62315;border:1px solid #f5a62340;border-radius:8px;padding:10px 14px;margin-bottom:14px">',
+      '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Fornecedor</div>',
+      '<div style="font-weight:800;font-size:15px;color:#1a3a5c">'+(sup?sup.nome:'Não atribuído')+'</div>',
+      (sup&&sup.tel?'<div style="font-size:12px;color:#555;margin-top:2px">📞 '+sup.tel+'</div>':''),
+    '</div>',
+    '<div style="margin-bottom:14px">',
+      '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">Dados do Serviço</div>',
+      '<table style="width:100%;border-collapse:collapse;font-size:13px">',
+        '<tr><td style="padding:4px 0;color:#666;width:40%">Tipo de Serviço</td><td style="font-weight:700">'+(c.tipo||'-')+'</td></tr>',
+        '<tr><td style="padding:4px 0;color:#666">Data</td><td style="font-weight:700">'+dataFmt+'</td></tr>',
+        '<tr><td style="padding:4px 0;color:#666">Endereço</td><td style="font-weight:700">'+(c.end_logradouro||'-')+(c.bairro?', '+c.bairro:'')+'</td></tr>',
+        '<tr><td style="padding:4px 0;color:#666">Cidade</td><td style="font-weight:700">'+(c.cid||'-')+'</td></tr>',
+        '<tr><td style="padding:4px 0;color:#666">CEP</td><td style="font-weight:700">'+(c.cep||'-')+'</td></tr>',
+        obsRow,
+      '</table>',
+    '</div>',
+    '<div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">',
+      '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contato do Cliente</div>',
+      '<div style="font-size:13px"><strong>'+(c.nome||'-')+'</strong> · '+(c.cel||'-')+'</div>',
+    '</div>',
+    '<div style="border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#aaa;text-align:center">',
+      'CaçambaSP Gestão · '+emitidoFmt+' · OS '+(c.crm_id||'-'),
+    '</div>'
+  ].join('');
+  const osFrame = document.getElementById('osPreview');
+  const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
+  osDoc.open();
+  osDoc.write('<!DOCTYPE html><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.close();
 }
 
 function openOS(cardId){
@@ -2391,14 +2407,18 @@ function openOS(cardId){
 }
 
 function imprimirOS(){
-  const conteudo = document.getElementById('osPreview').innerHTML;
+  const osFrame = document.getElementById('osPreview');
+  const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
+  const conteudo = osDoc.body ? osDoc.body.innerHTML : '';
   const printWin = window.open('','_blank','width=500,height=700');
-  printWin.document.write('<html><head><title>OS '+osPixId+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000}*{box-sizing:border-box}@media print{body{padding:10px}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
+  printWin.document.write('<html><head><title>OS '+osPixId+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#111}*{box-sizing:border-box}@media print{body{padding:10px}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
   printWin.document.close();
 }
 
 function imprimirOSForn(){
-  const conteudo = document.getElementById('osPreview').innerHTML;
+  const osFrame = document.getElementById('osPreview');
+  const osDoc2 = osFrame.contentDocument || osFrame.contentWindow.document;
+  const conteudo = osDoc2.body ? osDoc2.body.innerHTML : '';
   const c = cards.find(x=>x.id===osCardId);
   const printWin = window.open('','_blank','width=500,height=700');
   printWin.document.write('<html><head><title>OS_Forn_'+(c?.crm_id||'')+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}@media print{body{padding:15px}@page{margin:10mm;size:A4}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<'+'/script></body></html>');
