@@ -1071,7 +1071,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <button id="os_tab_cli" onclick="switchOSTab('cli')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#000;font-weight:700;font-size:12px;cursor:pointer">👤 Cliente</button>
         <button id="os_tab_forn" onclick="switchOSTab('forn')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut2);font-weight:600;font-size:12px;cursor:pointer">🚛 Fornecedor</button>
       </div>
-      <div id="osPreview" style="background:#fff;color:#000;border-radius:10px;padding:20px;font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px"></div>
+      <div id="osPreview" style="background:#fff;color:#111;border-radius:10px;padding:20px;font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px;min-height:120px"></div>
       <div id="os_btns_cli" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-p" onclick="imprimirOS()">🖨️ Imprimir / Salvar PDF</button>
         <button class="btn btn-wa" onclick="enviarOSWhatsApp()">📲 WhatsApp (texto)</button>
@@ -2274,10 +2274,14 @@ function renderOSCli(c){
   osPixId = osPixId || nextPixId();
   osPixPayload = buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec)||0,osPixId);
   const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-  const qrDiv = document.createElement('div');
-  new QRCode(qrDiv,{text:osPixPayload,width:120,height:120,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  const qrImg = qrDiv.querySelector('img')||qrDiv.querySelector('canvas');
+  let qrImg = null;
+  try {
+    const qrDiv = document.createElement('div');
+    new QRCode(qrDiv,{text:osPixPayload||'CacambaSP',width:120,height:120,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    qrImg = qrDiv.querySelector('img')||qrDiv.querySelector('canvas');
+  } catch(e){ console.warn('QR falhou:',e); }
   document.getElementById('osPreview').innerHTML = `
+    <div style="all:initial;display:block;font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6">
     <div style="border-bottom:3px solid #1E3A5F;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="font-size:18px;font-weight:800;color:#1E3A5F">🪣 CacambaSP</div>
@@ -2321,6 +2325,7 @@ function renderOSCli(c){
     </div>
     <div style="font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:8px">
       Ao realizar o pagamento, envie o comprovante para ${PIX_KEY}
+    </div>
     </div>`;
   setTimeout(()=>{ const h=document.getElementById('osQrHolder'); if(h&&qrImg)h.appendChild(qrImg); },200);
 }
