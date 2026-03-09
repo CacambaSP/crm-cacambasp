@@ -153,6 +153,20 @@ select option{background:#252836;color:#f1f5f9}
   <div class="success-msg">Recebemos sua solicitação. Nossa equipe entrará em contato pelo WhatsApp para confirmar o serviço.</div>
   <div class="success-code" id="successCode">LC20260001</div>
   <div class="success-msg" style="margin-top:12px;font-size:12px">Guarde esse código — é o número do seu pedido.</div>
+  
+  <!-- Notificação equipe -->
+  <div id="notif_box" style="margin-top:20px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:12px;padding:14px 16px">
+    <div style="font-size:13px;font-weight:700;color:#25d366;margin-bottom:8px">📲 Notificar equipe CaçambaSP</div>
+    <div style="font-size:12px;color:#888;margin-bottom:12px">Se a notificação automática não abriu, clique abaixo:</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button onclick="notificarEquipe('551142378757')" style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+        💬 Luciana
+      </button>
+      <button onclick="notificarEquipe('5511963436452')" style="background:#128c7e;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+        💬 Douglas
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -319,6 +333,11 @@ async function enviarCadastro(){
     btn.disabled = false;
     btn.textContent = '✅ Enviar Solicitação';
   }
+}
+
+function notificarEquipe(tel){
+  if(!window._notifMsg){ alert('Mensagem não disponível. Recarregue a página.'); return; }
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(window._notifMsg),'_blank');
 }
 
 // Set min date to today
