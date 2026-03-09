@@ -907,6 +907,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           <div class="fcr"><span style="color:var(--mut)">Cobrado</span><span style="color:var(--acc)" id="dm_r">-</span></div>
           <div class="fcr"><span style="color:var(--mut)">Custo fornecedor</span><span style="color:var(--dan)" id="dm_c">-</span></div>
           <div class="fcr tot"><span>Margem</span><span id="dm_m">-</span></div>
+          <div class="fcr" id="d_nf_row" style="display:none;border-top:1px solid var(--bor);margin-top:6px;padding-top:6px">
+            <span style="color:var(--mut)">🧾 NF <span id="d_nf_num_badge" style="font-size:10px"></span></span>
+            <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+              <span style="color:var(--dan);font-size:11px" id="d_nf_imposto">-</span>
+              <span style="font-weight:700" id="d_nf_margem_real">-</span>
+            </span>
+          </div>
         </div>
       </div>
       <div class="ds" id="d_pago_sec">
@@ -1513,18 +1520,6 @@ function fillDetail(c){
   document.getElementById('d_cid').textContent=[c.cid,c.cep].filter(Boolean).join(' · ')||'-';
   document.getElementById('d_forn').textContent=sup?sup.nome:'-';
   document.getElementById('d_resp').textContent=c.usuario_nome||'-';
-  // NF info
-  const nfRow = document.getElementById('d_nf_row');
-  const nfInfo = document.getElementById('d_nf_info');
-  if(nfRow && nfInfo){
-    if(c.nf_num){
-      const impostos=(c.rec||0)*0.12;
-      const mgBruta=(c.rec||0)-(c.cst||0);
-      const mgReal=mgBruta-impostos;
-      nfInfo.innerHTML='NF Nº '+c.nf_num+'<br><span style="font-size:11px;color:var(--mut)">Imposto 12% s/ R$'+fmt(c.rec||0)+': -R$ '+fmt(impostos)+' · Margem real: <strong style="color:'+(mgReal>=0?'var(--g)':'var(--dan)')+'">R$ '+fmt(mgReal)+'</strong></span>';
-      nfRow.style.display='flex';
-    } else { nfRow.style.display='none'; }
-  }
   // Populate reatribuir dropdown
   const vendSel = document.getElementById('d_vend_sel');
   if(vendSel){
@@ -1536,6 +1531,20 @@ function fillDetail(c){
     document.getElementById('dm_r').textContent=c.rec?'R$ '+fmt(c.rec):'-';
     document.getElementById('dm_c').textContent=c.cst?'R$ '+fmt(c.cst):'-';
     const mEl=document.getElementById('dm_m');mEl.textContent=(c.rec||c.cst)?'R$ '+fmt(mg):'-';mEl.style.color=mg>=0?'var(--g)':'var(--dan)';
+    // NF row
+    const nfRow=document.getElementById('d_nf_row');
+    if(nfRow){
+      if(c.nf_num){
+        const imp=(c.rec||0)*0.12;
+        const mgReal=mg-imp;
+        document.getElementById('d_nf_num_badge').textContent='Nº '+c.nf_num;
+        document.getElementById('d_nf_imposto').textContent='Imposto 12%: -R$ '+fmt(imp);
+        const mrEl=document.getElementById('d_nf_margem_real');
+        mrEl.textContent='Margem real: R$ '+fmt(mgReal);
+        mrEl.style.color=mgReal>=0?'var(--g)':'var(--dan)';
+        nfRow.style.display='flex';
+      } else { nfRow.style.display='none'; }
+    }
   }
   // pago
   const badge=document.getElementById('d_pago_badge');
