@@ -896,6 +896,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="dr"><span class="k">Cidade</span><span class="v" id="d_cid"></span></div>
         <div class="dr"><span class="k">Fornecedor</span><span class="v" id="d_forn"></span></div>
         <div class="dr"><span class="k">Vendedor</span><span class="v" id="d_resp"></span></div>
+        <div class="dr admin-only"><span class="k">🧾 Nota Fiscal</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            <input id="d_nf_input" type="text" placeholder="Nº da NF" 
+              style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--txt);font-family:'DM Sans',sans-serif;width:110px;outline:none"
+              oninput="salvarNFInline()">
+            <span id="d_nf_saved" style="font-size:10px;color:var(--g);display:none">✓ salvo</span>
+          </span>
+        </div>
         <div class="dr admin-only" id="d_vend_row"><span class="k">Reatribuir</span>
           <select id="d_vend_sel" onchange="reatribuirVendedor()" style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--txt);font-family:'DM Sans',sans-serif">
             <option value="">- Manter atual -</option>
@@ -1520,6 +1528,9 @@ function fillDetail(c){
   document.getElementById('d_cid').textContent=[c.cid,c.cep].filter(Boolean).join(' · ')||'-';
   document.getElementById('d_forn').textContent=sup?sup.nome:'-';
   document.getElementById('d_resp').textContent=c.usuario_nome||'-';
+  // NF inline field
+  const nfInput = document.getElementById('d_nf_input');
+  if(nfInput){ nfInput.value = c.nf_num||''; document.getElementById('d_nf_saved').style.display='none'; }
   // Populate reatribuir dropdown
   const vendSel = document.getElementById('d_vend_sel');
   if(vendSel){
@@ -1531,14 +1542,14 @@ function fillDetail(c){
     document.getElementById('dm_r').textContent=c.rec?'R$ '+fmt(c.rec):'-';
     document.getElementById('dm_c').textContent=c.cst?'R$ '+fmt(c.cst):'-';
     const mEl=document.getElementById('dm_m');mEl.textContent=(c.rec||c.cst)?'R$ '+fmt(mg):'-';mEl.style.color=mg>=0?'var(--g)':'var(--dan)';
-    // NF row
+    // NF row no financeiro
     const nfRow=document.getElementById('d_nf_row');
     if(nfRow){
       if(c.nf_num){
         const imp=(c.rec||0)*0.12;
         const mgReal=mg-imp;
         document.getElementById('d_nf_num_badge').textContent='Nº '+c.nf_num;
-        document.getElementById('d_nf_imposto').textContent='Imposto 12%: -R$ '+fmt(imp);
+        document.getElementById('d_nf_imposto').textContent='-R$ '+fmt(imp)+' (12%)';
         const mrEl=document.getElementById('d_nf_margem_real');
         mrEl.textContent='Margem real: R$ '+fmt(mgReal);
         mrEl.style.color=mgReal>=0?'var(--g)':'var(--dan)';
@@ -4054,6 +4065,44 @@ async function excluirTodosConcluidos(){
     toast('🗑 Histórico limpo!');
     renderHistoricoPagina();
   }catch(e){ setSyncDot('err'); toast('Erro ao excluir','#f87171'); }
+}
+
+// ═══════════════════════════════════════
+// NF INLINE SAVE
+// ═══════════════════════════════════════
+let _nfSaveTimer = null;
+async function salvarNFInline(){
+  const c = cards.find(x=>x.id===detailId); if(!c) return;
+  const val = (document.getElementById('d_nf_input')?.value||'').trim();
+  c.nf_num = val;
+  // Atualiza financeiro em tempo real
+  const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
+  const nfRow=document.getElementById('d_nf_row');
+  if(nfRow){
+    if(val){
+      const imp=(c.rec||0)*0.12;
+      const mgReal=mg-imp;
+      document.getElementById('d_nf_num_badge').textContent='Nº '+val;
+      document.getElementById('d_nf_imposto').textContent='-R$ '+fmt(imp)+' (12%)';
+      const mrEl=document.getElementById('d_nf_margem_real');
+      mrEl.textContent='Margem real: R$ '+fmt(mgReal);
+      mrEl.style.color=mgReal>=0?'var(--g)':'var(--dan)';
+      nfRow.style.display='flex';
+    } else { nfRow.style.display='none'; }
+  }
+  // Atualiza chip NF no card
+  renderBoard();
+  // Debounce salvar no banco
+  clearTimeout(_nfSaveTimer);
+  _nfSaveTimer = setTimeout(async ()=>{
+    try{
+      setSyncDot('loading');
+      await api('negocios?id=eq.'+c.id,'PATCH',{nf_num:val},currentUser?.access_token);
+      setSyncDot('ok');
+      const saved=document.getElementById('d_nf_saved');
+      if(saved){ saved.style.display='inline'; setTimeout(()=>saved.style.display='none',2000); }
+    }catch(e){ setSyncDot('err'); }
+  }, 800);
 }
 
 // ═══════════════════════════════════════
