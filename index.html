@@ -1282,14 +1282,15 @@ function setView(v){
 function render(){renderStats();renderBoard();}
 function renderStats(){
   const bar=document.getElementById('statsBar');
-  const tr=cards.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-  const tc=cards.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-  const pagos=cards.filter(c=>c.pago).length;
+  const src = filteredCards !== null ? filteredCards : cards;
+  const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const pagos=src.filter(c=>c.pago).length;
   let html=`
-    <div class="stat"><div class="stat-v" style="color:var(--acc)">${cards.length}</div><div class="stat-l">Negócios</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--acc)">${src.length}</div><div class="stat-l">Negócios</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--g)">${pagos}</div><div class="stat-l">Pagos</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--c4)">${cards.filter(c=>c.col!=='concluido').length}</div><div class="stat-l">Faltapg</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--c6)">${cards.filter(c=>c.col==='inadimp').length}</div><div class="stat-l">Inadimp.</div></div>`;
+    <div class="stat"><div class="stat-v" style="color:var(--c4)">${src.filter(c=>c.col!=='concluido').length}</div><div class="stat-l">Faltapg</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c6)">${src.filter(c=>c.col==='inadimp').length}</div><div class="stat-l">Inadimp.</div></div>`;
   if(isAdmin()) html+=`
     <div class="stat"><div class="stat-v" style="color:var(--g)">R$${fmts(tr)}</div><div class="stat-l">Receita</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--dan)">R$${fmts(tc)}</div><div class="stat-l">Custo</div></div>
