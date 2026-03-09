@@ -101,6 +101,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 /* ── VIEWS ── */
 .view{display:none}.view.act{display:block}
+#view-funil{display:none}
+#view-funil.act{display:flex;flex-direction:column;height:calc(100vh - 54px);overflow:hidden}
 
 /* ── FILTERS ── */
 .filter-bar{padding:11px 22px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:var(--sur)}
@@ -121,7 +123,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 /* ── BOARD ── */
 .bwrap{padding:16px 22px;overflow-x:auto;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
-.board{display:flex;gap:12px;min-width:max-content;align-items:flex-start;height:100%;padding-bottom:20px}
+.board{display:flex;gap:12px;min-width:max-content;align-items:stretch;height:100%;padding-bottom:20px}
 
 /* ── COLUMN ── */
 .col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;height:100%;max-height:100%}
