@@ -48,7 +48,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .sidebar.collapsed{width:4px;opacity:0;pointer-events:none;overflow:hidden}
 .sidebar.collapsed:hover,.sidebar-hover-zone:hover~.sidebar,.sidebar-hover-zone:hover+* .sidebar{width:var(--sidebar);opacity:1;pointer-events:all}
 .sidebar-hover-zone{position:fixed;left:0;top:0;bottom:0;width:16px;z-index:49}
-.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;min-height:100vh;transition:margin-left .25s}
+.main-wrap{flex:1;margin-left:var(--sidebar);display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden;transition:margin-left .25s}
 .main-wrap.full{margin-left:4px}
 .topbar-toggle{width:30px;height:30px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:.15s}
 .topbar-toggle:hover{background:var(--bor2);color:var(--txt)}
@@ -120,16 +120,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .stat-l{font-size:10px;color:var(--mut2);margin-top:1px;text-transform:uppercase;letter-spacing:.4px}
 
 /* ── BOARD ── */
-.bwrap{padding:16px 22px;overflow-x:auto;min-height:calc(100vh - 160px);scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
-.board{display:flex;gap:12px;min-width:max-content;align-items:flex-start;padding-bottom:20px}
+.bwrap{padding:16px 22px;overflow-x:auto;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
+.board{display:flex;gap:12px;min-width:max-content;align-items:flex-start;height:100%;padding-bottom:20px}
 
 /* ── COLUMN ── */
-.col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden}
-.chead{padding:10px 12px 9px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:7px}
+.col{width:248px;flex-shrink:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;height:100%;max-height:100%}
+.chead{padding:10px 12px 9px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:7px;flex-shrink:0}
 .cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .ctit{font-family:'Syne',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;flex:1}
 .ccnt{background:var(--card);border:1px solid var(--bor);border-radius:20px;padding:1px 7px;font-size:10px;color:var(--mut2)}
-.cards{padding:8px;display:flex;flex-direction:column;gap:7px;min-height:50px}
+.cards{padding:8px;display:flex;flex-direction:column;gap:7px;min-height:50px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--bor2) transparent}
 .cards.dov{background:rgba(255,255,255,.025);border-radius:7px}
 .ecard{text-align:center;padding:18px 10px;color:var(--mut);font-size:11px}
 
@@ -1388,7 +1388,7 @@ function cHTML(c,color){
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${sel?'✓':''}</div>
     <div class="card-del" onclick="event.stopPropagation();deletarCard('${c.id}')" title="Excluir">🗑</div>
     <div class="card-trophy" onclick="event.stopPropagation();concluirCard('${c.id}')" title="Concluir ordem">🏆</div>
-    <div class="card-addr">${c.end_logradouro||'Sem endereço'}</div>
+    ${c.nf_num?`<div style="font-size:9px;color:#10b981;font-weight:700;padding-left:8px;padding-right:52px;margin-bottom:1px;letter-spacing:.3px">🧾 NF ${c.nf_num}</div>`:''}    <div class="card-addr">${c.end_logradouro||'Sem endereço'}</div>
     ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
     <div class="card-tipo">${c.tipo||''}${ds?' · '+ds:''}</div>
     <div class="cmeta">
@@ -1396,9 +1396,9 @@ function cHTML(c,color){
       ${c.cel?`<span class="chip" data-tip="Celular">📱 ${c.cel}</span>`:''}
       ${isAdmin()&&c.rec?`<span class="chip rec" data-tip="Cobrado do cliente">↑ R$${fmts(c.rec)}</span>`:''}
       ${isAdmin()&&c.cst?`<span class="chip cst" data-tip="Custo fornecedor">↓ R$${fmts(c.cst)}</span>`:''}
-      ${isAdmin()&&c.rec&&c.cst?`<span class="chip mrg" data-tip="Margem">= R$${fmts(mg)}</span>`:''}
+      ${isAdmin()&&c.rec&&c.cst?(()=>{const mgReal=c.nf_num?mg-(c.rec*0.12):mg;return `<span class="chip mrg" data-tip="${c.nf_num?'Margem real (c/ NF)':'Margem'}">= R$${fmts(mgReal)}</span>`})():''}
       ${c.crm_id?`<span class="chip" data-tip="Código CRM" style="font-size:9px;color:var(--acc);border-color:rgba(245,166,35,.2)">${c.crm_id}</span>`:''}
-      ${c.nf_num?`<span class="chip" data-tip="Nota Fiscal" style="font-size:9px;color:#10b981;border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.08)">🧾 NF ${c.nf_num}</span>`:''}
+
       ${c.forn_pago?'<span style="font-size:9px;color:#5b8dee;background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.2);border-radius:4px;padding:1px 5px">💰 F.Pago</span>':''}
       ${c.pago?`<span class="chip pago-chip" data-tip="Pagamento confirmado">✅ Pago</span>`:''}
       ${sup?`<span class="chip" data-tip="Fornecedor">🚛 ${sup.nome.split(' ')[0]}</span>`:''}
