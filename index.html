@@ -2253,11 +2253,11 @@ function cobrarTodos(){
 // ═══════════════════════════════════════
 let osCardId = null;
 let osTabAtual = 'cli';
+let osPixPayload = '', osPixId = '';
 
 function switchOSTab(tab){
   osTabAtual = tab;
   const c = cards.find(x=>x.id===osCardId); if(!c) return;
-  // Update tab buttons
   document.getElementById('os_tab_cli').style.background = tab==='cli' ? 'var(--acc)' : 'var(--card)';
   document.getElementById('os_tab_cli').style.color = tab==='cli' ? '#000' : 'var(--mut2)';
   document.getElementById('os_tab_cli').style.borderColor = tab==='cli' ? 'var(--acc)' : 'var(--bor)';
@@ -2267,99 +2267,16 @@ function switchOSTab(tab){
   document.getElementById('os_btns_cli').style.display = tab==='cli' ? 'flex' : 'none';
   document.getElementById('os_btns_forn').style.display = tab==='forn' ? 'flex' : 'none';
   if(tab==='forn') renderOSForn(c);
-  else document.getElementById('osPreview').innerHTML = osPreviewHtmlCli;
+  else renderOSCli(c);
 }
 
-let osPreviewHtmlCli = '';
-
-function renderOSForn(c){
-  const sup = sups.find(s=>s.id===c.sid);
-  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-  const emitidoFmt = new Date().toLocaleDateString('pt-BR');
-  document.getElementById('osPreview').innerHTML = `
-  <div style="border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <div style="font-size:18px;font-weight:900;font-family:Arial,sans-serif;color:#1a3a5c">CacambaSP</div>
-      <div style="font-size:10px;color:#666">CNPJ: 44.538.708/0001-76</div>
-      <div style="font-size:10px;color:#666">cacambasp@gmail.com</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:11px;color:#666">OS Fornecedor Nº ${c.crm_id||'-'}</div>
-      <div style="font-size:11px;color:#666">Emitido: ${emitidoFmt}</div>
-    </div>
-  </div>
-
-  <div style="background:#f5a62315;border:1px solid #f5a62340;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Fornecedor</div>
-    <div style="font-weight:800;font-size:15px;color:#1a3a5c">${sup?.nome||'Não atribuído'}</div>
-    ${sup?.tel?`<div style="font-size:12px;color:#555;margin-top:2px">📞 ${sup.tel}</div>`:''}
-  </div>
-
-  <div style="margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">Dados do Serviço</div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:4px 0;color:#666;width:40%">Tipo de Serviço</td><td style="font-weight:700">${c.tipo||'-'}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Data</td><td style="font-weight:700">${dataFmt}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Endereço</td><td style="font-weight:700">${c.end_logradouro||'-'}${c.bairro?', '+c.bairro:''}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">Cidade</td><td style="font-weight:700">${c.cid||'-'}</td></tr>
-      <tr><td style="padding:4px 0;color:#666">CEP</td><td style="font-weight:700">${c.cep||'-'}</td></tr>
-      ${c.obs?`<tr><td style="padding:4px 0;color:#666;vertical-align:top">Obs.</td><td style="font-weight:600">${c.obs}</td></tr>`:''}
-    </table>
-  </div>
-
-  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contato do Cliente</div>
-    <div style="font-size:13px"><strong>${c.nome||'-'}</strong> · ${c.cel||'-'}</div>
-  </div>
-
-  <div style="border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#aaa;text-align:center">
-    CaçambaSP Gestão · ${emitidoFmt} · OS ${c.crm_id||'-'}
-  </div>`;
-}
-
-function imprimirOSForn(){
-  const conteudo = document.getElementById('osPreview').innerHTML;
-  const c = cards.find(x=>x.id===osCardId);
-  const printWin = window.open('','_blank','width=500,height=700');
-  const titulo = 'OS_Forn_'+(c?.crm_id||'');
-  printWin.document.write('<!DOCTYPE html><html><head><title>'+titulo+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}@media print{body{padding:15px}@page{margin:10mm;size:A4}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<'+'/script></body></html>');
-  printWin.document.close();
-}
-
-function enviarOSFornWhatsApp(){
-  const c = cards.find(x=>x.id===osCardId); if(!c) return;
-  const sup = sups.find(s=>s.id===c.sid);
-  if(!sup||!sup.tel){ toast('⚠ Fornecedor sem telefone cadastrado','#f5a623'); return; }
-  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-  const bairroStr = c.bairro ? ', '+c.bairro : '';
-  const cidStr = c.cid ? ', '+c.cid : '';
-  let msg = 'Olá '+sup.nome+'! 👋\n\n';
-  msg += 'Segue a Ordem de Serviço para execução:\n\n';
-  msg += '📋 *OS Nº '+(c.crm_id||'-')+'*\n';
-  msg += '🗑️ *Serviço:* '+(c.tipo||'-')+'\n';
-  msg += '📅 *Data:* '+dataFmt+'\n';
-  msg += '📍 *Endereço:* '+(c.end_logradouro||'')+bairroStr+cidStr+'\n';
-  msg += '📞 *Contato:* '+(c.nome||'-')+' · '+(c.cel||'-')+'\n';
-  if(c.obs) msg += '📝 *Obs:* '+c.obs+'\n';
-  msg += '\nQualquer dúvida entre em contato!\nCaçambaSP Gestão';
-  const tel = sup.tel.replace(/[^0-9]/g,'');
-  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-let osCardId_orig = null;
-let osPixPayload = '', osPixId = '';
-
-function openOS(cardId){
-  const c = cards.find(x=>x.id===cardId); if(!c) return;
-  osCardId = cardId;
-  osPixId = nextPixId();
+function renderOSCli(c){
+  osPixId = osPixId || nextPixId();
   osPixPayload = buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec)||0,osPixId);
-  const sup = sups.find(s=>s.id===c.sid);
   const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
   const qrDiv = document.createElement('div');
   new QRCode(qrDiv,{text:osPixPayload,width:120,height:120,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  const qrImg = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
-
+  const qrImg = qrDiv.querySelector('img')||qrDiv.querySelector('canvas');
   document.getElementById('osPreview').innerHTML = `
     <div style="border-bottom:3px solid #1E3A5F;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
       <div>
@@ -2405,97 +2322,119 @@ function openOS(cardId){
     <div style="font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:8px">
       Ao realizar o pagamento, envie o comprovante para ${PIX_KEY}
     </div>`;
+  setTimeout(()=>{ const h=document.getElementById('osQrHolder'); if(h&&qrImg)h.appendChild(qrImg); },200);
+}
 
-  // inject QR
-  setTimeout(()=>{
-    const holder = document.getElementById('osQrHolder');
-    if(holder && qrImg) holder.appendChild(qrImg);
-  }, 200);
+function renderOSForn(c){
+  const sup = sups.find(s=>s.id===c.sid);
+  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  const emitidoFmt = new Date().toLocaleDateString('pt-BR');
+  document.getElementById('osPreview').innerHTML = `
+  <div style="border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:18px;font-weight:900;font-family:Arial,sans-serif;color:#1a3a5c">CacambaSP</div>
+      <div style="font-size:10px;color:#666">CNPJ: 44.538.708/0001-76</div>
+      <div style="font-size:10px;color:#666">cacambasp@gmail.com</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#666">OS Fornecedor Nº ${c.crm_id||'-'}</div>
+      <div style="font-size:11px;color:#666">Emitido: ${emitidoFmt}</div>
+    </div>
+  </div>
+  <div style="background:#f5a62315;border:1px solid #f5a62340;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Fornecedor</div>
+    <div style="font-weight:800;font-size:15px;color:#1a3a5c">${sup?.nome||'Não atribuído'}</div>
+    ${sup?.tel?`<div style="font-size:12px;color:#555;margin-top:2px">📞 ${sup.tel}</div>`:''}
+  </div>
+  <div style="margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">Dados do Serviço</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 0;color:#666;width:40%">Tipo de Serviço</td><td style="font-weight:700">${c.tipo||'-'}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Data</td><td style="font-weight:700">${dataFmt}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Endereço</td><td style="font-weight:700">${c.end_logradouro||'-'}${c.bairro?', '+c.bairro:''}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Cidade</td><td style="font-weight:700">${c.cid||'-'}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">CEP</td><td style="font-weight:700">${c.cep||'-'}</td></tr>
+      ${c.obs?`<tr><td style="padding:4px 0;color:#666;vertical-align:top">Obs.</td><td style="font-weight:600">${c.obs}</td></tr>`:''}
+    </table>
+  </div>
+  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contato do Cliente</div>
+    <div style="font-size:13px"><strong>${c.nome||'-'}</strong> · ${c.cel||'-'}</div>
+  </div>
+  <div style="border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#aaa;text-align:center">
+    CaçambaSP Gestão · ${emitidoFmt} · OS ${c.crm_id||'-'}
+  </div>`;
+}
 
+function openOS(cardId){
+  const c = cards.find(x=>x.id===cardId); if(!c) return;
+  osCardId = cardId;
+  osPixId = nextPixId();
+  osPixPayload = buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec)||0,osPixId);
+  // Always start on client tab
   osTabAtual = 'cli';
-  // Reset to client tab
-  setTimeout(()=>{ switchOSTab('cli'); osPreviewHtmlCli = document.getElementById('osPreview').innerHTML; },50);
+  document.getElementById('os_tab_cli').style.background = 'var(--acc)';
+  document.getElementById('os_tab_cli').style.color = '#000';
+  document.getElementById('os_tab_cli').style.borderColor = 'var(--acc)';
+  document.getElementById('os_tab_forn').style.background = 'var(--card)';
+  document.getElementById('os_tab_forn').style.color = 'var(--mut2)';
+  document.getElementById('os_tab_forn').style.borderColor = 'var(--bor)';
+  document.getElementById('os_btns_cli').style.display = 'flex';
+  document.getElementById('os_btns_forn').style.display = 'none';
+  renderOSCli(c);
   document.getElementById('osModal').classList.add('open');
 }
 
 function imprimirOS(){
   const conteudo = document.getElementById('osPreview').innerHTML;
   const printWin = window.open('','_blank','width=500,height=700');
-  printWin.document.write(`<html><head><title>OS ${osPixId}</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000}*{box-sizing:border-box}@media print{body{padding:10px}}</style></head><body>${conteudo}<script>window.onload=function(){window.print();}<\/script></body></html>`);
+  printWin.document.write('<html><head><title>OS '+osPixId+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000}*{box-sizing:border-box}@media print{body{padding:10px}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
   printWin.document.close();
+}
+
+function imprimirOSForn(){
+  const conteudo = document.getElementById('osPreview').innerHTML;
+  const c = cards.find(x=>x.id===osCardId);
+  const printWin = window.open('','_blank','width=500,height=700');
+  printWin.document.write('<html><head><title>OS_Forn_'+(c?.crm_id||'')+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}@media print{body{padding:15px}@page{margin:10mm;size:A4}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<'+'/script></body></html>');
+  printWin.document.close();
+}
+
+function enviarOSFornWhatsApp(){
+  const c = cards.find(x=>x.id===osCardId); if(!c) return;
+  const sup = sups.find(s=>s.id===c.sid);
+  if(!sup||!sup.tel){ toast('⚠ Fornecedor sem telefone cadastrado','#f5a623'); return; }
+  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  let msg = 'Olá '+sup.nome+'! 👋\n\n';
+  msg += 'Segue a Ordem de Serviço para execução:\n\n';
+  msg += '📋 *OS Nº '+(c.crm_id||'-')+'*\n';
+  msg += '🗑️ *Serviço:* '+(c.tipo||'-')+'\n';
+  msg += '📅 *Data:* '+dataFmt+'\n';
+  msg += '📍 *Endereço:* '+(c.end_logradouro||'')+(c.bairro?', '+c.bairro:'')+(c.cid?', '+c.cid:'')+'\n';
+  msg += '📞 *Contato:* '+(c.nome||'-')+' · '+(c.cel||'-')+'\n';
+  if(c.obs) msg += '📝 *Obs:* '+c.obs+'\n';
+  msg += '\nQualquer dúvida entre em contato!\nCaçambaSP Gestão';
+  const tel = sup.tel.replace(/[^0-9]/g,'');
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function baixarPDFeWhatsApp(){
   const c = cards.find(x=>x.id===osCardId); if(!c){ toast('Erro','#e05252'); return; }
-  
-  // Step 1: open print window (user saves as PDF)
-  const conteudo = document.getElementById('osPreview').innerHTML;
-  const printWin = window.open('','_blank','width=500,height=700');
-  printWin.document.write(`<!DOCTYPE html><html><head><title>OS_${osPixId}</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}
-      *{box-sizing:border-box}
-      @media print{
-        body{padding:15px}
-        @page{margin:10mm;size:A4}
-      }
-    </style>
-  </head><body>
-    ${conteudo}
-    <script>
-      window.onload=function(){
-        window.print();
-        // After print dialog closes, notify opener to open WhatsApp
-        window.onafterprint=function(){ 
-          window.opener && window.opener.abrirWhatsAppAposPDF && window.opener.abrirWhatsAppAposPDF();
-          window.close();
-        };
-        // Fallback: open WA after 3s
-        setTimeout(function(){
-          window.opener && window.opener.abrirWhatsAppAposPDF && window.opener.abrirWhatsAppAposPDF();
-        }, 3000);
-      };
-    <\/script>
-  </body></html>`);
-  printWin.document.close();
-
-  // Step 2: define callback to open WhatsApp after PDF saved
-  window.abrirWhatsAppAposPDF = function(){
-    if(!c.cel){ toast('⚠ Celular não cadastrado','#e05252'); return; }
-    const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-    const msg = `Olá ${c.nome}! 👋
-
-Segue sua *Ordem de Serviço* — *OS Nº ${osPixId}* 📄
-
-🗑️ *Serviço:* ${c.tipo||'-'}
-📍 *Endereço:* ${c.end_logradouro||''}${c.bairro?', '+c.bairro:''}${c.cid?', '+c.cid:''}
-📅 *Data:* ${dataFmt}
-💰 *Valor:* R$ ${fmt(c.rec)}
-
-💳 *Pagamento após receber a caçamba*
-⚡ Pague via *Pix*:
-Chave: *${PIX_KEY}* (CNPJ)
-
-📋 *Pix Copia e Cola:*
-${osPixPayload}
-
-🏦 Banco Itaú | Ag 1637 | C/C 99.742-8
-Luciana Cristina Testa
-
-_📎 O PDF da OS foi gerado — por favor, anexe o arquivo nesta conversa._`;
-    window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+  window.abrirWhatsAppAposPDF = ()=>{
+    const msg = 'Olá '+( c.nome||'')+'! 👋\n\nSegue sua OS Nº '+osPixId+'\n🔧 '+( c.tipo||'-')+'\n📍 '+(c.end_logradouro||'')+(c.cid?', '+c.cid:'')+'\n📅 '+(c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'-')+'\n💰 R$ '+fmt(c.rec)+'\n\n⚡ Pix: '+PIX_KEY+'\n🏦 Banco Itaú | Ag 1637 | C/C 99.742-8\nLuciana Cristina Testa\n\n_📎 O PDF da OS foi gerado — por favor, anexe o arquivo nesta conversa._';
+    window.open('https://wa.me/55'+c.cel.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg),'_blank');
     toast('📲 PDF gerado! Anexe no WhatsApp que abriu.','#25d366');
     window.abrirWhatsAppAposPDF = null;
   };
+  imprimirOS();
 }
 
 function enviarOSWhatsApp(){
   const c = cards.find(x=>x.id===osCardId); if(!c||!c.cel){ toast('⚠ Celular não cadastrado','#e05252'); return; }
-  const msg = `Olá ${c.nome}! 👋\n\nSegue sua Ordem de Serviço:\n\n📋 *OS:* ${osPixId}\n🔧 *Serviço:* ${c.tipo||'-'}\n📍 *Endereço:* ${c.end_logradouro||''}${c.cid?', '+c.cid:''}\n📅 *Data:* ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'}\n💰 *Valor:* R$ ${fmt(c.rec)}\n\n⚡ *Pague via Pix:*\nChave: ${PIX_KEY}\n\n📋 *Copia e Cola:*\n${osPixPayload}\n\nBanco Itaú | Ag 1637 | C/C 99.742-8\nCNPJ: 44.538.708/0001-76\n\nLuciana Cristina Testa`;
-  window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+  const msg = 'Olá '+c.nome+'! 👋\n\nSegue sua Ordem de Serviço:\n\n📋 *OS:* '+osPixId+'\n🔧 *Serviço:* '+(c.tipo||'-')+'\n📍 *Endereço:* '+(c.end_logradouro||'')+(c.cid?', '+c.cid:'')+'\n📅 *Data:* '+(c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'-')+'\n💰 *Valor:* R$ '+fmt(c.rec)+'\n\n⚡ *Pague via Pix:*\nChave: '+PIX_KEY+'\n\n📋 *Copia e Cola:*\n'+osPixPayload+'\n\nBanco Itaú | Ag 1637 | C/C 99.742-8\nCNPJ: 44.538.708/0001-76\n\nLuciana Cristina Testa';
+  window.open('https://wa.me/55'+c.cel.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg),'_blank');
   toast('📲 Abrindo WhatsApp...');
 }
-
 
 // ═══════════════════════════════════════
 // FILTRO POR DATA
