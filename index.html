@@ -1042,6 +1042,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="pix-acts">
         <button class="btn btn-p btn-sm" onclick="copyGrpPix()">📋 Copiar</button>
         <button class="btn btn-wa btn-sm" onclick="sendGrpPixWA()">📲 WhatsApp</button>
+        <button class="btn btn-sm" onclick="imprimirOSAgrupada()" style="background:linear-gradient(135deg,#1E3A5F,#2a5298);color:#fff;border:none">🖨️ OS Cliente</button>
       </div>
     </div>
   </div>
@@ -2613,6 +2614,79 @@ function updateSelBar(){
   document.getElementById('selInfo').textContent = sel.length + ' card' + (sel.length>1?'s':'') + ' selecionado' + (sel.length>1?'s':'');
   document.getElementById('selClientes').textContent = clientes.join(', ');
   document.getElementById('selTotal').textContent = 'R$ ' + fmt(total);
+}
+
+function imprimirOSAgrupada(){
+  const sel = [...selectedCards].map(id => cards.find(c=>c.id===id)).filter(Boolean);
+  if(!sel.length){ toast('⚠ Nenhum card selecionado','#e05252'); return; }
+  const total = sel.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const emitido = new Date().toLocaleDateString('pt-BR');
+  const enderecos = sel.map((c,i) => {
+    const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    return [
+      '<tr style="background:'+(i%2===0?'#f9f9f9':'#fff')+'">',
+        '<td style="padding:7px 10px;font-weight:600;color:#1E3A5F">'+(c.crm_id||'-')+'</td>',
+        '<td style="padding:7px 10px">'+(c.end_logradouro||'-')+(c.bairro?', '+c.bairro:'')+(c.cid?', '+c.cid:'')+'</td>',
+        '<td style="padding:7px 10px;color:#555">'+dataFmt+'</td>',
+        '<td style="padding:7px 10px;font-weight:600;color:#1D6A40;text-align:right">R$ '+fmt(c.rec)+'</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+  // Build QR
+  let qrHtml = '';
+  try {
+    const qDiv = document.createElement('div');
+    new QRCode(qDiv,{text:grpPixPayload||'CacambaSP',width:110,height:110,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    const qImg = qDiv.querySelector('img')||qDiv.querySelector('canvas');
+    if(qImg) qrHtml = qImg.outerHTML;
+  } catch(e){}
+  const nomes = [...new Set(sel.map(c=>c.nome).filter(Boolean))].join(', ');
+  const html = [
+    '<div style="border-bottom:3px solid #1E3A5F;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start">',
+      '<div>',
+        '<div style="font-size:20px;font-weight:800;color:#1E3A5F">🪣 CacambaSP</div>',
+        '<div style="font-size:11px;color:#666;margin-top:2px">CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>',
+      '</div>',
+      '<div style="text-align:right">',
+        '<div style="font-size:11px;color:#666">OS Agrupada Nº '+grpPixId+'</div>',
+        '<div style="font-size:11px;color:#666">Emitido: '+emitido+'</div>',
+      '</div>',
+    '</div>',
+    '<div style="font-size:14px;font-weight:700;color:#1E3A5F;margin-bottom:6px">ORDEM DE SERVIÇO — '+sel.length+' ENDEREÇOS</div>',
+    '<div style="font-size:12px;color:#666;margin-bottom:14px">Cliente: <strong>'+nomes+'</strong></div>',
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">',
+      '<thead><tr style="background:#1E3A5F;color:#fff">',
+        '<th style="padding:8px 10px;text-align:left">Código</th>',
+        '<th style="padding:8px 10px;text-align:left">Endereço</th>',
+        '<th style="padding:8px 10px;text-align:left">Data</th>',
+        '<th style="padding:8px 10px;text-align:right">Valor</th>',
+      '</tr></thead>',
+      '<tbody>'+enderecos+'</tbody>',
+      '<tfoot><tr style="background:#f0f4f8">',
+        '<td colspan="3" style="padding:8px 10px;font-weight:700">Total</td>',
+        '<td style="padding:8px 10px;font-weight:700;color:#1D6A40;text-align:right">R$ '+fmt(total)+'</td>',
+      '</tr></tfoot>',
+    '</table>',
+    '<div style="border:1px solid #ddd;border-radius:8px;padding:14px;margin-bottom:14px">',
+      '<div style="font-size:13px;font-weight:700;color:#1E3A5F;margin-bottom:10px">⚡ Pague via Pix — valor total R$ '+fmt(total)+'</div>',
+      '<div style="display:flex;gap:16px;align-items:flex-start">',
+        '<div style="flex-shrink:0">'+qrHtml+'</div>',
+        '<div style="font-size:11px;line-height:1.8">',
+          '<div><strong>Chave:</strong> '+PIX_KEY+'</div>',
+          '<div><strong>Beneficiário:</strong> Luciana Cristina Testa</div>',
+          '<div><strong>Banco:</strong> Itaú · Ag 1637 · C/C 99.742-8</div>',
+          '<div><strong>Código agrupado:</strong> '+grpPixId+'</div>',
+          '<div style="font-size:9px;color:#888;word-break:break-all;margin-top:4px">'+grpPixPayload+'</div>',
+        '</div>',
+      '</div>',
+    '</div>',
+    '<div style="font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:8px">',
+      'Ao realizar o pagamento, envie o comprovante para '+PIX_KEY+' — CaçambaSP Gestão',
+    '</div>'
+  ].join('');
+  const printWin = window.open('','_blank','width=600,height=800');
+  printWin.document.write('<!DOCTYPE html><html><head><title>OS Agrupada '+grpPixId+'</title><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111;background:#fff}*{box-sizing:border-box}@media print{body{padding:12px}@page{margin:8mm;size:A4}}</style></head><body>'+html+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
+  printWin.document.close();
 }
 
 function gerarPixAgrupado(){
