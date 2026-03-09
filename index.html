@@ -1106,8 +1106,62 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   </div>
 </div>
 
+<!-- MODAL: EDITAR FORNECEDOR -->
+<div class="mbg" id="editSupModal">
+  <div class="mbox" style="max-width:390px">
+    <div class="mh"><div class="mt">✏️ Editar Fornecedor</div><button class="mx" onclick="document.getElementById('editSupModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="es_id">
+      <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="es_nome"></div>
+      <div class="fr"><label>Telefone</label><input type="text" id="es_tel"></div>
+      <div class="fr"><label>Observações</label><textarea id="es_obs"></textarea></div>
+      <div class="ffoot">
+        <button class="btn btn-g" onclick="document.getElementById('editSupModal').classList.remove('open')">Cancelar</button>
+        <button class="btn btn-p" onclick="salvarEditForn()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: NOVO USUÁRIO -->
 <div class="mbg" id="userModal">
+  <div class="mbox" style="max-width:390px">
+    <div class="mh"><div class="mt">👤 Novo Usuário</div><button class="mx" onclick="document.getElementById('userModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="u_nome" placeholder="Nome completo"></div>
+      <div class="fr"><label>E-mail <span class="req">*</span></label><input type="email" id="u_email" placeholder="email@exemplo.com"></div>
+      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="fr"><label>Nível de acesso</label>
+        <select id="u_nivel">
+          <option value="operador">Operador - vê apenas seus negócios, sem financeiro</option>
+          <option value="admin">Admin - acesso total</option>
+        </select>
+      </div>
+      <div class="ffoot">
+        <button class="btn btn-g" onclick="document.getElementById('userModal').classList.remove('open')">Cancelar</button>
+        <button class="btn btn-p" onclick="saveUser()">Criar usuário</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR USUÁRIO -->
+<div class="mbg" id="editUserModal">
+  <div class="mbox" style="max-width:390px">
+    <div class="mh"><div class="mt">✏️ Editar Usuário</div><button class="mx" onclick="document.getElementById('editUserModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="eu_id">
+      <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="eu_nome"></div>
+      <div class="fr"><label>E-mail</label><input type="email" id="eu_email" placeholder="Deixe em branco para não alterar"></div>
+      <div class="fr"><label>Nova senha</label><input type="password" id="eu_pass" placeholder="Deixe em branco para não alterar"></div>
+      <div class="ffoot">
+        <button class="btn btn-g" onclick="document.getElementById('editUserModal').classList.remove('open')">Cancelar</button>
+        <button class="btn btn-p" onclick="salvarEditUsuario()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">👤 Novo Usuário</div><button class="mx" onclick="document.getElementById('userModal').classList.remove('open')">✕</button></div>
     <div class="mb">
@@ -1850,6 +1904,11 @@ function openPixModal(c){
   if(!c)return;
   if(!c.rec||c.rec<=0){toast('⚠ Defina o valor cobrado','#e05252');return;}
   const pixId = c.crm_id || nextPixId();
+  // Salvar crm_id no banco se for novo
+  if(!c.crm_id){
+    c.crm_id = pixId;
+    api('negocios?id=eq.'+c.id,'PATCH',{crm_id:pixId},currentUser?.access_token).catch(()=>{});
+  }
   const payload=buildPixPayload(PIX_KEY,PIX_NAME,PIX_CITY,parseFloat(c.rec),pixId);
   currentPixPayload=payload;currentPixId=pixId;currentPixCardId=c.id;
   document.getElementById('pix_id').textContent=pixId;
@@ -2023,6 +2082,7 @@ function renderSups(){
         <div><div class="sn"><div class="sav" style="background:${color}22;color:${color}">${ini}</div>${s.nome}</div>
         <div class="smeta">${s.tel?'📞 '+s.tel+' · ':''} ${precos.length} região(ões)</div></div>
         <div class="sacts">
+          <button class="btn btn-p btn-xs" onclick="event.stopPropagation();editarForn('${s.id}')">✏️</button>
           <button class="btn btn-g btn-xs" onclick="event.stopPropagation();delSup('${s.id}')">🗑️</button>
           <button class="btn btn-g btn-xs" onclick="event.stopPropagation();toggleSup('sb_${s.id}')">▾</button>
         </div>
@@ -2078,6 +2138,29 @@ async function delSup(sId){
   if(!confirm('Excluir?'))return;sups=sups.filter(s=>s.id!==sId);renderSups();
   try{await api('fornecedores?id=eq.'+sId,'DELETE',null,currentUser?.access_token);toast('🗑️ Excluído');}catch(e){}
 }
+function editarForn(sId){
+  const s=sups.find(x=>x.id===sId);if(!s)return;
+  document.getElementById('es_id').value=sId;
+  document.getElementById('es_nome').value=s.nome||'';
+  document.getElementById('es_tel').value=s.tel||'';
+  document.getElementById('es_obs').value=s.obs||'';
+  document.getElementById('editSupModal').classList.add('open');
+}
+async function salvarEditForn(){
+  const id=document.getElementById('es_id').value;
+  const nome=document.getElementById('es_nome').value.trim();
+  const tel=document.getElementById('es_tel').value.trim();
+  const obs=document.getElementById('es_obs').value.trim();
+  if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
+  const s=sups.find(x=>x.id===id);if(!s)return;
+  s.nome=nome;s.tel=tel;s.obs=obs;
+  renderSups();
+  document.getElementById('editSupModal').classList.remove('open');
+  try{
+    await api('fornecedores?id=eq.'+id,'PATCH',{nome,tel,obs},currentUser?.access_token);
+    toast('✅ Fornecedor atualizado!');
+  }catch(e){toast('Erro ao salvar','#e05252');}
+}
 function openSupForm(){['s_nome','s_tel','s_obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('supModal').classList.add('open');}
 function closeSupForm(){document.getElementById('supModal').classList.remove('open');}
 async function saveSup(){
@@ -2130,6 +2213,7 @@ function renderUsers(){
       <div class="user-acts">
         <span class="role ${u.nivel==='admin'?'role-admin':'role-op'}">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</span>
         ${u.id!==currentUser?.user?.id?`
+          <button class="btn btn-p btn-xs" onclick="editarUsuario('${u.id}')" title="Editar">✏️</button>
           <button class="btn btn-g btn-xs" onclick="toggleUserNivel('${u.id}','${u.nivel}')" title="Alterar nível">${u.nivel==='admin'?'→ Operador':'→ Admin'}</button>
           <button class="btn btn-g btn-xs" onclick="toggleUserAtivo('${u.id}',${u.ativo!==false})" title="${u.ativo!==false?'Desativar':'Ativar'}">${u.ativo!==false?'🔒 Desativar':'🔓 Ativar'}</button>
           <button class="btn btn-dan btn-xs" onclick="deleteUser('${u.id}')" title="Excluir">🗑️</button>
@@ -2173,6 +2257,38 @@ async function saveUser(){
     }
     renderUsers();document.getElementById('userModal').classList.remove('open');toast('✅ Usuário criado!');
   }catch(e){toast('Erro ao criar usuário','#e05252');console.error(e);}
+}
+function editarUsuario(id){
+  const u=usuarios.find(x=>x.id===id);if(!u)return;
+  document.getElementById('eu_id').value=id;
+  document.getElementById('eu_nome').value=u.nome||'';
+  document.getElementById('eu_email').value='';
+  document.getElementById('eu_pass').value='';
+  document.getElementById('editUserModal').classList.add('open');
+}
+async function salvarEditUsuario(){
+  const id=document.getElementById('eu_id').value;
+  const nome=document.getElementById('eu_nome').value.trim();
+  const email=document.getElementById('eu_email').value.trim();
+  const pass=document.getElementById('eu_pass').value;
+  if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
+  const u=usuarios.find(x=>x.id===id);if(!u)return;
+  u.nome=nome;
+  renderUsers();
+  document.getElementById('editUserModal').classList.remove('open');
+  try{
+    setSyncDot('loading');
+    await api('perfis?id=eq.'+id,'PATCH',{nome},currentUser?.access_token);
+    if(email||pass){
+      // Atualizar auth (email/senha) via admin API
+      const body={};
+      if(email) body.email=email;
+      if(pass) body.password=pass;
+      await api('auth/v1/admin/users/'+id,'PATCH',body,currentUser?.access_token);
+      if(email) u.email=email;
+    }
+    setSyncDot('ok');toast('✅ Usuário atualizado!');
+  }catch(e){setSyncDot('err');toast('Erro ao salvar','#e05252');}
 }
 async function toggleUserNivel(id,atual){
   const novoNivel=atual==='admin'?'operador':'admin';
