@@ -1063,14 +1063,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 <!-- MODAL: OS PDF -->
 <div class="mbg" id="osModal">
-  <div class="mbox" style="max-width:440px">
+  <div class="mbox" style="max-width:480px">
     <div class="mh"><div class="mt">📄 Ordem de Serviço</div><button class="mx" onclick="document.getElementById('osModal').classList.remove('open')">✕</button></div>
     <div class="mb">
+      <!-- Tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button id="os_tab_cli" onclick="switchOSTab('cli')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#000;font-weight:700;font-size:12px;cursor:pointer">👤 Cliente</button>
+        <button id="os_tab_forn" onclick="switchOSTab('forn')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut2);font-weight:600;font-size:12px;cursor:pointer">🚛 Fornecedor</button>
+      </div>
       <div id="osPreview" style="background:#fff;color:#000;border-radius:10px;padding:20px;font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin-bottom:14px"></div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <div id="os_btns_cli" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-p" onclick="imprimirOS()">🖨️ Imprimir / Salvar PDF</button>
         <button class="btn btn-wa" onclick="enviarOSWhatsApp()">📲 WhatsApp (texto)</button>
         <button class="btn btn-g" onclick="baixarPDFeWhatsApp()" style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none">📎 PDF + WhatsApp</button>
+      </div>
+      <div id="os_btns_forn" style="display:none;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="imprimirOSForn()">🖨️ Imprimir / Salvar PDF</button>
+        <button class="btn btn-g" onclick="enviarOSFornWhatsApp()" style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none">📲 WhatsApp Fornecedor</button>
       </div>
     </div>
   </div>
@@ -2243,6 +2252,101 @@ function cobrarTodos(){
 // ORDEM DE SERVIÇO PDF
 // ═══════════════════════════════════════
 let osCardId = null;
+let osTabAtual = 'cli';
+
+function switchOSTab(tab){
+  osTabAtual = tab;
+  const c = cards.find(x=>x.id===osCardId); if(!c) return;
+  // Update tab buttons
+  document.getElementById('os_tab_cli').style.background = tab==='cli' ? 'var(--acc)' : 'var(--card)';
+  document.getElementById('os_tab_cli').style.color = tab==='cli' ? '#000' : 'var(--mut2)';
+  document.getElementById('os_tab_cli').style.borderColor = tab==='cli' ? 'var(--acc)' : 'var(--bor)';
+  document.getElementById('os_tab_forn').style.background = tab==='forn' ? 'var(--acc)' : 'var(--card)';
+  document.getElementById('os_tab_forn').style.color = tab==='forn' ? '#000' : 'var(--mut2)';
+  document.getElementById('os_tab_forn').style.borderColor = tab==='forn' ? 'var(--acc)' : 'var(--bor)';
+  document.getElementById('os_btns_cli').style.display = tab==='cli' ? 'flex' : 'none';
+  document.getElementById('os_btns_forn').style.display = tab==='forn' ? 'flex' : 'none';
+  if(tab==='forn') renderOSForn(c);
+  else document.getElementById('osPreview').innerHTML = osPreviewHtmlCli;
+}
+
+let osPreviewHtmlCli = '';
+
+function renderOSForn(c){
+  const sup = sups.find(s=>s.id===c.sid);
+  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  const emitidoFmt = new Date().toLocaleDateString('pt-BR');
+  document.getElementById('osPreview').innerHTML = `
+  <div style="border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:18px;font-weight:900;font-family:Arial,sans-serif;color:#1a3a5c">CacambaSP</div>
+      <div style="font-size:10px;color:#666">CNPJ: 44.538.708/0001-76</div>
+      <div style="font-size:10px;color:#666">cacambasp@gmail.com</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#666">OS Fornecedor Nº ${c.crm_id||'-'}</div>
+      <div style="font-size:11px;color:#666">Emitido: ${emitidoFmt}</div>
+    </div>
+  </div>
+
+  <div style="background:#f5a62315;border:1px solid #f5a62340;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Fornecedor</div>
+    <div style="font-weight:800;font-size:15px;color:#1a3a5c">${sup?.nome||'Não atribuído'}</div>
+    ${sup?.tel?`<div style="font-size:12px;color:#555;margin-top:2px">📞 ${sup.tel}</div>`:''}
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px">Dados do Serviço</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 0;color:#666;width:40%">Tipo de Serviço</td><td style="font-weight:700">${c.tipo||'-'}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Data</td><td style="font-weight:700">${dataFmt}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Endereço</td><td style="font-weight:700">${c.end_logradouro||'-'}${c.bairro?', '+c.bairro:''}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">Cidade</td><td style="font-weight:700">${c.cid||'-'}</td></tr>
+      <tr><td style="padding:4px 0;color:#666">CEP</td><td style="font-weight:700">${c.cep||'-'}</td></tr>
+      ${c.obs?`<tr><td style="padding:4px 0;color:#666;vertical-align:top">Obs.</td><td style="font-weight:600">${c.obs}</td></tr>`:''}
+    </table>
+  </div>
+
+  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Contato do Cliente</div>
+    <div style="font-size:13px"><strong>${c.nome||'-'}</strong> · ${c.cel||'-'}</div>
+  </div>
+
+  <div style="border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#aaa;text-align:center">
+    CaçambaSP Gestão · ${emitidoFmt} · OS ${c.crm_id||'-'}
+  </div>`;
+}
+
+function imprimirOSForn(){
+  const conteudo = document.getElementById('osPreview').innerHTML;
+  const c = cards.find(x=>x.id===osCardId);
+  const printWin = window.open('','_blank','width=500,height=700');
+  const titulo = 'OS_Forn_'+(c?.crm_id||'');
+  printWin.document.write('<!DOCTYPE html><html><head><title>'+titulo+'</title><style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;color:#000;margin:0}@media print{body{padding:15px}@page{margin:10mm;size:A4}}</style></head><body>'+conteudo+'<'+'script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<'+'/script></body></html>');
+  printWin.document.close();
+}
+
+function enviarOSFornWhatsApp(){
+  const c = cards.find(x=>x.id===osCardId); if(!c) return;
+  const sup = sups.find(s=>s.id===c.sid);
+  if(!sup||!sup.tel){ toast('⚠ Fornecedor sem telefone cadastrado','#f5a623'); return; }
+  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  const bairroStr = c.bairro ? ', '+c.bairro : '';
+  const cidStr = c.cid ? ', '+c.cid : '';
+  let msg = 'Olá '+sup.nome+'! 👋\n\n';
+  msg += 'Segue a Ordem de Serviço para execução:\n\n';
+  msg += '📋 *OS Nº '+(c.crm_id||'-')+'*\n';
+  msg += '🗑️ *Serviço:* '+(c.tipo||'-')+'\n';
+  msg += '📅 *Data:* '+dataFmt+'\n';
+  msg += '📍 *Endereço:* '+(c.end_logradouro||'')+bairroStr+cidStr+'\n';
+  msg += '📞 *Contato:* '+(c.nome||'-')+' · '+(c.cel||'-')+'\n';
+  if(c.obs) msg += '📝 *Obs:* '+c.obs+'\n';
+  msg += '\nQualquer dúvida entre em contato!\nCaçambaSP Gestão';
+  const tel = sup.tel.replace(/[^0-9]/g,'');
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+let osCardId_orig = null;
 let osPixPayload = '', osPixId = '';
 
 function openOS(cardId){
@@ -2308,6 +2412,9 @@ function openOS(cardId){
     if(holder && qrImg) holder.appendChild(qrImg);
   }, 200);
 
+  osTabAtual = 'cli';
+  // Reset to client tab
+  setTimeout(()=>{ switchOSTab('cli'); osPreviewHtmlCli = document.getElementById('osPreview').innerHTML; },50);
   document.getElementById('osModal').classList.add('open');
 }
 
