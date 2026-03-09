@@ -603,13 +603,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div class="pw">
       <div class="ph">
         <div class="ptitle">👥 Clientes</div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="text" id="clienteSearch" placeholder="🔍 Buscar cliente..." oninput="renderClientes()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 11px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none;width:200px">
           <select id="clienteFilter" onchange="renderClientes()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none">
             <option value="">Todos</option>
             <option value="pago">Pagos</option>
             <option value="pendente">Pendentes</option>
             <option value="inadimp">Inadimplentes</option>
+          </select>
+          <select id="clienteVendFilter" onchange="renderClientes()" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--txt);outline:none">
+            <option value="">Todos os vendedores</option>
           </select>
         </div>
       </div>
@@ -2974,20 +2977,30 @@ async function conciliarGrupo(grpId){
 function renderClientes(){
   const q = (document.getElementById('clienteSearch')?.value||'').toLowerCase().trim();
   const filtro = document.getElementById('clienteFilter')?.value||'';
-  
+  const vendFiltro = document.getElementById('clienteVendFilter')?.value||'';
+
+  // Popula select de vendedores
+  const vendSel = document.getElementById('clienteVendFilter');
+  if(vendSel && vendSel.options.length <= 1){
+    const nomes = [...new Set(cards.map(c=>c.usuario_nome).filter(Boolean))].sort();
+    nomes.forEach(n=>{ const o=document.createElement('option');o.value=n;o.textContent=n;vendSel.appendChild(o); });
+  }
+
   // agrupa cards por nome do cliente
   const clienteMap = {};
   cards.forEach(c => {
+    // filtro de vendedor — só inclui cards do vendedor selecionado
+    if(vendFiltro && c.usuario_nome !== vendFiltro) return;
     const key = (c.nome||'').trim().toUpperCase() || 'SEM NOME';
     if(!clienteMap[key]) clienteMap[key] = {nome:c.nome||'Sem nome', cel:c.cel||'', servicos:[]};
     clienteMap[key].servicos.push(c);
   });
 
   let clientes = Object.values(clienteMap);
-  
+
   // filtro por busca
   if(q) clientes = clientes.filter(cl => cl.nome.toLowerCase().includes(q) || cl.cel.includes(q));
-  
+
   // filtro por status
   if(filtro === 'pago') clientes = clientes.filter(cl => cl.servicos.some(s=>s.pago));
   if(filtro === 'pendente') clientes = clientes.filter(cl => cl.servicos.some(s=>!s.pago && s.col!=='inadimp'));
@@ -3046,13 +3059,42 @@ function renderClientes(){
       </div>
       <div class="cl-body" style="display:none;padding:0 18px 14px;border-top:1px solid var(--bor)">
         <div style="padding-top:8px">${servicos}</div>
-        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+          ${pendente>0?`<button class="btn btn-p btn-sm" onclick="cobrarCliente('${cl.nome.replace(/'/g,"\\'")}')">📄 Cobrar (R$ ${fmt(pendente)})</button>`:''}
           ${cl.cel?`<button class="btn btn-wa btn-sm" onclick="window.open('https://wa.me/55${cl.cel.replace(/\D/g,'')}','_blank')">📲 WhatsApp</button>`:''}
-          <div style="font-size:11px;color:var(--mut);align-self:center">Total recebido: <strong style="color:var(--g)">R$ ${fmt(pago)}</strong></div>
+          <div style="font-size:11px;color:var(--mut);align-self:center">Recebido: <strong style="color:var(--g)">R$ ${fmt(pago)}</strong></div>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════
+// COBRAR CLIENTE (OS AGRUPADA POR CLIENTE)
+// ═══════════════════════════════════════
+function cobrarCliente(nomeCliente){
+  // Pega todos os cards pendentes desse cliente
+  const pendentes = cards.filter(c =>
+    (c.nome||'').trim().toUpperCase() === nomeCliente.trim().toUpperCase() &&
+    !c.pago &&
+    c.col !== 'concluido'
+  );
+  if(!pendentes.length){ toast('Nenhum serviço pendente','#e05252'); return; }
+
+  // Se só 1 card, abre OS normal
+  if(pendentes.length === 1){
+    openOS(pendentes[0].id);
+    return;
+  }
+
+  // Se 2+, seleciona todos e abre Pix Agrupado
+  selectedCards.clear();
+  pendentes.forEach(c => selectedCards.add(c.id));
+  updateSelBar();
+  renderBoard();
+  // Navega para o funil para mostrar a seleção e abre o modal
+  setView('funil');
+  setTimeout(()=>{ gerarPixAgrupado(); }, 300);
 }
 
 // ═══════════════════════════════════════
