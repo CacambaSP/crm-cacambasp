@@ -351,6 +351,42 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .hist-txt strong{color:var(--txt)}
 .hist-time{font-size:10px;color:var(--mut);opacity:.6;white-space:nowrap}
 
+/* ── MOBILE RESPONSIVE ── */
+@media(max-width:700px){
+  :root{--sidebar:240px}
+  /* Sidebar always hidden on mobile, shows on toggle */
+  .sidebar{transform:translateX(-100%);width:var(--sidebar)!important;opacity:1!important;pointer-events:all!important;transition:transform .25s;z-index:100;box-shadow:4px 0 30px rgba(0,0,0,.5)}
+  .sidebar.mob-open{transform:translateX(0)}
+  .sidebar-hover-zone{display:none}
+  .main-wrap{margin-left:0!important;width:100%}
+  /* Topbar */
+  .topbar{padding:10px 12px}
+  .topbar-title{font-size:15px}
+  /* Board */
+  .bwrap{padding:10px 8px}
+  .board{gap:10px;padding-bottom:16px}
+  .col{min-width:260px}
+  /* Cards bigger touch targets */
+  .card{padding:13px 14px 12px}
+  .card-addr{font-size:13px}
+  .card-del,.card-trophy{width:30px;height:30px;font-size:13px;opacity:1}
+  /* Modal full screen on mobile */
+  .mbg{padding:0;align-items:flex-end}
+  .mbox{border-radius:20px 20px 0 0;max-height:92vh;max-width:100%!important;width:100%}
+  /* Filter bar wrap */
+  .filter-bar{flex-direction:column;gap:8px}
+  .filter-bar select,.filter-bar input{width:100%}
+  /* Buttons in modal */
+  .act-row{gap:6px}
+  .btn-sm{padding:8px 10px;font-size:12px}
+  /* Detail modal action buttons */
+  .dact{flex-wrap:wrap;gap:6px}
+  .dact .btn{flex:1;min-width:70px;padding:10px 6px;font-size:11px}
+  /* Overlay when sidebar open */
+  .mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+  .mob-overlay.show{display:block}
+}
+
 /* ── TOAST ── */
 .toast{position:fixed;bottom:20px;right:20px;background:var(--g);color:#000;padding:10px 15px;border-radius:var(--rad2);font-weight:600;font-size:12px;box-shadow:0 8px 24px rgba(62,207,142,.3);z-index:9999;transform:translateY(60px);opacity:0;transition:all .22s;cursor:pointer}
 .toast.show{transform:none;opacity:1}
@@ -409,22 +445,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
     <div class="nav-section">
       <div class="nav-label">Principal</div>
-      <button class="nb act" id="nav-funil" onclick="setView('funil')"><span class="nbi">📋</span> Funil</button>
-      <button class="nb admin-only" id="nav-dash" onclick="setView('dash')"><span class="nbi">📊</span> Dashboard</button>
-      <button class="nb" id="nav-hist" onclick="setView('hist')"><span class="nbi">🏆</span> Histórico</button>
+      <button class="nb act" id="nav-funil" onclick="setViewMob('funil')"><span class="nbi">📋</span> Funil</button>
+      <button class="nb admin-only" id="nav-dash" onclick="setViewMob('dash')"><span class="nbi">📊</span> Dashboard</button>
+      <button class="nb" id="nav-hist" onclick="setViewMob('hist')"><span class="nbi">🏆</span> Histórico</button>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">Financeiro</div>
-      <button class="nb" id="nav-conc" onclick="setView('conc')"><span class="nbi">🔄</span> Conciliação</button>
+      <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nbi">🔄</span> Conciliação</button>
       <button class="nb admin-only" id="nav-pgforn" onclick="setView('pgforn')"><span class="nbi">💰</span> Pagar Fornecedor</button>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">Cadastros</div>
-      <button class="nb admin-only" id="nav-sup" onclick="setView('sup')"><span class="nbi">🚛</span> Fornecedores</button>
-      <button class="nb" id="nav-clientes" onclick="setView('clientes')"><span class="nbi">👥</span> Clientes</button>
-      <button class="nb admin-only" id="nav-usr" onclick="setView('usr')"><span class="nbi">👤</span> Usuários</button>
+      <button class="nb admin-only" id="nav-sup" onclick="setViewMob('sup')"><span class="nbi">🚛</span> Fornecedores</button>
+      <button class="nb" id="nav-clientes" onclick="setViewMob('clientes')"><span class="nbi">👥</span> Clientes</button>
+      <button class="nb admin-only" id="nav-usr" onclick="setViewMob('usr')"><span class="nbi">👤</span> Usuários</button>
     </div>
 
     <div class="sidebar-bottom">
@@ -435,7 +471,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           <div class="urole" id="sidebarUserRole">—</div>
         </div>
       </div>
-      <button class="nb" id="nav-perfil" onclick="setView('perfil')"><span class="nbi">⚙️</span> Perfil</button>
+      <button class="nb" id="nav-perfil" onclick="setViewMob('perfil')"><span class="nbi">⚙️</span> Perfil</button>
       <button class="sidebar-logout" onclick="doLogout()">↪ Sair</button>
     </div>
   </div>
@@ -732,6 +768,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
 
 
+<div class="mob-overlay" id="mobOverlay" onclick="closeMobSidebar()"></div>
 <div class="toast" id="toast"></div>
 
   </div><!-- /main-wrap -->
@@ -789,6 +826,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="edit-sec-t">✏️ Editar</div>
       <div class="fg">
         <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="e_nome"></div>
+        <div class="fr admin-only"><label>Vendedor</label>
+          <select id="e_vend" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt)">
+            <option value="">- Selecionar -</option>
+          </select>
+        </div>
         <div class="fr"><label>Celular <span class="req">*</span></label><input type="text" id="e_cel"></div>
       </div>
       <div class="fg">
@@ -844,7 +886,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="dr"><span class="k">Endereço</span><span class="v" id="d_end"></span></div>
         <div class="dr"><span class="k">Cidade</span><span class="v" id="d_cid"></span></div>
         <div class="dr"><span class="k">Fornecedor</span><span class="v" id="d_forn"></span></div>
-        <div class="dr"><span class="k">Responsável</span><span class="v" id="d_resp"></span></div>
+        <div class="dr"><span class="k">Vendedor</span><span class="v" id="d_resp"></span></div>
+        <div class="dr admin-only" id="d_vend_row"><span class="k">Reatribuir</span>
+          <select id="d_vend_sel" onchange="reatribuirVendedor()" style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--txt);font-family:'DM Sans',sans-serif">
+            <option value="">- Manter atual -</option>
+          </select>
+        </div>
       </div>
       <div class="ds admin-only"><h4>Financeiro</h4>
         <div class="fincard">
@@ -1283,6 +1330,7 @@ function cHTML(c,color){
       ${c.forn_pago?'<span style="font-size:9px;color:#5b8dee;background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.2);border-radius:4px;padding:1px 5px">💰 F.Pago</span>':''}
       ${c.pago?`<span class="chip pago-chip" data-tip="Pagamento confirmado">✅ Pago</span>`:''}
       ${sup?`<span class="chip" data-tip="Fornecedor">🚛 ${sup.nome.split(' ')[0]}</span>`:''}
+      ${c.usuario_nome?`<span class="chip" data-tip="Vendedor" style="color:#a78bfa;border-color:rgba(167,139,250,.2);background:rgba(167,139,250,.07)">👤 ${c.usuario_nome.split(' ')[0]}</span>`:''}
     </div>
   </div>`;
 }
@@ -1418,6 +1466,12 @@ function fillDetail(c){
   document.getElementById('d_cid').textContent=[c.cid,c.cep].filter(Boolean).join(' · ')||'-';
   document.getElementById('d_forn').textContent=sup?sup.nome:'-';
   document.getElementById('d_resp').textContent=c.usuario_nome||'-';
+  // Populate reatribuir dropdown
+  const vendSel = document.getElementById('d_vend_sel');
+  if(vendSel){
+    vendSel.innerHTML='<option value="">- Manter atual -</option>';
+    usuarios.forEach(u=>{ const o=document.createElement('option'); o.value=u.id; o.textContent=u.nome||u.email; vendSel.appendChild(o); });
+  }
   if(isAdmin()){
     const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
     document.getElementById('dm_r').textContent=c.rec?'R$ '+fmt(c.rec):'-';
@@ -1491,6 +1545,15 @@ function toggleEdit(){
   document.getElementById('e_cep').value=c.cep||'';document.getElementById('e_cpf').value=c.cpf||'';
   document.getElementById('e_rec').value=c.rec||'';document.getElementById('e_cst').value=c.cst||'';
   document.getElementById('e_obs').value=c.obs||'';
+  // Populate vendedor select
+  const eVend = document.getElementById('e_vend');
+  if(eVend){
+    eVend.innerHTML='<option value="">- Selecionar -</option>';
+    usuarios.forEach(u=>{ const o=document.createElement('option'); o.value=u.id+'|'+( u.nome||u.email); o.textContent=u.nome||u.email; eVend.appendChild(o); });
+    // Set current
+    const curVend = usuarios.find(u=>(u.nome||u.email)===c.usuario_nome);
+    if(curVend) eVend.value = curVend.id+'|'+(curVend.nome||curVend.email);
+  }
   const sel=document.getElementById('e_sup');sel.innerHTML='<option value="">- Nenhum -</option>';
   sups.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.nome;sel.appendChild(o);});
   sel.value=c.sid||'';
@@ -1566,6 +1629,9 @@ async function saveEdit(){
   if(!get('e_nome')){toast('⚠ Nome obrigatório','#e05252');return;}
   if(!get('e_cel')){toast('⚠ Celular obrigatório','#e05252');return;}
   const c=cards.find(x=>x.id===detailId);if(!c)return;
+  // Update vendedor if changed
+  const eVendVal = document.getElementById('e_vend')?.value||'';
+  if(eVendVal){ const [uid,uname]=eVendVal.split('|'); c.usuario_id=uid; c.usuario_nome=uname||eVendVal; }
   c.nome=get('e_nome');c.cel=get('e_cel');c.tipo=get('e_tipo');c.data=get('e_data');
   c.end_logradouro=get('e_end');c.bairro=get('e_bairro');c.cid=get('e_cid');c.cep=get('e_cep');c.cpf=get('e_cpf');
   c.rec=parseFloat(get('e_rec'))||0;c.cst=parseFloat(document.getElementById('e_cst').value)||0;
@@ -3722,22 +3788,54 @@ async function excluirTodosConcluidos(){
 }
 
 // ═══════════════════════════════════════
+// REATRIBUIR VENDEDOR
+// ═══════════════════════════════════════
+async function reatribuirVendedor(){
+  const sel = document.getElementById('d_vend_sel');
+  const uid = sel?.value; if(!uid) return;
+  const c = cards.find(x=>x.id===detailId); if(!c) return;
+  const u = usuarios.find(u=>u.id===uid);
+  if(!u) return;
+  c.usuario_id = u.id;
+  c.usuario_nome = u.nome||u.email;
+  document.getElementById('d_resp').textContent = c.usuario_nome;
+  sel.value = '';
+  renderBoard();
+  try{
+    setSyncDot('loading');
+    await api('negocios?id=eq.'+c.id,'PATCH',{usuario_id:c.usuario_id, usuario_nome:c.usuario_nome},currentUser?.access_token);
+    setSyncDot('ok'); toast('✅ Vendedor atualizado!');
+  }catch(e){ setSyncDot('err'); toast('Erro','#e05252'); }
+}
+
+// ═══════════════════════════════════════
 // SIDEBAR TOGGLE
 // ═══════════════════════════════════════
+function isMobile(){ return window.innerWidth <= 700; }
 function toggleSidebar(){
   const sb = document.getElementById('mainNav');
-  const mw = document.querySelector('.main-wrap');
-  const collapsed = sb.classList.toggle('collapsed');
-  mw.classList.toggle('full', collapsed);
-  // re-show on hover when collapsed
-  if(collapsed){
-    sb.onmouseenter = ()=>{ sb.style.width='var(--sidebar)'; sb.style.opacity='1'; sb.style.pointerEvents='all'; };
-    sb.onmouseleave = ()=>{ sb.style.width='4px'; sb.style.opacity='0'; sb.style.pointerEvents='none'; };
+  if(isMobile()){
+    const open = sb.classList.toggle('mob-open');
+    document.getElementById('mobOverlay').classList.toggle('show', open);
   } else {
-    sb.onmouseenter = null; sb.onmouseleave = null;
-    sb.style.width = ''; sb.style.opacity = ''; sb.style.pointerEvents = '';
+    const mw = document.querySelector('.main-wrap');
+    const collapsed = sb.classList.toggle('collapsed');
+    mw.classList.toggle('full', collapsed);
+    if(collapsed){
+      sb.onmouseenter = ()=>{ sb.style.width='var(--sidebar)'; sb.style.opacity='1'; sb.style.pointerEvents='all'; };
+      sb.onmouseleave = ()=>{ sb.style.width='4px'; sb.style.opacity='0'; sb.style.pointerEvents='none'; };
+    } else {
+      sb.onmouseenter = null; sb.onmouseleave = null;
+      sb.style.width=''; sb.style.opacity=''; sb.style.pointerEvents='';
+    }
   }
 }
+function closeMobSidebar(){
+  document.getElementById('mainNav').classList.remove('mob-open');
+  document.getElementById('mobOverlay').classList.remove('show');
+}
+// Close sidebar when nav item clicked on mobile
+function setViewMob(v){ if(isMobile()) closeMobSidebar(); setView(v); }
 
 // ═══════════════════════════════════════
 // INIT
