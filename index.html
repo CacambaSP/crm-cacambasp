@@ -1025,7 +1025,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           <span id="d_forn_badge" style="font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600">⏳ Fornecedor: Aguardando</span>
           <span id="d_forn_info" style="font-size:11px;color:var(--mut)"></span>
-          <a id="d_forn_comp_link" href="#" target="_blank" style="font-size:11px;color:var(--blue);display:none">📎 Comprovante</a>
+          <a id="d_forn_comp_link" href="#" target="_blank" style="font-size:11px;color:var(--bl);display:none">📎 Comprovante</a>
         </div>
       </div>
       <div class="ds" id="d_obs_s"><h4>Observações</h4><div id="d_obs" style="font-size:12px;color:var(--mut);line-height:1.5"></div></div>
@@ -1144,14 +1144,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   <div class="mbox" style="max-width:390px">
     <div class="mh"><div class="mt">👤 Novo Usuário</div><button class="mx" onclick="document.getElementById('userModal').classList.remove('open')">✕</button></div>
     <div class="mb">
+      <div id="userModalErr" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 13px;font-size:12px;color:#f87171;margin-bottom:12px"></div>
       <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="u_nome" placeholder="Nome completo"></div>
       <div class="fr"><label>E-mail <span class="req">*</span></label><input type="email" id="u_email" placeholder="email@exemplo.com"></div>
-      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')saveUser()"></div>
       <div class="fr"><label>Nível de acesso</label>
         <select id="u_nivel">
           <option value="operador">Operador - vê apenas seus negócios, sem financeiro</option>
           <option value="admin">Admin - acesso total</option>
         </select>
+      </div>
+      <div style="background:rgba(107,140,255,.08);border:1px solid rgba(107,140,255,.2);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--mut2);margin-bottom:12px">
+        ℹ️ O usuário poderá fazer login imediatamente após o cadastro com o e-mail e senha informados.
       </div>
       <div class="ffoot">
         <button class="btn btn-g" onclick="document.getElementById('userModal').classList.remove('open')">Cancelar</button>
@@ -1355,41 +1359,74 @@ function doLogout(){
 async function loadApp(){
   document.getElementById('loadTxt').textContent='Carregando dados...';
   try{
-    // extrai user id com compatibilidade entre formatos do Supabase
-    const userId = currentUser?.user?.id || currentUser?.id;
+    // Extrai user id com compatibilidade entre formatos do Supabase
+    const userId    = currentUser?.user?.id    || currentUser?.id;
     const userEmail = currentUser?.user?.email || currentUser?.email || '';
-    const token = currentUser?.access_token || currentUser?.token;
-    if(!userId){showLogin();return;}
-    // busca perfil
-    const perfis=await api('perfis?id=eq.'+userId,undefined,undefined,token);
-    currentPerfil=perfis?.[0];
-    if(!currentPerfil){
-      // cria perfil fallback
-      currentPerfil={id:userId,nome:userEmail,email:userEmail,nivel:'operador'};
-    }
-    // garante email no perfil
-    if(!currentPerfil.email) currentPerfil.email = userEmail;
-    // atualiza token para uso posterior
+    const token     = currentUser?.access_token || currentUser?.token;
+    if(!userId){ showLogin(); return; }
+
+    // Garante estrutura do currentUser
     currentUser.access_token = token;
     if(!currentUser.user) currentUser.user = {id:userId, email:userEmail};
-    // carrega dados
-    const [dbSups,dbCards,dbUsers]=await Promise.all([
-      api('fornecedores?order=criado_em.asc',undefined,undefined,currentUser.access_token),
+
+    // Busca perfil — pode falhar se RLS bloquear, então tenta fallback
+    let perfilData = null;
+    try{
+      const perfis = await api('perfis?id=eq.'+userId, undefined, undefined, token);
+      perfilData = perfis?.[0] || null;
+    }catch(e){ console.warn('loadApp: erro buscando perfil:', e); }
+
+    if(!perfilData){
+      // Tenta extrair nível do user_metadata (salvo na criação)
+      const meta = currentUser?.user?.user_metadata || currentUser?.user_metadata || {};
+      const nivelMeta = meta.nivel || 'operador';
+      const nomeMeta  = meta.nome  || userEmail;
+      console.warn('loadApp: perfil não encontrado na tabela, usando user_metadata:', meta);
+
+      // Tenta criar o perfil se não existe
+      try{
+        const novoPerfil = {id:userId, nome:nomeMeta, email:userEmail, nivel:nivelMeta, ativo:true};
+        await api('perfis','POST', novoPerfil, token);
+        perfilData = novoPerfil;
+      }catch(_){
+        // Provavelmente já existe mas RLS impede leitura — usa fallback
+        perfilData = {id:userId, nome:nomeMeta, email:userEmail, nivel:nivelMeta, ativo:true};
+      }
+    }
+
+    currentPerfil = perfilData;
+    if(!currentPerfil.email) currentPerfil.email = userEmail;
+
+    // Verifica se conta está ativa
+    if(currentPerfil.ativo === false){
+      localStorage.removeItem('crm_session');
+      showLogin();
+      document.getElementById('loginErr').textContent = 'Sua conta está desativada. Fale com o administrador.';
+      document.getElementById('loginErr').classList.add('show');
+      return;
+    }
+
+    // Carrega dados principais
+    const [dbSups, dbCards, dbUsers] = await Promise.all([
+      api('fornecedores?order=criado_em.asc', undefined, undefined, token),
       isAdmin()
-        ? api('negocios?order=criado_em.asc',undefined,undefined,currentUser.access_token)
-        : api('negocios?usuario_id=eq.'+currentUser.user.id+'&order=criado_em.asc',undefined,undefined,currentUser.access_token),
-      isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,currentUser.access_token) : Promise.resolve([]),
+        ? api('negocios?order=criado_em.asc', undefined, undefined, token)
+        : api('negocios?usuario_id=eq.'+userId+'&order=criado_em.asc', undefined, undefined, token),
+      isAdmin() ? api('perfis?order=nome.asc', undefined, undefined, token) : Promise.resolve([]),
     ]);
-    sups=dbSups||[];cards=dbCards||[];usuarios=dbUsers||[];
+    sups    = dbSups  || [];
+    cards   = dbCards || [];
+    usuarios = dbUsers || [];
+
     // Re-render active view after data loads
     const curView = document.querySelector('.view.act')?.id?.replace('view-','');
-    if(curView==='sup') renderSups();
-    if(curView==='dash') renderDash();
-    if(curView==='usr') renderUsers();
+    if(curView==='sup')      renderSups();
+    if(curView==='dash')     renderDash();
+    if(curView==='usr')      renderUsers();
     if(curView==='clientes') renderClientes();
     if(curView==='funil'||!curView){ initFilters(); render(); }
     setSyncDot('ok');
-  }catch(e){console.error(e);setSyncDot('err');}
+  }catch(e){ console.error('loadApp error:', e); setSyncDot('err'); }
 
   // UI por nível
   const uname = currentPerfil?.nome || currentUser?.user?.email || '';
@@ -1444,7 +1481,7 @@ function setView(v){
   if(v==='funil'){initFilters();render();}
   if(v==='dash')renderDash();
   if(v==='sup')renderSups();
-  if(v==='usr'){ refreshUsers(); }
+  if(v==='usr')renderUsers();
   if(v==='conc')renderConc();
   if(v==='perfil')renderPerfil();
   if(v==='clientes')renderClientes();
@@ -1472,7 +1509,7 @@ function renderStats(){
   if(isAdmin()) html+=`
     <div class="stat"><div class="stat-v" style="color:var(--g)">R$${fmts(tr)}</div><div class="stat-l">Receita</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--dan)">R$${fmts(tc)}</div><div class="stat-l">Custo</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--blue)">R$${fmts(tr-tc)}</div><div class="stat-l">Margem</div></div>`;
+    <div class="stat"><div class="stat-v" style="color:var(--bl)">R$${fmts(tr-tc)}</div><div class="stat-l">Margem</div></div>`;
   bar.innerHTML=html;
 }
 function renderBoard(){
@@ -2037,7 +2074,7 @@ function renderLoteResult(results,matched,notMatched){
         <td>${t.pagador||t.nome||'-'}</td>
         <td style="color:var(--g);font-weight:600">R$ ${fmt(t.valor)}</td>
         <td>${t.data_recebimento||t.data||'-'}</td>
-        <td>${t.grpId?`<span style="color:var(--blue);font-size:11px">🔗 Grupo ${t.grpId}</span>`:t.match?`<span style="color:var(--g);font-size:11px">✅ ${t.match.nome}</span>`:'<span style="color:var(--mut);font-size:11px">❌ Não encontrado</span>'}</td>
+        <td>${t.grpId?`<span style="color:var(--bl);font-size:11px">🔗 Grupo ${t.grpId}</span>`:t.match?`<span style="color:var(--g);font-size:11px">✅ ${t.match.nome}</span>`:'<span style="color:var(--mut);font-size:11px">❌ Não encontrado</span>'}</td>
         <td>${t.grpId?`<button class="btn btn-pay btn-xs" onclick="confirmarGrupoLote('${t.grpId}')">Confirmar grupo</button>`:t.match?`<button class="btn btn-pay btn-xs" onclick="confirmarLote(${i})">Confirmar</button>`:''}</td>
       </tr>`).join('')}</tbody>
     </table>`;
@@ -2194,23 +2231,13 @@ async function saveSup(){
 // ═══════════════════════════════════════
 // USUÁRIOS
 // ═══════════════════════════════════════
-async function refreshUsers(){
-  const list = document.getElementById('usersList');
-  if(list) list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--mut)">⏳ Carregando...</div>';
-  try{
-    const fresh = await api('perfis?order=nome.asc',undefined,undefined,currentUser?.access_token);
-    if(Array.isArray(fresh)) usuarios = fresh;
-  }catch(e){ console.warn('refreshUsers fetch error:', e); }
-  renderUsers();
-}
-
 function renderUsers(){
   const list=document.getElementById('usersList');
   if(!usuarios.length){list.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum usuário cadastrado</div>';return;}
   list.innerHTML=usuarios.map(u=>`
     <div class="user-row" style="${u.ativo===false?'opacity:.5':''}">
       <div class="user-info">
-        <div class="user-av" style="background:${u.nivel==='admin'?'rgba(245,166,35,.15)':'rgba(107,140,255,.1)'};color:${u.nivel==='admin'?'var(--acc)':'var(--blue)'}">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
+        <div class="user-av" style="background:${u.nivel==='admin'?'rgba(245,166,35,.15)':'rgba(91,141,238,.15)'};color:${u.nivel==='admin'?'var(--acc)':'var(--bl)'}">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
         <div>
           <div class="user-name">${u.nome||'-'} ${u.id===currentUser?.user?.id?'<span style="font-size:10px;color:var(--mut)">(você)</span>':''}</div>
           <div class="user-email">${u.email||'-'}</div>
@@ -2240,63 +2267,83 @@ async function toggleUserAtivo(id, ativoAtual){
     toast('Erro ao alterar status','#e05252');
   }
 }
-function openUserForm(){['u_nome','u_email','u_pass'].forEach(id=>document.getElementById(id).value='');document.getElementById('u_nivel').value='operador';document.getElementById('userModal').classList.add('open');}
+function openUserForm(){
+  ['u_nome','u_email','u_pass'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('u_nivel').value='operador';
+  const err = document.getElementById('userModalErr');
+  if(err){ err.style.display='none'; err.textContent=''; }
+  document.getElementById('userModal').classList.add('open');
+  setTimeout(()=>document.getElementById('u_nome').focus(), 100);
+}
 async function saveUser(){
-  const nome=document.getElementById('u_nome').value.trim();
-  const email=document.getElementById('u_email').value.trim();
-  const pass=document.getElementById('u_pass').value;
-  const nivel=document.getElementById('u_nivel').value;
-  if(!nome||!email||!pass){toast('⚠ Preencha todos os campos','#e05252');return;}
-  if(pass.length<6){toast('⚠ Senha mínimo 6 caracteres','#e05252');return;}
+  const nome  = document.getElementById('u_nome').value.trim();
+  const email = document.getElementById('u_email').value.trim();
+  const pass  = document.getElementById('u_pass').value;
+  const nivel = document.getElementById('u_nivel').value;
+  const errEl = document.getElementById('userModalErr');
 
-  // Disable button to prevent double-click
+  const showErr = (msg)=>{
+    if(errEl){ errEl.textContent=msg; errEl.style.display='block'; }
+    toast(msg, '#e05252');
+  };
+  if(errEl){ errEl.style.display='none'; }
+
+  if(!nome||!email||!pass){ showErr('⚠ Preencha todos os campos'); return; }
+  if(pass.length<6){ showErr('⚠ Senha mínimo 6 caracteres'); return; }
+
   const btn = document.querySelector('#userModal .btn-p');
   if(btn){ btn.disabled=true; btn.textContent='Criando...'; }
 
   try{
-    const res=await adminAuthApi('admin/users',{email,password:pass,user_metadata:{nome,nivel},email_confirm:true});
+    // Cria usuário no Supabase Auth via Admin API
+    const payload = {
+      email,
+      password: pass,
+      email_confirm: true,
+      user_metadata: { nome, nivel }
+    };
+    console.log('saveUser: criando usuário', email, nivel);
+    const res = await adminAuthApi('admin/users', payload);
+    console.log('saveUser: resposta Auth API:', JSON.stringify(res).slice(0,300));
 
-    if(res.error){
-      toast('Erro: '+(res.error.message||JSON.stringify(res.error)),'#e05252');
-      if(btn){ btn.disabled=false; btn.textContent='Criar usuário'; }
+    if(res.error || res.msg){
+      const msg = res.error?.message || res.error_description || res.msg || JSON.stringify(res);
+      showErr('Erro Auth: ' + msg);
       return;
     }
 
-    // Supabase pode retornar { id, ... } ou { user: { id, ... } }
     const userId = res.id || res.user?.id;
-
     if(!userId){
-      // Sem ID — criação falhou silenciosamente
-      console.error('saveUser: resposta sem userId:', res);
-      toast('Erro: não foi possível obter o ID do usuário criado. Verifique o console.','#e05252');
-      if(btn){ btn.disabled=false; btn.textContent='Criar usuário'; }
+      showErr('Erro: usuário criado mas sem ID retornado. Tente novamente ou verifique o console.');
+      console.error('saveUser: sem userId. Resposta completa:', res);
       return;
     }
 
-    // Cria perfil na tabela perfis (garante mesmo se trigger falhar)
-    const novoPerfil = {id:userId, nome, email, nivel, ativo:true};
-    await api('perfis','POST',novoPerfil,currentUser?.access_token).catch(async()=>{
-      // Se já existe, atualiza
-      await api('perfis?id=eq.'+userId,'PATCH',{nome,email,nivel},currentUser?.access_token).catch(()=>{});
-    });
-
-    // Adiciona ao array local imediatamente
-    if(!usuarios.find(u=>u.id===userId)){
-      usuarios.push(novoPerfil);
+    // Cria/garante linha na tabela perfis
+    const novoPerfil = { id: userId, nome, email, nivel, ativo: true };
+    try{
+      await api('perfis', 'POST', novoPerfil, currentUser?.access_token);
+      console.log('saveUser: perfil criado na tabela');
+    }catch(e1){
+      console.warn('saveUser: POST perfis falhou, tentando PATCH:', e1);
+      try{
+        await api('perfis?id=eq.'+userId, 'PATCH', {nome, email, nivel, ativo:true}, currentUser?.access_token);
+        console.log('saveUser: perfil atualizado via PATCH');
+      }catch(e2){ console.warn('saveUser: PATCH perfil também falhou:', e2); }
     }
 
-    // Recarrega lista do Supabase para garantir consistência
-    try{
-      const fresh = await api('perfis?order=criado_em.asc',undefined,undefined,currentUser?.access_token);
-      if(Array.isArray(fresh) && fresh.length > 0) usuarios = fresh;
-    }catch(_){}
+    // Atualiza lista local
+    const existingIdx = usuarios.findIndex(u=>u.id===userId);
+    if(existingIdx>=0) usuarios[existingIdx] = {...usuarios[existingIdx], ...novoPerfil};
+    else usuarios.push(novoPerfil);
 
     document.getElementById('userModal').classList.remove('open');
     renderUsers();
-    toast('✅ Usuário criado com sucesso!');
+    toast('✅ Usuário criado! Já pode fazer login.');
+
   }catch(e){
-    toast('Erro ao criar usuário: '+e.message,'#e05252');
-    console.error('saveUser error:',e);
+    showErr('Erro inesperado: ' + e.message);
+    console.error('saveUser exception:', e);
   }finally{
     if(btn){ btn.disabled=false; btn.textContent='Criar usuário'; }
   }
@@ -2520,7 +2567,7 @@ function renderDash(){
               <td style="color:var(--acc)">R$ ${fmts(v.rec)}</td>
               <td style="color:var(--dan)">R$ ${fmts(v.cst)}</td>
               <td style="color:var(--g);font-weight:700">R$ ${fmts(v.rec-v.cst)}</td>
-              <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${maxRec>0?Math.max(4,(v.rec/maxRec*100)):4}%;background:var(--blue)"></div></div><span style="font-size:10px;color:var(--mut);min-width:32px">${maxRec>0?(v.rec/maxRec*100).toFixed(0):0}%</span></div></td>
+              <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${maxRec>0?Math.max(4,(v.rec/maxRec*100)):4}%;background:var(--bl)"></div></div><span style="font-size:10px;color:var(--mut);min-width:32px">${maxRec>0?(v.rec/maxRec*100).toFixed(0):0}%</span></div></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -2865,7 +2912,7 @@ function renderCardHistorico(cardId){
   if(!hist.length){ sec.style.display='none'; return; }
   sec.style.display='block';
   const cores = {
-    'Criado':'var(--g)','Movido':'var(--blue)','Pago':'var(--g)',
+    'Criado':'var(--g)','Movido':'var(--bl)','Pago':'var(--g)',
     'Editado':'var(--acc)','Excluído':'var(--dan)','Conciliado':'var(--g)'
   };
   div.innerHTML = [...hist].reverse().map(h => {
@@ -2907,7 +2954,7 @@ async function renderPerfil(){
   if(emailEl) emailEl.textContent = email || 'Não definido';
   if(nivelEl){
     nivelEl.textContent = nivel === 'admin' ? '👑 Admin' : '👤 Operador';
-    nivelEl.style.color = nivel === 'admin' ? 'var(--acc)' : 'var(--blue)';
+    nivelEl.style.color = nivel === 'admin' ? 'var(--acc)' : 'var(--bl)';
   }
   // Link de cadastro
   const uid = currentPerfil.id || currentUser?.user?.id || '';
@@ -3437,7 +3484,7 @@ function renderRelatorios(){
       ${statBox('Margem Bruta','R$ '+fmt(mgBruta),mgBruta>=0?'var(--g)':'var(--dan)')}
       ${statBox('Imposto NF (12%)','- R$ '+fmt(totalNFImp),'#f97316')}
       ${statBox('Margem Real','R$ '+fmt(mgReal),mgReal>=0?'var(--g)':'var(--dan)')}
-      ${statBox('Ordens no Mês',src.length,'var(--blue)')}
+      ${statBox('Ordens no Mês',src.length,'var(--bl)')}
       ${statBox('Com Nota Fiscal',qtdNF,'#10b981')}
       ${statBox('Pagos',src.filter(c=>c.pago).length,'var(--g)')}
     </div>
