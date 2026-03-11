@@ -1147,15 +1147,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div id="userModalErr" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 13px;font-size:12px;color:#f87171;margin-bottom:12px"></div>
       <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="u_nome" placeholder="Nome completo"></div>
       <div class="fr"><label>E-mail <span class="req">*</span></label><input type="email" id="u_email" placeholder="email@exemplo.com"></div>
-      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')saveUser()"></div>
+      <div class="fr"><label>Senha <span class="req">*</span></label><input type="password" id="u_pass" placeholder="Mínimo 6 caracteres"></div>
       <div class="fr"><label>Nível de acesso</label>
         <select id="u_nivel">
           <option value="operador">Operador - vê apenas seus negócios, sem financeiro</option>
           <option value="admin">Admin - acesso total</option>
         </select>
-      </div>
-      <div style="background:rgba(107,140,255,.08);border:1px solid rgba(107,140,255,.2);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--mut2);margin-bottom:12px">
-        ℹ️ O usuário poderá fazer login imediatamente após o cadastro com o e-mail e senha informados.
       </div>
       <div class="ffoot">
         <button class="btn btn-g" onclick="document.getElementById('userModal').classList.remove('open')">Cancelar</button>
@@ -1246,7 +1243,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 // ═══════════════════════════════════════
 const SUPA_URL = 'https://ifdxqbbhmunyquzbrwcx.supabase.co';
 const SUPA_KEY = 'sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC';
-const SUPA_SECRET = 'sb_secret_hoxV5Kgvi016xg95Zv9ycg_CQfacUUs';
+const SUPA_SECRET = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZHhxYmJobXVueXF1emJyd2N4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjcxNTI0MCwiZXhwIjoyMDg4MjkxMjQwfQ.0md-7DKhm_tU4zHZsJwddticgOxx0Bd1K0P1bRpsWNk';
 const PIX_KEY  = 'cacambasp@gmail.com';
 const PIX_NAME = 'Luciana Cristina Testa';
 const PIX_CITY = 'SAO PAULO';
@@ -1297,7 +1294,10 @@ const authApi=async(path,body)=>{
 };
 const adminAuthApi=async(path,body,method='POST')=>{
   const r=await fetch(SUPA_URL+'/auth/v1/'+path,{method,headers:{'Content-Type':'application/json','apikey':SUPA_SECRET,'Authorization':'Bearer '+SUPA_SECRET},body:body?JSON.stringify(body):null});
-  return r.json();
+  const json = await r.json();
+  console.log('adminAuthApi', method, path, '→ HTTP', r.status, JSON.stringify(json).slice(0,400));
+  if(!r.ok && !json.id) return { error: { message: json.message || json.error_description || json.msg || 'HTTP '+r.status } };
+  return json;
 };
 
 // ═══════════════════════════════════════
@@ -1359,74 +1359,41 @@ function doLogout(){
 async function loadApp(){
   document.getElementById('loadTxt').textContent='Carregando dados...';
   try{
-    // Extrai user id com compatibilidade entre formatos do Supabase
-    const userId    = currentUser?.user?.id    || currentUser?.id;
+    // extrai user id com compatibilidade entre formatos do Supabase
+    const userId = currentUser?.user?.id || currentUser?.id;
     const userEmail = currentUser?.user?.email || currentUser?.email || '';
-    const token     = currentUser?.access_token || currentUser?.token;
-    if(!userId){ showLogin(); return; }
-
-    // Garante estrutura do currentUser
+    const token = currentUser?.access_token || currentUser?.token;
+    if(!userId){showLogin();return;}
+    // busca perfil
+    const perfis=await api('perfis?id=eq.'+userId,undefined,undefined,token);
+    currentPerfil=perfis?.[0];
+    if(!currentPerfil){
+      // cria perfil fallback
+      currentPerfil={id:userId,nome:userEmail,email:userEmail,nivel:'operador'};
+    }
+    // garante email no perfil
+    if(!currentPerfil.email) currentPerfil.email = userEmail;
+    // atualiza token para uso posterior
     currentUser.access_token = token;
     if(!currentUser.user) currentUser.user = {id:userId, email:userEmail};
-
-    // Busca perfil — pode falhar se RLS bloquear, então tenta fallback
-    let perfilData = null;
-    try{
-      const perfis = await api('perfis?id=eq.'+userId, undefined, undefined, token);
-      perfilData = perfis?.[0] || null;
-    }catch(e){ console.warn('loadApp: erro buscando perfil:', e); }
-
-    if(!perfilData){
-      // Tenta extrair nível do user_metadata (salvo na criação)
-      const meta = currentUser?.user?.user_metadata || currentUser?.user_metadata || {};
-      const nivelMeta = meta.nivel || 'operador';
-      const nomeMeta  = meta.nome  || userEmail;
-      console.warn('loadApp: perfil não encontrado na tabela, usando user_metadata:', meta);
-
-      // Tenta criar o perfil se não existe
-      try{
-        const novoPerfil = {id:userId, nome:nomeMeta, email:userEmail, nivel:nivelMeta, ativo:true};
-        await api('perfis','POST', novoPerfil, token);
-        perfilData = novoPerfil;
-      }catch(_){
-        // Provavelmente já existe mas RLS impede leitura — usa fallback
-        perfilData = {id:userId, nome:nomeMeta, email:userEmail, nivel:nivelMeta, ativo:true};
-      }
-    }
-
-    currentPerfil = perfilData;
-    if(!currentPerfil.email) currentPerfil.email = userEmail;
-
-    // Verifica se conta está ativa
-    if(currentPerfil.ativo === false){
-      localStorage.removeItem('crm_session');
-      showLogin();
-      document.getElementById('loginErr').textContent = 'Sua conta está desativada. Fale com o administrador.';
-      document.getElementById('loginErr').classList.add('show');
-      return;
-    }
-
-    // Carrega dados principais
-    const [dbSups, dbCards, dbUsers] = await Promise.all([
-      api('fornecedores?order=criado_em.asc', undefined, undefined, token),
+    // carrega dados
+    const [dbSups,dbCards,dbUsers]=await Promise.all([
+      api('fornecedores?order=criado_em.asc',undefined,undefined,currentUser.access_token),
       isAdmin()
-        ? api('negocios?order=criado_em.asc', undefined, undefined, token)
-        : api('negocios?usuario_id=eq.'+userId+'&order=criado_em.asc', undefined, undefined, token),
-      isAdmin() ? api('perfis?order=nome.asc', undefined, undefined, token) : Promise.resolve([]),
+        ? api('negocios?order=criado_em.asc',undefined,undefined,currentUser.access_token)
+        : api('negocios?usuario_id=eq.'+currentUser.user.id+'&order=criado_em.asc',undefined,undefined,currentUser.access_token),
+      isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,currentUser.access_token) : Promise.resolve([]),
     ]);
-    sups    = dbSups  || [];
-    cards   = dbCards || [];
-    usuarios = dbUsers || [];
-
+    sups=dbSups||[];cards=dbCards||[];usuarios=dbUsers||[];
     // Re-render active view after data loads
     const curView = document.querySelector('.view.act')?.id?.replace('view-','');
-    if(curView==='sup')      renderSups();
-    if(curView==='dash')     renderDash();
-    if(curView==='usr')      renderUsers();
+    if(curView==='sup') renderSups();
+    if(curView==='dash') renderDash();
+    if(curView==='usr') renderUsers();
     if(curView==='clientes') renderClientes();
     if(curView==='funil'||!curView){ initFilters(); render(); }
     setSyncDot('ok');
-  }catch(e){ console.error('loadApp error:', e); setSyncDot('err'); }
+  }catch(e){console.error(e);setSyncDot('err');}
 
   // UI por nível
   const uname = currentPerfil?.nome || currentUser?.user?.email || '';
@@ -2270,10 +2237,8 @@ async function toggleUserAtivo(id, ativoAtual){
 function openUserForm(){
   ['u_nome','u_email','u_pass'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('u_nivel').value='operador';
-  const err = document.getElementById('userModalErr');
-  if(err){ err.style.display='none'; err.textContent=''; }
+  const e=document.getElementById('userModalErr');if(e){e.style.display='none';e.textContent='';}
   document.getElementById('userModal').classList.add('open');
-  setTimeout(()=>document.getElementById('u_nome').focus(), 100);
 }
 async function saveUser(){
   const nome  = document.getElementById('u_nome').value.trim();
@@ -2286,7 +2251,7 @@ async function saveUser(){
     if(errEl){ errEl.textContent=msg; errEl.style.display='block'; }
     toast(msg, '#e05252');
   };
-  if(errEl){ errEl.style.display='none'; }
+  if(errEl) errEl.style.display='none';
 
   if(!nome||!email||!pass){ showErr('⚠ Preencha todos os campos'); return; }
   if(pass.length<6){ showErr('⚠ Senha mínimo 6 caracteres'); return; }
@@ -2295,46 +2260,61 @@ async function saveUser(){
   if(btn){ btn.disabled=true; btn.textContent='Criando...'; }
 
   try{
-    // Cria usuário no Supabase Auth via Admin API
-    const payload = {
+    let userId = null;
+
+    // ── TENTATIVA 1: Admin API (requer service_role key) ──
+    const adminRes = await adminAuthApi('admin/users', {
       email,
       password: pass,
       email_confirm: true,
       user_metadata: { nome, nivel }
-    };
-    console.log('saveUser: criando usuário', email, nivel);
-    const res = await adminAuthApi('admin/users', payload);
-    console.log('saveUser: resposta Auth API:', JSON.stringify(res).slice(0,300));
+    });
 
-    if(res.error || res.msg){
-      const msg = res.error?.message || res.error_description || res.msg || JSON.stringify(res);
-      showErr('Erro Auth: ' + msg);
-      return;
+    if(adminRes.id || adminRes.user?.id){
+      // Admin API funcionou
+      userId = adminRes.id || adminRes.user?.id;
+      console.log('saveUser: criado via Admin API, userId=', userId);
+    } else {
+      // ── TENTATIVA 2: signUp normal (fallback quando service_role key inválida) ──
+      console.warn('saveUser: Admin API falhou, tentando signUp normal. Erro:', adminRes);
+      const signUpRes = await authApi('signup', {
+        email,
+        password: pass,
+        data: { nome, nivel }
+      });
+      console.log('saveUser: signUp response:', JSON.stringify(signUpRes).slice(0,300));
+
+      if(signUpRes?.user?.id){
+        userId = signUpRes.user.id;
+        console.log('saveUser: criado via signUp, userId=', userId);
+        // signUp não confirma email automaticamente — avisar
+        toast('⚠ Usuário criado mas pode precisar confirmar o e-mail', '#f5a623');
+      } else if(signUpRes?.error || signUpRes?.error_description){
+        const msg = signUpRes.error_description || signUpRes.error?.message || JSON.stringify(signUpRes);
+        showErr('Erro ao criar: ' + msg);
+        return;
+      } else {
+        showErr('Erro: não foi possível criar o usuário. Resposta inesperada do servidor.');
+        console.error('saveUser: resposta inesperada:', signUpRes);
+        return;
+      }
     }
 
-    const userId = res.id || res.user?.id;
-    if(!userId){
-      showErr('Erro: usuário criado mas sem ID retornado. Tente novamente ou verifique o console.');
-      console.error('saveUser: sem userId. Resposta completa:', res);
-      return;
-    }
-
-    // Cria/garante linha na tabela perfis
+    // ── Cria/garante linha na tabela perfis ──
     const novoPerfil = { id: userId, nome, email, nivel, ativo: true };
     try{
       await api('perfis', 'POST', novoPerfil, currentUser?.access_token);
-      console.log('saveUser: perfil criado na tabela');
+      console.log('saveUser: perfil inserido na tabela');
     }catch(e1){
-      console.warn('saveUser: POST perfis falhou, tentando PATCH:', e1);
       try{
         await api('perfis?id=eq.'+userId, 'PATCH', {nome, email, nivel, ativo:true}, currentUser?.access_token);
         console.log('saveUser: perfil atualizado via PATCH');
-      }catch(e2){ console.warn('saveUser: PATCH perfil também falhou:', e2); }
+      }catch(e2){ console.warn('saveUser: não foi possível salvar perfil na tabela:', e2); }
     }
 
     // Atualiza lista local
-    const existingIdx = usuarios.findIndex(u=>u.id===userId);
-    if(existingIdx>=0) usuarios[existingIdx] = {...usuarios[existingIdx], ...novoPerfil};
+    const idx = usuarios.findIndex(u=>u.id===userId);
+    if(idx>=0) usuarios[idx] = {...usuarios[idx], ...novoPerfil};
     else usuarios.push(novoPerfil);
 
     document.getElementById('userModal').classList.remove('open');
