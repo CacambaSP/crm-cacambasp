@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- v2.1.1-202603121415 -->
+<!DOCTYPE html><!-- v2.2.0-202603121422 -->
 <!-- v10.2 - 2026-03-10 -->
 <html lang="pt-BR">
 <head>
@@ -950,18 +950,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
   <!-- RELATÓRIOS -->
   <div class="view" id="view-relatorios">
-    <!-- HEADER -->
-    <div class="ph" style="padding:18px 22px 0;flex-direction:column;gap:12px;align-items:flex-start;border-bottom:1px solid var(--bor)">
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px">
-        <div class="ptitle">📈 Relatórios</div>
+    <div style="background:var(--sur);border-bottom:1px solid var(--bor);padding:18px 22px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="ptitle" style="margin:0">📈 Relatórios</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <select id="relMes" onchange="renderRelatorios()" class="ph-select"></select>
           <select id="relAno" onchange="renderRelatorios()" class="ph-select"></select>
           <button class="btn btn-p btn-sm" onclick="exportRelPDF()">⬇️ PDF</button>
         </div>
       </div>
-      <!-- ABAS DE MODELOS -->
-      <div style="display:flex;gap:0;overflow-x:auto;padding-bottom:0;margin-bottom:-1px">
+      <div style="display:flex;gap:2px;overflow-x:auto;margin-bottom:-1px">
         <button class="rel-tab rel-tab-on" id="relTab_resumo" onclick="setRelTab('resumo')">📊 Resumo</button>
         <button class="rel-tab" id="relTab_vendedor" onclick="setRelTab('vendedor')">👤 Por Vendedor</button>
         <button class="rel-tab" id="relTab_fornecedor" onclick="setRelTab('fornecedor')">🚛 Por Fornecedor</button>
@@ -970,7 +968,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <button class="rel-tab" id="relTab_nf" onclick="setRelTab('nf')">🧾 Notas Fiscais</button>
       </div>
     </div>
-    <div id="relConteudo" style="padding:22px;display:flex;flex-direction:column;gap:18px"></div>
+    <div id="relConteudo" style="padding:22px;display:flex;flex-direction:column;gap:18px;overflow-y:auto"></div>
   </div>
 
   <!-- NOTAS FISCAIS -->
@@ -2192,14 +2190,26 @@ async function finArquivarUm(id){
   const c=cards.find(x=>x.id===id);if(!c)return;
   const ok=await showConfirm({icon:'🏆',title:'Arquivar ordem',body:`<b>${c.end_logradouro||c.nome||'Ordem'}</b><br><br>Irá para o Histórico. Pode ser revertido a qualquer momento.`,okLabel:'🏆 Arquivar',okClass:'btn-p'});
   if(!ok)return;
+  setSyncDot('loading');
   c.col='concluido';c.concluido_em=new Date().toISOString();
+  let saved=false;
   try{
     await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
-  }catch(e){
-    try{ await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token); }
-    catch(e2){ toast('Erro ao arquivar: '+e2.message,'#e05252'); c.col='baixar'; render();renderCentralFinanceira(); return; }
+    saved=true;
+  }catch(e1){
+    console.warn('PATCH c/ concluido_em falhou:',e1.message,'. Tentando sem...');
+    try{
+      await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token);
+      saved=true;
+    }catch(e2){
+      console.error('PATCH falhou:',e2.message);
+      toast('Erro ao arquivar: '+e2.message,'#e05252');
+      c.col='baixar';c.concluido_em=null;
+      setSyncDot('err');
+    }
   }
-  toast('🏆 Ordem arquivada!');render();renderCentralFinanceira();
+  if(saved){ setSyncDot('ok');toast('🏆 Ordem arquivada!'); }
+  render();renderCentralFinanceira();
 }
 function finAbrirPagarCli(id){
   detailId=id;
@@ -2218,25 +2228,30 @@ async function finArquivarSelecionados(){
   const ok=await showConfirm({icon:'🏆',title:'Arquivar '+n+' ordem'+(n!==1?'ns':''),body:'As ordens sairão do funil e irão para o <b>Histórico</b>.<br>Você pode desarquivar a qualquer momento.',okLabel:'🏆 Arquivar '+n,okClass:'btn-p'});
   if(!ok)return;
   const ids=[..._finSelected];
+  setSyncDot('loading');
   let ok_count=0;
   for(const id of ids){
     const c=cards.find(x=>x.id===id);if(!c)continue;
     c.col='concluido';c.concluido_em=new Date().toISOString();
+    let saved=false;
     try{
       await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
-      ok_count++;
-    }catch(e){
+      saved=true;
+    }catch(e1){
       try{
         await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token);
-        ok_count++;
-      }catch(e2){ c.col='baixar'; }
+        saved=true;
+      }catch(e2){ console.error('Falhou arquivar '+id+':',e2.message); c.col='baixar'; }
     }
+    if(saved) ok_count++;
   }
+  setSyncDot(ok_count===ids.length?'ok':'err');
   _finSelected.clear();
   const bar=document.getElementById('finBarraLote');
-  if(bar){bar.style.opacity='0';bar.style.pointerEvents='none';}
+  if(bar){bar.style.opacity='0';bar.style.pointerEvents='none';bar.style.transform='translateX(-50%) translateY(20px)';}
   render();renderCentralFinanceira();
-  toast('🏆 '+ok_count+' ordem'+(ok_count!==1?'ns':'')+' arquivada'+(ok_count!==1?'s':'')+'!');
+  if(ok_count>0) toast('🏆 '+ok_count+' ordem'+(ok_count!==1?'ns':'')+' arquivada'+(ok_count!==1?'s':'')+'!');
+  if(ok_count<ids.length) toast('⚠ '+(ids.length-ok_count)+' não arquivadas — veja o Console (F12)','#f97316');
 }
 let _finPayCallback=false;
 
@@ -3207,7 +3222,7 @@ function renderOSCli(c){
   const osFrame = document.getElementById('osPreview');
   const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
   osDoc.open();
-  osDoc.write('<!DOCTYPE html><!-- v2.1.1-202603121415 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
   osDoc.close();
   // Inject QR after frame loads
   let qrImg = null;
@@ -3265,7 +3280,7 @@ function renderOSForn(c){
   const osFrame = document.getElementById('osPreview');
   const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
   osDoc.open();
-  osDoc.write('<!DOCTYPE html><!-- v2.1.1-202603121415 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
   osDoc.close();
 }
 
@@ -3644,7 +3659,7 @@ function imprimirOSAgrupada(){
     '</div>'
   ].join('');
   const printWin = window.open('','_blank','width=600,height=800');
-  printWin.document.write('<!DOCTYPE html><!-- v2.1.1-202603121415 --><html><head><title>OS Agrupada '+grpPixId+'</title><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111;background:#fff}*{box-sizing:border-box}@media print{body{padding:12px}@page{margin:8mm;size:A4}}</style></head><body>'+html+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
+  printWin.document.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><title>OS Agrupada '+grpPixId+'</title><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111;background:#fff}*{box-sizing:border-box}@media print{body{padding:12px}@page{margin:8mm;size:A4}}</style></head><body>'+html+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
   printWin.document.close();
 }
 
@@ -4226,7 +4241,7 @@ function exportRelPDF(){
   const nomeMes=MESES[parseInt(mes)-1]+' '+ano;
   const conteudo=document.getElementById('relConteudo')?.innerHTML||'';
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><!-- v2.1.1-202603121415 --><html><head><title>Relatório ${nomeMes}</title>
+  w.document.write(`<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><title>Relatório ${nomeMes}</title>
   <style>body{font-family:'DM Sans',Arial,sans-serif;padding:24px;color:#111;background:#fff;font-size:12px}*{box-sizing:border-box}
   .rel-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}
   .rel-kpi{border:1px solid #ddd;border-radius:8px;padding:12px}.rel-kpi-label{font-size:10px;color:#666;margin-bottom:3px}.rel-kpi-val{font-size:18px;font-weight:800}.rel-kpi-sub{font-size:10px;color:#999;margin-top:2px}
