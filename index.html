@@ -275,6 +275,28 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .cobrar-menu-item:hover{background:rgba(255,255,255,.05)}
 .cobrar-menu-item .cmi-icon{font-size:15px;width:20px;text-align:center}
 .cobrar-menu-divider{height:1px;background:var(--bor)}
+/* ── MODAL CONFIRMAÇÃO CUSTOMIZADO ── */
+.confirm-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);opacity:0;transition:opacity .2s;pointer-events:none}
+.confirm-modal-bg.open{opacity:1;pointer-events:all}
+.confirm-modal{background:#1a1c24;border:1px solid var(--bor);border-radius:16px;padding:28px 24px;max-width:400px;width:100%;transform:scale(.95);transition:transform .2s}
+.confirm-modal-bg.open .confirm-modal{transform:scale(1)}
+.confirm-modal-icon{font-size:36px;text-align:center;margin-bottom:12px}
+.confirm-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;text-align:center;margin-bottom:8px}
+.confirm-modal-body{font-size:13px;color:var(--mut2);text-align:center;line-height:1.6;margin-bottom:22px}
+.confirm-modal-btns{display:flex;gap:10px}
+.confirm-modal-btns .btn{flex:1;padding:11px}
+/* ── HISTÓRICO — SELEÇÃO EM LOTE ── */
+.hist-item{position:relative;transition:border-color .15s,box-shadow .15s}
+.hist-item.selected{border-color:var(--acc)!important;box-shadow:0 0 0 2px rgba(245,166,35,.15)}
+.hist-item .hist-cb{position:absolute;top:14px;left:14px;width:18px;height:18px;cursor:pointer;accent-color:var(--acc);opacity:0;transition:opacity .15s;z-index:2}
+.hist-sel-mode .hist-item .hist-cb{opacity:1}
+.hist-sel-mode .hist-item{padding-left:44px!important}
+.hist-floating-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1c24;border:1px solid var(--acc);border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:14px;z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.5);white-space:nowrap;transition:opacity .2s,transform .2s;opacity:0;pointer-events:none;transform:translateX(-50%) translateY(20px)}
+.hist-floating-bar.show{opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0)}
+.hist-floating-bar-txt{font-size:13px;font-weight:600;color:var(--acc)}
+/* botão arquivar no modal de detalhe */
+.btn-archive{background:rgba(107,140,255,.12);color:var(--blue);border:1px solid rgba(107,140,255,.25)}
+.btn-archive:hover{background:rgba(107,140,255,.22)}
 
 .fin-box{border-radius:var(--rad2);padding:10px 12px;text-align:center}
 .fin-box.rec{background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.15)}
@@ -736,10 +758,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div class="pw">
       <div class="ph">
         <div>
-          <div class="ptitle">🏆 Histórico de Ordens Concluídas</div>
+          <div class="ptitle">🏆 Histórico de Ordens</div>
           <div style="font-size:12px;color:var(--mut2);margin-top:2px" id="hist_count"></div>
         </div>
-        <button onclick="excluirTodosConcluidos()" class="btn btn-dan btn-sm">🗑 Excluir todos</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="histIniciarSelecao()" class="btn btn-sm btn-archive" id="histSelBtn">☑️ Selecionar</button>
+          <button onclick="excluirTodosConcluidos()" class="btn btn-dan btn-sm">🗑 Excluir todos</button>
+        </div>
       </div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
@@ -1143,6 +1168,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-g btn-xs" style="flex:1" onclick="openOS(detailId)">🗒️ OS</button>
         <button class="btn admin-only btn-xs" style="flex:1;background:linear-gradient(135deg,#5b8dee,#3b6fd4);color:#fff;border:none" onclick="abrirVoucherDoCard(detailId)">🎫 Voucher</button>
+        <button class="btn btn-archive btn-xs admin-only" id="detailArchiveBtn" onclick="toggleArquivarCard(detailId)" title="Arquivar/Desarquivar">🏆</button>
         <button class="btn btn-dan btn-xs admin-only" onclick="deleteCard()" title="Excluir">🗑️</button>
       </div>
     </div>
@@ -1302,6 +1328,28 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 </div>
 
 <!-- MODAL: ALERTA PENDENTES -->
+<!-- MODAL: CONFIRMAÇÃO CUSTOMIZADO -->
+<div class="confirm-modal-bg" id="confirmModal">
+  <div class="confirm-modal">
+    <div class="confirm-modal-icon" id="confirmIcon">🏆</div>
+    <div class="confirm-modal-title" id="confirmTitle">Confirmar ação</div>
+    <div class="confirm-modal-body" id="confirmBody"></div>
+    <div class="confirm-modal-btns">
+      <button class="btn" id="confirmCancelBtn" onclick="closeConfirmModal()">Cancelar</button>
+      <button class="btn" id="confirmOkBtn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- BARRA FLUTUANTE: SELEÇÃO EM LOTE HISTÓRICO -->
+<div class="hist-floating-bar" id="histFloatingBar">
+  <span class="hist-floating-bar-txt" id="histFloatingTxt">0 selecionadas</span>
+  <button class="btn btn-sm" style="background:rgba(245,166,35,.15);color:var(--acc);border:1px solid rgba(245,166,35,.3)" onclick="histSelecionarTodos()">Selecionar todas</button>
+  <button class="btn btn-sm btn-archive" onclick="histDesarquivarSelecionados()">↩️ Desarquivar</button>
+  <button class="btn btn-sm btn-dan" onclick="histExcluirSelecionados()">🗑 Excluir</button>
+  <button class="btn btn-sm" style="background:var(--card);color:var(--mut2);border:1px solid var(--bor)" onclick="histCancelarSelecao()">✕ Cancelar</button>
+</div>
+
 <div class="mbg" id="alertModal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mbox" style="max-width:500px">
     <div class="mh"><div class="mt">🔔 Cobranças Pendentes</div><button class="mx" onclick="document.getElementById('alertModal').classList.remove('open')">✕</button></div>
@@ -1794,6 +1842,12 @@ function fillDetail(c){
   }
   // pago — novos blocos de status
   _fillStatusBlocks(c);
+  // botão arquivar/desarquivar
+  const archBtn=document.getElementById('detailArchiveBtn');
+  if(archBtn){
+    archBtn.textContent = c.col==='concluido' ? '↩️' : '🏆';
+    archBtn.title       = c.col==='concluido' ? 'Desarquivar — volta ao funil' : 'Arquivar no histórico';
+  }
   document.getElementById('d_obs').textContent=c.obs||'Nenhuma';
   document.getElementById('d_obs_s').style.display=c.obs?'block':'none';
 }
@@ -4810,24 +4864,162 @@ async function deletarCard(id){
   }catch(e){ toast('Erro ao excluir','#f87171'); }
 }
 
-async function concluirCard(id){
-  if(!confirm('Marcar esta ordem como concluída? Ela sairá do funil e irá para o Histórico.')) return;
-  const c = cards.find(x=>x.id===id);
-  if(!c) return;
-  c.col = 'concluido';
-  c.concluido_em = new Date().toISOString();
-  addHistorico(id,'Concluído','🏆 Ordem marcada como concluída');
-  try{
-    // tenta salvar com concluido_em, se falhar salva só col
-    try{
-      await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);
-    }catch(e2){
-      await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token);
-    }
-    toast('🏆 Ordem concluída e arquivada!');
-    renderBoard();
-  }catch(e){ console.error(e); toast('Erro ao concluir: '+e.message,'#e05252'); }
+// ═══════════════════════════════════════
+// MODAL DE CONFIRMAÇÃO CUSTOMIZADO
+// ═══════════════════════════════════════
+let _confirmResolve = null;
+function showConfirm({icon='❓', title='Confirmar', body='', okLabel='Confirmar', okClass='btn-p', cancelLabel='Cancelar'}){
+  return new Promise(resolve=>{
+    _confirmResolve = resolve;
+    document.getElementById('confirmIcon').textContent  = icon;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmBody').innerHTML    = body;
+    document.getElementById('confirmCancelBtn').textContent = cancelLabel;
+    const ok = document.getElementById('confirmOkBtn');
+    ok.textContent  = okLabel;
+    ok.className    = 'btn '+okClass;
+    ok.onclick      = ()=>{ closeConfirmModal(); resolve(true); };
+    document.getElementById('confirmModal').classList.add('open');
+  });
 }
+function closeConfirmModal(){
+  document.getElementById('confirmModal').classList.remove('open');
+  if(_confirmResolve){ _confirmResolve(false); _confirmResolve=null; }
+}
+document.addEventListener('click',e=>{
+  const m=document.getElementById('confirmModal');
+  if(m && e.target===m) closeConfirmModal();
+});
+
+// ═══════════════════════════════════════
+// ARQUIVAR / DESARQUIVAR
+// ═══════════════════════════════════════
+async function toggleArquivarCard(id){
+  const c=cards.find(x=>x.id===id);if(!c)return;
+  const arquivando = c.col!=='concluido';
+  const ok = await showConfirm(arquivando ? {
+    icon:'🏆',
+    title:'Arquivar ordem',
+    body:`<strong>${c.end_logradouro||c.nome||'Ordem'}</strong><br><br>Esta ordem será movida para o Histórico e sairá do funil.<br>Você pode desarquivar a qualquer momento.`,
+    okLabel:'🏆 Arquivar',
+    okClass:'btn-p'
+  } : {
+    icon:'↩️',
+    title:'Desarquivar ordem',
+    body:`<strong>${c.end_logradouro||c.nome||'Ordem'}</strong><br><br>Esta ordem voltará para o funil na coluna <strong>Baixar</strong>.`,
+    okLabel:'↩️ Desarquivar',
+    okClass:'btn-edit'
+  });
+  if(!ok) return;
+  const novaCol = arquivando ? 'concluido' : 'baixar';
+  const patch   = arquivando ? {col:'concluido',concluido_em:new Date().toISOString()} : {col:'baixar',concluido_em:null};
+  c.col = novaCol;
+  if(arquivando){ c.concluido_em=patch.concluido_em; addHistorico(id,'Arquivado','🏆'); }
+  else          { c.concluido_em=null; addHistorico(id,'Desarquivado','↩️ Voltou ao funil'); }
+  try{
+    await api('negocios?id=eq.'+id,'PATCH',patch,currentUser?.access_token);
+    toast(arquivando?'🏆 Ordem arquivada no histórico!':'↩️ Ordem voltou ao funil!');
+  }catch(e){ toast('Erro ao salvar','#e05252'); }
+  render();
+  renderHistoricoPagina?.();
+  // atualiza botão no modal se ainda aberto
+  const btn=document.getElementById('detailArchiveBtn');
+  if(btn){ btn.textContent=novaCol==='concluido'?'↩️':'🏆'; btn.title=novaCol==='concluido'?'Desarquivar':'Arquivar'; }
+  closeDetail();
+}
+
+async function concluirCard(id){
+  const ok = await showConfirm({
+    icon:'🏆',
+    title:'Arquivar ordem',
+    body:'Esta ordem será movida para o Histórico e sairá do funil.<br>Você pode desarquivar a qualquer momento.',
+    okLabel:'🏆 Arquivar',
+    okClass:'btn-p'
+  });
+  if(!ok) return;
+  const c=cards.find(x=>x.id===id);if(!c)return;
+  c.col='concluido';
+  c.concluido_em=new Date().toISOString();
+  addHistorico(id,'Arquivado','🏆 Ordem arquivada');
+  try{
+    try{ await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token); }
+    catch(e2){ await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token); }
+    toast('🏆 Ordem arquivada no histórico!');
+    renderBoard();
+  }catch(e){ toast('Erro ao arquivar: '+e.message,'#e05252'); }
+}
+
+// ═══════════════════════════════════════
+// HISTÓRICO — SELEÇÃO EM LOTE
+// ═══════════════════════════════════════
+let _histSelected = new Set();
+let _histSelMode  = false;
+
+function histIniciarSelecao(){
+  _histSelMode=true;
+  _histSelected.clear();
+  document.getElementById('hist_lista').classList.add('hist-sel-mode');
+  document.getElementById('histSelBtn').style.display='none';
+  _histAtualizarBarra();
+  renderHistoricoPagina();
+}
+function histCancelarSelecao(){
+  _histSelMode=false;
+  _histSelected.clear();
+  document.getElementById('hist_lista').classList.remove('hist-sel-mode');
+  document.getElementById('histSelBtn').style.display='';
+  _histAtualizarBarra();
+  renderHistoricoPagina();
+}
+function histToggleSel(id){
+  if(_histSelected.has(id)) _histSelected.delete(id); else _histSelected.add(id);
+  // atualiza visual do item
+  const el=document.getElementById('hist_item_'+id);
+  if(el){ el.classList.toggle('selected',_histSelected.has(id)); const cb=el.querySelector('.hist-cb'); if(cb) cb.checked=_histSelected.has(id); }
+  _histAtualizarBarra();
+}
+function histSelecionarTodos(){
+  const lista=document.querySelectorAll('#hist_lista .hist-item');
+  lista.forEach(el=>{ const id=el.dataset.id; if(id){_histSelected.add(id);el.classList.add('selected');const cb=el.querySelector('.hist-cb');if(cb)cb.checked=true;} });
+  _histAtualizarBarra();
+}
+function _histAtualizarBarra(){
+  const bar=document.getElementById('histFloatingBar');
+  const n=_histSelected.size;
+  if(bar){
+    bar.classList.toggle('show',_histSelMode);
+    document.getElementById('histFloatingTxt').textContent=n+' selecionada'+(n!==1?'s':'');
+  }
+}
+async function histDesarquivarSelecionados(){
+  if(!_histSelected.size){toast('⚠ Selecione pelo menos uma','#f5a623');return;}
+  const n=_histSelected.size;
+  const ok=await showConfirm({icon:'↩️',title:'Desarquivar '+n+' ordem'+(n!==1?'ns':''),body:'As ordens voltarão para o funil na coluna <strong>Baixar</strong>.',okLabel:'↩️ Desarquivar',okClass:'btn-edit'});
+  if(!ok) return;
+  const ids=[..._histSelected];
+  for(const id of ids){
+    const c=cards.find(x=>x.id===id);if(!c)continue;
+    c.col='baixar';c.concluido_em=null;
+    try{ await api('negocios?id=eq.'+id,'PATCH',{col:'baixar',concluido_em:null},currentUser?.access_token); }catch(e){}
+  }
+  toast('↩️ '+n+' ordem'+(n!==1?'ns':'')+' volta'+(n!==1?'ram':'')+' ao funil!');
+  histCancelarSelecao();
+  render();
+}
+async function histExcluirSelecionados(){
+  if(!_histSelected.size){toast('⚠ Selecione pelo menos uma','#f5a623');return;}
+  const n=_histSelected.size;
+  const ok=await showConfirm({icon:'🗑',title:'Excluir '+n+' ordem'+(n!==1?'ns':''),body:'<span style="color:var(--r)">Esta ação é permanente e não pode ser desfeita.</span>',okLabel:'🗑 Excluir',okClass:'btn-dan'});
+  if(!ok) return;
+  const ids=[..._histSelected];
+  for(const id of ids){
+    try{ await api('negocios?id=eq.'+id,'DELETE','',currentUser?.access_token); }catch(e){}
+    cards=cards.filter(x=>x.id!==id);
+  }
+  toast('🗑 '+n+' ordem'+(n!==1?'ns':'')+' excluída'+(n!==1?'s':'')+'!');
+  histCancelarSelecao();
+}
+
 
 function renderHistoricoPagina(){
   const q   = (document.getElementById('hist_q')?.value||'').toLowerCase();
@@ -4885,10 +5077,14 @@ function renderHistoricoPagina(){
     const concFmt = c.concluido_em ? new Date(c.concluido_em).toLocaleDateString('pt-BR') : '-';
     const mg = (parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
     const supNome = sup_map[c.sid]||'-';
+    const isSel = _histSelected.has(c.id);
     return `
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;cursor:pointer;transition:border-color .15s" 
-         onmouseover="this.style.borderColor='var(--bor2)'" onmouseout="this.style.borderColor='var(--bor)'"
-         onclick="openDetail('${c.id}')">
+    <div id="hist_item_${c.id}" data-id="${c.id}" class="hist-item${isSel?' selected':''}"
+         style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;cursor:pointer;transition:border-color .15s,box-shadow .15s"
+         onmouseover="if(!this.classList.contains('selected'))this.style.borderColor='var(--bor2)'" 
+         onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='var(--bor)'"
+         onclick="_histSelMode?histToggleSel('${c.id}'):openDetail('${c.id}')">
+      <input type="checkbox" class="hist-cb" ${isSel?'checked':''} onclick="event.stopPropagation();histToggleSel('${c.id}')">
       <div style="flex:1;min-width:200px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px">${c.end_logradouro||'-'}${c.bairro?' · <span style=\'color:var(--acc);font-size:12px\'>${c.bairro}</span>':''}</span>
@@ -4896,10 +5092,9 @@ function renderHistoricoPagina(){
         </div>
         <div style="font-size:12px;color:var(--mut2);display:flex;gap:12px;flex-wrap:wrap">
           <span>👤 ${c.nome||'-'}</span>
-          <span>📲 ${c.cel||'-'}</span>
           <span>🗑️ ${c.tipo||'-'}</span>
           <span>📅 Serviço: ${dataFmt}</span>
-          <span>✅ Concluído: ${concFmt}</span>
+          <span>🏆 Arquivado: ${concFmt}</span>
           <span>🚛 ${supNome}</span>
         </div>
       </div>
@@ -4916,9 +5111,12 @@ function renderHistoricoPagina(){
           <div style="font-size:10px;color:var(--mut2)">Margem</div>
           <div style="font-weight:800;color:var(--blue)">R$ ${fmt(mg)}</div>
         </div>
+        <button onclick="event.stopPropagation();toggleArquivarCard('${c.id}')" 
+                style="height:34px;padding:0 10px;border-radius:7px;border:1px solid rgba(107,140,255,.25);background:rgba(107,140,255,.1);color:var(--blue);cursor:pointer;font-size:12px;white-space:nowrap"
+                title="Desarquivar — volta ao funil">↩️ Voltar</button>
         <button onclick="event.stopPropagation();deletarCard('${c.id}')" 
-                style="width:30px;height:30px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--r);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center"
-                title="Excluir esta ordem">🗑</button>
+                style="width:34px;height:34px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--r);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center"
+                title="Excluir permanentemente">🗑</button>
       </div>
     </div>`;
   }).join('');
