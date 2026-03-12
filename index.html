@@ -231,8 +231,31 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .finlbl{color:var(--mut2)}.finval{font-weight:600}
 .gv{color:var(--g)!important}.rv{color:var(--r)!important}.yv{color:var(--acc)!important}
 
-/* fin boxes in detail */
-.fin3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+/* ── CENTRAL FINANCEIRA ── */
+.fin-chip{padding:6px 13px;border-radius:20px;border:1px solid var(--bor);background:none;color:var(--mut2);font-size:12px;cursor:pointer;transition:.15s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.fin-chip:hover{border-color:var(--bor2);color:var(--txt)}
+.fin-chip-on{background:var(--acc2);border-color:var(--acc3);color:var(--acc);font-weight:600}
+.fin-card-row{background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:13px 14px;transition:.15s;cursor:pointer}
+.fin-card-row:hover{border-color:var(--bor2);background:rgba(255,255,255,.03)}
+.fin-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.fin-card-addr{font-weight:600;font-size:13px;color:var(--txt)}
+.fin-card-date{font-size:11px;color:var(--mut2)}
+.fin-card-mid{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut2);margin-bottom:10px;flex-wrap:wrap}
+.fin-card-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fin-status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.fin-status-pill.pago{background:rgba(62,207,142,.12);color:var(--g);border:1px solid rgba(62,207,142,.25)}
+.fin-status-pill.pendente{background:rgba(245,166,35,.12);color:var(--acc);border:1px solid rgba(245,166,35,.25)}
+.fin-status-pill.inadimp{background:rgba(248,113,113,.12);color:var(--r);border:1px solid rgba(248,113,113,.25)}
+.fin-action-btn{padding:5px 12px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.fin-action-btn.pagar-cli{background:rgba(245,166,35,.2);color:var(--acc)}
+.fin-action-btn.pagar-forn{background:rgba(62,207,142,.2);color:var(--g)}
+.fin-action-btn.cobrar{background:rgba(37,211,102,.1);color:#25d366}
+.fin-action-btn:hover{filter:brightness(1.15)}
+/* status blocks no modal */
+.status-block-pend{background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.3)!important;color:var(--acc)}
+.status-block-pago{background:rgba(62,207,142,.07);border-color:rgba(62,207,142,.3)!important;color:var(--g)}
+.status-block-inad{background:rgba(248,113,113,.07);border-color:rgba(248,113,113,.3)!important;color:var(--r)}
+
 .fin-box{border-radius:var(--rad2);padding:10px 12px;text-align:center}
 .fin-box.rec{background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.15)}
 .fin-box.cst{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.15)}
@@ -536,8 +559,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 
   <!-- FUNIL -->
   <div class="view act" id="view-funil">
+    <!-- TOGGLE FUNIL / FINANCEIRO -->
+    <div class="admin-only" style="display:flex;gap:0;padding:10px 22px 0;background:var(--sur);border-bottom:1px solid var(--bor)">
+      <button id="btnFunilView" onclick="setFunilSubView('kanban')" style="padding:8px 18px;border-radius:8px 0 0 8px;border:1px solid var(--bor);border-right:none;background:var(--acc);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">📋 Funil</button>
+      <button id="btnFinView" onclick="setFunilSubView('financeiro')" style="padding:8px 18px;border-radius:0 8px 8px 0;border:1px solid var(--bor);background:var(--card);color:var(--mut2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer">💳 Financeiro</button>
+    </div>
     <!-- FILTER BAR -->
-    <div class="filter-bar" id="searchBar">
+    <div class="filter-bar" id="searchBar" style="display:flex">
         <input type="text" id="searchInput" placeholder="🔍 Buscar por nome, endereço, cidade ou celular..." oninput="applyFilters()">
         <select id="filterForn" onchange="applyFilters()"><option value="">Todos os fornecedores</option></select>
         <select id="filterVend" onchange="applyFilters()"><option value="">Todos os vendedores</option></select>
@@ -551,7 +579,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <button class="btn btn-g btn-sm" onclick="clearFilters()">✕</button>
     </div>
     <div class="stats" id="statsBar"></div>
-    <div class="bwrap"><div class="board" id="board"></div></div>
+    <div class="bwrap" id="kanbanWrap"><div class="board" id="board"></div></div>
+
+    <!-- CENTRAL FINANCEIRA -->
+    <div id="centralFinanceira" style="display:none;flex:1;overflow-y:auto;padding:18px 22px;flex-direction:column;gap:14px">
+      <!-- Chips de filtro -->
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <button class="fin-chip fin-chip-on" data-filtro="todos" onclick="setFinFiltro('todos')">Todos (<span class="fin-cnt-todos">0</span>)</button>
+        <button class="fin-chip" data-filtro="falta_cli" onclick="setFinFiltro('falta_cli')">⏳ Falta cliente (<span class="fin-cnt-falta_cli">0</span>)</button>
+        <button class="fin-chip" data-filtro="falta_forn" onclick="setFinFiltro('falta_forn')">🚚 Falta fornecedor (<span class="fin-cnt-falta_forn">0</span>)</button>
+        <button class="fin-chip" data-filtro="prontos" onclick="setFinFiltro('prontos')">✅ Prontos (<span class="fin-cnt-prontos">0</span>)</button>
+        <button class="fin-chip" data-filtro="inadimp" onclick="setFinFiltro('inadimp')">🚨 Inadimp. (<span class="fin-cnt-inadimp">0</span>)</button>
+      </div>
+      <!-- Totalizador contextual -->
+      <div id="finTotalizador" style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:12px;color:var(--mut2)" id="finTotFiltroLabel">Filtro: Todos</div>
+          <div style="font-size:20px;font-weight:800;font-family:'Syne',sans-serif;color:var(--acc)" id="finTotValor">R$ 0,00</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="finTotAcoes"></div>
+      </div>
+      <!-- Lista compacta -->
+      <div id="finLista" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
     <!-- BARRA DE SELEÇÃO -->
     <div class="sel-bar" id="selBar">
       <div>
@@ -1016,33 +1066,51 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           </div>
         </div>
       </div>
+      <!-- STATUS DA ORDEM — dois blocos lado a lado -->
       <div class="ds" id="d_pago_sec">
-        <h4>Pagamento</h4>
-        <div class="pago-badge" id="d_pago_badge" style="display:none">
-          <span class="pago-badge-txt">✅ Pago</span>
-          <span id="d_pago_info" style="font-size:11px;color:var(--mut)"></span>
+        <h4>Status da Ordem</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+          <!-- BLOCO CLIENTE -->
+          <div id="d_status_cli_block" style="border-radius:10px;padding:13px 12px;border:1.5px solid;transition:.2s">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;opacity:.7" id="d_status_cli_label">CLIENTE</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:3px" id="d_status_cli_icon"></div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px" id="d_status_cli_txt"></div>
+            <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="d_status_cli_info"></div>
+            <button id="d_status_cli_btn" onclick="openMarcarPago()" style="display:none;width:100%;padding:7px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:rgba(245,166,35,.2);color:var(--acc)">✅ Marcar como pago</button>
+          </div>
+          <!-- BLOCO FORNECEDOR -->
+          <div id="d_status_forn_block" class="admin-only" style="border-radius:10px;padding:13px 12px;border:1.5px solid;transition:.2s">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;opacity:.7">FORNECEDOR</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:3px" id="d_status_forn_icon"></div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px" id="d_status_forn_txt"></div>
+            <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="d_status_forn_info"></div>
+            <button id="d_status_forn_btn" onclick="openFornPago()" style="display:none;width:100%;padding:7px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:rgba(62,207,142,.2);color:var(--g)">💰 Pagar agora</button>
+            <a id="d_forn_comp_link" href="#" target="_blank" style="display:none;font-size:11px;color:var(--blue);text-decoration:none">📎 Ver comprovante</a>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <span id="d_forn_badge" style="font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600">⏳ Fornecedor: Aguardando</span>
-          <span id="d_forn_info" style="font-size:11px;color:var(--mut)"></span>
-          <a id="d_forn_comp_link" href="#" target="_blank" style="font-size:11px;color:var(--bl);display:none">📎 Comprovante</a>
+        <!-- Legado oculto para compatibilidade com fillDetail -->
+        <div style="display:none">
+          <div class="pago-badge" id="d_pago_badge"><span class="pago-badge-txt">✅ Pago</span><span id="d_pago_info"></span></div>
+          <span id="d_forn_badge"></span><span id="d_forn_info"></span>
+          <button id="btnMarcarPago" onclick="openMarcarPago()"></button>
+          <button id="btnFornPago" onclick="openFornPago()"></button>
         </div>
       </div>
       <div class="ds" id="d_obs_s"><h4>Observações</h4><div id="d_obs" style="font-size:12px;color:var(--mut);line-height:1.5"></div></div>
       <div class="ds" id="d_hist_sec"><h4>Histórico</h4><div id="d_hist" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div></div>
-      <div class="ds"><h4>Mover para coluna</h4>
-        <select id="d_col" onchange="moveFromDetail()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 11px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none;"></select>
-      </div>
     </div>
-    <div style="padding:0 20px 16px;display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-      <button class="btn btn-edit btn-sm" style="flex:1" onclick="toggleEdit()">✏️ Editar</button>
-      <button class="btn btn-pay btn-sm" style="flex:1" id="btnMarcarPago" onclick="openMarcarPago()">✅ Cliente pagou</button>
-      <button class="btn btn-pix btn-sm" style="flex:1" onclick="openPixFromDetail()">⚡ Pix</button>
-      <button class="btn btn-wa btn-sm" style="flex:1" onclick="sendWhatsApp()">📲 WA</button>
-      <button class="btn btn-g btn-sm" style="flex:1" onclick="openOS(detailId)">📄 OS</button>
-      <button class="btn admin-only btn-sm" style="flex:1;background:rgba(91,141,238,.15);color:#5b8dee;border:1px solid rgba(91,141,238,.3)" id="btnFornPago" onclick="openFornPago()">💰 Pagar forn.</button>
-      <button class="btn admin-only btn-sm" style="flex:1;background:linear-gradient(135deg,#5b8dee,#3b6fd4);color:#fff;border:none" onclick="abrirVoucherDoCard(detailId)">🧾 Voucher</button>
-      <button class="btn btn-dan btn-sm admin-only" onclick="deleteCard()">🗑️</button>
+    <!-- AÇÕES: primárias + secundárias -->
+    <div style="padding:0 16px 16px;margin-top:4px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="btn btn-edit btn-sm" style="flex:1" onclick="toggleEdit()">✏️ Editar</button>
+        <button class="btn btn-pix btn-sm" style="flex:1" onclick="openPixFromDetail()">⚡ Pix</button>
+        <button class="btn btn-wa btn-sm" style="flex:1" onclick="sendWhatsApp()">📲 WhatsApp</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-g btn-xs" style="flex:1" onclick="openOS(detailId)">🗒️ OS</button>
+        <button class="btn admin-only btn-xs" style="flex:1;background:linear-gradient(135deg,#5b8dee,#3b6fd4);color:#fff;border:none" onclick="abrirVoucherDoCard(detailId)">🎫 Voucher</button>
+        <button class="btn btn-dan btn-xs admin-only" onclick="deleteCard()" title="Excluir">🗑️</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1690,20 +1758,65 @@ function fillDetail(c){
       } else { nfRow.style.display='none'; }
     }
   }
-  // pago
-  const badge=document.getElementById('d_pago_badge');
-  if(c.pago){badge.style.display='flex';document.getElementById('d_pago_info').textContent=(c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'')+' · R$ '+fmt(c.pago_valor);}
-  else{badge.style.display='none';}
-  document.getElementById('btnMarcarPago').style.display=c.pago?'none':'';
+  // pago — novos blocos de status
+  _fillStatusBlocks(c);
   document.getElementById('d_obs').textContent=c.obs||'Nenhuma';
   document.getElementById('d_obs_s').style.display=c.obs?'block':'none';
-  const sel=document.getElementById('d_col');
-  sel.innerHTML=COLS.map(col=>`<option value="${col.id}" ${col.id===c.col?'selected':''}>${col.label}</option>`).join('');
+}
+
+function _fillStatusBlocks(c){
+  // BLOCO CLIENTE
+  const cliBlock = document.getElementById('d_status_cli_block');
+  const cliIcon  = document.getElementById('d_status_cli_icon');
+  const cliTxt   = document.getElementById('d_status_cli_txt');
+  const cliInfo  = document.getElementById('d_status_cli_info');
+  const cliBtn   = document.getElementById('d_status_cli_btn');
+  if(!cliBlock) return;
+  cliBlock.className=''; // reset
+  if(c.col==='inadimp'){
+    cliBlock.className='status-block-inad';
+    cliBlock.style.borderColor='rgba(248,113,113,.3)';
+    cliIcon.textContent='🚨';cliTxt.textContent='Inadimplente';cliInfo.textContent='';cliBtn.style.display='none';
+  } else if(c.pago){
+    cliBlock.className='status-block-pago';
+    cliBlock.style.borderColor='rgba(62,207,142,.3)';
+    cliIcon.textContent='✅';cliTxt.textContent='Pago — R$ '+fmt(c.pago_valor||c.rec);
+    cliInfo.textContent=c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'';
+    cliBtn.style.display='none';
+  } else {
+    cliBlock.className='status-block-pend';
+    cliBlock.style.borderColor='rgba(245,166,35,.3)';
+    cliIcon.textContent='⏳';cliTxt.textContent='Pendente';
+    cliInfo.textContent=c.rec?'R$ '+fmt(c.rec):'Sem valor';
+    cliBtn.style.display='block';
+  }
+  // BLOCO FORNECEDOR
+  const fBlock = document.getElementById('d_status_forn_block');
+  const fIcon  = document.getElementById('d_status_forn_icon');
+  const fTxt   = document.getElementById('d_status_forn_txt');
+  const fInfo  = document.getElementById('d_status_forn_info');
+  const fBtn   = document.getElementById('d_status_forn_btn');
+  const fComp  = document.getElementById('d_forn_comp_link');
+  if(!fBlock) return;
+  if(c.forn_pago){
+    fBlock.className='status-block-pago';
+    fBlock.style.borderColor='rgba(62,207,142,.3)';
+    fIcon.textContent='✅';fTxt.textContent='Pago — R$ '+fmt(c.cst);
+    fInfo.textContent=c.forn_pago_em?new Date(c.forn_pago_em).toLocaleDateString('pt-BR'):'';
+    fBtn.style.display='none';
+    if(fComp){fComp.style.display=c.forn_comprovante?'inline':'none';if(c.forn_comprovante)fComp.href=c.forn_comprovante;}
+  } else {
+    fBlock.className='status-block-pend';
+    fBlock.style.borderColor='rgba(245,166,35,.3)';
+    fIcon.textContent='⏳';fTxt.textContent='Aguardando';
+    fInfo.textContent=c.cst?'R$ '+fmt(c.cst):'Sem custo';
+    fBtn.style.display='block';
+    if(fComp) fComp.style.display='none';
+  }
 }
 function closeDetail(){document.getElementById('detailModal').classList.remove('open');detailId=null;}
 async function moveFromDetail(){
   const c=cards.find(x=>x.id===detailId);if(!c)return;
-  c.col=document.getElementById('d_col').value;
   const colLabel = COLS.find(x=>x.id===c.col)?.label||c.col;
   addHistorico(c.id,'Movido','→ '+colLabel);
   render();
@@ -1716,6 +1829,197 @@ async function deleteCard(){
   cards=cards.filter(c=>c.id!==detailId);render();closeDetail();
   try{await api('negocios?id=eq.'+detailId,'DELETE',null,currentUser?.access_token);toast('🗑️ Excluído');}catch(e){}
 }
+
+// ═══════════════════════════════════════
+// CENTRAL FINANCEIRA
+// ═══════════════════════════════════════
+let _finFiltro = 'todos';
+let _finSelected = new Set();
+
+function setFunilSubView(view){
+  const kanban  = document.getElementById('kanbanWrap');
+  const central = document.getElementById('centralFinanceira');
+  const searchB = document.getElementById('searchBar');
+  const statsB  = document.getElementById('statsBar');
+  const btnF    = document.getElementById('btnFunilView');
+  const btnFin  = document.getElementById('btnFinView');
+  if(view==='kanban'){
+    kanban.style.display='block';central.style.display='none';
+    searchB.style.display='flex';statsB.style.display='flex';
+    btnF.style.background='var(--acc)';btnF.style.color='#000';btnF.style.fontWeight='600';
+    btnFin.style.background='var(--card)';btnFin.style.color='var(--mut2)';btnFin.style.fontWeight='500';
+  } else {
+    kanban.style.display='none';central.style.display='flex';
+    searchB.style.display='none';statsB.style.display='none';
+    btnF.style.background='var(--card)';btnF.style.color='var(--mut2)';btnF.style.fontWeight='500';
+    btnFin.style.background='var(--acc)';btnFin.style.color='#000';btnFin.style.fontWeight='600';
+    _finFiltro='todos';_finSelected.clear();
+    renderCentralFinanceira();
+  }
+}
+
+function _finFilterCards(){
+  const active = cards.filter(c=>c.col!=='concluido');
+  if(_finFiltro==='todos') return active;
+  if(_finFiltro==='falta_cli') return active.filter(c=>!c.pago && c.col!=='inadimp');
+  if(_finFiltro==='falta_forn') return active.filter(c=>!c.forn_pago);
+  if(_finFiltro==='prontos') return active.filter(c=>c.pago && c.forn_pago);
+  if(_finFiltro==='inadimp') return active.filter(c=>c.col==='inadimp');
+  return active;
+}
+
+function _finCounts(){
+  const a=cards.filter(c=>c.col!=='concluido');
+  return {
+    todos: a.length,
+    falta_cli: a.filter(c=>!c.pago && c.col!=='inadimp').length,
+    falta_forn: a.filter(c=>!c.forn_pago).length,
+    prontos: a.filter(c=>c.pago && c.forn_pago).length,
+    inadimp: a.filter(c=>c.col==='inadimp').length
+  };
+}
+
+function setFinFiltro(f){
+  _finFiltro=f;_finSelected.clear();
+  document.querySelectorAll('.fin-chip').forEach(btn=>{
+    btn.classList.toggle('fin-chip-on', btn.dataset.filtro===f);
+  });
+  renderCentralFinanceira();
+}
+
+function renderCentralFinanceira(){
+  // update chip counts
+  const cnt=_finCounts();
+  Object.keys(cnt).forEach(k=>{
+    document.querySelectorAll('.fin-cnt-'+k).forEach(el=>el.textContent=cnt[k]);
+  });
+
+  const lista=_finFilterCards();
+
+  // totalizador
+  const totLabel=document.getElementById('finTotFiltroLabel');
+  const totValor=document.getElementById('finTotValor');
+  const totAcoes=document.getElementById('finTotAcoes');
+  let totVal=0, totLabel_txt='';
+  if(_finFiltro==='falta_forn'){
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+    totLabel_txt='Total a pagar fornecedores · '+lista.length+' ordem(ns)';
+    totAcoes.innerHTML='';
+  } else if(_finFiltro==='falta_cli'){
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    totLabel_txt='Total a receber de clientes · '+lista.length+' ordem(ns)';
+    totAcoes.innerHTML='';
+  } else if(_finFiltro==='prontos'){
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    totLabel_txt=lista.length+' ordens prontas para arquivar';
+    totAcoes.innerHTML=`<button class="btn btn-g btn-sm" onclick="finSelecionarTodos()">☑️ Selecionar todos</button>
+      <button class="btn btn-p btn-sm" onclick="finArquivarSelecionados()">🏆 Arquivar selecionados → Histórico</button>`;
+  } else if(_finFiltro==='inadimp'){
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    totLabel_txt='Total inadimplente · '+lista.length+' ordem(ns)';
+    totAcoes.innerHTML='';
+  } else {
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    totLabel_txt='Todas as ordens ativas · '+lista.length;
+    totAcoes.innerHTML='';
+  }
+  if(totLabel) totLabel.textContent=totLabel_txt;
+  if(totValor) totValor.textContent='R$ '+fmt(totVal);
+
+  // lista
+  const div=document.getElementById('finLista');
+  if(!lista.length){
+    div.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut);font-size:13px">🎉 Nenhuma ordem neste filtro</div>';
+    return;
+  }
+
+  div.innerHTML=lista.map(c=>{
+    const sup=sups.find(s=>s.id===c.sid);
+    const ds=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'-';
+    const cliPill=c.col==='inadimp'
+      ?'<span class="fin-status-pill inadimp">🚨 Inadimplente</span>'
+      :c.pago
+      ?'<span class="fin-status-pill pago">✅ Pago R$'+fmt(c.pago_valor||c.rec)+(c.pago_em?' · '+new Date(c.pago_em).toLocaleDateString('pt-BR'):'')+' </span>'
+      :'<span class="fin-status-pill pendente">⏳ R$ '+fmt(c.rec)+'</span>';
+    const fornPill=c.forn_pago
+      ?'<span class="fin-status-pill pago">✅ Fornec. pago R$'+fmt(c.cst)+'</span>'
+      :'<span class="fin-status-pill pendente">⏳ Fornec. R$ '+fmt(c.cst)+'</span>';
+    let actionBtn='';
+    if(_finFiltro==='falta_cli' || (!c.pago && c.col!=='inadimp' && _finFiltro==='todos'))
+      actionBtn=`<button class="fin-action-btn pagar-cli" onclick="event.stopPropagation();finAbrirPagarCli('${c.id}')">✅ Marcar pago</button>`;
+    if(_finFiltro==='falta_forn' || (!c.forn_pago && _finFiltro==='todos'))
+      actionBtn=(actionBtn?actionBtn+' ':'')+`<button class="fin-action-btn pagar-forn" onclick="event.stopPropagation();finAbrirPagarForn('${c.id}')">💰 Pagar agora</button>`;
+    if(_finFiltro==='inadimp')
+      actionBtn=`<button class="fin-action-btn cobrar" onclick="event.stopPropagation();finCobrarWA('${c.id}')">📲 Cobrar WA</button>`;
+    const cbHtml=_finFiltro==='prontos'
+      ?`<input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--acc);flex-shrink:0" ${_finSelected.has(c.id)?'checked':''} onclick="event.stopPropagation();finToggleSel('${c.id}',this)">`
+      :'';
+    return `<div class="fin-card-row" onclick="openDetail('${c.id}')">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        ${cbHtml}
+        <div style="flex:1;min-width:0">
+          <div class="fin-card-top">
+            <div class="fin-card-addr">${c.end_logradouro||c.tipo||'Sem endereço'}${c.bairro?' · '+c.bairro:''}</div>
+            <div class="fin-card-date">${ds}</div>
+          </div>
+          <div class="fin-card-mid">
+            ${c.nome?'👤 '+c.nome:''}
+            ${sup?'🚛 '+sup.nome:''}
+            ${c.crm_id?'<span style="color:var(--acc);font-size:10px">'+c.crm_id+'</span>':''}
+          </div>
+          <div class="fin-card-status">
+            ${cliPill}
+            <span style="color:var(--mut);font-size:11px">|</span>
+            ${fornPill}
+            <div style="margin-left:auto;display:flex;gap:6px">${actionBtn}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function finToggleSel(id, cb){
+  if(cb.checked) _finSelected.add(id); else _finSelected.delete(id);
+}
+function finSelecionarTodos(){
+  const lista=_finFilterCards();
+  lista.forEach(c=>_finSelected.add(c.id));
+  renderCentralFinanceira();
+}
+function finAbrirPagarCli(id){
+  detailId=id;
+  const c=cards.find(x=>x.id===id);if(!c)return;
+  document.getElementById('pago_val').value=c.rec||'';
+  document.getElementById('pago_data').value=new Date().toISOString().slice(0,10);
+  document.getElementById('pago_obs').value='';
+  document.getElementById('pagoModal').classList.add('open');
+  // override salvarPagamento to refresh financeira after save
+  _finPayCallback=true;
+}
+function finAbrirPagarForn(id){
+  detailId=id;
+  openFornPago();
+  _finPayCallback=true;
+}
+function finCobrarWA(id){
+  detailId=id;sendWhatsApp();
+}
+async function finArquivarSelecionados(){
+  if(!_finSelected.size){toast('⚠ Selecione ordens','#f5a623');return;}
+  if(!confirm(`Arquivar ${_finSelected.size} ordens → Histórico?`))return;
+  const ids=[..._finSelected];
+  for(const id of ids){
+    const c=cards.find(x=>x.id===id);if(!c)continue;
+    c.col='concluido';c.concluido_em=new Date().toISOString();
+    try{await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token);}catch(e){}
+  }
+  _finSelected.clear();
+  render();
+  renderCentralFinanceira();
+  toast('🏆 '+ids.length+' ordens arquivadas!');
+}
+let _finPayCallback=false;
 
 // ═══════════════════════════════════════
 // MARCAR PAGO
@@ -1737,6 +2041,7 @@ async function salvarPagamento(){
   addHistorico(c.id,'Pago','R$ '+fmt(val)+(obs?' - '+obs:''));
   render();fillDetail(c);
   document.getElementById('pagoModal').classList.remove('open');
+  if(_finPayCallback){_finPayCallback=false;renderCentralFinanceira();}
   try{
     setSyncDot('loading');
     await api('negocios?id=eq.'+c.id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:val,pago_obs:obs,col:'baixar'},currentUser?.access_token);
@@ -3827,7 +4132,8 @@ async function salvarFornPago(){
   document.getElementById('fornPagoModal').classList.remove('open');
   toast('✅ '+ok+' ordem'+( ok!==1?'ns':'')+' marcada'+( ok!==1?'s':'')+' como paga'+( ok!==1?'s':'')+' ao fornecedor!');
   renderBoard();
-  openDetail(detailId);
+  if(_finPayCallback){_finPayCallback=false;renderCentralFinanceira();}
+  else openDetail(detailId);
 }
 
 
