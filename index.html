@@ -265,6 +265,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .sb-btn:hover{filter:brightness(1.15)}
 .sb-btn-cli{background:rgba(245,166,35,.25);color:var(--acc)}
 .sb-btn-forn{background:rgba(62,207,142,.25);color:var(--g)}
+.sb-btn-overdue{background:rgba(248,113,113,.22);color:var(--r);animation:pulse-red 2s infinite}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.3)}50%{box-shadow:0 0 0 5px rgba(248,113,113,0)}}
+.sb-overdue-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);border-radius:20px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--r);margin-bottom:6px}
+.cobrar-wrap{position:relative;flex:1}
+.cobrar-wrap .cobrar-menu{display:none;position:absolute;bottom:calc(100% + 6px);left:0;right:0;background:#1a1c24;border:1px solid var(--bor);border-radius:10px;overflow:hidden;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.cobrar-wrap .cobrar-menu.open{display:block}
+.cobrar-menu-item{display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:13px;font-weight:500;color:var(--txt);cursor:pointer;transition:background .15s;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif}
+.cobrar-menu-item:hover{background:rgba(255,255,255,.05)}
+.cobrar-menu-item .cmi-icon{font-size:15px;width:20px;text-align:center}
+.cobrar-menu-divider{height:1px;background:var(--bor)}
 
 .fin-box{border-radius:var(--rad2);padding:10px 12px;text-align:center}
 .fin-box.rec{background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.15)}
@@ -1083,18 +1093,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           <!-- BLOCO CLIENTE -->
           <div id="d_status_cli_block" class="status-block-base status-block-pend">
             <div class="sb-label">CLIENTE</div>
+            <div id="d_status_cli_overdue" class="sb-overdue-badge" style="display:none">🚨 Atrasado</div>
             <div class="sb-icon" id="d_status_cli_icon">⏳</div>
-            <div class="sb-txt" id="d_status_cli_txt">Pendente</div>
+            <div class="sb-txt" id="d_status_cli_txt">Pagamento em aberto</div>
             <div class="sb-info" id="d_status_cli_info"></div>
-            <button id="d_status_cli_btn" class="sb-btn sb-btn-cli" onclick="openMarcarPago()" style="display:none">✅ Marcar como pago</button>
+            <button id="d_status_cli_btn" class="sb-btn sb-btn-cli" onclick="openMarcarPago()" style="display:none">Registrar recebimento</button>
           </div>
           <!-- BLOCO FORNECEDOR -->
           <div id="d_status_forn_block" class="status-block-base status-block-pend" style="display:none">
             <div class="sb-label">FORNECEDOR</div>
+            <div id="d_status_forn_overdue" class="sb-overdue-badge" style="display:none">🚨 Atrasado</div>
             <div class="sb-icon" id="d_status_forn_icon">⏳</div>
-            <div class="sb-txt" id="d_status_forn_txt">Aguardando</div>
+            <div class="sb-txt" id="d_status_forn_txt">Aguardando pagamento</div>
             <div class="sb-info" id="d_status_forn_info"></div>
-            <button id="d_status_forn_btn" class="sb-btn sb-btn-forn" onclick="openFornPago()" style="display:none">💰 Pagar agora</button>
+            <button id="d_status_forn_btn" class="sb-btn sb-btn-forn" onclick="openFornPago()" style="display:none">Pagar fornecedor</button>
             <a id="d_forn_comp_link" href="#" target="_blank" style="display:none;font-size:11px;color:var(--blue);text-decoration:none;margin-top:4px">📎 Ver comprovante</a>
           </div>
         </div>
@@ -1113,8 +1125,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div style="padding:0 16px 16px;margin-top:4px">
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <button class="btn btn-edit btn-sm" style="flex:1" onclick="toggleEdit()">✏️ Editar</button>
-        <button class="btn btn-pix btn-sm" style="flex:1" onclick="openPixFromDetail()">⚡ Pix</button>
-        <button class="btn btn-wa btn-sm" style="flex:1" onclick="sendWhatsApp()">📲 WhatsApp</button>
+        <div class="cobrar-wrap" id="cobrarWrap">
+          <button class="btn btn-sm" style="width:100%;background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.28);font-weight:600" onclick="toggleCobrarMenu(event)">📲 Cobrar ▾</button>
+          <div class="cobrar-menu" id="cobrarMenu">
+            <button class="cobrar-menu-item" onclick="closeCobrarMenu();sendWhatsApp()">
+              <span class="cmi-icon">💬</span>
+              <div><div style="font-weight:700">WhatsApp</div><div style="font-size:11px;opacity:.6">Cobrança com Pix incluso</div></div>
+            </button>
+            <div class="cobrar-menu-divider"></div>
+            <button class="cobrar-menu-item" onclick="closeCobrarMenu();openPixFromDetail()">
+              <span class="cmi-icon">⚡</span>
+              <div><div style="font-weight:700">Gerar Pix</div><div style="font-size:11px;opacity:.6">QR Code + copia e cola</div></div>
+            </button>
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-g btn-xs" style="flex:1" onclick="openOS(detailId)">🗒️ OS</button>
@@ -1775,59 +1799,102 @@ function fillDetail(c){
 }
 
 function _fillStatusBlocks(c){
+  const diasAtraso = ()=>{
+    if(!c.data) return 0;
+    const svc = new Date(c.data+'T12:00:00');
+    return Math.floor((Date.now()-svc.getTime())/(1000*60*60*24));
+  };
   // BLOCO CLIENTE
-  const cliBlock = document.getElementById('d_status_cli_block');
-  const cliIcon  = document.getElementById('d_status_cli_icon');
-  const cliTxt   = document.getElementById('d_status_cli_txt');
-  const cliInfo  = document.getElementById('d_status_cli_info');
-  const cliBtn   = document.getElementById('d_status_cli_btn');
+  const cliBlock   = document.getElementById('d_status_cli_block');
+  const cliOverdue = document.getElementById('d_status_cli_overdue');
+  const cliIcon    = document.getElementById('d_status_cli_icon');
+  const cliTxt     = document.getElementById('d_status_cli_txt');
+  const cliInfo    = document.getElementById('d_status_cli_info');
+  const cliBtn     = document.getElementById('d_status_cli_btn');
   if(!cliBlock) return;
-  // reset completo — apaga classes E style inline de borda
   cliBlock.className='status-block-base';
   cliBlock.style.borderColor='';
+  if(cliOverdue) cliOverdue.style.display='none';
   if(c.col==='inadimp'){
     cliBlock.classList.add('status-block-inad');
-    cliIcon.textContent='🚨';cliTxt.textContent='Inadimplente';cliInfo.textContent='';cliBtn.style.display='none';
+    cliIcon.textContent='🚨';
+    cliTxt.textContent='Inadimplente';
+    cliInfo.textContent=c.rec?'R$ '+fmt(c.rec)+' em aberto':'';
+    cliBtn.style.display='none';
   } else if(c.pago){
     cliBlock.classList.add('status-block-pago');
-    cliIcon.textContent='✅';cliTxt.textContent='Pago — R$ '+fmt(c.pago_valor||c.rec);
-    cliInfo.textContent=c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'';
+    cliIcon.textContent='✅';
+    cliTxt.textContent='Pagamento recebido';
+    cliInfo.textContent='R$ '+fmt(c.pago_valor||c.rec)+(c.pago_em?' · '+new Date(c.pago_em).toLocaleDateString('pt-BR'):'');
     cliBtn.style.display='none';
   } else {
-    cliBlock.classList.add('status-block-pend');
-    cliIcon.textContent='⏳';cliTxt.textContent='Pendente';
-    cliInfo.textContent=c.rec?'R$ '+fmt(c.rec):'Sem valor';
+    const dias = diasAtraso();
+    const atrasado = dias > 7;
+    cliBlock.classList.add(atrasado ? 'status-block-inad' : 'status-block-pend');
+    if(atrasado && cliOverdue){
+      cliOverdue.textContent='🚨 '+dias+' dias sem pagamento';
+      cliOverdue.style.display='inline-flex';
+    }
+    cliIcon.textContent = atrasado ? '⚠️' : '⏳';
+    cliTxt.textContent  = atrasado ? 'Pagamento atrasado' : 'Pagamento em aberto';
+    cliInfo.textContent = c.rec ? 'R$ '+fmt(c.rec)+' a receber' : 'Sem valor';
+    cliBtn.className    = 'sb-btn '+(atrasado ? 'sb-btn-overdue' : 'sb-btn-cli');
+    cliBtn.textContent  = atrasado ? '🔔 Cobrar agora' : 'Registrar recebimento';
     cliBtn.style.display='block';
   }
   // BLOCO FORNECEDOR
-  const fBlock = document.getElementById('d_status_forn_block');
-  const fIcon  = document.getElementById('d_status_forn_icon');
-  const fTxt   = document.getElementById('d_status_forn_txt');
-  const fInfo  = document.getElementById('d_status_forn_info');
-  const fBtn   = document.getElementById('d_status_forn_btn');
-  const fComp  = document.getElementById('d_forn_comp_link');
+  const fBlock   = document.getElementById('d_status_forn_block');
+  const fOverdue = document.getElementById('d_status_forn_overdue');
+  const fIcon    = document.getElementById('d_status_forn_icon');
+  const fTxt     = document.getElementById('d_status_forn_txt');
+  const fInfo    = document.getElementById('d_status_forn_info');
+  const fBtn     = document.getElementById('d_status_forn_btn');
+  const fComp    = document.getElementById('d_forn_comp_link');
   if(!fBlock) return;
-  // reset — sem admin-only na className, controla display diretamente
   fBlock.className='status-block-base';
   fBlock.style.borderColor='';
-  // só admins veem o bloco de fornecedor
+  if(fOverdue) fOverdue.style.display='none';
   if(!isAdmin()){fBlock.style.display='none';return;}
   fBlock.style.display='flex';
   if(c.forn_pago){
     fBlock.classList.add('status-block-pago');
-    fIcon.textContent='✅';fTxt.textContent='Pago — R$ '+fmt(c.cst);
-    fInfo.textContent=c.forn_pago_em?new Date(c.forn_pago_em).toLocaleDateString('pt-BR'):'';
+    fIcon.textContent='✅';
+    fTxt.textContent='Fornecedor pago';
+    fInfo.textContent='R$ '+fmt(c.cst)+(c.forn_pago_em?' · '+new Date(c.forn_pago_em).toLocaleDateString('pt-BR'):'');
     fBtn.style.display='none';
     if(fComp){fComp.style.display=c.forn_comprovante?'block':'none';if(c.forn_comprovante)fComp.href=c.forn_comprovante;}
   } else {
-    fBlock.classList.add('status-block-pend');
-    fIcon.textContent='⏳';fTxt.textContent='Aguardando';
-    fInfo.textContent=c.cst?'R$ '+fmt(c.cst):'Sem custo';
+    const dias = diasAtraso();
+    const atrasado = dias > 7;
+    fBlock.classList.add(atrasado ? 'status-block-inad' : 'status-block-pend');
+    if(atrasado && fOverdue){
+      fOverdue.textContent='🚨 '+dias+' dias pendente';
+      fOverdue.style.display='inline-flex';
+    }
+    fIcon.textContent = atrasado ? '⚠️' : '⏳';
+    fTxt.textContent  = atrasado ? 'Pagamento atrasado' : 'Aguardando pagamento';
+    fInfo.textContent = c.cst ? 'R$ '+fmt(c.cst)+' a pagar' : 'Sem custo';
+    fBtn.className    = 'sb-btn '+(atrasado ? 'sb-btn-overdue' : 'sb-btn-forn');
+    fBtn.textContent  = atrasado ? '⚠️ Regularizar pagamento' : 'Pagar fornecedor';
     fBtn.style.display='block';
     if(fComp) fComp.style.display='none';
   }
 }
-function closeDetail(){document.getElementById('detailModal').classList.remove('open');detailId=null;}
+function toggleCobrarMenu(e){
+  e.stopPropagation();
+  const menu=document.getElementById('cobrarMenu');
+  if(menu) menu.classList.toggle('open');
+}
+function closeCobrarMenu(){
+  const menu=document.getElementById('cobrarMenu');
+  if(menu) menu.classList.remove('open');
+}
+// fechar cobrar menu ao clicar fora
+document.addEventListener('click',function(e){
+  const wrap=document.getElementById('cobrarWrap');
+  if(wrap && !wrap.contains(e.target)) closeCobrarMenu();
+});
+function closeDetail(){document.getElementById('detailModal').classList.remove('open');detailId=null;closeCobrarMenu();}
 async function moveFromDetail(){
   const c=cards.find(x=>x.id===detailId);if(!c)return;
   const colLabel = COLS.find(x=>x.id===c.col)?.label||c.col;
