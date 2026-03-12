@@ -577,6 +577,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
           <div class="urole" id="sidebarUserRole">—</div>
         </div>
       </div>
+      <div id="lastSyncLabel" style="font-size:10px;color:var(--mut2);padding:4px 10px 2px;opacity:.6;display:none">—</div>
       <button class="nb" id="nav-perfil" onclick="setViewMob('perfil')"><span class="nbi">⚙️</span> Perfil</button>
       <button class="sidebar-logout" onclick="doLogout()">↪ Sair</button>
     </div>
@@ -1426,7 +1427,18 @@ function uid(){
   });
 }
 function toast(msg,col){const t=document.getElementById('toast');t.textContent=msg;t.style.background=col||'var(--g)';t.style.color=col?'#fff':'#000';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
-function setSyncDot(s){const d=document.getElementById('syncDot');d.className='sync-dot '+s;}
+function setSyncDot(s){
+  const d=document.getElementById('syncDot');
+  if(d) d.className='sync-dot '+s;
+  if(s==='ok'){
+    const lbl=document.getElementById('lastSyncLabel');
+    if(lbl){
+      const now=new Date();
+      lbl.textContent='Atualizado '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      lbl.style.display='block';
+    }
+  }
+}
 
 // ═══════════════════════════════════════
 // API
