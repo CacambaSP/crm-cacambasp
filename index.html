@@ -252,9 +252,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .fin-action-btn.cobrar{background:rgba(37,211,102,.1);color:#25d366}
 .fin-action-btn:hover{filter:brightness(1.15)}
 /* status blocks no modal */
-.status-block-pend{background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.3)!important;color:var(--acc)}
-.status-block-pago{background:rgba(62,207,142,.07);border-color:rgba(62,207,142,.3)!important;color:var(--g)}
-.status-block-inad{background:rgba(248,113,113,.07);border-color:rgba(248,113,113,.3)!important;color:var(--r)}
+.status-block-base{border-radius:10px;padding:13px 12px;border:1.5px solid;transition:background .2s,border-color .2s}
+.status-block-pend{background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.35)!important;color:var(--acc)}
+.status-block-pago{background:rgba(62,207,142,.08);border-color:rgba(62,207,142,.35)!important;color:var(--g)}
+.status-block-inad{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.35)!important;color:var(--r)}
+/* labels dentro do bloco herdam a cor do pai */
+.status-block-pend .sb-label,.status-block-pago .sb-label,.status-block-inad .sb-label{opacity:.65;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.sb-icon{font-size:20px;line-height:1;margin-bottom:4px}
+.sb-txt{font-size:13px;font-weight:700;margin-bottom:3px;color:inherit}
+.sb-info{font-size:11px;opacity:.8;margin-bottom:8px;color:inherit}
+.sb-btn{width:100%;padding:7px 10px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:filter .15s}
+.sb-btn:hover{filter:brightness(1.15)}
+.sb-btn-cli{background:rgba(245,166,35,.25);color:var(--acc)}
+.sb-btn-forn{background:rgba(62,207,142,.25);color:var(--g)}
 
 .fin-box{border-radius:var(--rad2);padding:10px 12px;text-align:center}
 .fin-box.rec{background:rgba(62,207,142,.07);border:1px solid rgba(62,207,142,.15)}
@@ -1071,21 +1081,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <h4>Status da Ordem</h4>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
           <!-- BLOCO CLIENTE -->
-          <div id="d_status_cli_block" style="border-radius:10px;padding:13px 12px;border:1.5px solid;transition:.2s">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;opacity:.7" id="d_status_cli_label">CLIENTE</div>
-            <div style="font-size:18px;font-weight:800;margin-bottom:3px" id="d_status_cli_icon"></div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:4px" id="d_status_cli_txt"></div>
-            <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="d_status_cli_info"></div>
-            <button id="d_status_cli_btn" onclick="openMarcarPago()" style="display:none;width:100%;padding:7px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:rgba(245,166,35,.2);color:var(--acc)">✅ Marcar como pago</button>
+          <div id="d_status_cli_block" class="status-block-base status-block-pend">
+            <div class="sb-label">CLIENTE</div>
+            <div class="sb-icon" id="d_status_cli_icon">⏳</div>
+            <div class="sb-txt" id="d_status_cli_txt">Pendente</div>
+            <div class="sb-info" id="d_status_cli_info"></div>
+            <button id="d_status_cli_btn" class="sb-btn sb-btn-cli" onclick="openMarcarPago()" style="display:none">✅ Marcar como pago</button>
           </div>
           <!-- BLOCO FORNECEDOR -->
-          <div id="d_status_forn_block" class="admin-only" style="border-radius:10px;padding:13px 12px;border:1.5px solid;transition:.2s">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;opacity:.7">FORNECEDOR</div>
-            <div style="font-size:18px;font-weight:800;margin-bottom:3px" id="d_status_forn_icon"></div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:4px" id="d_status_forn_txt"></div>
-            <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="d_status_forn_info"></div>
-            <button id="d_status_forn_btn" onclick="openFornPago()" style="display:none;width:100%;padding:7px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:rgba(62,207,142,.2);color:var(--g)">💰 Pagar agora</button>
-            <a id="d_forn_comp_link" href="#" target="_blank" style="display:none;font-size:11px;color:var(--blue);text-decoration:none">📎 Ver comprovante</a>
+          <div id="d_status_forn_block" class="status-block-base status-block-pend admin-only">
+            <div class="sb-label">FORNECEDOR</div>
+            <div class="sb-icon" id="d_status_forn_icon">⏳</div>
+            <div class="sb-txt" id="d_status_forn_txt">Aguardando</div>
+            <div class="sb-info" id="d_status_forn_info"></div>
+            <button id="d_status_forn_btn" class="sb-btn sb-btn-forn" onclick="openFornPago()" style="display:none">💰 Pagar agora</button>
+            <a id="d_forn_comp_link" href="#" target="_blank" style="display:none;font-size:11px;color:var(--blue);text-decoration:none;margin-top:4px">📎 Ver comprovante</a>
           </div>
         </div>
         <!-- Legado oculto para compatibilidade com fillDetail -->
@@ -1772,20 +1782,19 @@ function _fillStatusBlocks(c){
   const cliInfo  = document.getElementById('d_status_cli_info');
   const cliBtn   = document.getElementById('d_status_cli_btn');
   if(!cliBlock) return;
-  cliBlock.className=''; // reset
+  // reset completo — apaga classes E style inline de borda
+  cliBlock.className='status-block-base';
+  cliBlock.style.borderColor='';
   if(c.col==='inadimp'){
-    cliBlock.className='status-block-inad';
-    cliBlock.style.borderColor='rgba(248,113,113,.3)';
+    cliBlock.classList.add('status-block-inad');
     cliIcon.textContent='🚨';cliTxt.textContent='Inadimplente';cliInfo.textContent='';cliBtn.style.display='none';
   } else if(c.pago){
-    cliBlock.className='status-block-pago';
-    cliBlock.style.borderColor='rgba(62,207,142,.3)';
+    cliBlock.classList.add('status-block-pago');
     cliIcon.textContent='✅';cliTxt.textContent='Pago — R$ '+fmt(c.pago_valor||c.rec);
     cliInfo.textContent=c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'';
     cliBtn.style.display='none';
   } else {
-    cliBlock.className='status-block-pend';
-    cliBlock.style.borderColor='rgba(245,166,35,.3)';
+    cliBlock.classList.add('status-block-pend');
     cliIcon.textContent='⏳';cliTxt.textContent='Pendente';
     cliInfo.textContent=c.rec?'R$ '+fmt(c.rec):'Sem valor';
     cliBtn.style.display='block';
@@ -1798,16 +1807,17 @@ function _fillStatusBlocks(c){
   const fBtn   = document.getElementById('d_status_forn_btn');
   const fComp  = document.getElementById('d_forn_comp_link');
   if(!fBlock) return;
+  // reset completo
+  fBlock.className='status-block-base admin-only';
+  fBlock.style.borderColor='';
   if(c.forn_pago){
-    fBlock.className='status-block-pago';
-    fBlock.style.borderColor='rgba(62,207,142,.3)';
+    fBlock.classList.add('status-block-pago');
     fIcon.textContent='✅';fTxt.textContent='Pago — R$ '+fmt(c.cst);
     fInfo.textContent=c.forn_pago_em?new Date(c.forn_pago_em).toLocaleDateString('pt-BR'):'';
     fBtn.style.display='none';
-    if(fComp){fComp.style.display=c.forn_comprovante?'inline':'none';if(c.forn_comprovante)fComp.href=c.forn_comprovante;}
+    if(fComp){fComp.style.display=c.forn_comprovante?'block':'none';if(c.forn_comprovante)fComp.href=c.forn_comprovante;}
   } else {
-    fBlock.className='status-block-pend';
-    fBlock.style.borderColor='rgba(245,166,35,.3)';
+    fBlock.classList.add('status-block-pend');
     fIcon.textContent='⏳';fTxt.textContent='Aguardando';
     fInfo.textContent=c.cst?'R$ '+fmt(c.cst):'Sem custo';
     fBtn.style.display='block';
