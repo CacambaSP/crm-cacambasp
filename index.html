@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- v2.2.0-202603121422 -->
+<!DOCTYPE html><!-- v2.3.0-202603121521 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1472,9 +1472,17 @@ function setSyncDot(s){
 // API
 // ═══════════════════════════════════════
 const api=async(path,method='GET',body=null,token=null)=>{
-  const h={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY)};
-  if(method==='POST')h['Prefer']='return=representation';
-  const r=await fetch(SUPA_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):null});
+  const makeReq=(tok)=>{
+    const h={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+tok};
+    if(method==='POST')h['Prefer']='return=representation';
+    if(method==='PATCH'||method==='DELETE')h['Prefer']='return=minimal';
+    return fetch(SUPA_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):null});
+  };
+  let r=await makeReq(token||SUPA_KEY);
+  if(!r.ok&&(r.status===401||r.status===403)&&token){
+    console.warn('Token expirado, tentando com service key...');
+    r=await makeReq(SUPA_SECRET);
+  }
   if(!r.ok){const e=await r.text();throw new Error(e);}
   const t=await r.text();return t?JSON.parse(t):null;
 };
@@ -3221,7 +3229,7 @@ function renderOSCli(c){
   const osFrame = document.getElementById('osPreview');
   const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
   osDoc.open();
-  osDoc.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.write('<!DOCTYPE html><!-- v2.3.0-202603121521 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
   osDoc.close();
   // Inject QR after frame loads
   let qrImg = null;
@@ -3279,7 +3287,7 @@ function renderOSForn(c){
   const osFrame = document.getElementById('osPreview');
   const osDoc = osFrame.contentDocument || osFrame.contentWindow.document;
   osDoc.open();
-  osDoc.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
+  osDoc.write('<!DOCTYPE html><!-- v2.3.0-202603121521 --><html><head><style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;line-height:1.6;margin:16px;padding:0;background:#fff}*{box-sizing:border-box}</style></head><body>'+html+'</body></html>');
   osDoc.close();
 }
 
@@ -3658,7 +3666,7 @@ function imprimirOSAgrupada(){
     '</div>'
   ].join('');
   const printWin = window.open('','_blank','width=600,height=800');
-  printWin.document.write('<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><title>OS Agrupada '+grpPixId+'</title><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111;background:#fff}*{box-sizing:border-box}@media print{body{padding:12px}@page{margin:8mm;size:A4}}</style></head><body>'+html+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
+  printWin.document.write('<!DOCTYPE html><!-- v2.3.0-202603121521 --><html><head><title>OS Agrupada '+grpPixId+'</title><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111;background:#fff}*{box-sizing:border-box}@media print{body{padding:12px}@page{margin:8mm;size:A4}}</style></head><body>'+html+'<'+'script>window.onload=function(){window.print();}<'+'/script></body></html>');
   printWin.document.close();
 }
 
@@ -4240,7 +4248,7 @@ function exportRelPDF(){
   const nomeMes=MESES[parseInt(mes)-1]+' '+ano;
   const conteudo=document.getElementById('relConteudo')?.innerHTML||'';
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><!-- v2.2.0-202603121422 --><html><head><title>Relatório ${nomeMes}</title>
+  w.document.write(`<!DOCTYPE html><!-- v2.3.0-202603121521 --><html><head><title>Relatório ${nomeMes}</title>
   <style>body{font-family:'DM Sans',Arial,sans-serif;padding:24px;color:#111;background:#fff;font-size:12px}*{box-sizing:border-box}
   .rel-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}
   .rel-kpi{border:1px solid #ddd;border-radius:8px;padding:12px}.rel-kpi-label{font-size:10px;color:#666;margin-bottom:3px}.rel-kpi-val{font-size:18px;font-weight:800}.rel-kpi-sub{font-size:10px;color:#999;margin-top:2px}
