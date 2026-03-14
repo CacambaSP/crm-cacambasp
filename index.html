@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- v2.3.0-202603121521 -->
+<!DOCTYPE html><!-- v2.4.0-20260314 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -20,7 +20,7 @@
   --txt:#e8eaf0;--mut:#555b72;--mut2:#8b90a4;
   --acc:#f5a623;--acc2:rgba(245,166,35,.12);--acc3:rgba(245,166,35,.25);
   --g:#3ecf8e;--g2:rgba(62,207,142,.12);
-  --r:#f87171;--r2:rgba(248,113,113,.12);
+  --r:#f87171;--r2:rgba(248,113,113,.12);--dan:#f87171;
   --blue:#6b8cff;--blue2:rgba(107,140,255,.12);
   --c1:#f5a623;--c2:#3ecf8e;--c3:#6b8cff;--c4:#a78bfa;--c5:#f472b6;--c6:#f87171;
   --rad:12px;--rad2:8px;--sidebar:220px;
@@ -171,18 +171,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .chip[data-tip]:hover::before{content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--sur);z-index:999}
 /* card actions on hover */
 .cqact{position:absolute;top:8px;right:8px;display:none;gap:3px}
-.card:hover .cqact{display:flex}
-.cqbtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--bor);background:var(--sur);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;transition:.15s}
+.card:hover .cqact,.card:active .cqact{display:flex}
+.cqbtn{width:28px;height:28px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--mut2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.15s}
 .cqbtn:hover{background:var(--bor2);color:var(--txt)}
 /* checkbox */
-.card-cb{position:absolute;top:8px;left:8px;width:15px;height:15px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:9px;z-index:5}
+.card-cb{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:5px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;z-index:5}
 .card:hover .card-cb,.card.selected .card-cb{display:flex}
 .card.selected .card-cb{background:var(--acc);border-color:var(--acc);color:#000}
 /* trophy */
-.card-trophy{position:absolute;bottom:8px;right:8px;width:22px;height:22px;border-radius:6px;border:1px solid rgba(245,166,35,.25);background:var(--acc2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;z-index:5}
+.card-trophy{position:absolute;bottom:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(245,166,35,.25);background:var(--acc2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;z-index:5}
 .card:hover .card-trophy{opacity:1}
 /* delete */
-.card-del{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:1px solid rgba(248,113,113,.2);background:var(--r2);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--r);opacity:0;transition:.15s;z-index:6}
+.card-del{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(248,113,113,.2);background:var(--r2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--r);opacity:0;transition:.15s;z-index:6}
 .card:hover .card-del{opacity:1}
 
 /* ── SEL BAR ── */
@@ -193,7 +193,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .sel-bar-acts{display:flex;gap:7px;flex-wrap:wrap}
 
 /* ── MODALS ── */
-.mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:200;padding:14px}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:200;padding:14px}
+#formModal,#pixModal,#supModal,#pagoModal,#fornPagoModal,#voucherModal,#userModal,#alertModal,#osModal,#grpPixModal,#editUserModal,#editSupModal{backdrop-filter:blur(4px)}
 .mbg.open{display:flex}
 .mbox{background:var(--sur);border:1px solid var(--bor);border-radius:16px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:min .2s ease}
 @keyframes min{from{transform:translateY(10px) scale(.97);opacity:0}to{transform:none;opacity:1}}
@@ -454,7 +455,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
   .col{min-width:240px}
   .card{padding:12px 13px 11px}
   .card-addr{font-size:12px}
-  .card-del,.card-trophy{width:30px;height:30px;font-size:13px;opacity:1}
+  .card-del,.card-trophy{width:36px;height:36px;font-size:14px;opacity:1;border-radius:9px}
+  .card-cb{width:26px;height:26px;font-size:12px;opacity:1;display:flex}
+  .cqact{display:flex}
+  .cqbtn{width:32px;height:32px;font-size:13px}
   .card:hover{transform:none;box-shadow:none}
   .cmeta{max-height:none}
   .mbg{padding:0;align-items:flex-end}
@@ -1197,7 +1201,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-g btn-xs" style="flex:1" onclick="openOS(detailId)">🗒️ OS</button>
         <button class="btn admin-only btn-xs" style="flex:1;background:linear-gradient(135deg,#5b8dee,#3b6fd4);color:#fff;border:none" onclick="abrirVoucherDoCard(detailId)">🎫 Voucher</button>
-        <button class="btn btn-archive btn-xs admin-only" id="detailArchiveBtn" onclick="toggleArquivarCard(detailId)" title="Arquivar/Desarquivar">🏆</button>
+        <button class="btn btn-archive btn-xs" id="detailArchiveBtn" onclick="toggleArquivarCard(detailId)" title="Arquivar/Desarquivar">🏆</button>
         <button class="btn btn-dan btn-xs admin-only" onclick="deleteCard()" title="Excluir">🗑️</button>
       </div>
     </div>
@@ -1454,7 +1458,7 @@ function uid(){
     const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);
   });
 }
-function toast(msg,col){const t=document.getElementById('toast');t.textContent=msg;t.style.background=col||'var(--g)';t.style.color=col?'#fff':'#000';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+function toast(msg,col,dur){const t=document.getElementById('toast');t.textContent=msg;t.style.background=col||'var(--g)';t.style.color=col?'#fff':'#000';t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),dur||(col?4200:2600));}
 function setSyncDot(s){
   const d=document.getElementById('syncDot');
   if(d) d.className='sync-dot '+s;
@@ -1633,6 +1637,28 @@ async function loadApp(){
       }catch(e){}
     }, 15000); // a cada 15 segundos
   }
+  // Renovação automática de token a cada 45 minutos (token Supabase expira em 1h)
+  if(!window._tokenRefreshId){
+    window._tokenRefreshId = setInterval(async ()=>{
+      try{
+        if(!currentUser?.refresh_token) return;
+        const res = await authApi('token?grant_type=refresh_token', {refresh_token: currentUser.refresh_token});
+        if(res?.access_token){
+          currentUser = {...currentUser, ...res};
+          localStorage.setItem('crm_session', JSON.stringify(currentUser));
+          setSyncDot('ok');
+        } else if(res?.error){
+          // Token inválido — forçar re-login
+          clearInterval(window._tokenRefreshId);
+          clearInterval(window._autoRefreshId);
+          window._tokenRefreshId = null;
+          window._autoRefreshId = null;
+          toast('⚠ Sessão expirada — faça login novamente','#f5a623');
+          setTimeout(doLogout, 2000);
+        }
+      }catch(e){ console.warn('Token refresh falhou:', e); }
+    }, 45 * 60 * 1000); // 45 minutos
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1674,7 +1700,7 @@ function renderStats(){
   if(isAdmin()) html+=`
     <div class="stat"><div class="stat-v" style="color:var(--g)">R$${fmts(tr)}</div><div class="stat-l">Receita</div></div>
     <div class="stat"><div class="stat-v" style="color:var(--dan)">R$${fmts(tc)}</div><div class="stat-l">Custo</div></div>
-    <div class="stat"><div class="stat-v" style="color:var(--bl)">R$${fmts(tr-tc)}</div><div class="stat-l">Margem</div></div>`;
+    <div class="stat"><div class="stat-v" style="color:var(--blue)">R$${fmts(tr-tc)}</div><div class="stat-l">Margem</div></div>`;
   bar.innerHTML=html;
 }
 function renderBoard(){
@@ -2588,7 +2614,7 @@ function renderLoteResult(results,matched,notMatched){
         <td>${t.pagador||t.nome||'-'}</td>
         <td style="color:var(--g);font-weight:600">R$ ${fmt(t.valor)}</td>
         <td>${t.data_recebimento||t.data||'-'}</td>
-        <td>${t.grpId?`<span style="color:var(--bl);font-size:11px">🔗 Grupo ${t.grpId}</span>`:t.match?`<span style="color:var(--g);font-size:11px">✅ ${t.match.nome}</span>`:'<span style="color:var(--mut);font-size:11px">❌ Não encontrado</span>'}</td>
+        <td>${t.grpId?`<span style="color:var(--blue);font-size:11px">🔗 Grupo ${t.grpId}</span>`:t.match?`<span style="color:var(--g);font-size:11px">✅ ${t.match.nome}</span>`:'<span style="color:var(--mut);font-size:11px">❌ Não encontrado</span>'}</td>
         <td>${t.grpId?`<button class="btn btn-pay btn-xs" onclick="confirmarGrupoLote('${t.grpId}')">Confirmar grupo</button>`:t.match?`<button class="btn btn-pay btn-xs" onclick="confirmarLote(${i})">Confirmar</button>`:''}</td>
       </tr>`).join('')}</tbody>
     </table>`;
@@ -2751,7 +2777,7 @@ function renderUsers(){
   list.innerHTML=usuarios.map(u=>`
     <div class="user-row" style="${u.ativo===false?'opacity:.5':''}">
       <div class="user-info">
-        <div class="user-av" style="background:${u.nivel==='admin'?'rgba(245,166,35,.15)':'rgba(91,141,238,.15)'};color:${u.nivel==='admin'?'var(--acc)':'var(--bl)'}">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
+        <div class="user-av" style="background:${u.nivel==='admin'?'rgba(245,166,35,.15)':'rgba(91,141,238,.15)'};color:${u.nivel==='admin'?'var(--acc)':'var(--blue)'}">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
         <div>
           <div class="user-name">${u.nome||'-'} ${u.id===currentUser?.user?.id?'<span style="font-size:10px;color:var(--mut)">(você)</span>':''}</div>
           <div class="user-email">${u.email||'-'}</div>
@@ -2901,7 +2927,7 @@ async function salvarEditUsuario(){
       const body={};
       if(email) body.email=email;
       if(pass) body.password=pass;
-      await api('auth/v1/admin/users/'+id,'PATCH',body,currentUser?.access_token);
+      await adminAuthApi('admin/users/'+id, body, 'PUT');
       if(email) u.email=email;
     }
     setSyncDot('ok');toast('✅ Usuário atualizado!');
@@ -3094,7 +3120,7 @@ function renderDash(){
               <td style="color:var(--acc)">R$ ${fmts(v.rec)}</td>
               <td style="color:var(--dan)">R$ ${fmts(v.cst)}</td>
               <td style="color:var(--g);font-weight:700">R$ ${fmts(v.rec-v.cst)}</td>
-              <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${maxRec>0?Math.max(4,(v.rec/maxRec*100)):4}%;background:var(--bl)"></div></div><span style="font-size:10px;color:var(--mut);min-width:32px">${maxRec>0?(v.rec/maxRec*100).toFixed(0):0}%</span></div></td>
+              <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${maxRec>0?Math.max(4,(v.rec/maxRec*100)):4}%;background:var(--blue)"></div></div><span style="font-size:10px;color:var(--mut);min-width:32px">${maxRec>0?(v.rec/maxRec*100).toFixed(0):0}%</span></div></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -3439,7 +3465,7 @@ function renderCardHistorico(cardId){
   if(!hist.length){ sec.style.display='none'; return; }
   sec.style.display='block';
   const cores = {
-    'Criado':'var(--g)','Movido':'var(--bl)','Pago':'var(--g)',
+    'Criado':'var(--g)','Movido':'var(--blue)','Pago':'var(--g)',
     'Editado':'var(--acc)','Excluído':'var(--dan)','Conciliado':'var(--g)'
   };
   div.innerHTML = [...hist].reverse().map(h => {
@@ -3481,7 +3507,7 @@ async function renderPerfil(){
   if(emailEl) emailEl.textContent = email || 'Não definido';
   if(nivelEl){
     nivelEl.textContent = nivel === 'admin' ? '👑 Admin' : '👤 Operador';
-    nivelEl.style.color = nivel === 'admin' ? 'var(--acc)' : 'var(--bl)';
+    nivelEl.style.color = nivel === 'admin' ? 'var(--acc)' : 'var(--blue)';
   }
   // Link de cadastro
   const uid = currentPerfil.id || currentUser?.user?.id || '';
@@ -4014,7 +4040,7 @@ function _relResumo(src,nomeMes){
 
   // Cidades
   const cidades={};
-  src.forEach(c=>{const ci=c.cidade||c.end_cidade||'Não informado';cidades[ci]=(cidades[ci]||0)+1;});
+  src.forEach(c=>{const ci=c.cid||c.cidade||c.end_cidade||'Não informado';cidades[ci]=(cidades[ci]||0)+1;});
   const topCidades=Object.entries(cidades).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   // Tipos
@@ -4035,7 +4061,7 @@ function _relResumo(src,nomeMes){
     ${_kpi('Ticket Médio',src.length?'R$ '+fmt(totalRec/src.length):'-','var(--acc)','')}
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
     <div>
       ${_relSecTitle('📍','Ordens por Cidade')}
       ${_relTableWrap(`<thead><tr><th>Cidade</th><th class="r">Qtd</th><th class="r">%</th></tr></thead><tbody>
@@ -5137,7 +5163,7 @@ function showConfirm({icon='❓', title='Confirmar', body='', okLabel='Confirmar
 }
 function closeConfirmModal(){
   document.getElementById('confirmModal').classList.remove('open');
-  if(_confirmResolve){ _confirmResolve(false); _confirmResolve=null; }
+  if(_confirmResolve){ const r=_confirmResolve; _confirmResolve=null; r(false); }
 }
 document.addEventListener('click',e=>{
   const m=document.getElementById('confirmModal');
@@ -5472,15 +5498,18 @@ async function excluirTodosConcluidos(){
   if(!confirm(`Excluir permanentemente ${concluidos.length} ordem(ns) do histórico? Esta ação não pode ser desfeita.`)) return;
   try{
     setSyncDot('loading');
-    // delete in batches
-    for(const c of concluidos){
-      await api('negocios?id=eq.'+c.id,'DELETE',null,currentUser?.access_token);
+    const ids = concluidos.map(c=>c.id);
+    // Bulk delete em lotes de 50 para evitar URL muito longa
+    const CHUNK = 50;
+    for(let i=0; i<ids.length; i+=CHUNK){
+      const chunk = ids.slice(i, i+CHUNK);
+      await api('negocios?id=in.('+chunk.join(',')+')', 'DELETE', null, currentUser?.access_token);
     }
     cards = cards.filter(c=>c.col!=='concluido');
     setSyncDot('ok');
     toast('🗑 Histórico limpo!');
     renderHistoricoPagina();
-  }catch(e){ setSyncDot('err'); toast('Erro ao excluir','#f87171'); }
+  }catch(e){ setSyncDot('err'); toast('Erro ao excluir: '+e.message,'#f87171',5000); }
 }
 
 // ═══════════════════════════════════════
@@ -5555,6 +5584,7 @@ function toggleSidebar(){
     const mw = document.querySelector('.main-wrap');
     const collapsed = sb.classList.toggle('collapsed');
     mw.classList.toggle('full', collapsed);
+    localStorage.setItem('crm_sidebar', collapsed ? '1' : '0');
     if(collapsed){
       sb.onmouseenter = ()=>{ sb.style.width='var(--sidebar)'; sb.style.opacity='1'; sb.style.pointerEvents='all'; };
       sb.onmouseleave = ()=>{ sb.style.width='4px'; sb.style.opacity='0'; sb.style.pointerEvents='none'; };
@@ -5575,6 +5605,19 @@ function setViewMob(v){ if(isMobile()) closeMobSidebar(); setView(v); }
 // INIT
 // ═══════════════════════════════════════
 restoreSession();
+// Restaura estado da sidebar
+(function(){
+  if(window.innerWidth > 700 && localStorage.getItem('crm_sidebar') === '1'){
+    const sb = document.getElementById('mainNav');
+    const mw = document.querySelector('.main-wrap');
+    if(sb && mw){
+      sb.classList.add('collapsed');
+      mw.classList.add('full');
+      sb.onmouseenter = ()=>{ sb.style.width='var(--sidebar)'; sb.style.opacity='1'; sb.style.pointerEvents='all'; };
+      sb.onmouseleave = ()=>{ sb.style.width='4px'; sb.style.opacity='0'; sb.style.pointerEvents='none'; };
+    }
+  }
+})();
 </script>
 </body>
 </html>
