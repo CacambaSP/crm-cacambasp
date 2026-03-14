@@ -143,7 +143,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .ecard{text-align:center;padding:18px 10px;color:var(--mut);font-size:11px}
 
 /* ── CARD ── */
-.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:11px 13px 10px;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:11px 13px 10px;cursor:pointer;transition:all .2s ease;position:relative;overflow:visible}
 .card:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 14px 36px rgba(0,0,0,.55);border-color:var(--bor2);z-index:100;overflow:visible}
 .card:hover .card-addr{white-space:normal}
 .card:hover .cmeta{max-height:none}
@@ -153,7 +153,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .card.dragging{opacity:.35;transform:scale(.95)}
 .card.pago{border-color:rgba(62,207,142,.2);background:rgba(62,207,142,.03)}
 .card.selected{border-color:var(--acc)!important;box-shadow:0 0 0 2px rgba(245,166,35,.25)!important}
-.cbar{position:absolute;left:0;top:0;bottom:0;width:3px}
+.cbar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--rad2) 0 0 var(--rad2)}
 /* card content */
 .card-addr{font-weight:600;font-size:12px;color:var(--txt);padding-left:8px;padding-right:52px;line-height:1.3;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .2s}
 .card:hover .card-addr{white-space:normal;overflow:visible}
@@ -179,10 +179,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
 .card:hover .card-cb,.card.selected .card-cb{display:flex}
 .card.selected .card-cb{background:var(--acc);border-color:var(--acc);color:#000}
 /* trophy */
-.card-trophy{position:absolute;bottom:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(245,166,35,.25);background:var(--acc2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;z-index:5}
+.card-trophy{position:absolute;bottom:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(245,166,35,.25);background:var(--acc2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;z-index:5;pointer-events:auto}
 .card:hover .card-trophy{opacity:1}
 /* delete */
-.card-del{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(248,113,113,.2);background:var(--r2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--r);opacity:0;transition:.15s;z-index:6}
+.card-del{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(248,113,113,.2);background:var(--r2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--r);opacity:0;transition:.15s;z-index:6;pointer-events:auto}
 .card:hover .card-del{opacity:1}
 
 /* ── SEL BAR ── */
@@ -760,7 +760,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="ph">
         <div class="ptitle">👥 Clientes</div>
         <div class="ph-filters">
-          <input type="text" id="clienteSearch" placeholder="🔍 Buscar cliente..." oninput="renderClientes()" class="ph-input">
+          <input type="text" id="clienteSearch" placeholder="🔍 Buscar cliente..." oninput="clearTimeout(_filterTimer);_filterTimer=setTimeout(renderClientes,180)" class="ph-input">
           <select id="clienteFilter" onchange="renderClientes()" class="ph-select">
             <option value="">Todos</option>
             <option value="pago">Pagos</option>
@@ -790,12 +790,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         </div>
       </div>
       <div style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="renderHistoricoPagina()" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+        <input type="text" id="hist_q" placeholder="🔍 Buscar por nome, endereço, CRM..." oninput="clearTimeout(_filterTimer);_filterTimer=setTimeout(renderHistoricoPagina,180)" style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <label style="font-size:11px;color:var(--mut2);white-space:nowrap">De</label>
-          <input type="date" id="hist_de" onchange="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+          <input type="date" id="hist_de" onchange="_histPage=1;renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
           <label style="font-size:11px;color:var(--mut2);white-space:nowrap">Até</label>
-          <input type="date" id="hist_ate" onchange="renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
+          <input type="date" id="hist_ate" onchange="_histPage=1;renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none">
         </div>
         <button onclick="document.getElementById('hist_de').value='';document.getElementById('hist_ate').value='';renderHistoricoPagina()" style="background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--mut2);cursor:pointer;white-space:nowrap">Ver todos</button>
       </div>
@@ -1497,7 +1497,6 @@ const authApi=async(path,body)=>{
 const adminAuthApi=async(path,body,method='POST')=>{
   const r=await fetch(SUPA_URL+'/auth/v1/'+path,{method,headers:{'Content-Type':'application/json','apikey':SUPA_SECRET,'Authorization':'Bearer '+SUPA_SECRET},body:body?JSON.stringify(body):null});
   const json = await r.json();
-  console.log('adminAuthApi', method, path, '→ HTTP', r.status, JSON.stringify(json).slice(0,400));
   if(!r.ok && !json.id) return { error: { message: json.message || json.error_description || json.msg || 'HTTP '+r.status } };
   return json;
 };
@@ -1551,6 +1550,10 @@ function showLogin(){
 function doLogout(){
   localStorage.removeItem('crm_session');
   currentUser=null;currentPerfil=null;
+  clearInterval(window._autoRefreshId);
+  clearInterval(window._tokenRefreshId);
+  window._autoRefreshId=null;
+  window._tokenRefreshId=null;
   document.getElementById('appPage').style.display='none';
   document.getElementById('loginPage').style.display='flex';
 }
@@ -1767,7 +1770,7 @@ async function oDp(e,cid){
   const card=cards.find(c=>c.id===dragId);
   if(card){
     const colLabel = COLS.find(c=>c.id===cid)?.label||cid;
-    addHistorico(card.id,'Movido','→ '+colLabel);
+    addHistorico(card.id,'Movido','→ '+colLabel).catch(()=>{}).catch(()=>{});
     card.col=cid;render();
     try{setSyncDot('loading');await api('negocios?id=eq.'+card.id,'PATCH',{col:cid},currentUser?.access_token);setSyncDot('ok');toast('Movido!');}catch(e){setSyncDot('err');}
   }
@@ -1853,7 +1856,7 @@ async function saveCard(){
   const crmId = nextPixId();
   const card={id:uid(),col:'contratar',tipo:get('f_tipo'),data:get('f_data'),rec:parseFloat(get('f_rec'))||0,cst:custo,end_logradouro:get('f_end'),bairro:get('f_bairro')||'',cid,cep:get('f_cep'),nome:get('f_nome'),cel:get('f_cel'),cpf:get('f_cpf'),sid:supId,obs:get('f_obs'),usuario_id:currentUser?.user?.id,usuario_nome:currentPerfil?.nome||'',pago:false,pago_em:null,pago_valor:0,pago_obs:'',forn_pago:false,forn_pago_em:null,forn_comprovante:null,crm_id:crmId,grp_id:''};
   cards.push(card);
-  addHistorico(card.id,'Criado',card.tipo||'');
+  addHistorico(card.id,'Criado',card.tipo||'').catch(()=>{});
   render();closeForm();
   try{setSyncDot('loading');await api('negocios','POST',card,currentUser?.access_token);setSyncDot('ok');toast('✅ Salvo!');}
   catch(e){setSyncDot('err');toast('Erro ao salvar','#e05252');console.error(e);}
@@ -1862,11 +1865,11 @@ async function saveCard(){
 // ═══════════════════════════════════════
 // DETALHE
 // ═══════════════════════════════════════
-function openDetail(id){
+async function openDetail(id){
   detailId=id;
   const c=cards.find(x=>x.id===id);if(!c)return;
   fillDetail(c);
-  renderCardHistorico(id);
+  renderCardHistorico(id); // fire-and-forget — preenche o log assincronamente
   document.getElementById('editSec').style.display='none';
   document.getElementById('detailInfo').style.display='block';
   document.getElementById('detailModal').classList.add('open');
@@ -2026,7 +2029,7 @@ function closeDetail(){document.getElementById('detailModal').classList.remove('
 async function moveFromDetail(){
   const c=cards.find(x=>x.id===detailId);if(!c)return;
   const colLabel = COLS.find(x=>x.id===c.col)?.label||c.col;
-  addHistorico(c.id,'Movido','→ '+colLabel);
+  addHistorico(c.id,'Movido','→ '+colLabel).catch(()=>{});
   render();
   try{setSyncDot('loading');await api('negocios?id=eq.'+c.id,'PATCH',{col:c.col},currentUser?.access_token);setSyncDot('ok');toast('Movido!');}
   catch(e){setSyncDot('err');}
@@ -2306,7 +2309,7 @@ async function salvarPagamento(){
   const obs=document.getElementById('pago_obs').value.trim();
   c.pago=true;c.pago_em=data+'T12:00:00';c.pago_valor=val;c.pago_obs=obs;
   c.col='baixar';
-  addHistorico(c.id,'Pago','R$ '+fmt(val)+(obs?' - '+obs:''));
+  addHistorico(c.id,'Pago','R$ '+fmt(val)+(obs?' - '+obs:'')).catch(()=>{});
   render();fillDetail(c);
   document.getElementById('pagoModal').classList.remove('open');
   if(_finPayCallback){_finPayCallback=false;renderCentralFinanceira();}
@@ -2443,10 +2446,10 @@ async function saveEdit(){
   // auto-move to entrega when supplier first assigned from contratar
   if(c.sid && c.sid !== oldSid && c.col === 'contratar'){
     c.col = 'entrega';
-    addHistorico(c.id,'Movido','Contratar → Entrega OK? (fornecedor atribuído)');
+    addHistorico(c.id,'Movido','Contratar → Entrega OK? (fornecedor atribuído)').catch(()=>{}).catch(()=>{});
     toast('🚛 Fornecedor atribuído → movido para Entrega OK!');
   } else {
-    addHistorico(c.id,'Editado','');
+    addHistorico(c.id,'Editado','').catch(()=>{}).catch(()=>{});
   }
   render();fillDetail(c);cancelEdit();
   try{
@@ -2846,7 +2849,6 @@ async function saveUser(){
     if(adminRes.id || adminRes.user?.id){
       // Admin API funcionou
       userId = adminRes.id || adminRes.user?.id;
-      console.log('saveUser: criado via Admin API, userId=', userId);
     } else {
       // ── TENTATIVA 2: signUp normal (fallback quando service_role key inválida) ──
       console.warn('saveUser: Admin API falhou, tentando signUp normal. Erro:', adminRes);
@@ -2855,11 +2857,9 @@ async function saveUser(){
         password: pass,
         data: { nome, nivel }
       });
-      console.log('saveUser: signUp response:', JSON.stringify(signUpRes).slice(0,300));
 
       if(signUpRes?.user?.id){
         userId = signUpRes.user.id;
-        console.log('saveUser: criado via signUp, userId=', userId);
         // signUp não confirma email automaticamente — avisar
         toast('⚠ Usuário criado mas pode precisar confirmar o e-mail', '#f5a623');
       } else if(signUpRes?.error || signUpRes?.error_description){
@@ -2877,11 +2877,9 @@ async function saveUser(){
     const novoPerfil = { id: userId, nome, email, nivel, ativo: true };
     try{
       await api('perfis', 'POST', novoPerfil, currentUser?.access_token);
-      console.log('saveUser: perfil inserido na tabela');
     }catch(e1){
       try{
         await api('perfis?id=eq.'+userId, 'PATCH', {nome, email, nivel, ativo:true}, currentUser?.access_token);
-        console.log('saveUser: perfil atualizado via PATCH');
       }catch(e2){ console.warn('saveUser: não foi possível salvar perfil na tabela:', e2); }
     }
 
@@ -2953,7 +2951,7 @@ async function deleteUser(id){
 }
 
 // close modals
-['formModal','detailModal','pixModal','supModal','pagoModal','fornPagoModal','voucherModal','userModal','alertModal','osModal','grpPixModal'].forEach(id=>{
+['formModal','detailModal','pixModal','supModal','pagoModal','fornPagoModal','voucherModal','userModal','alertModal','osModal','grpPixModal','editUserModal','editSupModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
 });
 
@@ -2981,7 +2979,12 @@ function initFilters(){
   }
 }
 
+let _filterTimer=null;
 function applyFilters(){
+  clearTimeout(_filterTimer);
+  _filterTimer=setTimeout(_doApplyFilters, 180);
+}
+function _doApplyFilters(){
   const q = (document.getElementById('searchInput').value||'').toLowerCase().trim();
   const forn = document.getElementById('filterForn').value;
   const vend = document.getElementById('filterVend')?.value||'';
@@ -3447,25 +3450,75 @@ function enviarOSWhatsApp(){
 // ═══════════════════════════════════════
 // histórico fica em memória local por sessão + salvo no campo obs expandido
 // estrutura: { ts, usuario, acao, detalhe }
-let historicos = {}; // { cardId: [ {ts, usuario, acao, detalhe} ] }
+// ═══════════════════════════════════════
+// HISTÓRICO DE AÇÕES (persistido no banco)
+// ═══════════════════════════════════════
+// Tabela necessária no Supabase (rodar uma vez no SQL Editor):
+// CREATE TABLE IF NOT EXISTS negocios_log (
+//   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+//   negocio_id uuid REFERENCES negocios(id) ON DELETE CASCADE,
+//   ts timestamptz DEFAULT now(),
+//   usuario text,
+//   acao text,
+//   detalhe text DEFAULT ''
+// );
+// CREATE INDEX idx_negocios_log_negocio ON negocios_log(negocio_id, ts DESC);
 
-function addHistorico(cardId, acao, detalhe=''){
-  if(!historicos[cardId]) historicos[cardId]=[];
-  historicos[cardId].push({
+let historicos = {}; // cache em memória: { cardId: [ {ts, usuario, acao, detalhe} ] }
+
+async function addHistorico(cardId, acao, detalhe=''){
+  const entry = {
     ts: new Date().toISOString(),
     usuario: currentPerfil?.nome || 'Sistema',
     acao, detalhe
-  });
+  };
+  // Atualiza cache local imediatamente
+  if(!historicos[cardId]) historicos[cardId]=[];
+  historicos[cardId].push(entry);
+  // Persiste no banco em background (não bloqueia UI)
+  try{
+    await api('negocios_log','POST',{
+      negocio_id: cardId,
+      ts: entry.ts,
+      usuario: entry.usuario,
+      acao: entry.acao,
+      detalhe: entry.detalhe
+    }, currentUser?.access_token);
+  }catch(e){
+    // Falha silenciosa — log é secundário, não deve quebrar o fluxo principal
+    console.warn('Log não persistido:', e.message);
+  }
 }
 
-function renderCardHistorico(cardId){
+async function carregarHistoricoCard(cardId){
+  // Se já tem no cache, usa sem bater no banco
+  if(historicos[cardId]) return historicos[cardId];
+  try{
+    const rows = await api(
+      'negocios_log?negocio_id=eq.'+cardId+'&order=ts.asc',
+      undefined, undefined, currentUser?.access_token
+    );
+    historicos[cardId] = (rows||[]).map(r=>({
+      ts: r.ts, usuario: r.usuario, acao: r.acao, detalhe: r.detalhe||''
+    }));
+  }catch(e){
+    historicos[cardId] = [];
+  }
+  return historicos[cardId];
+}
+
+async function renderCardHistorico(cardId){
   const sec = document.getElementById('d_hist_sec');
   const div = document.getElementById('d_hist');
-  const hist = historicos[cardId] || [];
-  if(!hist.length){ sec.style.display='none'; return; }
+  if(!sec||!div) return;
+  // Mostra spinner enquanto carrega
   sec.style.display='block';
+  div.innerHTML='<div style="color:var(--mut);font-size:11px;padding:8px 0">Carregando...</div>';
+  const hist = await carregarHistoricoCard(cardId);
+  if(!hist.length){ sec.style.display='none'; return; }
   const cores = {
     'Criado':'var(--g)','Movido':'var(--blue)','Pago':'var(--g)',
+    'Arquivado':'var(--acc)','Desarquivado':'var(--blue)',
     'Editado':'var(--acc)','Excluído':'var(--dan)','Conciliado':'var(--g)'
   };
   div.innerHTML = [...hist].reverse().map(h => {
@@ -3475,7 +3528,7 @@ function renderCardHistorico(cardId){
     return `<div class="hist-item">
       <div class="hist-dot" style="background:${cor}"></div>
       <div style="flex:1">
-        <div class="hist-txt"><strong>${h.acao}</strong>${h.detalhe?' - '+h.detalhe:''} <span style="opacity:.6">por ${h.usuario}</span></div>
+        <div class="hist-txt"><strong>${h.acao}</strong>${h.detalhe?' — '+h.detalhe:''} <span style="opacity:.6">por ${h.usuario}</span></div>
       </div>
       <div class="hist-time">${hora}</div>
     </div>`;
@@ -3830,7 +3883,7 @@ async function conciliarGrupo(grpId){
       if(c && !c.pago){
         c.pago=true; c.pago_em=new Date().toISOString(); c.pago_valor=c.rec; c.pago_obs='Conciliado via grupo '+grpId; c.col='baixar';
         await api('negocios?id=eq.'+cid,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:c.pago_valor,pago_obs:c.pago_obs,col:'baixar'},currentUser?.access_token);
-        addHistorico(cid,'Conciliado','Grupo '+grpId);
+        addHistorico(cid,'Conciliado','Grupo '+grpId).catch(()=>{}).catch(()=>{});
       }
     }
     await api('grupos_cobranca?id=eq.'+grpId,'PATCH',{pago:true,pago_em:new Date().toISOString()},currentUser?.access_token);
@@ -5193,8 +5246,8 @@ async function toggleArquivarCard(id){
   const novaCol = arquivando ? 'concluido' : 'baixar';
   const patch   = arquivando ? {col:'concluido',concluido_em:new Date().toISOString()} : {col:'baixar',concluido_em:null};
   c.col = novaCol;
-  if(arquivando){ c.concluido_em=patch.concluido_em; addHistorico(id,'Arquivado','🏆'); }
-  else          { c.concluido_em=null; addHistorico(id,'Desarquivado','↩️ Voltou ao funil'); }
+  if(arquivando){ c.concluido_em=patch.concluido_em; addHistorico(id,'Arquivado','🏆').catch(()=>{}); }
+  else          { c.concluido_em=null; addHistorico(id,'Desarquivado','↩️ Voltou ao funil').catch(()=>{}); }
   try{
     try{ await api('negocios?id=eq.'+id,'PATCH',patch,currentUser?.access_token); }
     catch(e){ await api('negocios?id=eq.'+id,'PATCH',{col:novaCol},currentUser?.access_token); }
@@ -5222,7 +5275,7 @@ async function concluirCard(id){
   const c=cards.find(x=>x.id===id);if(!c)return;
   c.col='concluido';
   c.concluido_em=new Date().toISOString();
-  addHistorico(id,'Arquivado','🏆 Ordem arquivada');
+  addHistorico(id,'Arquivado','🏆 Ordem arquivada').catch(()=>{});
   try{
     try{ await api('negocios?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em},currentUser?.access_token); }
     catch(e2){ await api('negocios?id=eq.'+id,'PATCH',{col:'concluido'},currentUser?.access_token); }
@@ -5303,7 +5356,11 @@ async function histExcluirSelecionados(){
 }
 
 
-function renderHistoricoPagina(){
+const HIST_PER_PAGE = 50;
+let _histPage = 1;
+
+function renderHistoricoPagina(resetPage){
+  if(resetPage !== false) _histPage = 1; // filtro/busca reseta para página 1
   const q   = (document.getElementById('hist_q')?.value||'').toLowerCase();
   const de  = document.getElementById('hist_de')?.value||'';
   const ate = document.getElementById('hist_ate')?.value||'';
@@ -5325,7 +5382,14 @@ function renderHistoricoPagina(){
     ? (de&&ate ? fmtDate(de)+' → '+fmtDate(ate) : de ? 'A partir de '+fmtDate(de) : 'Até '+fmtDate(ate))
     : 'Todo o período';
 
-  document.getElementById('hist_count').textContent = filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') + ' — ' + periodoLabel;
+  const visiveis = _histPage * HIST_PER_PAGE;
+  const pagina   = filtrados.slice(0, visiveis);
+  const restam   = filtrados.length - visiveis;
+
+  document.getElementById('hist_count').textContent =
+    filtrados.length + ' ordem' + (filtrados.length!==1?'ns':'') +
+    ' — ' + periodoLabel +
+    (restam > 0 ? ' (mostrando '+visiveis+')' : '');
 
   const totDiv = document.getElementById('hist_totais');
   if(totDiv && filtrados.length > 0){
@@ -5354,7 +5418,7 @@ function renderHistoricoPagina(){
     return;
   }
 
-  lista.innerHTML = filtrados.map(c=>{
+  function _histItemHTML(c){
     const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
     const concFmt = c.concluido_em ? new Date(c.concluido_em).toLocaleDateString('pt-BR') : '-';
     const mg = (parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
@@ -5363,7 +5427,7 @@ function renderHistoricoPagina(){
     return `
     <div id="hist_item_${c.id}" data-id="${c.id}" class="hist-item${isSel?' selected':''}"
          style="background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;cursor:pointer;transition:border-color .15s,box-shadow .15s"
-         onmouseover="if(!this.classList.contains('selected'))this.style.borderColor='var(--bor2)'" 
+         onmouseover="if(!this.classList.contains('selected'))this.style.borderColor='var(--bor2)'"
          onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='var(--bor)'"
          onclick="_histSelMode?histToggleSel('${c.id}'):openDetail('${c.id}')">
       <input type="checkbox" class="hist-cb" ${isSel?'checked':''} onclick="event.stopPropagation();histToggleSel('${c.id}')">
@@ -5393,15 +5457,28 @@ function renderHistoricoPagina(){
           <div style="font-size:10px;color:var(--mut2)">Margem</div>
           <div style="font-weight:800;color:var(--blue)">R$ ${fmt(mg)}</div>
         </div>
-        <button onclick="event.stopPropagation();toggleArquivarCard('${c.id}')" 
+        <button onclick="event.stopPropagation();toggleArquivarCard('${c.id}')"
                 style="height:34px;padding:0 10px;border-radius:7px;border:1px solid rgba(107,140,255,.25);background:rgba(107,140,255,.1);color:var(--blue);cursor:pointer;font-size:12px;white-space:nowrap"
                 title="Desarquivar — volta ao funil">↩️ Voltar</button>
-        <button onclick="event.stopPropagation();deletarCard('${c.id}')" 
+        <button onclick="event.stopPropagation();deletarCard('${c.id}')"
                 style="width:34px;height:34px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--r);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center"
                 title="Excluir permanentemente">🗑</button>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  lista.innerHTML = pagina.map(_histItemHTML).join('');
+
+  // Botão "Carregar mais"
+  if(restam > 0){
+    const btn = document.createElement('button');
+    btn.style.cssText = 'width:100%;margin-top:12px;padding:13px;border-radius:10px;border:1px solid var(--bor);background:var(--sur);color:var(--mut2);font-family:"DM Sans",sans-serif;font-size:13px;cursor:pointer;transition:.15s';
+    btn.textContent = `Carregar mais ${Math.min(restam, HIST_PER_PAGE)} de ${restam} restante${restam!==1?'s':''}`;
+    btn.onmouseenter = ()=>{ btn.style.borderColor='var(--bor2)'; btn.style.color='var(--txt)'; };
+    btn.onmouseleave = ()=>{ btn.style.borderColor='var(--bor)'; btn.style.color='var(--mut2)'; };
+    btn.onclick = ()=>{ _histPage++; renderHistoricoPagina(false); };
+    lista.appendChild(btn);
+  }
 }
 
 // ═══════════════════════════════════════
