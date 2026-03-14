@@ -998,6 +998,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         <div class="fr"><label>Tipo</label><select id="f_tipo"><option>1 caçamba (troca)</option><option>1 caçamba (retirada)</option><option>2 caçambas</option><option>Entrega nova</option><option>Outro</option></select></div>
         <div class="fr"><label>Data</label><input type="date" id="f_data"></div>
       </div>
+      <div class="fg">
+        <div class="fr"><label>Qtd. Caçambas</label><select id="f_qtd_cacambas"><option value="1">1 caçamba</option><option value="2">2 caçambas</option><option value="3">3 caçambas</option><option value="4">4 caçambas</option></select></div>
+        <div class="fr"><label>&nbsp;</label><div style="height:100%"></div></div>
+      </div>
       <div class="fr"><label>Endereço</label><input type="text" id="f_end" placeholder="Rua, número - Bairro"></div>
       <div class="fg">
         <div class="fr"><label>Cidade</label><input type="text" id="f_cid" placeholder="São Paulo" oninput="updFin()"></div>
@@ -1045,6 +1049,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <div class="fg">
         <div class="fr"><label>Tipo</label><select id="e_tipo"><option>1 caçamba (troca)</option><option>1 caçamba (retirada)</option><option>2 caçambas</option><option>Entrega nova</option><option>Outro</option></select></div>
         <div class="fr"><label>Data</label><input type="date" id="e_data"></div>
+      </div>
+      <div class="fg">
+        <div class="fr"><label>Qtd. Caçambas</label><select id="e_qtd_cacambas"><option value="1">1 caçamba</option><option value="2">2 caçambas</option><option value="3">3 caçambas</option><option value="4">4 caçambas</option></select></div>
+        <div class="fr"><label>&nbsp;</label><div></div></div>
       </div>
       <div class="fr"><label>Endereço</label><input type="text" id="e_end"></div>
       <div class="fg">
@@ -1173,6 +1181,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
         </div>
       </div>
       <div class="ds" id="d_obs_s"><h4>Observações</h4><div id="d_obs" style="font-size:12px;color:var(--mut);line-height:1.5"></div></div>
+      <!-- SEÇÃO RETIRADA + ACIONAR FORNECEDOR -->
+      <div class="ds" id="d_retirada_sec">
+        <h4>🚛 Fornecedor / Retirada</h4>
+        <div id="d_retirada_info" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="flex:1;background:rgba(37,211,102,.1);color:#25d366;border:1px solid rgba(37,211,102,.3);font-weight:600" onclick="abrirAcionarFornecedor()">📲 Acionar Fornecedor</button>
+          <button class="btn btn-sm btn-g" style="flex:1" onclick="abrirProrrogar()">📅 Prorrogar Retirada</button>
+        </div>
+      </div>
       <div class="ds" id="d_hist_sec"><h4>Histórico</h4><div id="d_hist" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div></div>
     </div>
     <!-- AÇÕES: primárias + secundárias -->
@@ -1270,6 +1287,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
     <div class="mb">
       <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="s_nome" placeholder="Ex: Grupo Uliana"></div>
       <div class="fr"><label>Telefone</label><input type="text" id="s_tel" placeholder="(11) 99999-9999"></div>
+      <div class="fr"><label>Bairros Atendidos</label><input type="text" id="s_bairros" placeholder="Ex: Vila Madalena, Pinheiros, Lapa"><div style="font-size:11px;color:var(--mut);margin-top:3px">Separados por vírgula — usado para sugerir o fornecedor certo</div></div>
       <div class="fr"><label>Observações</label><textarea id="s_obs" placeholder="Notas..."></textarea></div>
       <div class="ffoot">
         <button class="btn btn-g" onclick="closeSupForm()">Cancelar</button>
@@ -1287,6 +1305,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-
       <input type="hidden" id="es_id">
       <div class="fr"><label>Nome <span class="req">*</span></label><input type="text" id="es_nome"></div>
       <div class="fr"><label>Telefone</label><input type="text" id="es_tel"></div>
+      <div class="fr"><label>Bairros Atendidos</label><input type="text" id="es_bairros" placeholder="Ex: Vila Madalena, Pinheiros, Lapa"><div style="font-size:11px;color:var(--mut);margin-top:3px">Separados por vírgula</div></div>
       <div class="fr"><label>Observações</label><textarea id="es_obs"></textarea></div>
       <div class="ffoot">
         <button class="btn btn-g" onclick="document.getElementById('editSupModal').classList.remove('open')">Cancelar</button>
@@ -1722,8 +1741,9 @@ function cHTML(c,color){
       ${c.forn_pago?'<span style="font-size:9px;color:#5b8dee;background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.2);border-radius:4px;padding:1px 5px">💰 F.Pago</span>':''}
       ${c.pago?`<span class="chip pago-chip" data-tip="Pagamento confirmado">✅ Pago</span>`:''}
       ${sup?`<span class="chip" data-tip="Fornecedor">🚛 ${sup.nome.split(' ')[0]}</span>`:''}
+      ${c.qtd_cacambas&&c.qtd_cacambas>1?`<span class="chip" data-tip="Quantidade de caçambas" style="color:var(--acc);border-color:rgba(245,166,35,.25);background:var(--acc2)">🗑️ ${c.qtd_cacambas}x</span>`:''}
       ${c.usuario_nome?`<span class="chip" data-tip="Vendedor" style="color:#a78bfa;border-color:rgba(167,139,250,.2);background:rgba(167,139,250,.07)">👤 ${c.usuario_nome.split(' ')[0]}</span>`:''}
-    </div>
+      ${badgeRetirada(c)}
   </div>`;
 }
 
@@ -1825,7 +1845,10 @@ async function saveCard(){
   const cid=get('f_cid'),supId=get('f_sup');
   const{custo}=getMatchedCusto(supId,cid);
   const crmId = nextPixId();
-  const card={id:uid(),col:'contratar',tipo:get('f_tipo'),data:get('f_data'),rec:parseFloat(get('f_rec'))||0,cst:custo,end_logradouro:get('f_end'),bairro:get('f_bairro')||'',cid,cep:get('f_cep'),nome:get('f_nome'),cel:get('f_cel'),cpf:get('f_cpf'),sid:supId,obs:get('f_obs'),usuario_id:currentUser?.user?.id,usuario_nome:currentPerfil?.nome||'',pago:false,pago_em:null,pago_valor:0,pago_obs:'',forn_pago:false,forn_pago_em:null,forn_comprovante:null,crm_id:crmId,grp_id:''};
+  const qtdCac = parseInt(get('f_qtd_cacambas'))||1;
+  const dataServ = get('f_data');
+  const dataRet = dataServ ? calcDataRetirada(dataServ) : null;
+  const card={id:uid(),col:'contratar',tipo:get('f_tipo'),data:dataServ,rec:parseFloat(get('f_rec'))||0,cst:custo,end_logradouro:get('f_end'),bairro:get('f_bairro')||'',cid,cep:get('f_cep'),nome:get('f_nome'),cel:get('f_cel'),cpf:get('f_cpf'),sid:supId,obs:get('f_obs'),usuario_id:currentUser?.user?.id,usuario_nome:currentPerfil?.nome||'',pago:false,pago_em:null,pago_valor:0,pago_obs:'',forn_pago:false,forn_pago_em:null,forn_comprovante:null,crm_id:crmId,grp_id:'',qtd_cacambas:qtdCac,data_retirada:dataRet,forn_acionado_id:null,forn_acionado_em:null};
   cards.push(card);
   addHistorico(card.id,'Criado',card.tipo||'');
   render();closeForm();
@@ -1898,6 +1921,31 @@ function fillDetail(c){
   }
   document.getElementById('d_obs').textContent=c.obs||'Nenhuma';
   document.getElementById('d_obs_s').style.display=c.obs?'block':'none';
+  // Seção retirada
+  const retSec = document.getElementById('d_retirada_info');
+  if(retSec){
+    const sup = sups.find(s=>s.id===c.sid);
+    const supAcionado = sups.find(s=>s.id===c.forn_acionado_id);
+    let html = '';
+    // quantidade de caçambas
+    const qtd = c.qtd_cacambas||1;
+    html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:12px;color:var(--mut)">Qtd. Caçambas:</span><span style="font-size:13px;font-weight:700;color:var(--acc)">🗑️ ${qtd}x</span></div>`;
+    // data de retirada
+    if(c.data_retirada){
+      const dias = diasParaRetirada(c.data_retirada);
+      const dataFmt = new Date(c.data_retirada+'T12:00:00').toLocaleDateString('pt-BR');
+      let cor = 'var(--g)'; let ico = '📅';
+      if(dias!==null){ if(dias<0){cor='var(--r)';ico='🔴';} else if(dias<=1){cor='var(--r)';ico='🔴';} else if(dias<=3){cor='var(--acc)';ico='⏰';} }
+      const label = dias===null?'':dias<0?` (${Math.abs(dias)}d atraso)`:dias===0?' (hoje)':dias===1?' (amanhã)':` (em ${dias}d)`;
+      html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:12px;color:var(--mut)">Retirada prevista:</span><span style="font-size:12px;font-weight:600;color:${cor}">${ico} ${dataFmt}${label}</span></div>`;
+    }
+    // fornecedor acionado
+    if(supAcionado){
+      const acionadoEm = c.forn_acionado_em ? new Date(c.forn_acionado_em).toLocaleDateString('pt-BR') : '';
+      html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.2);border-radius:8px;font-size:12px"><span style="color:#25d366">✅ Acionado:</span><span style="font-weight:600">${supAcionado.nome}</span>${acionadoEm?`<span style="color:var(--mut);margin-left:auto">${acionadoEm}</span>`:''}</div>`;
+    }
+    retSec.innerHTML = html || '<div style="font-size:12px;color:var(--mut)">Nenhum fornecedor acionado ainda.</div>';
+  }
 }
 
 function _fillStatusBlocks(c){
@@ -2300,6 +2348,7 @@ function toggleEdit(){
   document.getElementById('detailInfo').style.display='none';
   document.getElementById('e_nome').value=c.nome||'';document.getElementById('e_cel').value=c.cel||'';
   document.getElementById('e_tipo').value=c.tipo||'';document.getElementById('e_data').value=c.data||'';
+  const eQtd=document.getElementById('e_qtd_cacambas');if(eQtd)eQtd.value=c.qtd_cacambas||1;
   document.getElementById('e_end').value=c.end_logradouro||'';document.getElementById('e_bairro').value=c.bairro||'';document.getElementById('e_cid').value=c.cid||'';
   document.getElementById('e_cep').value=c.cep||'';document.getElementById('e_cpf').value=c.cpf||'';
   document.getElementById('e_rec').value=c.rec||'';document.getElementById('e_cst').value=c.cst||'';
@@ -2411,6 +2460,9 @@ async function saveEdit(){
   c.nome=get('e_nome');c.cel=get('e_cel');c.tipo=get('e_tipo');c.data=get('e_data');
   c.end_logradouro=get('e_end');c.bairro=get('e_bairro');c.cid=get('e_cid');c.cep=get('e_cep');c.cpf=get('e_cpf');
   c.rec=parseFloat(get('e_rec'))||0;c.cst=parseFloat(document.getElementById('e_cst').value)||0;
+  c.qtd_cacambas = parseInt(document.getElementById('e_qtd_cacambas')?.value)||1;
+  // Recalcular data de retirada se a data do serviço mudou
+  if(c.data) c.data_retirada = calcDataRetirada(c.data);
   const oldSid = c.sid;
   c.sid=get('e_sup');c.obs=get('e_obs');
   c.nf_num=get('e_nf_num')||'';
@@ -2425,7 +2477,7 @@ async function saveEdit(){
   render();fillDetail(c);cancelEdit();
   try{
     setSyncDot('loading');
-    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,bairro:c.bairro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs,col:c.col},currentUser?.access_token);
+    await api('negocios?id=eq.'+c.id,'PATCH',{nome:c.nome,cel:c.cel,tipo:c.tipo,data:c.data,end_logradouro:c.end_logradouro,bairro:c.bairro,cid:c.cid,cep:c.cep,cpf:c.cpf,rec:c.rec,cst:c.cst,sid:c.sid,obs:c.obs,col:c.col,qtd_cacambas:c.qtd_cacambas,data_retirada:c.data_retirada},currentUser?.access_token);
     setSyncDot('ok');toast('✅ Atualizado!');
   }catch(e){setSyncDot('err');toast('Erro','#e05252');}
 }
@@ -2690,6 +2742,7 @@ function editarForn(sId){
   document.getElementById('es_id').value=sId;
   document.getElementById('es_nome').value=s.nome||'';
   document.getElementById('es_tel').value=s.tel||'';
+  document.getElementById('es_bairros').value=s.bairros||'';
   document.getElementById('es_obs').value=s.obs||'';
   document.getElementById('editSupModal').classList.add('open');
 }
@@ -2697,18 +2750,19 @@ async function salvarEditForn(){
   const id=document.getElementById('es_id').value;
   const nome=document.getElementById('es_nome').value.trim();
   const tel=document.getElementById('es_tel').value.trim();
+  const bairros=document.getElementById('es_bairros').value.trim();
   const obs=document.getElementById('es_obs').value.trim();
   if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
   const s=sups.find(x=>x.id===id);if(!s)return;
-  s.nome=nome;s.tel=tel;s.obs=obs;
+  s.nome=nome;s.tel=tel;s.bairros=bairros;s.obs=obs;
   renderSups();
   document.getElementById('editSupModal').classList.remove('open');
   try{
-    await api('fornecedores?id=eq.'+id,'PATCH',{nome,tel,obs},currentUser?.access_token);
+    await api('fornecedores?id=eq.'+id,'PATCH',{nome,tel,bairros,obs},currentUser?.access_token);
     toast('✅ Fornecedor atualizado!');
   }catch(e){toast('Erro ao salvar','#e05252');}
 }
-function openSupForm(){['s_nome','s_tel','s_obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('supModal').classList.add('open');}
+function openSupForm(){['s_nome','s_tel','s_bairros','s_obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('supModal').classList.add('open');}
 function closeSupForm(){document.getElementById('supModal').classList.remove('open');}
 async function saveSup(){
   const nome=document.getElementById('s_nome').value.trim();if(!nome){toast('⚠ Nome obrigatório','#e05252');return;}
@@ -2716,13 +2770,13 @@ async function saveSup(){
     id: uid(),
     nome,
     tel:(document.getElementById('s_tel')?.value||'').trim(),
+    bairros:(document.getElementById('s_bairros')?.value||'').trim(),
     obs:(document.getElementById('s_obs')?.value||'').trim(),
     color:ACOLORS[sups.length%ACOLORS.length],
     precos:[],
     criado_em: new Date().toISOString()
   };
-  // Send all fields including id (required) and precos
-  const sup={ id: supLocal.id, nome: supLocal.nome, tel: supLocal.tel, obs: supLocal.obs, color: supLocal.color, precos: supLocal.precos, criado_em: supLocal.criado_em };
+  const sup={ id: supLocal.id, nome: supLocal.nome, tel: supLocal.tel, bairros: supLocal.bairros, obs: supLocal.obs, color: supLocal.color, precos: supLocal.precos, criado_em: supLocal.criado_em };
   closeSupForm();
   try{
     await api('fornecedores','POST',sup,currentUser?.access_token);
@@ -5543,6 +5597,131 @@ async function reatribuirVendedor(){
 }
 
 // ═══════════════════════════════════════
+// DATA DE RETIRADA (prazo fixo 3 dias)
+// ═══════════════════════════════════════
+function calcDataRetirada(dataStr){
+  if(!dataStr) return null;
+  const d = new Date(dataStr+'T12:00:00');
+  d.setDate(d.getDate()+3);
+  return d.toISOString().slice(0,10);
+}
+
+function diasParaRetirada(dataRetStr){
+  if(!dataRetStr) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const ret  = new Date(dataRetStr+'T12:00:00'); ret.setHours(0,0,0,0);
+  return Math.ceil((ret-hoje)/(1000*60*60*24));
+}
+
+function badgeRetirada(c){
+  if(c.col==='concluido') return '';
+  if(!c.data_retirada) return '';
+  const dias = diasParaRetirada(c.data_retirada);
+  if(dias===null) return '';
+  if(dias<0)  return `<span class="chip" style="color:var(--r);border-color:rgba(248,113,113,.35);background:var(--r2)">🔴 Retirada ${Math.abs(dias)}d atraso</span>`;
+  if(dias===0) return `<span class="chip" style="color:var(--r);border-color:rgba(248,113,113,.35);background:var(--r2)">🔴 Retirar hoje</span>`;
+  if(dias===1) return `<span class="chip" style="color:var(--acc);border-color:rgba(245,166,35,.35);background:var(--acc2)">🟡 Retirar amanhã</span>`;
+  if(dias<=3)  return `<span class="chip" style="color:var(--acc);border-color:rgba(245,166,35,.25);background:var(--acc2)">⏰ Ret. em ${dias}d</span>`;
+  return '';
+}
+
+// ═══════════════════════════════════════
+// PRORROGAR DATA DE RETIRADA
+// ═══════════════════════════════════════
+function abrirProrrogar(){
+  const c = cards.find(x=>x.id===detailId); if(!c) return;
+  const atual = c.data_retirada || '';
+  const nova = prompt(`Data atual de retirada: ${atual ? new Date(atual+'T12:00:00').toLocaleDateString('pt-BR') : 'não definida'}\n\nQuantos dias adicionais?`);
+  if(!nova || isNaN(parseInt(nova))) return;
+  const dias = parseInt(nova);
+  const base = c.data_retirada ? new Date(c.data_retirada+'T12:00:00') : new Date();
+  base.setDate(base.getDate()+dias);
+  const novaData = base.toISOString().slice(0,10);
+  c.data_retirada = novaData;
+  renderBoard();
+  fillDetail(c);
+  setSyncDot('loading');
+  api('negocios?id=eq.'+c.id,'PATCH',{data_retirada:novaData},currentUser?.access_token)
+    .then(()=>{ setSyncDot('ok'); toast('📅 Retirada prorrogada para '+new Date(novaData+'T12:00:00').toLocaleDateString('pt-BR')); })
+    .catch(()=>{ setSyncDot('err'); toast('Erro ao salvar','#f87171'); });
+}
+
+// ═══════════════════════════════════════
+// ACIONAR FORNECEDOR VIA WHATSAPP
+// ═══════════════════════════════════════
+function abrirAcionarFornecedor(){
+  const c = cards.find(x=>x.id===detailId); if(!c) return;
+  const modal = document.getElementById('acionarFornModal');
+  if(!modal) return;
+  // Preencher lista de fornecedores
+  const lista = document.getElementById('acionar_forn_lista');
+  if(lista){
+    lista.innerHTML = '';
+    const bairroCard = (c.bairro||'').toLowerCase();
+    // Ordenar: fornecedores que atendem o bairro primeiro
+    const ordenados = [...sups].sort((a,b)=>{
+      const aAtende = (a.bairros||'').toLowerCase().includes(bairroCard) && bairroCard;
+      const bAtende = (b.bairros||'').toLowerCase().includes(bairroCard) && bairroCard;
+      if(aAtende && !bAtende) return -1;
+      if(!aAtende && bAtende) return 1;
+      return (a.nome||'').localeCompare(b.nome||'');
+    });
+    ordenados.forEach(s=>{
+      const atende = bairroCard && (s.bairros||'').toLowerCase().includes(bairroCard);
+      const div = document.createElement('div');
+      div.style.cssText='padding:9px 12px;border:1px solid var(--bor);border-radius:8px;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+      div.onmouseenter=()=>{div.style.background='rgba(255,255,255,.05)';div.style.borderColor='var(--bor2)';}
+      div.onmouseleave=()=>{div.style.background='';div.style.borderColor='var(--bor)';}
+      div.innerHTML = `<div>
+        <div style="font-size:13px;font-weight:600">${s.nome||'-'}</div>
+        <div style="font-size:11px;color:var(--mut2)">${s.tel||'sem telefone'}${atende?' · <span style="color:var(--g)">📍 Atende '+c.bairro+'</span>':''}</div>
+      </div>
+      <button onclick="event.stopPropagation();gerarMsgAcionarForn('${s.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(37,211,102,.3);background:rgba(37,211,102,.1);color:#25d366;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">📲 Acionar</button>`;
+      lista.appendChild(div);
+    });
+    if(!ordenados.length){
+      lista.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Nenhum fornecedor cadastrado</div>';
+    }
+  }
+  modal.classList.add('open');
+}
+
+function gerarMsgAcionarForn(supId){
+  const c = cards.find(x=>x.id===detailId); if(!c) return;
+  const sup = sups.find(s=>s.id===supId); if(!sup) return;
+  const dataFmt = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+  const qtd = c.qtd_cacambas || 1;
+  const servico = c.tipo || 'Entrega nova';
+  let msg = '';
+  msg += `${qtd} Caçamba${qtd>1?'s':''}\n`;
+  msg += `📅 Data: ${dataFmt}\n`;
+  msg += `👤 Cliente: ${c.nome||'-'}\n`;
+  if(c.cpf) msg += `📄 CPF/CNPJ: ${c.cpf}\n`;
+  if(c.cel) msg += `📲 WhatsApp: ${c.cel}\n`;
+  const end = [c.end_logradouro, c.bairro, c.cid].filter(Boolean).join(', ')+(c.cep?' - CEP '+c.cep:'');
+  msg += `📍 Endereço: ${end}\n\n`;
+  msg += `🗑️ Serviço: ${qtd}x ${servico}\n`;
+  msg += `🔑 Código: ${c.crm_id||'-'}\n`;
+  msg += `CaçambaSP`;
+  // Registrar acionamento
+  c.forn_acionado_id = supId;
+  c.forn_acionado_em = new Date().toISOString();
+  api('negocios?id=eq.'+c.id,'PATCH',{forn_acionado_id:supId,forn_acionado_em:c.forn_acionado_em},currentUser?.access_token).catch(()=>{});
+  // Fechar modal e abrir WhatsApp
+  document.getElementById('acionarFornModal').classList.remove('open');
+  const tel = (sup.tel||'').replace(/[^0-9]/g,'');
+  if(!tel){ 
+    // sem telefone — mostra msg para copiar
+    prompt('📋 Copie a mensagem abaixo:', msg);
+    return;
+  }
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+  toast('📲 Abrindo WhatsApp para '+sup.nome);
+  renderBoard();
+  fillDetail(c);
+}
+
+// ═══════════════════════════════════════
 // SIDEBAR TOGGLE
 // ═══════════════════════════════════════
 function isMobile(){ return window.innerWidth <= 700; }
@@ -5576,5 +5755,16 @@ function setViewMob(v){ if(isMobile()) closeMobSidebar(); setView(v); }
 // ═══════════════════════════════════════
 restoreSession();
 </script>
+<!-- MODAL: ACIONAR FORNECEDOR -->
+<div class="mbg" id="acionarFornModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mbox" style="max-width:440px">
+    <div class="mh"><div class="mt">📲 Acionar Fornecedor</div><button class="mx" onclick="document.getElementById('acionarFornModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:12px;color:var(--mut2);margin-bottom:12px">Selecione o fornecedor disponível. O sistema vai gerar a mensagem com os dados da ordem e abrir o WhatsApp.</p>
+      <div id="acionar_forn_lista" style="display:flex;flex-direction:column;gap:7px;max-height:340px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
