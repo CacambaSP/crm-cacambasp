@@ -840,6 +840,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <button class="btn btn-sm btn-b" onclick="editarOrdemAtual()">✏️ Editar</button>
         <button class="btn btn-sm btn-pix" onclick="openPixDoDetail()">⚡ Pix</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
+        <button class="btn btn-sm btn-wa" onclick="enviarWAForn()">🚛 WA Forn.</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm btn-r" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
@@ -2302,6 +2303,37 @@ function enviarWA(id){
   aplicarTemplate(tpl);
   openModal('waModal');
 }
+
+function enviarWAForn(id){
+  const oid=id||_detailId;
+  const c=ordens.find(x=>x.id===oid);
+  if(!c){toast("Ordem não encontrada","warn");return;}
+  const f=forns.find(x=>x.id===c.forn_id);
+  if(!f){toast("Nenhum fornecedor atribuído à ordem","warn");return;}
+  const tel=(f.tel||"").replace(/\D/g,"");
+  if(!tel){toast("Fornecedor sem WhatsApp cadastrado","warn");return;}
+  const end=(c.logradouro||"-")+(c.bairro?", "+c.bairro:"")+(c.cidade?", "+c.cidade:"");
+  const regioes=Array.isArray(f.regioes)?f.regioes:[];
+  const reg=regioes.find(r=>(r.regiao||"").toLowerCase().includes((c.bairro||"").toLowerCase()));
+  const turnoStr=reg?(reg.turno==="noturno"?"🌙 Noturno":"☀️ Diurno"):"";
+  const valorStr=reg&&reg.preco>0?" · R$ "+parseFloat(reg.preco).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):""
+  const msg=
+"Olá "+f.nome+"! 🚛\n\n"+
+"Segue a ordem de serviço para atendimento:\n\n"+
+"📋 *OS Nº "+(c.crm_id||"-")+"*\n"+
+"📍 *"+end+"*\n"+
+"📅 Data: "+(c.data?new Date(c.data+"T12:00:00").toLocaleDateString("pt-BR"):"—")+"\n"+
+"🪣 Tipo: "+(c.tipo||"—")+"\n"+
+(turnoStr?"⏰ Turno: "+turnoStr+valorStr+"\n":"")+
+"\n"+
+"👤 Cliente: "+(c.nome||"—")+"\n"+
+(c.cel?"📞 "+(c.cel)+"\n":"")+
+"\n"+
+"Por favor, confirme o recebimento desta OS.\n"+
+"_CaçambaSP_";
+  const url="https://wa.me/55"+tel+"?text="+encodeURIComponent(msg);
+  window.open(url,"_blank");
+}
 const _waTpl={
   cobranca:(c,pixPayload)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
@@ -3702,11 +3734,13 @@ function renderForns(){
         <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Regiões e Preços</div>
         ${regioes.map((r,ri)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px">
           <span style="flex:1">${r.regiao}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;background:${r.turno==='noturno'?'rgba(99,102,241,.15)':'rgba(245,166,35,.12)'};color:${r.turno==='noturno'?'var(--b)':'var(--acc)'}">${r.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'}</span>
           <span style="color:var(--acc);font-weight:700;font-family:var(--mono)">R$ ${fmt(r.preco)}</span>
           <button class="btn btn-xs btn-r" onclick="removerRegiao('${f.id}',${ri})">✕</button>
         </div>`).join('')}
-        <div style="display:flex;gap:6px;margin-top:10px">
-          <input type="text" id="nr_${f.id}" placeholder="Cidade/bairro" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <input type="text" id="nr_${f.id}" placeholder="Cidade/bairro" style="flex:1;min-width:110px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+          <select id="nt_${f.id}" style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none"><option value="diurno">☀️ Diurno</option><option value="noturno">🌙 Noturno</option></select>
           <input type="number" id="np_${f.id}" placeholder="Preço" step="0.01" style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
           <button class="btn btn-xs btn-acc" onclick="addRegiao('${f.id}')">+</button>
         </div>
@@ -3760,9 +3794,10 @@ async function deletarSup(id){
 async function addRegiao(fid){
   const r=document.getElementById('nr_'+fid)?.value.trim();
   const p=parseFloat(document.getElementById('np_'+fid)?.value);
+  const t=document.getElementById('nt_'+fid)?.value||'diurno';
   if(!r||!p){toast('Preencha região e preço','warn');return;}
   const f=forns.find(x=>x.id===fid);if(!f)return;
-  const regioes=[...(Array.isArray(f.regioes)?f.regioes:[]),{regiao:r,preco:p}];
+  const regioes=[...(Array.isArray(f.regioes)?f.regioes:[]),{regiao:r,preco:p,turno:t}];
   f.regioes=regioes;renderForns();toggleSupBody('sup_'+fid);
   try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Região adicionada!');}catch(e){toast('Erro','err');}
 }
