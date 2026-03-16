@@ -833,6 +833,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <div><div style="font-size:10px;color:var(--mut2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Código CRM</div><div id="d_crm" style="font-size:12px;font-family:var(--mono);color:var(--acc)">—</div></div>
       </div>
       <div id="d_obs_wrap" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--mut2)"></div>
+      <!-- SUGESTÃO FORNECEDOR -->
+      <div id="d_forn_sugestao" style="display:none;margin-bottom:12px"></div>
       <!-- AÇÕES -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--bor)">
         <button class="btn btn-sm btn-b" onclick="editarOrdemAtual()">✏️ Editar</button>
@@ -1222,6 +1224,7 @@ function doLogout(){
   localStorage.removeItem('crm_session');
   clearInterval(_autoRefreshId); clearInterval(_tokenRefreshId);
   _autoRefreshId=null; _tokenRefreshId=null;
+  if(_realtimeWS){ try{_realtimeWS.close();}catch(e){} _realtimeWS=null; }
   _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[];
   document.getElementById('appPage').style.display='none';
   const lp=document.getElementById('loginPage');lp.style.display='flex';
@@ -1271,7 +1274,8 @@ async function loadApp(){
 }
 
 function initUI(){
-  _carregarComissoes();
+  _carregarComissoes(); // localStorage primeiro (rápido)
+  _carregarComissoesSupabase(); // depois atualiza do Supabase
   const nome=_perfil?.nome||_currentUser?.user?.email||'';
   document.getElementById('sbNome').textContent=nome;
   document.getElementById('sbRole').textContent=isAdmin()?'Admin':'Operador';
@@ -1290,23 +1294,11 @@ function initUI(){
 function startAutoRefresh(){
   if(_autoRefreshId) return;
   initServiceWorker().then(()=>_renderBtnNotif());
-  _autoRefreshId=setInterval(async()=>{
-    try{
-      const uid=_currentUser?.user?.id;
-      const novos=isAdmin()
-        ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
-        : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok());
-      if(!novos) return;
-      const antes=JSON.stringify(ordens.map(c=>c.id+c.col+c.pago+c.rec));
-      const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec));
-      const qtdAntes=ordens.length;
-      if(antes!==depois){
-        checarNovasOrdens(novos); ordens=novos; renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge();
-        setSyncDot('ok');
-        if(novos.length>qtdAntes) toast('🔔 Nova ordem recebida!','ok');
-      }
-    }catch(e){}
-  },15000);
+  // Tenta Realtime primeiro, fallback para polling
+  _iniciarRealtime();
+  // Polling a cada 20s como fallback (e para sincronizar se realtime cair)
+  _autoRefreshId=setInterval(_pollOrdens, 20000);
+  // Refresh de token a cada 45 min
   _tokenRefreshId=setInterval(async()=>{
     try{
       if(!_currentUser?.refresh_token) return;
@@ -1315,6 +1307,68 @@ function startAutoRefresh(){
       else{toast('Sessão expirada. Faça login novamente.','warn');setTimeout(doLogout,2000);}
     }catch(e){}
   },45*60*1000);
+}
+
+let _realtimeWS=null;
+
+function _iniciarRealtime(){
+  try{
+    // Supabase Realtime via WebSocket
+    const wsUrl='wss://'+SUPA_URL.replace('https://','').replace('http://','')+'/realtime/v1/websocket?apikey='+SUPA_KEY+'&vsn=1.0.0';
+    _realtimeWS = new WebSocket(wsUrl);
+    _realtimeWS.onopen=()=>{
+      setSyncDot('ok');
+      // Subscrever tabela ordens
+      _realtimeWS.send(JSON.stringify({
+        topic:'realtime:public:ordens',
+        event:'phx_join',
+        payload:{config:{broadcast:{ack:false},presence:{key:''},postgres_changes:[{event:'*',schema:'public',table:'ordens'}]}},
+        ref:'1'
+      }));
+    };
+    _realtimeWS.onmessage=async(e)=>{
+      try{
+        const msg=JSON.parse(e.data);
+        // Heartbeat
+        if(msg.event==='heartbeat'){
+          _realtimeWS.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:'hb'}));
+          return;
+        }
+        // Mudança na tabela ordens
+        if(msg.event==='postgres_changes'||msg.payload?.data?.type==='INSERT'||msg.payload?.data?.type==='UPDATE'||msg.payload?.data?.type==='DELETE'){
+          await _pollOrdens(true); // força sync imediato
+        }
+      }catch(err){}
+    };
+    _realtimeWS.onerror=()=>{ setSyncDot('err'); };
+    _realtimeWS.onclose=()=>{
+      // Reconectar após 5s se a sessão ainda estiver ativa
+      if(_currentUser) setTimeout(_iniciarRealtime, 5000);
+    };
+  }catch(e){
+    console.warn('Realtime não disponível, usando polling');
+  }
+}
+
+async function _pollOrdens(forcar){
+  try{
+    setSyncDot('sync');
+    const uid=_currentUser?.user?.id;
+    const novos=isAdmin()
+      ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
+      : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok());
+    if(!novos){setSyncDot('err');return;}
+    const antes=JSON.stringify(ordens.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id));
+    const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id));
+    setSyncDot('ok');
+    if(antes!==depois||forcar){
+      const qtdAntes=ordens.length;
+      checarNovasOrdens(novos);
+      ordens=novos;
+      renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge();
+      if(novos.length>qtdAntes) toast('🔔 Nova ordem recebida!','ok');
+    }
+  }catch(e){ setSyncDot('err'); }
 }
 
 // ── VIEWS ──
@@ -1920,6 +1974,73 @@ function fillDetail(c){
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
   }
   document.getElementById('d_nf').value=c.nf_num||'';
+  // Sugestão de fornecedor por bairro
+  _renderFornSugestao(c);
+}
+
+function _renderFornSugestao(c){
+  const el = document.getElementById('d_forn_sugestao');
+  if(!el) return;
+  const bairro = (c.bairro||'').toLowerCase().trim();
+  if(!bairro){ el.style.display='none'; return; }
+  // Buscar fornecedores que atendem o bairro
+  const sugestoes = forns.filter(f => {
+    const regioes = Array.isArray(f.regioes) ? f.regioes : [];
+    return regioes.some(r => {
+      const b = (r.bairro||r.regiao||r.nome||'').toLowerCase().trim();
+      return b && (b.includes(bairro) || bairro.includes(b));
+    });
+  }).map(f => {
+    const regioes = Array.isArray(f.regioes) ? f.regioes : [];
+    const regiao = regioes.find(r => {
+      const b = (r.bairro||r.regiao||r.nome||'').toLowerCase().trim();
+      return b && (b.includes(bairro) || bairro.includes(b));
+    });
+    const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+    const idx = forns.indexOf(f);
+    const cor = f.color || cores[idx % cores.length];
+    const turno = regiao?.turno || '';
+    const preco = regiao?.preco || regiao?.valor || 0;
+    const turnoIco = turno==='noite'?'🌙':turno==='dia'?'☀️':turno==='ambos'?'☀️🌙':'';
+    return { f, cor, turnoIco, preco };
+  });
+  if(!sugestoes.length){ el.style.display='none'; return; }
+  const jaTemForn = !!c.forn_id;
+  el.style.display = 'block';
+  const chips = sugestoes.map(function(s){
+    const f=s.f,cor=s.cor,turnoIco=s.turnoIco,preco=s.preco;
+    const ini=f.nome.split(' ').map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+    const ativo=f.id===c.forn_id?' <span style="font-size:10px;color:var(--g);font-weight:700">✓</span>':'';
+    const turno=turnoIco?'<span style="font-size:11px">'+turnoIco+'</span>':'';
+    const pr=preco>0?'<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ '+fmt(preco)+'</span>':'';
+    return '<div style="display:inline-flex;align-items:center;gap:6px;background:'+cor+'22;border:1px solid '+cor+'44;border-radius:7px;padding:5px 10px;cursor:pointer" onclick="event.stopPropagation();_atribuirFornecedor(\'' +f.id+ '\')" title="Clique para atribuir">'
+      +'<span style="width:20px;height:20px;border-radius:5px;background:'+cor+'33;color:'+cor+';font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">'+ini+'</span>'
+      +'<span style="font-size:12px;font-weight:600;color:var(--txt)">'+f.nome.split(' ')[0]+'</span>'
+      +turno+pr+ativo+'</div>';
+  }).join('');
+  el.innerHTML='<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🚛 Fornecedores que atendem '+c.bairro+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+chips+'</div>'
+    +'<div style="font-size:10px;color:var(--mut2);margin-top:6px">Clique para atribuir à ordem</div>'
+    +'</div>';
+}
+
+async function _atribuirFornecedor(fornId){
+  const c = ordens.find(x => x.id === _detailId);
+  if(!c) return;
+  const f = forns.find(x => x.id === fornId);
+  if(!f) return;
+  c.forn_id = fornId;
+  document.getElementById('d_forn').textContent = f.nome;
+  _renderFornSugestao(c);
+  renderBoard();
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+c.id, 'PATCH', {forn_id: fornId}, tok());
+    setSyncDot('ok');
+    addLog(c.id, 'Fornecedor atribuído', f.nome);
+    toast('🚛 '+f.nome+' atribuído!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); }
 }
 
 function _fillStatusBlocks(c){
@@ -2449,12 +2570,47 @@ function _carregarComissoes(){
 
 function _salvarComissoes(){
   localStorage.setItem('crm_comissoes', JSON.stringify(_perfisComissao));
+  // Persistir no Supabase também (assíncrono, sem bloquear)
+  _syncComissaoSupabase();
+}
+
+async function _syncComissaoSupabase(){
+  if(!tok()) return;
+  try{
+    const val = JSON.stringify({perfis:_perfisComissao, taxa_admin:_taxaAdmin});
+    // Upsert na tabela config com chave 'crm_comissoes'
+    const existe = await api('config?chave=eq.crm_comissoes',undefined,undefined,tok());
+    if(existe && existe.length > 0){
+      await api('config?chave=eq.crm_comissoes','PATCH',{valor:val,atualizado_em:nowISO()},tok());
+    }else{
+      await api('config','POST',{chave:'crm_comissoes',valor:val,atualizado_em:nowISO()},tok());
+    }
+  }catch(e){ console.warn('Erro ao salvar comissões no Supabase', e); }
+}
+
+async function _carregarComissoesSupabase(){
+  if(!tok()) return;
+  try{
+    const res = await api('config?chave=eq.crm_comissoes',undefined,undefined,tok());
+    if(res && res[0]?.valor){
+      const data = JSON.parse(res[0].valor);
+      if(data.perfis) _perfisComissao = data.perfis;
+      if(data.taxa_admin !== undefined) _taxaAdmin = parseFloat(data.taxa_admin)||10;
+      // Atualiza localStorage também
+      localStorage.setItem('crm_comissoes', JSON.stringify(_perfisComissao));
+      localStorage.setItem('crm_taxa_admin', String(_taxaAdmin));
+    }
+  }catch(e){
+    // Fallback para localStorage se Supabase falhar
+    _carregarComissoes();
+  }
 }
 
 function salvarTaxaAdmin(){
   const v = parseFloat(document.getElementById('taxaAdminInput')?.value)||0;
   _taxaAdmin = v;
   localStorage.setItem('crm_taxa_admin', String(v));
+  _syncComissaoSupabase();
   toast('✅ Taxa administrativa salva: R$ '+fmt(v)+' por ordem');
   renderComissaoView();
 }
