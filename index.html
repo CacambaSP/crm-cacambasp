@@ -392,7 +392,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 </div>
 
 <!-- LOGIN -->
-<div id="loginPage" style="display:none;min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px">
+<div id="loginPage" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px">
   <div class="login-card">
     <div class="login-brand">
       <div class="login-icon">🪣</div>
@@ -1014,17 +1014,20 @@ async function doLogin(){
 }
 
 async function restoreSession(){
+  // Timeout de segurança — se travar por mais de 8s, vai para o login
+  const safety = setTimeout(()=>{ showLogin(); }, 8000);
   const s=localStorage.getItem('crm_session');
-  if(!s){showLogin();return;}
+  if(!s){ clearTimeout(safety); showLogin(); return; }
   try{
     _currentUser=JSON.parse(s);
-    if(!_currentUser?.refresh_token){localStorage.removeItem('crm_session');showLogin();return;}
+    if(!_currentUser?.refresh_token){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); return; }
     setLoadProg(20,'Restaurando sessão...');
     const res=await authApi('token?grant_type=refresh_token',{refresh_token:_currentUser.refresh_token});
-    if(res?.access_token){_currentUser=res;localStorage.setItem('crm_session',JSON.stringify(res));}
-    else{localStorage.removeItem('crm_session');showLogin();return;}
+    if(res?.access_token){ _currentUser=res; localStorage.setItem('crm_session',JSON.stringify(res)); }
+    else{ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); return; }
+    clearTimeout(safety);
     await loadApp();
-  }catch(e){localStorage.removeItem('crm_session');showLogin();}
+  }catch(e){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); }
 }
 
 function showLogin(){
@@ -1032,7 +1035,7 @@ function showLogin(){
   setTimeout(()=>{
     document.getElementById('loadScreen').style.display='none';
     const lp=document.getElementById('loginPage');
-    lp.style.display='flex';
+    lp.style.cssText='display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px';
   },300);
 }
 
@@ -2573,8 +2576,89 @@ window.addEventListener('keydown',e=>{
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('loadFill').style.width='10%';
   document.getElementById('loadTxt').textContent='Verificando sessão...';
+
+  // Detecta token de recuperação de senha na URL (#access_token=...&type=recovery)
+  const hash = window.location.hash;
+  if(hash && hash.includes('type=recovery') && hash.includes('access_token=')){
+    // Extrai o access_token do hash
+    const params = new URLSearchParams(hash.replace('#',''));
+    const token = params.get('access_token');
+    if(token){
+      // Limpa o hash da URL sem recarregar
+      history.replaceState(null,'',window.location.pathname);
+      // Mostra modal de nova senha
+      document.getElementById('loadScreen').classList.add('out');
+      setTimeout(()=>{
+        document.getElementById('loadScreen').style.display='none';
+        _mostrarModalRecuperacao(token);
+      },300);
+      return;
+    }
+  }
+
   restoreSession();
 });
+
+function _mostrarModalRecuperacao(token){
+  // Cria modal simples de nova senha
+  const el = document.createElement('div');
+  el.style.cssText='position:fixed;inset:0;background:#0c0e14;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  el.innerHTML=`
+    <div style="background:#13151e;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:36px 32px;width:100%;max-width:380px">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="width:52px;height:52px;background:#f5a623;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px">🔑</div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:6px">Criar nova senha</div>
+        <div style="font-size:13px;color:#7c84a0">Escolha uma senha segura para sua conta</div>
+      </div>
+      <div id="rec_err" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 13px;font-size:12px;color:#ef4444;margin-bottom:14px"></div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#7c84a0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Nova senha</label>
+        <input type="password" id="rec_pass" placeholder="Mínimo 6 caracteres" style="width:100%;background:#191c26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#e6e8f0;outline:none">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#7c84a0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Confirmar senha</label>
+        <input type="password" id="rec_pass2" placeholder="Repita a senha" style="width:100%;background:#191c26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#e6e8f0;outline:none">
+      </div>
+      <button onclick="_salvarNovaSenha('${token}')" style="width:100%;background:#f5a623;color:#000;border:none;border-radius:10px;padding:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:15px;cursor:pointer">Salvar nova senha</button>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>document.getElementById('rec_pass')?.focus(),100);
+}
+
+async function _salvarNovaSenha(token){
+  const pass = document.getElementById('rec_pass')?.value;
+  const pass2 = document.getElementById('rec_pass2')?.value;
+  const errEl = document.getElementById('rec_err');
+  errEl.style.display='none';
+  if(!pass||pass.length<6){errEl.textContent='Senha mínimo 6 caracteres';errEl.style.display='block';return;}
+  if(pass!==pass2){errEl.textContent='As senhas não coincidem';errEl.style.display='block';return;}
+  try{
+    const res = await fetch(SUPA_URL+'/auth/v1/user',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+token},
+      body:JSON.stringify({password:pass})
+    });
+    if(res.ok){
+      // Remove modal e faz login
+      document.body.lastChild.remove();
+      const data = await res.json();
+      // Salva sessão e carrega o app
+      _currentUser = {access_token:token, user:{id:data.id,email:data.email}, refresh_token:''};
+      localStorage.setItem('crm_session',JSON.stringify(_currentUser));
+      document.getElementById('loadScreen').style.display='flex';
+      document.getElementById('loadScreen').classList.remove('out');
+      document.getElementById('loadFill').style.width='30%';
+      document.getElementById('loadTxt').textContent='Carregando...';
+      await loadApp();
+    }else{
+      errEl.textContent='Erro ao salvar. Tente novamente.';
+      errEl.style.display='block';
+    }
+  }catch(e){
+    errEl.textContent='Erro de conexão.';
+    errEl.style.display='block';
+  }
+}
 </script>
 </body>
 </html>
