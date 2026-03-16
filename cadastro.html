@@ -1,205 +1,184 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!-- CaçambaSP Cadastro v3.0 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CRM Caçamba — Solicitar Serviço</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<title>CaçambaSP — Solicitar Serviço</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#0f1117;color:#f1f5f9;font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:16px}
-.card{background:#1a1d27;border:1px solid #3a3d4a;border-radius:20px;padding:28px 24px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
-.logo{display:flex;align-items:center;gap:12px;margin-bottom:24px}
-.logo-icon{width:52px;height:52px;background:linear-gradient(135deg,#f5a623,#e8920a);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
-.logo-text{font-family:Syne,sans-serif;font-weight:800;font-size:24px;color:#fff}
-.logo-sub{font-size:14px;color:#94a3b8;margin-top:2px}
-h2{font-family:Syne,sans-serif;font-weight:700;font-size:20px;margin-bottom:6px;color:#fff}
-.desc{font-size:15px;color:#94a3b8;margin-bottom:24px;line-height:1.5}
-.fr{margin-bottom:18px}
-label{display:block;font-size:13px;font-weight:700;letter-spacing:.3px;color:#cbd5e1;margin-bottom:7px}
-input,select,textarea{width:100%;background:#252836;border:2px solid #3a3d4a;border-radius:12px;padding:14px 15px;font-family:'DM Sans',sans-serif;font-size:16px;color:#f1f5f9;outline:none;transition:.2s;-webkit-appearance:none}
-input:focus,select:focus,textarea:focus{border-color:#f5a623;box-shadow:0 0 0 3px rgba(245,166,35,.15)}
-input::placeholder,textarea::placeholder{color:#64748b}
-textarea{resize:vertical;min-height:90px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0c0e14;color:#e6e8f0;font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
+.card{background:#13151e;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:32px 28px;width:100%;max-width:520px;box-shadow:0 24px 60px rgba(0,0,0,.5);margin:auto}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.logo-icon{width:52px;height:52px;background:#f5a623;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.logo-text{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.logo-sub{font-size:13px;color:#7c84a0;margin-top:2px}
+h2{font-size:20px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.desc{font-size:14px;color:#7c84a0;margin-bottom:28px;line-height:1.6}
+.section{font-size:10px;font-weight:700;color:#4a5068;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;margin-top:24px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.fr{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:700;color:#7c84a0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+input,select,textarea{width:100%;background:#191c26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:13px 14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;color:#e6e8f0;outline:none;transition:border-color .15s;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:#f5a623;box-shadow:0 0 0 3px rgba(245,166,35,.12)}
+input::placeholder,textarea::placeholder{color:#4a5068}
+textarea{resize:vertical;min-height:80px}
 select{cursor:pointer}
-select option{background:#252836;color:#f1f5f9}
+select option{background:#191c26;color:#e6e8f0}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:#f5a623}
-.btn{width:100%;background:linear-gradient(135deg,#f5a623,#e8920a);color:#000;border:none;border-radius:14px;padding:17px;font-family:Syne,sans-serif;font-weight:800;font-size:17px;cursor:pointer;transition:.2s;margin-top:8px;letter-spacing:.3px}
+.err-msg{font-size:11px;color:#ef4444;margin-top:5px;display:none;font-weight:600}
+.err-msg.show{display:block}
+.err-geral{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:#ef4444;margin-bottom:16px;display:none}
+.err-geral.show{display:block}
+.qtd-info{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:10px;padding:10px 14px;font-size:13px;color:#f5a623;margin-top:8px;display:none}
+.btn{width:100%;background:#f5a623;color:#000;border:none;border-radius:12px;padding:16px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:16px;cursor:pointer;transition:.15s;margin-top:12px;letter-spacing:.2px}
+.btn:hover{background:#e8920a}
 .btn:active{transform:scale(.98)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.success{display:none;text-align:center;padding:40px 20px}
-.success-icon{font-size:64px;margin-bottom:16px}
-.success-title{font-family:Syne,sans-serif;font-weight:800;font-size:24px;margin-bottom:10px;color:#3ecf8e}
-.success-msg{font-size:16px;color:#94a3b8;line-height:1.6}
-.success-code{background:#252836;border:2px solid #3a3d4a;border-radius:12px;padding:14px 18px;margin-top:18px;font-family:monospace;font-size:18px;font-weight:700;color:#f5a623;letter-spacing:3px}
-.err{font-size:13px;color:#f87171;margin-top:6px;display:none;font-weight:600}
-.divider{border:none;border-top:1px solid #2a2d3a;margin:22px 0}
-.tip{font-size:13px;color:#64748b;text-align:center;margin-top:18px;line-height:1.6}
-@media(max-width:480px){.row2{grid-template-columns:1fr}.card{padding:22px 18px}}
+/* SUCCESS */
+#successCard{display:none;text-align:center;padding:20px 0}
+.success-icon{font-size:60px;margin-bottom:16px}
+.success-title{font-size:24px;font-weight:800;margin-bottom:10px;color:#22c55e;letter-spacing:-.3px}
+.success-msg{font-size:14px;color:#7c84a0;line-height:1.7;margin-bottom:24px}
+.success-code{background:#191c26;border:1px solid rgba(245,166,35,.3);border-radius:12px;padding:16px 20px;font-family:'JetBrains Mono',monospace,sans-serif;font-size:20px;font-weight:800;color:#f5a623;letter-spacing:3px;display:inline-block;margin-bottom:24px}
+.success-wa{background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.25);border-radius:12px;padding:14px 20px;font-size:14px;color:#25d366;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.success-wa:hover{background:rgba(37,211,102,.18)}
+.tip{font-size:12px;color:#4a5068;text-align:center;margin-top:20px;line-height:1.6}
+@media(max-width:480px){.row2{grid-template-columns:1fr}.card{padding:24px 18px}}
 </style>
 </head>
 <body>
 
-<div class="card" id="formCard">
-  <div class="logo">
-    <div class="logo-icon">🚛</div>
-    <div>
-      <div class="logo-text">CaçambaSP</div>
-      <div class="logo-sub">Solicitação de serviço</div>
+<div class="card">
+
+  <!-- FORM -->
+  <div id="formCard">
+    <div class="logo">
+      <div class="logo-icon">🪣</div>
+      <div>
+        <div class="logo-text">CaçambaSP</div>
+        <div class="logo-sub">Solicitação de serviço</div>
+      </div>
     </div>
-  </div>
-  <div id="vendedor_box" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#f5a623">
-    👤 Atendimento: <strong id="vendedor_nome"></strong>
-  </div>
 
-  <h2>Solicitar Caçamba</h2>
-  <div class="desc">Preencha os dados abaixo e entraremos em contato para confirmar o serviço.</div>
+    <h2>Solicite sua caçamba</h2>
+    <p class="desc">Preencha os dados abaixo e entraremos em contato para confirmar o serviço.</p>
 
-  <!-- Dados do cliente -->
-  <div class="fr">
-    <label>Nome / Razão Social <span class="req">*</span></label>
-    <input type="text" id="c_nome" placeholder="Ex: F. dos Santos Engenharia">
-    <div class="err" id="err_nome">Nome obrigatório</div>
-  </div>
+    <div class="err-geral" id="err_geral"></div>
 
-  <div class="row2">
+    <div class="section">Seus dados</div>
+
     <div class="fr">
-      <label>CPF / CNPJ <span class="req">*</span></label>
-      <input type="text" id="c_cpf" placeholder="000.000.000-00" oninput="maskDoc(this)">
-      <div class="err" id="err_cpf">CPF/CNPJ obrigatório</div>
+      <label>Nome completo <span class="req">*</span></label>
+      <input type="text" id="c_nome" placeholder="João da Silva" autocomplete="name">
+      <div class="err-msg" id="err_nome">Nome obrigatório</div>
     </div>
-    <div class="fr">
-      <label>WhatsApp <span class="req">*</span></label>
-      <input type="tel" id="c_cel" placeholder="(11) 99999-9999" oninput="maskTel(this)">
-      <div class="err" id="err_cel">WhatsApp obrigatório</div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>CPF / CNPJ <span class="req">*</span></label>
+        <input type="text" id="c_cpf" placeholder="000.000.000-00" oninput="maskDoc(this)" autocomplete="off">
+        <div class="err-msg" id="err_cpf">Documento obrigatório</div>
+      </div>
+      <div class="fr">
+        <label>WhatsApp <span class="req">*</span></label>
+        <input type="tel" id="c_cel" placeholder="(11) 99999-9999" oninput="maskTel(this)" autocomplete="tel">
+        <div class="err-msg" id="err_cel">Celular obrigatório</div>
+      </div>
     </div>
-  </div>
 
-  <hr class="divider">
+    <div class="section">Endereço do serviço</div>
 
-  <!-- Dados do serviço -->
-  <div class="fr">
-    <label>Endereço completo <span class="req">*</span></label>
-    <input type="text" id="c_end" placeholder="Rua e número — Ex: Rua das Flores, 123">
-    <div class="err" id="err_end">Endereço obrigatório</div>
-  </div>
-
-  <div class="row2">
-    <div class="fr">
-      <label>Bairro <span class="req">*</span></label>
-      <input type="text" id="c_bairro" placeholder="Ex: Vila Mariana">
-      <div class="err" id="err_bairro">Bairro obrigatório</div>
-    </div>
     <div class="fr">
       <label>CEP</label>
-      <input type="text" id="c_cep" placeholder="00000-000" oninput="maskCep(this)" onblur="buscaCep()">
+      <input type="text" id="c_cep" placeholder="00000-000" oninput="maskCep(this)" onblur="buscaCep()" maxlength="9" autocomplete="postal-code">
     </div>
-  </div>
 
-  <div class="fr">
-    <label>Cidade</label>
-    <input type="text" id="c_cid" placeholder="São Paulo">
-  </div>
-
-  <div class="row2">
     <div class="fr">
-      <label>Quantidade de caçambas <span class="req">*</span></label>
-      <select id="c_qtd" onchange="updateQtdInfo()">
-        <option value="1">1 caçamba</option>
-        <option value="2">2 caçambas</option>
-        <option value="3">3 caçambas</option>
-        <option value="4">4 caçambas</option>
-        <option value="5">5 caçambas</option>
-        <option value="6">6 caçambas</option>
-        <option value="7">7 caçambas</option>
-        <option value="8">8 caçambas</option>
-        <option value="9">9 caçambas</option>
-        <option value="10">10 caçambas</option>
-      </select>
-      <div id="qtd_info" style="display:none;font-size:11px;color:#f5a623;margin-top:5px">⚡ Serão criados <span id="qtd_num">2</span> pedidos separados</div>
+      <label>Endereço (rua e número) <span class="req">*</span></label>
+      <input type="text" id="c_end" placeholder="Rua das Flores, 123" autocomplete="street-address">
+      <div class="err-msg" id="err_end">Endereço obrigatório</div>
     </div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>Bairro <span class="req">*</span></label>
+        <input type="text" id="c_bairro" placeholder="Vila Madalena" autocomplete="address-level3">
+        <div class="err-msg" id="err_bairro">Bairro obrigatório</div>
+      </div>
+      <div class="fr">
+        <label>Cidade</label>
+        <input type="text" id="c_cidade" placeholder="São Paulo" autocomplete="address-level2">
+      </div>
+    </div>
+
+    <div class="section">Serviço</div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>Tipo de serviço <span class="req">*</span></label>
+        <select id="c_tipo">
+          <option value="Nova Entrega">Nova Entrega</option>
+          <option value="Troca">Troca</option>
+        </select>
+      </div>
+      <div class="fr">
+        <label>Quantidade de caçambas</label>
+        <select id="c_qtd" onchange="updateQtdInfo()">
+          <option value="1">1 caçamba</option>
+          <option value="2">2 caçambas</option>
+          <option value="3">3 caçambas</option>
+          <option value="4">4 caçambas</option>
+          <option value="5">5 caçambas</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="qtd-info" id="qtd_info">Serão criadas <strong id="qtd_num">2</strong> ordens separadas no sistema.</div>
+
     <div class="fr">
-      <label>Tipo de serviço <span class="req">*</span></label>
-      <select id="c_tipo">
-        <option value="entrega">Entrega nova</option>
-        <option value="troca">Troca</option>
-      </select>
+      <label>Data desejada para o serviço <span class="req">*</span></label>
+      <input type="date" id="c_data">
+      <div class="err-msg" id="err_data">Data obrigatória</div>
     </div>
-  </div>
 
-  <div class="fr">
-    <label>Data desejada <span class="req">*</span></label>
-    <input type="date" id="c_data">
-    <div class="err" id="err_data">Data obrigatória</div>
-  </div>
-
-  <div class="fr">
-    <label>Observações</label>
-    <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:12px;color:#c8a45a;line-height:1.6">
-      ⚠️ <strong>Não realizamos agendamento de horário</strong>, apenas de data.<br>
-      Para agilizar sua entrega, informe aqui detalhes como:<br>
-      📍 Ponto de referência · 🚧 Tipo de acesso (rua estreita, ladeira, portão) · 🅿️ Local exato para posicionar a caçamba · 📞 Melhor horário para contato
+    <div class="fr">
+      <label>Observações</label>
+      <textarea id="c_obs" placeholder="Tipo de material, horário preferencial, acesso ao local..."></textarea>
     </div>
-    <textarea id="c_obs" placeholder="Ex: Portão azul na lateral, rua sem saída, deixar em frente à garagem..."></textarea>
+
+    <button class="btn" id="btnEnviar" onclick="enviarCadastro()">✅ Enviar Solicitação</button>
+
+    <p class="tip">Após o envio, entraremos em contato pelo WhatsApp para confirmar o agendamento.<br>Dúvidas? Fale conosco: <strong>(11) 4237-8757</strong></p>
   </div>
 
-  <div class="err" id="err_geral" style="font-size:13px;margin-bottom:8px"></div>
-  <button class="btn" id="btnEnviar" onclick="enviarCadastro()">✅ Enviar Solicitação</button>
-  <div class="tip">Ao enviar, seus dados serão registrados em nosso sistema e entraremos em contato pelo WhatsApp para confirmar.</div>
-</div>
-
-<!-- Sucesso -->
-<div class="card success" id="successCard">
-  <div class="success-icon">🎉</div>
-  <div class="success-title">Solicitação enviada!</div>
-  <div class="success-msg">Recebemos sua solicitação. Nossa equipe entrará em contato pelo WhatsApp para confirmar o serviço.</div>
-  <div class="success-code" id="successCode">LC20260001</div>
-  <div class="success-msg" style="margin-top:12px;font-size:12px">Guarde esse código — é o número do seu pedido.</div>
-  
-  <!-- Notificação equipe -->
-  <div id="notif_box" style="margin-top:20px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:12px;padding:14px 16px">
-    <div style="font-size:13px;font-weight:700;color:#25d366;margin-bottom:8px">📲 Notificar equipe CaçambaSP</div>
-    <div style="font-size:12px;color:#888;margin-bottom:12px">Se a notificação automática não abriu, clique abaixo:</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button onclick="notificarEquipe(window._vendedorTel||'551142378757')" style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;border-radius:10px">
-        📲 Enviar Pedido
-      </button>
+  <!-- SUCESSO -->
+  <div id="successCard">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Solicitação enviada!</div>
+    <p class="success-msg">Recebemos sua solicitação com sucesso.<br>Em breve nossa equipe entrará em contato pelo WhatsApp para confirmar o serviço.</p>
+    <div class="success-code" id="successCode">—</div>
+    <div class="success-wa" onclick="notificarEquipe()" id="btnNotif">
+      📲 Notificar equipe pelo WhatsApp
     </div>
+    <p class="tip">Guarde o código acima — ele identifica sua ordem no sistema.</p>
   </div>
+
 </div>
 
 <script>
-const SUPA_URL = 'https://ifdxqbbhmunyquzbrwcx.supabase.co';
+// ── CONFIG ──
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
 
-// Lê o vendedor da URL (?v=uid) e busca o WhatsApp dele
-(async function(){
-  const params = new URLSearchParams(window.location.search);
-  const vid = params.get('v');
-  if(!vid) return;
-  try{
-    const res = await fetch(SUPA_URL+'/rest/v1/perfis?id=eq.'+encodeURIComponent(vid)+'&select=nome,whatsapp', {
-      headers:{
-        'apikey':'sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC',
-        'Authorization':'Bearer sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC'
-      }
-    });
-    const data = await res.json();
-    if(data?.[0]){
-      const p = data[0];
-      if(p.whatsapp) window._vendedorTel = '55'+p.whatsapp.replace(/\D/g,'');
-      if(p.nome){
-        // Mostra nome do vendedor na página
-        const el = document.getElementById('vendedor_nome');
-        if(el){ el.textContent = p.nome; document.getElementById('vendedor_box').style.display='block'; }
-      }
-    }
-  }catch(e){}
-  // Salva o uid do vendedor para associar no card
-  window._vendedorId = vid;
-})();
-const SUPA_KEY = 'sb_publishable_LnUjncPa-kkuWDfZ_7AEpA_iq0y2NCC';
+// Pega uid do vendedor pela URL (?uid=xxx)
+const params = new URLSearchParams(window.location.search);
+const VEND_UID = params.get('uid') || null;
 
+// Data mínima = hoje
+document.getElementById('c_data').min = new Date().toISOString().split('T')[0];
+
+// ── MÁSCARAS ──
 function maskTel(el){
   let v = el.value.replace(/\D/g,'').slice(0,11);
   if(v.length>10) v = v.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');
@@ -218,6 +197,8 @@ function maskCep(el){
   if(v.length>5) v = v.replace(/^(\d{5})(\d*)$/,'$1-$2');
   el.value = v;
 }
+
+// ── BUSCA CEP ──
 async function buscaCep(){
   const cep = document.getElementById('c_cep').value.replace(/\D/g,'');
   if(cep.length!==8) return;
@@ -227,59 +208,56 @@ async function buscaCep(){
     if(!d.erro){
       const end = document.getElementById('c_end');
       if(!end.value) end.value = d.logradouro||'';
-      const bairroEl = document.getElementById('c_bairro');
-      if(bairroEl && !bairroEl.value && d.bairro) bairroEl.value = d.bairro;
-      const cidEl = document.getElementById('c_cid');
-      if(cidEl && !cidEl.value && d.localidade) cidEl.value = d.localidade;
-      document.getElementById('c_cid').value = d.localidade||'';
+      const b = document.getElementById('c_bairro');
+      if(!b.value) b.value = d.bairro||'';
+      const c = document.getElementById('c_cidade');
+      if(!c.value) c.value = d.localidade||'';
     }
   }catch(e){}
 }
 
-// Gera próximo código CRM consultando o banco
+// ── QTD INFO ──
+function updateQtdInfo(){
+  const qtd = parseInt(document.getElementById('c_qtd').value)||1;
+  const info = document.getElementById('qtd_info');
+  document.getElementById('qtd_num').textContent = qtd;
+  info.style.display = qtd > 1 ? 'block' : 'none';
+}
+
+// ── PRÓXIMO CRM ID ──
 async function getNextCrmId(){
   try{
-    const r = await fetch(SUPA_URL+'/rest/v1/negocios?select=crm_id&crm_id=not.is.null&order=criado_em.desc&limit=1',{
+    const r = await fetch(SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=not.is.null&order=criado_em.desc&limit=1',{
       headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
     });
     const data = await r.json();
-    if(data && data.length && data[0].crm_id){
-      const last = data[0].crm_id;
-      const num = parseInt(last.replace(/\D/g,'').slice(-4))||0;
-      return 'LC'+new Date().getFullYear()+String(num+1).padStart(4,'0');
+    if(data?.length && data[0].crm_id){
+      const num = parseInt(data[0].crm_id.replace(/\D/g,'').slice(-4))||0;
+      return {base:'LC'+new Date().getFullYear(), num:num+1};
     }
   }catch(e){}
-  return 'LC'+new Date().getFullYear()+'0001';
+  return {base:'LC'+new Date().getFullYear(), num:1};
 }
 
 function showErr(id, show){
   const el = document.getElementById(id);
-  if(el) el.style.display = show ? 'block' : 'none';
+  if(el) el.classList.toggle('show', show);
 }
 
-function updateQtdInfo(){
-  const qtd = parseInt(document.getElementById('c_qtd').value)||1;
-  const info = document.getElementById('qtd_info');
-  const num = document.getElementById('qtd_num');
-  if(qtd > 1){ info.style.display='block'; num.textContent=qtd; }
-  else { info.style.display='none'; }
-}
-
-
+// ── ENVIAR ──
 async function enviarCadastro(){
-  const nome = document.getElementById('c_nome').value.trim();
-  const cpf  = document.getElementById('c_cpf').value.trim();
-  const cel  = document.getElementById('c_cel').value.trim();
-  const end  = document.getElementById('c_end').value.trim();
-  const data = document.getElementById('c_data').value;
-  const tipo = document.getElementById('c_tipo').value;
-  const qtd  = parseInt(document.getElementById('c_qtd').value)||1;
-  const cep  = document.getElementById('c_cep').value.trim();
-  const cid  = document.getElementById('c_cid').value.trim();
-  const obs  = document.getElementById('c_obs').value.trim();
-
-  // Validações
+  const nome   = document.getElementById('c_nome').value.trim();
+  const cpf    = document.getElementById('c_cpf').value.trim();
+  const cel    = document.getElementById('c_cel').value.trim();
+  const end    = document.getElementById('c_end').value.trim();
   const bairro = document.getElementById('c_bairro').value.trim();
+  const cidade = document.getElementById('c_cidade').value.trim();
+  const cep    = document.getElementById('c_cep').value.trim();
+  const tipo   = document.getElementById('c_tipo').value;
+  const qtd    = parseInt(document.getElementById('c_qtd').value)||1;
+  const data   = document.getElementById('c_data').value;
+  const obs    = document.getElementById('c_obs').value.trim();
+
   let ok = true;
   showErr('err_nome',  !nome);  if(!nome)  ok=false;
   showErr('err_cpf',   !cpf);   if(!cpf)   ok=false;
@@ -292,60 +270,79 @@ async function enviarCadastro(){
   const btn = document.getElementById('btnEnviar');
   btn.disabled = true;
   btn.textContent = '⏳ Enviando...';
+  document.getElementById('err_geral').classList.remove('show');
 
   try{
-    const dataFmt = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-    const tipoLabel = {troca:'Troca',retirada:'Retirada',entrega:'Entrega nova',outro:'Outro'}[tipo]||tipo;
-    const primeiroId = await getNextCrmId();
+    const {base, num} = await getNextCrmId();
     const codigos = [];
 
-    // Cria um card por caçamba
-    for(let i=0;i<qtd;i++){
-      const seqNum = parseInt(primeiroId.replace(/\D/g,'').slice(-4)) + i;
-      const crmId = 'LC'+new Date().getFullYear()+String(seqNum).padStart(4,'0');
+    for(let i=0; i<qtd; i++){
+      const crmId = base + String(num + i).padStart(4,'0');
       codigos.push(crmId);
-      const card = {
-        id: 'id'+Date.now()+i+Math.random().toString(36).slice(2,7),
+
+      const ordem = {
+        id: crypto.randomUUID(),
+        crm_id: crmId,
         col: 'contratar',
-        tipo: qtd>1 ? tipoLabel+' ('+(i+1)+'/'+qtd+')' : tipoLabel,
+        nome, cpf, cel,
+        email_cli: '',
+        logradouro: end,
+        bairro,
+        cidade: cidade || 'São Paulo',
+        cep,
+        tipo: qtd > 1 ? tipo + ' (' + (i+1) + '/' + qtd + ')' : tipo,
         data,
+        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + obs,
         rec: 0, cst: 0,
-        end_logradouro: end,
-        bairro: bairro,
-        cid: cid||'São Paulo',
-        cep, nome, cel, cpf,
-        obs: (qtd>1?'Caçamba '+(i+1)+' de '+qtd+' — ':'') + obs,
-        usuario_id: null,
-        usuario_nome: 'Formulário Web',
-        pago:false, pago_em:null, pago_valor:0, pago_obs:'',
-        forn_pago:false, forn_pago_em:null, forn_comprovante:null,
-        crm_id: crmId, grp_id:'',
-        criado_em: new Date(Date.now()+i*1000).toISOString()
+        pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+        forn_id: null,
+        forn_pago: false, forn_pago_em: null, forn_pago_valor: null,
+        nf_num: '',
+        grp_id: '',
+        usuario_id: VEND_UID,
+        criado_em: new Date(Date.now() + i * 1000).toISOString()
       };
-      await fetch(SUPA_URL+'/rest/v1/negocios',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'},
-        body: JSON.stringify(card)
+
+      await fetch(SUPA_URL+'/rest/v1/ordens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(ordem)
       });
     }
 
-    // Monta mensagem WhatsApp
-    const msg = 
-      '🚛 *Nova Solicitação CaçambaSP*\n\n'+
+    // Busca tel do vendedor para notificação
+    let vendTel = '5511998765432'; // fallback
+    if(VEND_UID){
+      try{
+        const rp = await fetch(SUPA_URL+'/rest/v1/perfis?id=eq.'+VEND_UID+'&select=nome,email',{
+          headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+        });
+        const pd = await rp.json();
+        if(pd?.[0]) window._vendNome = pd[0].nome;
+      }catch(e){}
+    }
+
+    const dataFmt = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    const msg =
+      '🪣 *Nova Solicitação CaçambaSP*\n\n'+
       '👤 *Cliente:* '+nome+'\n'+
       '📄 *CPF/CNPJ:* '+cpf+'\n'+
       '📲 *WhatsApp:* '+cel+'\n'+
-      '📍 *Endereço:* '+end+(bairro?', '+bairro:'')+(cid?', '+cid:'')+(cep?' - CEP '+cep:'')+'\n'+
+      '📍 *Endereço:* '+end+(bairro?', '+bairro:'')+(cidade?', '+cidade:'')+(cep?' — CEP '+cep:'')+'\n'+
       '📅 *Data:* '+dataFmt+'\n'+
-      '🗑️ *Serviço:* '+qtd+'x '+tipoLabel+'\n'+
+      '🗑️ *Serviço:* '+qtd+'x '+tipo+'\n'+
       (obs?'📝 *Obs:* '+obs+'\n':'')+
-      '\n🔑 *Código'+( qtd>1?'s':'')+':* '+codigos.join(', ');
+      '\n🔑 *Código'+(qtd>1?'s':'')+':* '+codigos.join(', ');
 
-    // Salva msg para o botão manual
     window._notifMsg = msg;
 
-    // Tenta abrir automaticamente
-    try { window.open('https://wa.me/'+(window._vendedorTel||'551142378757')+'?text='+encodeURIComponent(msg), '_blank'); } catch(e){}
+    // Tenta notificar automaticamente
+    try{ window.open('https://wa.me/5511423787457?text='+encodeURIComponent(msg), '_blank'); }catch(e){}
 
     // Mostra sucesso
     document.getElementById('formCard').style.display = 'none';
@@ -356,19 +353,16 @@ async function enviarCadastro(){
     console.error(e);
     const el = document.getElementById('err_geral');
     el.textContent = 'Erro ao enviar. Tente novamente ou entre em contato pelo WhatsApp.';
-    el.style.display = 'block';
+    el.classList.add('show');
     btn.disabled = false;
     btn.textContent = '✅ Enviar Solicitação';
   }
 }
 
-function notificarEquipe(tel){
+function notificarEquipe(){
   const msg = window._notifMsg || 'Nova solicitação CaçambaSP — verifique o sistema.';
-  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+  window.open('https://wa.me/5511423787457?text='+encodeURIComponent(msg), '_blank');
 }
-
-// Set min date to today
-document.getElementById('c_data').min = new Date().toISOString().split('T')[0];
 </script>
 </body>
 </html>
