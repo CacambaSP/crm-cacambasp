@@ -1072,33 +1072,70 @@ async function doLogin(){
   const errEl=document.getElementById('loginErr');
   errEl.classList.remove('show');
   if(!email||!pass){errEl.textContent='Preencha e-mail e senha.';errEl.classList.add('show');return;}
+  // Mostra loading e esconde login antes de autenticar
+  const lp=document.getElementById('loginPage');
+  const ls=document.getElementById('loadScreen');
+  lp.style.display='none';
+  ls.style.display='flex';
+  ls.classList.remove('out');
   setLoadProg(30,'Autenticando...');
   try{
     const res=await authApi('token?grant_type=password',{email,password:pass});
-    if(!res?.access_token){localStorage.removeItem('crm_session');errEl.textContent=res?.error_description||'Credenciais inválidas.';errEl.classList.add('show');setLoadProg(0);return;}
+    if(!res?.access_token){
+      localStorage.removeItem('crm_session');
+      // Volta para o login com erro
+      ls.style.display='none';
+      lp.style.display='flex';
+      errEl.textContent=res?.error_description||'Credenciais inválidas.';
+      errEl.classList.add('show');
+      setLoadProg(0);
+      return;
+    }
     _currentUser=res;
     localStorage.setItem('crm_session',JSON.stringify(res));
     await loadApp();
   }catch(e){
-    localStorage.removeItem('crm_session'); // Bug 1 fix: garante que F5 não reutiliza sessão inválida
-    errEl.textContent='Erro de conexão.';errEl.classList.add('show');setLoadProg(0);
+    localStorage.removeItem('crm_session');
+    // Volta para o login com erro de conexão
+    ls.style.display='none';
+    lp.style.display='flex';
+    errEl.textContent='Erro de conexão.';
+    errEl.classList.add('show');
+    setLoadProg(0);
   }
 }
 
 async function restoreSession(){
-  // Sempre mostra login após 5 segundos no máximo
-  const safety = setTimeout(()=>{ showLogin(); }, 5000);
+  _currentUser=null; // Garante estado limpo antes de qualquer coisa
+  const safety = setTimeout(()=>{
+    _currentUser=null;
+    localStorage.removeItem('crm_session');
+    showLogin();
+  }, 5000);
   try{
     const s=localStorage.getItem('crm_session');
     if(!s){ clearTimeout(safety); showLogin(); return; }
-    _currentUser=JSON.parse(s);
-    if(!_currentUser?.refresh_token){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); return; }
+    let parsed;
+    try{ parsed=JSON.parse(s); }catch(e){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); return; }
+    if(!parsed?.refresh_token){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); return; }
     setLoadProg(20,'Restaurando sessão...');
-    const res=await authApi('token?grant_type=refresh_token',{refresh_token:_currentUser.refresh_token});
+    const res=await authApi('token?grant_type=refresh_token',{refresh_token:parsed.refresh_token});
     clearTimeout(safety);
-    if(res?.access_token){ _currentUser=res; localStorage.setItem('crm_session',JSON.stringify(res)); await loadApp(); }
-    else{ localStorage.removeItem('crm_session'); showLogin(); }
-  }catch(e){ clearTimeout(safety); localStorage.removeItem('crm_session'); showLogin(); }
+    if(res?.access_token){
+      _currentUser=res;
+      localStorage.setItem('crm_session',JSON.stringify(res));
+      await loadApp();
+    }else{
+      _currentUser=null;
+      localStorage.removeItem('crm_session');
+      showLogin();
+    }
+  }catch(e){
+    clearTimeout(safety);
+    _currentUser=null;
+    localStorage.removeItem('crm_session');
+    showLogin();
+  }
 }
 
 function showLogin(){
@@ -1870,6 +1907,8 @@ async function arquivarOrdem(id){
   const novaCol=arquivando?'concluido':'baixar';
   c.col=novaCol;
   if(arquivando)c.concluido_em=nowISO(); else c.concluido_em=null;
+  // Se desarquivando, limpa filtro para a ordem aparecer no board
+  if(!arquivando){ _filteredOrdens=null; clearFilter(); }
   renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
   if(_detailId===id)closeDetail();
   try{
