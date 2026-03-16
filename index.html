@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CaçambaSP">
 <title>CaçambaSP CRM</title>
+<link rel="manifest" href="/manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -444,6 +445,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <div class="sb-section">Financeiro</div>
         <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nb-ico">🔄</span> Conciliação</button>
         <button class="nb" id="nav-pgforn" onclick="setViewMob('pgforn')"><span class="nb-ico">💰</span> Pagar Fornecedor</button>
+        <button class="nb" id="nav-cobr" onclick="setViewMob('cobr')"><span class="nb-ico">📲</span> Cobrança Auto<span class="nb-badge" id="cobrBadge" style="display:none">0</span></button>
         <button class="nb admin-only" id="nav-rel" onclick="setViewMob('rel')"><span class="nb-ico">📈</span> Relatórios</button>
         <button class="nb admin-only" id="nav-nf" onclick="setViewMob('nf')"><span class="nb-ico">🧾</span> Notas Fiscais</button>
         <div class="sb-section">Cadastros</div>
@@ -618,6 +620,33 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
           <div id="supLista"></div>
           <!-- Cobertura por bairro -->
           <div id="fornCoberturaView" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- COBRANÇA AUTOMÁTICA -->
+      <div class="view" id="view-cobr">
+        <div class="pw">
+          <div class="ph">
+            <div>
+              <div class="ph-title">📲 Cobrança Automática</div>
+              <div class="ph-sub">Ordens com pagamento pendente</div>
+            </div>
+            <button class="btn btn-sm" onclick="renderCobrancaAuto()">↻ Atualizar</button>
+          </div>
+          <!-- Config dias -->
+          <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--mut2)">⚙️ Alertar após</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="cobr_dias_alerta" value="3" min="1" max="30"
+                style="width:52px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;font-family:var(--mono);font-size:13px;color:var(--acc);text-align:center;outline:none">
+              <span style="font-size:12px;color:var(--mut2)">dias (⚠️) e</span>
+              <input type="number" id="cobr_dias_critico" value="7" min="1" max="90"
+                style="width:52px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;font-family:var(--mono);font-size:13px;color:var(--r);text-align:center;outline:none">
+              <span style="font-size:12px;color:var(--mut2)">dias (🚨)</span>
+            </div>
+            <button class="btn btn-sm btn-acc" onclick="salvarConfigCobranca()">Salvar</button>
+          </div>
+          <div id="cobrancaAutoConteudo"></div>
         </div>
       </div>
 
@@ -1215,6 +1244,7 @@ function initUI(){
 
 function startAutoRefresh(){
   if(_autoRefreshId) return;
+  initServiceWorker().then(()=>_renderBtnNotif());
   _autoRefreshId=setInterval(async()=>{
     try{
       const uid=_currentUser?.user?.id;
@@ -1226,7 +1256,7 @@ function startAutoRefresh(){
       const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec));
       const qtdAntes=ordens.length;
       if(antes!==depois){
-        ordens=novos; renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
+        checarNovasOrdens(novos); ordens=novos; renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge();
         setSyncDot('ok');
         if(novos.length>qtdAntes) toast('🔔 Nova ordem recebida!','ok');
       }
@@ -1246,7 +1276,7 @@ function startAutoRefresh(){
 const viewTitles={
   funil:'Funil de Ordens',financeiro:'Central Financeira',dash:'Dashboard',
   hist:'Histórico',conc:'Conciliação',pgforn:'Pagar Fornecedor',
-  rel:'Relatórios',nf:'Notas Fiscais',forn:'Fornecedores',
+  rel:'Relatórios',nf:'Notas Fiscais',forn:'Fornecedores',cobr:'Cobrança Auto',
   cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil'
 };
 function setView(v){
@@ -1268,6 +1298,7 @@ function setView(v){
   if(v==='rel') renderRel();
   if(v==='nf') renderNF();
   if(v==='forn') renderForns();
+  if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='cli') renderCli();
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
@@ -1386,6 +1417,12 @@ function renderInadBadge(){
   const n=ordens.filter(c=>c.col==='inadimp').length;
   const b=document.getElementById('inadBadge');
   b.textContent=n; b.style.display=n>0?'inline':'none';
+  _atualizarCobrBadge();
+}
+function _atualizarCobrBadge(){
+  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA).length;
+  const b=document.getElementById('cobrBadge');
+  if(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';}
 }
 
 // ── KANBAN ──
@@ -2139,6 +2176,205 @@ function atualizarContadorWA(){
   const n=ta.value.length;
   document.getElementById('waCharCount').textContent=n+' caractere'+(n!==1?'s':'');
 }
+// ── SERVICE WORKER + NOTIFICAÇÕES PUSH ──
+let _swReg = null;
+
+async function initServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    _swReg = await navigator.serviceWorker.register('/sw.js');
+    console.log('SW registrado');
+  }catch(e){ console.warn('SW falhou:', e); }
+}
+
+async function pedirPermissaoNotificacao(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'granted') return true;
+  if(Notification.permission === 'denied') return false;
+  const result = await Notification.requestPermission();
+  return result === 'granted';
+}
+
+// Notificação local via SW (não precisa de servidor push)
+async function notificarLocal(title, body, tag, url){
+  if(!_swReg) return;
+  if(Notification.permission !== 'granted') return;
+  _swReg.active?.postMessage({ type:'NOTIFY', title, body, tag, url });
+}
+
+// Notifica nova ordem chegando via auto-refresh
+let _ordensAntes = new Set();
+function checarNovasOrdens(ordensNovas){
+  if(_ordensAntes.size === 0){ ordensNovas.forEach(o => _ordensAntes.add(o.id)); return; }
+  const novas = ordensNovas.filter(o => !_ordensAntes.has(o.id));
+  novas.forEach(o => {
+    _ordensAntes.add(o.id);
+    notificarLocal(
+      '🪣 Nova ordem — CaçambaSP',
+      (o.logradouro||o.nome||'Sem endereço') + (o.bairro ? ', '+o.bairro : ''),
+      'nova-ordem-'+o.id
+    );
+  });
+}
+
+// Botão de ativar notificações no topbar
+function _renderBtnNotif(){
+  const existing = document.getElementById('btnNotifPush');
+  if(existing || !('Notification' in window)) return;
+  if(Notification.permission === 'granted') return; // já ativado
+  const btn = document.createElement('button');
+  btn.id = 'btnNotifPush';
+  btn.className = 'btn btn-sm';
+  btn.innerHTML = '🔔 Ativar alertas';
+  btn.title = 'Receber notificações de novas ordens';
+  btn.onclick = async () => {
+    const ok = await pedirPermissaoNotificacao();
+    if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
+    else toast('Permissão negada pelo navegador','warn');
+  };
+  document.querySelector('.topbar-right')?.prepend(btn);
+}
+
+// ── COBRANÇA AUTOMÁTICA WHATSAPP ──
+// Configurações (dias sem pagamento para alertar)
+const COBR_DIAS_ALERTA = 3;   // amarelo — atenção
+const COBR_DIAS_CRITICO = 7;  // vermelho — crítico
+
+function diasEmAberto(c){
+  const ref = c.data || c.criado_em;
+  if(!ref) return 0;
+  const d = new Date(ref+'T12:00:00');
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function renderCobrancaAuto(){
+  const el = document.getElementById('cobrancaAutoConteudo');
+  if(!el) return;
+
+  // Ordens ativas sem pagamento do cliente, fora de inadimp já tratados
+  const pendentes = ordens.filter(c =>
+    !c.pago &&
+    c.col !== 'concluido' &&
+    c.rec > 0
+  ).map(c => ({ ...c, dias: diasEmAberto(c) }))
+    .sort((a,b) => b.dias - a.dias);
+
+  const criticos  = pendentes.filter(c => c.dias >= COBR_DIAS_CRITICO);
+  const atencao   = pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
+  const normais   = pendentes.filter(c => c.dias < COBR_DIAS_ALERTA);
+
+  const totalAberto = pendentes.reduce((s,c) => s + (parseFloat(c.rec)||0), 0);
+
+  el.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad2);padding:12px 16px;flex:1;min-width:120px">
+        <div style="font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🚨 Críticos (+${COBR_DIAS_CRITICO}d)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--r)">${criticos.length}</div>
+      </div>
+      <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:var(--rad2);padding:12px 16px;flex:1;min-width:120px">
+        <div style="font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Atenção (+${COBR_DIAS_ALERTA}d)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--acc)">${atencao.length}</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 16px;flex:1;min-width:120px">
+        <div style="font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">💰 Total em aberto</div>
+        <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(totalAberto)}</div>
+      </div>
+    </div>
+
+    ${criticos.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--r);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      🚨 Cobranças críticas
+      ${criticos.filter(c=>c.cel).length > 1 ? `<button class="btn btn-sm btn-r" onclick="cobrarLote('critico')">📲 Cobrar todos (${criticos.filter(c=>c.cel).length})</button>` : ''}
+    </div>
+    ${criticos.map(c => _cobrarRow(c,'r')).join('')}` : ''}
+
+    ${atencao.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;display:flex;align-items:center;justify-content:space-between">
+      ⚠️ Atenção
+      ${atencao.filter(c=>c.cel).length > 1 ? `<button class="btn btn-sm btn-acc" onclick="cobrarLote('atencao')">📲 Cobrar todos (${atencao.filter(c=>c.cel).length})</button>` : ''}
+    </div>
+    ${atencao.map(c => _cobrarRow(c,'acc')).join('')}` : ''}
+
+    ${normais.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">
+      📋 Outros pendentes
+    </div>
+    ${normais.map(c => _cobrarRow(c,'')).join('')}` : ''}
+
+    ${!pendentes.length ? '<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum pagamento pendente!</div>' : ''}
+  `;
+}
+
+function _cobrarRow(c, tipo){
+  const cor = tipo==='r'?'var(--r)':tipo==='acc'?'var(--acc)':'var(--mut2)';
+  const bg  = tipo==='r'?'var(--r2)':tipo==='acc'?'var(--acc2)':'var(--card)';
+  const bor = tipo==='r'?'var(--r3)':tipo==='acc'?'var(--acc3)':'var(--bor)';
+  return `<div style="background:${bg};border:1px solid ${bor};border-radius:var(--rad2);padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:700;font-size:13px">${c.logradouro||c.nome||'-'}${c.bairro?' · <span style="color:var(--acc);font-size:11px">'+c.bairro+'</span>':''}</div>
+      <div style="font-size:11px;color:var(--mut2);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+        <span>👤 ${c.nome||'-'}</span>
+        <span>📅 ${dateF(c.data)}</span>
+        <span style="color:${cor};font-weight:700">⏱️ ${c.dias}d em aberto</span>
+        ${c.cel?'<span>📱 '+c.cel+'</span>':'<span style="color:var(--r)">⚠️ Sem telefone</span>'}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</span>
+      ${c.cel
+        ? `<button class="btn btn-sm btn-wa" onclick="_detailId='${c.id}';enviarWA('${c.id}')">📲 Cobrar</button>`
+        : `<button class="btn btn-sm" onclick="openDetail('${c.id}')">✏️ Add tel</button>`
+      }
+    </div>
+  </div>`;
+}
+
+// Cobrar em lote — abre WhatsApp um por vez com intervalo
+let _cobrarLoteIdx = 0, _cobrarLoteFila = [];
+function cobrarLote(tipo){
+  const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.rec > 0 && c.cel)
+    .map(c => ({ ...c, dias: diasEmAberto(c) }));
+  _cobrarLoteFila = tipo==='critico'
+    ? pendentes.filter(c => c.dias >= COBR_DIAS_CRITICO)
+    : pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
+  if(!_cobrarLoteFila.length){ toast('Nenhuma ordem com telefone nesta categoria','warn'); return; }
+  _cobrarLoteIdx = 0;
+  _dispararProximaCobranca();
+}
+function _dispararProximaCobranca(){
+  if(_cobrarLoteIdx >= _cobrarLoteFila.length){
+    toast('✅ '+_cobrarLoteFila.length+' cobranças disparadas!');
+    return;
+  }
+  const c = _cobrarLoteFila[_cobrarLoteIdx];
+  _cobrarLoteIdx++;
+  // Usa template inadimp se muito atrasado, senão cobrança normal
+  const tpl = c.dias >= COBR_DIAS_CRITICO ? 'inadimp' : 'cobranca';
+  const msg = _waTpl[tpl](c, '');
+  window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg), '_blank');
+  // Próxima cobrança com pequeno delay para não bloquear popup
+  if(_cobrarLoteIdx < _cobrarLoteFila.length){
+    toast('📲 '+_cobrarLoteIdx+' de '+_cobrarLoteFila.length+' — próxima em 3s...');
+    setTimeout(_dispararProximaCobranca, 3000);
+  }
+}
+
+// Config dias de alerta
+function salvarConfigCobranca(){
+  const d1 = parseInt(document.getElementById('cobr_dias_alerta')?.value)||3;
+  const d2 = parseInt(document.getElementById('cobr_dias_critico')?.value)||7;
+  // Salva localmente
+  localStorage.setItem('cobr_config', JSON.stringify({alerta:d1,critico:d2}));
+  toast('✅ Configuração salva!');
+  renderCobrancaAuto();
+}
+
+function initCobrancaConfig(){
+  const saved = JSON.parse(localStorage.getItem('cobr_config')||'{}');
+  if(saved.alerta) { const el=document.getElementById('cobr_dias_alerta'); if(el)el.value=saved.alerta; }
+  if(saved.critico){ const el=document.getElementById('cobr_dias_critico'); if(el)el.value=saved.critico; }
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('waMsgEdit')?.addEventListener('input',atualizarContadorWA);
 });
