@@ -2504,7 +2504,11 @@ async function salvarUsr(){
   const showErr=m=>{errEl.textContent=m;errEl.style.display='block';};
   if(!nome||!email){showErr('Nome e e-mail obrigatórios');return;}
   if(pass&&pass.length<6){showErr('Senha mínimo 6 caracteres');return;}
-  const res=await adminApi('admin/users',{email,password:pass||Math.random().toString(36).slice(2)+'Aa1!',email_confirm:true,user_metadata:{nome,nivel}});
+  const res=await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
+    body:JSON.stringify({nome,email,password:pass||Math.random().toString(36).slice(2)+'Aa1!',nivel})
+  }).then(r=>r.json());
   if(res?.error||(!res?.id&&!res?.user?.id)){showErr(res?.error?.message||res?.msg||'Erro ao criar');return;}
   const uid=res.id||res.user?.id;
   const novoPerfil={id:uid,nome,email,nivel,ativo:true};
