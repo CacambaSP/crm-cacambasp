@@ -869,8 +869,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
       <input type="hidden" id="usr_id">
       <div id="usr_err" style="display:none;background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad3);padding:9px 12px;font-size:12px;color:var(--r);margin-bottom:12px"></div>
       <div class="fi"><label>Nome <span style="color:var(--r)">*</span></label><input type="text" id="usr_nome"></div>
-      <div class="fi"><label>E-mail <span style="color:var(--r)">*</span></label><input type="email" id="usr_email"></div>
-      <div class="fi"><label>Senha</label><input type="password" id="usr_pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="fi" id="usr_email_wrap"><label>E-mail <span style="color:var(--r)">*</span></label><input type="email" id="usr_email"></div>
+      <div class="fi" id="usr_pass_wrap"><label id="usr_pass_label">Senha</label><input type="password" id="usr_pass" placeholder="Mínimo 6 caracteres"></div>
       <div class="fi"><label>Nível</label>
         <select id="usr_nivel">
           <option value="operador">Operador</option>
@@ -2479,11 +2479,9 @@ function renderUsrs(){
     </div>
     <div class="user-acts">
       <span class="role-badge ${u.nivel==='admin'?'role-admin':'role-op'}">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</span>
-      ${u.id!==_currentUser?.user?.id?`
-        <span style="font-size:11px;color:var(--mut2)">Link: <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
-        <button class="btn btn-xs" onclick="toggleUsrNivel('${u.id}','${u.nivel}')">${u.nivel==='admin'?'→ Op':'→ Admin'}</button>
-        <button class="btn btn-xs btn-r" onclick="deletarUsr('${u.id}')">🗑</button>
-      `:''}
+      <span style="font-size:11px;color:var(--mut2)">Link: <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
+      <button class="btn btn-xs btn-b" onclick="editarUsr('${u.id}')">✏️ Editar</button>
+      ${u.id!==_currentUser?.user?.id?`<button class="btn btn-xs btn-r" onclick="deletarUsr('${u.id}')">🗑</button>`:''}
     </div>
   </div>`).join('');
 }
@@ -2493,6 +2491,25 @@ function openUsrModal(){
   document.getElementById('usr_id').value='';
   document.getElementById('usr_nivel').value='operador';
   document.getElementById('usr_err').style.display='none';
+  // Mostra campo e-mail e senha para novo usuário
+  document.getElementById('usr_email_wrap').style.display='block';
+  document.getElementById('usr_pass_wrap').style.display='block';
+  document.getElementById('usr_pass_label').textContent='Senha';
+  openModal('usrModal');
+}
+function editarUsr(id){
+  const u=usuarios.find(x=>x.id===id);if(!u)return;
+  document.getElementById('usrModalTitle').textContent='Editar Usuário';
+  document.getElementById('usr_id').value=id;
+  document.getElementById('usr_nome').value=u.nome||'';
+  document.getElementById('usr_email').value=u.email||'';
+  document.getElementById('usr_pass').value='';
+  document.getElementById('usr_nivel').value=u.nivel||'operador';
+  document.getElementById('usr_err').style.display='none';
+  // Em edição, e-mail não pode mudar, senha é opcional
+  document.getElementById('usr_email_wrap').style.display='none';
+  document.getElementById('usr_pass_wrap').style.display='block';
+  document.getElementById('usr_pass_label').textContent='Nova senha (deixe em branco para não alterar)';
   openModal('usrModal');
 }
 async function salvarUsr(){
@@ -2500,20 +2517,42 @@ async function salvarUsr(){
   const email=document.getElementById('usr_email').value.trim();
   const pass=document.getElementById('usr_pass').value;
   const nivel=document.getElementById('usr_nivel').value;
+  const id=document.getElementById('usr_id').value;
   const errEl=document.getElementById('usr_err');
   const showErr=m=>{errEl.textContent=m;errEl.style.display='block';};
-  if(!nome||!email){showErr('Nome e e-mail obrigatórios');return;}
+  if(!nome){showErr('Nome obrigatório');return;}
   if(pass&&pass.length<6){showErr('Senha mínimo 6 caracteres');return;}
+
+  if(id){
+    // EDITAR — atualiza perfil e opcionalmente senha
+    try{
+      await api('perfis?id=eq.'+id,'PATCH',{nome,nivel},tok());
+      const u=usuarios.find(x=>x.id===id);
+      if(u){u.nome=nome;u.nivel=nivel;}
+      // Altera senha se informada
+      if(pass){
+        await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
+          body:JSON.stringify({userId:id,password:pass})
+        });
+      }
+      closeModal('usrModal');renderUsrs();toast('✅ Usuário atualizado!');
+    }catch(e){showErr('Erro ao atualizar');}
+    return;
+  }
+
+  // CRIAR
+  if(!email){showErr('E-mail obrigatório');return;}
   const res=await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
     body:JSON.stringify({nome,email,password:pass||Math.random().toString(36).slice(2)+'Aa1!',nivel})
   }).then(r=>r.json());
-  if(res?.error||(!res?.id&&!res?.user?.id)){showErr(res?.error?.message||res?.msg||'Erro ao criar');return;}
-  const uid=res.id||res.user?.id;
-  const novoPerfil={id:uid,nome,email,nivel,ativo:true};
-  try{await api('perfis','POST',novoPerfil,tok());}catch(e){try{await api('perfis?id=eq.'+uid,'PATCH',{nome,email,nivel},tok());}catch(e2){}}
-  usuarios.push(novoPerfil);
+  if(res?.error){showErr(res.error);return;}
+  const uid=res.id;
+  if(!uid){showErr('Erro ao criar usuário');return;}
+  usuarios.push({id:uid,nome,email,nivel,ativo:true});
   closeModal('usrModal');renderUsrs();toast('✅ Usuário criado!');
 }
 async function toggleUsrNivel(id,atual){
@@ -2522,9 +2561,17 @@ async function toggleUsrNivel(id,atual){
   catch(e){toast('Erro','err');}
 }
 async function deletarUsr(id){
-  const ok=await showConfirm({ico:'🗑',title:'Excluir usuário',body:'Confirmar exclusão?',ok:'🗑 Excluir',okClass:'btn-r'});
+  const u=usuarios.find(x=>x.id===id);
+  const ok=await showConfirm({ico:'🗑',title:'Excluir usuário',body:`Excluir <strong>${u?.nome||u?.email||'este usuário'}</strong>?<br><span style="color:var(--r)">Esta ação não pode ser desfeita.</span>`,ok:'🗑 Excluir',okClass:'btn-r'});
   if(!ok) return;
-  try{await adminApi('admin/users/'+id,null,'DELETE');usuarios=usuarios.filter(x=>x.id!==id);renderUsrs();toast('🗑 Excluído');}catch(e){toast('Erro','err');}
+  try{
+    await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
+      method:'DELETE',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
+      body:JSON.stringify({userId:id})
+    });
+    usuarios=usuarios.filter(x=>x.id!==id);renderUsrs();toast('🗑 Usuário excluído');
+  }catch(e){toast('Erro ao excluir','err');}
 }
 
 // ── PERFIL ──
