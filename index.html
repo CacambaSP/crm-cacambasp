@@ -242,7 +242,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .sb-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7}
 .sb-icon{font-size:20px}
 .sb-status{font-size:13px;font-weight:700}
-.sb-info{font-size:11px;opacity:.8}
+.sb-info{font-size:11px;opacity:.8;word-break:break-word}
 .sb-btn{margin-top:8px;padding:7px 12px;border-radius:6px;border:none;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;width:100%;text-align:center}
 .sb-btn.cli{background:var(--g);color:#000}
 .sb-btn.forn{background:var(--acc);color:#000}
@@ -773,7 +773,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <div class="fin-detail-title">Resumo financeiro</div>
         <div class="fin-row-item"><span style="color:var(--mut2)">Receita</span><span id="dm_r" style="color:var(--acc);font-weight:600">—</span></div>
         <div class="fin-row-item"><span style="color:var(--mut2)">Custo</span><span id="dm_c" style="color:var(--r);font-weight:600">—</span></div>
-        <div class="fin-row-item total"><span>Margem</span><span id="dm_m">—</span></div>
+        <div class="fin-row-item" id="dm_nf_wrap" style="display:none"><span style="color:var(--mut2)" id="dm_nf_label">Imposto NF</span><span id="dm_nf" style="color:#f97316;font-weight:600">—</span></div>
+        <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
       <div class="fi" style="max-width:240px">
         <label>Nº Nota Fiscal</label>
@@ -923,6 +924,7 @@ const COLS = [
 
 // ── ESTADO ──
 let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
+let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco
 let _detailId=null, _dragId=null, _pixCardId=null, _pixPayload='', _pixId='';
 let _finFiltro='todos', _finSel=new Set();
 let _histPage=1; const HIST_PER=50;
@@ -1063,14 +1065,16 @@ async function loadApp(){
     if(!_perfil)_perfil={id:uid,nome:email.split('@')[0],email,nivel:'operador'};
     if(!_perfil.email)_perfil.email=email;
     setLoadProg(60,'Carregando dados...');
-    const [dbOrdens,dbForns,dbUsrs]=await Promise.all([
+    const [dbOrdens,dbForns,dbUsrs,dbConfig]=await Promise.all([
       isAdmin()
         ? api('ordens?order=criado_em.asc',undefined,undefined,tok())
         : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
+      api('config?chave=eq.nf_taxa',undefined,undefined,tok()).catch(()=>[]),
     ]);
     ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
+    if(dbConfig?.[0]?.valor) _taxaNF=parseFloat(dbConfig[0].valor)||11;
     setLoadProg(90,'Inicializando...');
     initUI();
     setLoadProg(100,'');
@@ -1492,11 +1496,18 @@ async function salvarOrdem(){
       pago:false,pago_em:null,pago_valor:null,pago_obs:null,
       forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
       nf_num:document.getElementById('o_nf').value.trim(),
+      nf_taxa:_taxaNF, // salva a taxa vigente no momento da criação
       usuario_id:_currentUser?.user?.id,
       criado_em:nowISO()
     };
     ordens.push(novaOrdem);
-    renderBoard(); renderStats(); renderFinanceiro(); closeModal('ordemModal');
+    renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
+    closeModal('ordemModal');
+    // Scroll para mostrar o card novo
+    setTimeout(()=>{
+      const el=document.getElementById('card_'+novaOrdem.id);
+      if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+    },100);
     try{
       setSyncDot('sync');
       await api('ordens','POST',novaOrdem,tok());
@@ -1537,11 +1548,22 @@ function fillDetail(c){
   // financeiro
   _fillStatusBlocks(c);
   if(isAdmin()){
-    const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
-    document.getElementById('dm_r').textContent=c.rec?'R$ '+fmt(c.rec):'-';
-    document.getElementById('dm_c').textContent=c.cst?'R$ '+fmt(c.cst):'-';
+    const rec=parseFloat(c.rec)||0;
+    const cst=parseFloat(c.cst)||0;
+    const taxa=c.nf_num?(parseFloat(c.nf_taxa)||_taxaNF):0;
+    const imp=c.nf_num?rec*(taxa/100):0;
+    const mg=rec-cst-imp;
+    document.getElementById('dm_r').textContent=rec?'R$ '+fmt(rec):'-';
+    document.getElementById('dm_c').textContent=cst?'R$ '+fmt(cst):'-';
+    // Linha de imposto — só aparece se tiver NF
+    const nfWrap=document.getElementById('dm_nf_wrap');
+    if(c.nf_num&&imp>0){
+      nfWrap.style.display='flex';
+      document.getElementById('dm_nf_label').textContent=`Imposto NF ${taxa}%`;
+      document.getElementById('dm_nf').textContent='- R$ '+fmt(imp);
+    }else nfWrap.style.display='none';
     const mEl=document.getElementById('dm_m');
-    mEl.textContent=(c.rec||c.cst)?'R$ '+fmt(mg):'-';
+    mEl.textContent=(rec||cst)?'R$ '+fmt(mg):'-';
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
   }
   document.getElementById('d_nf').value=c.nf_num||'';
@@ -2092,19 +2114,53 @@ function renderDash(){
   const pagos=src.filter(c=>c.pago).length;
   const inad=src.filter(c=>c.col==='inadimp').length;
   const nfs=src.filter(c=>c.nf_num).length;
-  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*0.12,0);
+  // Usa a taxa salva em cada ordem (ou a atual se não tiver)
+  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
+  const mgLiq=mg-imp;
   document.getElementById('dashGrid').innerHTML=`
     <div class="dash-card"><div class="dash-card-label">Ordens</div><div class="dash-card-val" style="color:var(--acc)">${src.length}</div><div class="dash-card-sub">${pagos} pagas · ${src.length-pagos} pendentes</div></div>
     <div class="dash-card admin-only"><div class="dash-card-label">Receita</div><div class="dash-card-val" style="color:var(--g)">R$ ${fmts(tr)}</div><div class="dash-card-sub">Ticket médio R$ ${src.length?fmts(tr/src.length):'0'}</div></div>
     <div class="dash-card admin-only"><div class="dash-card-label">Custo</div><div class="dash-card-val" style="color:var(--r)">R$ ${fmts(tc)}</div><div class="dash-card-sub">${forns.length} fornecedores ativos</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Margem</div><div class="dash-card-val" style="color:var(--b)">R$ ${fmts(mg)}</div><div class="dash-card-sub">${tr>0?Math.round(mg/tr*100):0}% de margem</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Imposto NF</div><div class="dash-card-val" style="color:#f97316">R$ ${fmts(imp)}</div><div class="dash-card-sub">${nfs} ordens com NF · 12%</div></div>
+    <div class="dash-card admin-only"><div class="dash-card-label">Margem bruta</div><div class="dash-card-val" style="color:var(--b)">R$ ${fmts(mg)}</div><div class="dash-card-sub">${tr>0?Math.round(mg/tr*100):0}% de margem</div></div>
+    <div class="dash-card admin-only"><div class="dash-card-label">Imposto NF ${_taxaNF}%</div><div class="dash-card-val" style="color:#f97316">R$ ${fmts(imp)}</div><div class="dash-card-sub">${nfs} ordens com NF</div></div>
+    <div class="dash-card admin-only"><div class="dash-card-label">Margem líquida</div><div class="dash-card-val" style="color:var(--b)">${tr>0?'R$ '+fmts(mgLiq):'-'}</div><div class="dash-card-sub">${tr>0?Math.round(mgLiq/tr*100):0}% real</div></div>
     <div class="dash-card"><div class="dash-card-label">Inadimplência</div><div class="dash-card-val" style="color:var(--r)">${inad}</div><div class="dash-card-sub">ordens inadimplentes</div></div>
   `;
   document.querySelectorAll('#dashGrid .admin-only').forEach(el=>el.style.display=isAdmin()?'block':'none');
+  // Painel de configuração de taxa (só admin)
+  if(isAdmin()){
+    document.getElementById('dashCharts').innerHTML=`
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:18px 20px;margin-top:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">⚙️ Configuração de Taxa NF</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">Taxa atual aplicada a novas ordens</div>
+            <div style="font-size:28px;font-weight:800;color:#f97316;font-family:var(--mono)">${_taxaNF}%</div>
+          </div>
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Alterar taxa (%)</div>
+            <div style="display:flex;gap:8px">
+              <input type="number" id="novaTaxa" value="${_taxaNF}" step="0.5" min="0" max="30" style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
+              <button class="btn btn-acc btn-sm" onclick="salvarTaxaNF()">Salvar</button>
+            </div>
+            <div style="font-size:11px;color:var(--mut2);margin-top:6px">⚠️ Só afeta ordens criadas após a alteração. Ordens antigas mantêm a taxa original.</div>
+          </div>
+        </div>
+      </div>`;
+  }
 }
 
 // ── CONCILIAÇÃO ──
+async function salvarTaxaNF(){
+  const nova=parseFloat(document.getElementById('novaTaxa')?.value);
+  if(!nova||nova<0||nova>30){toast('Taxa inválida (0-30%)','warn');return;}
+  try{
+    await api('config?chave=eq.nf_taxa','PATCH',{valor:String(nova),atualizado_em:nowISO()},tok());
+    _taxaNF=nova;
+    toast('✅ Taxa NF atualizada para '+nova+'%');
+    renderDash();
+  }catch(e){toast('Erro ao salvar taxa','err');}
+}
 let _concTab='manual';
 function setConcTab(t){
   _concTab=t;
