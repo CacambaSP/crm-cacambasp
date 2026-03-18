@@ -4945,7 +4945,7 @@ async function gerarPDFOrcamento(){
 
   if(id){
     try{
-      await api('ordens?id=eq.'+id,{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},'PATCH',tok());
+      await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},tok());
       // Atualiza local
       const idx=ordens.findIndex(x=>x.id===id);
       if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
@@ -5021,7 +5021,7 @@ async function salvarDadosOrcEEnviarWA(id){
   const prazo = parseInt(document.getElementById('orc_g_prazo')?.value||7);
   const obs = document.getElementById('orc_g_obs')?.value||'';
   try{
-    await api('ordens?id=eq.'+id,{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},'PATCH',tok());
+    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},tok());
     const idx=ordens.findIndex(x=>x.id===id);
     if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
     toast('Dados salvos','ok');
@@ -5061,11 +5061,11 @@ async function converterOrcEmOrdem(id){
     const proxNum = lcs.length+1;
     const novoCrmId = 'LC'+anoAtual+String(proxNum).padStart(8,'0');
     // Move para coluna contratar e troca o crm_id
-    await api('ordens?id=eq.'+id,{
+    await api('ordens?id=eq.'+id,'PATCH',{
       col:'contratar',
       crm_id:novoCrmId,
       orc_convertido_em:new Date().toISOString()
-    },'PATCH',tok());
+    },tok());
     // Atualiza local
     const idx=ordens.findIndex(x=>x.id===id);
     if(idx>=0) Object.assign(ordens[idx],{col:'contratar',crm_id:novoCrmId,orc_convertido_em:new Date().toISOString()});
@@ -5085,7 +5085,7 @@ async function confirmarArquivarOrc(id){
   if(!o) return;
   if(!confirm(`Arquivar orçamento ${o.crm_id}?\n\nEle irá para o Histórico.`)) return;
   try{
-    await api('ordens?id=eq.'+id,{col:'concluido',concluido_em:new Date().toISOString()},'PATCH',tok());
+    await api('ordens?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:new Date().toISOString()},tok());
     const idx=ordens.findIndex(x=>x.id===id);
     if(idx>=0) Object.assign(ordens[idx],{col:'concluido',concluido_em:new Date().toISOString()});
     toast('Orçamento arquivado','ok');
