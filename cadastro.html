@@ -327,7 +327,7 @@ function aplicarMarca(m){
   }
 
   // Tel de contato no rodapé
-  const telFmt = m.tel ? m.tel.replace(/^55/,'').replace(/^(\d{2})(\d{4,5})(\d{4})$/,'($1) $2-$3') : '(11) 4237-8757';
+  const telFmt = m.tel ? m.tel.replace(/^\+/,'').replace(/^55/,'').replace(/^(\d{2})(\d{4,5})(\d{4})$/,'($1) $2-$3') : '(11) 4237-8757';
   document.getElementById('tipTel').textContent = telFmt;
   document.getElementById('tipTel2').textContent = telFmt;
 
@@ -548,7 +548,7 @@ async function enviarCadastro(){
       '\n🔑 *Código'+(qtd>1?'s':'')+':* '+codigos.join(', ');
 
     window._notifMsg = msg;
-    window._notifTel = _marca.tel || EQUIPE_WA;
+    window._notifTel = (_marca.tel || EQUIPE_WA).replace(/^\+/,'');
 
     // Abre WA automaticamente
     try{ window.open('https://wa.me/'+window._notifTel+'?text='+encodeURIComponent(msg), '_blank'); }catch(e){}
