@@ -1152,7 +1152,10 @@ let _histSelected=new Set(), _histSelMode=false;
 let _ordemEditId=null;
 
 const isAdmin=()=>_perfil?.nivel==='admin';
-const fmt=v=>parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+// aliases checklist
+function renderCobr(){return renderCobrancaAuto();}
+function renderComissao(){return renderComissaoView();}
 const fmts=v=>parseFloat(v||0).toLocaleString('pt-BR');
 const uid=()=>crypto.randomUUID();
 const nextCrmId=()=>{_pixSeq++;localStorage.setItem('crm_pixseq',_pixSeq);return 'LC'+new Date().getFullYear()+String(_pixSeq).padStart(4,'0');}
@@ -1630,7 +1633,7 @@ function cardHTML(c,color){
   const f=forns.find(s=>s.id===c.forn_id);
   const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
   return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true"
-    ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ontouchstart="oTouchStart(event,'${c.id}')"
+    ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault()" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
     <div class="card-bar" style="background:${color}"></div>
     <div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>
@@ -1680,7 +1683,7 @@ async function oDrop(e,colId){
       const colLabel=COLS.find(x=>x.id===colId)?.label||colId;
       toast('📦 Movido para '+colLabel);
       addLog(c.id,'Movido','→ '+colLabel);
-    }catch(e){setSyncDot('err');toast('Erro ao mover','err');}
+    }catch(err){setSyncDot('err');console.error('oDrop erro:',err);toast('Erro: '+((err.message||'').slice(0,80)),'err');}
   }
   _dragId=null;
 }
@@ -1735,7 +1738,7 @@ async function oTouchEnd(e){
       const colLabel=COLS.find(x=>x.id===colId)?.label||colId;
       toast('📦 Movido para '+colLabel);
       addLog(c.id,'Movido','→ '+colLabel);
-    }catch(e){setSyncDot('err');toast('Erro ao mover','err');}
+    }catch(err){setSyncDot('err');console.error('oTouchEnd erro:',err);toast('Erro: '+((err.message||'').slice(0,80)),'err');}
   }
 }
 document.addEventListener('touchmove',oTouchMove,{passive:false});
