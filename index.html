@@ -439,6 +439,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
       <div class="sb-nav">
         <div class="sb-section">Principal</div>
         <button class="nb act" id="nav-funil" onclick="setViewMob('funil')"><span class="nb-ico">📋</span> Funil<span class="nb-badge" id="inadBadge" style="display:none">0</span></button>
+        <button class="nb" id="nav-orc" onclick="setViewMob('orc')"><span class="nb-ico">📄</span> Orçamentos<span class="nb-badge" id="orcBadge" style="display:none">0</span></button>
         <button class="nb" id="nav-financeiro" onclick="setViewMob('financeiro')"><span class="nb-ico">💳</span> Financeiro</button>
         <button class="nb" id="nav-dash" onclick="setViewMob('dash')"><span class="nb-ico">📊</span> Dashboard</button>
         <button class="nb" id="nav-hist" onclick="setViewMob('hist')"><span class="nb-ico">🏆</span> Histórico</button>
@@ -723,6 +724,43 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <div class="pw" style="max-width:500px">
           <div class="ph"><div class="ph-title">Meu Perfil</div></div>
           <div id="perfilContent"></div>
+        </div>
+      </div>
+
+      <!-- ORÇAMENTOS -->
+      <div class="view" id="view-orc">
+        <div class="pw">
+          <div class="ph">
+            <div><div class="ph-title">📄 Orçamentos</div><div class="ph-sub" id="orcSubtitle">Gerencie seus orçamentos</div></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--bor);padding-bottom:12px">
+            <button class="btn btn-sm btn-acc" id="orcTab_pend" onclick="setOrcTab('pend')">⏳ Pendentes</button>
+            <button class="btn btn-sm" id="orcTab_gerador" onclick="setOrcTab('gerador')">📝 Gerador de PDF</button>
+            <button class="btn btn-sm" id="orcTab_hist" onclick="setOrcTab('hist')">🏆 Histórico</button>
+          </div>
+          <div id="orcPanel-pend">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+              <input type="text" id="orcSearch" placeholder="🔍 Buscar por nome, bairro..." oninput="debounceOrc()"
+                style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
+              <select id="orcFiltroVend" onchange="renderOrcPend()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+                <option value="">Todos os vendedores</option>
+              </select>
+            </div>
+            <div id="orcPendLista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+          <div id="orcPanel-gerador" style="display:none">
+            <div id="orcGeradorConteudo"></div>
+          </div>
+          <div id="orcPanel-hist" style="display:none">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+              <input type="text" id="orcHistSearch" placeholder="🔍 Buscar..." oninput="debounceOrcHist()"
+                style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
+              <input type="date" id="orcHistDe" onchange="renderOrcHist()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+              <input type="date" id="orcHistAte" onchange="renderOrcHist()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+              <button class="btn btn-sm" onclick="document.getElementById('orcHistDe').value='';document.getElementById('orcHistAte').value='';renderOrcHist()">Ver todos</button>
+            </div>
+            <div id="orcHistLista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
         </div>
       </div>
 
@@ -1410,7 +1448,7 @@ const viewTitles={
   funil:'Funil de Ordens',financeiro:'Central Financeira',dash:'Dashboard',
   hist:'Histórico',conc:'Conciliação',pgforn:'Pagar Fornecedor',
   rel:'Relatórios',nf:'Notas Fiscais',forn:'Fornecedores',cobr:'Cobrança Auto',comissao:'Comissões',
-  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil'
+  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos'
 };
 function setView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('act'));
@@ -1436,6 +1474,7 @@ function setView(v){
   if(v==='cli') renderCli();
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
+  if(v==='orc') renderOrc();
 }
 function setViewMob(v){if(window.innerWidth<=700)closeMobSidebar();setView(v);_syncBottomNav(v);}
 function _syncBottomNav(v){
@@ -4630,10 +4669,8 @@ async function _salvarNovaSenha(token){
       body:JSON.stringify({password:pass})
     });
     if(res.ok){
-      // Remove modal e faz login
       document.body.lastChild.remove();
       const data = await res.json();
-      // Salva sessão e carrega o app
       _currentUser = {access_token:token, user:{id:data.id,email:data.email}, refresh_token:''};
       localStorage.setItem('crm_session',JSON.stringify(_currentUser));
       document.getElementById('loadScreen').style.display='flex';
@@ -4650,6 +4687,438 @@ async function _salvarNovaSenha(token){
     errEl.style.display='block';
   }
 }
+
+// ════════════════════════════════════════
+// BLOCO 3 — ABA ORÇAMENTOS
+// ════════════════════════════════════════
+
+let _orcTabAtual = 'pend';
+let _orcGeradorId = null; // ID do ORC sendo gerado/editado
+let _orcDebTimer = null;
+let _orcHistDebTimer = null;
+
+// ── Atualizar badge sempre que ordens mudam ──
+// Badge é atualizado automaticamente via _atualizarOrcBadge() chamado em renderOrc()
+
+// ── Render principal ──
+function renderOrc(){
+  _atualizarOrcBadge();
+  _popularFiltroVendOrc();
+  if(_orcTabAtual==='pend') renderOrcPend();
+  else if(_orcTabAtual==='gerador') renderOrcGerador(_orcGeradorId);
+  else if(_orcTabAtual==='hist') renderOrcHist();
+}
+
+function setOrcTab(tab){
+  _orcTabAtual = tab;
+  ['pend','gerador','hist'].forEach(t=>{
+    const btn = document.getElementById('orcTab_'+t);
+    const panel = document.getElementById('orcPanel-'+t);
+    if(btn) btn.classList.toggle('btn-acc', t===tab);
+    if(panel) panel.style.display = t===tab ? 'block' : 'none';
+  });
+  if(tab==='pend') renderOrcPend();
+  else if(tab==='gerador') renderOrcGerador(_orcGeradorId);
+  else if(tab==='hist') renderOrcHist();
+}
+
+// ── Badge no sidebar ──
+function _atualizarOrcBadge(){
+  const pendentes = ordens.filter(o=>o.col==='orcamento');
+  const badge = document.getElementById('orcBadge');
+  if(badge){
+    badge.textContent = pendentes.length;
+    badge.style.display = pendentes.length > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+// ── Popular filtro de vendedor ──
+function _popularFiltroVendOrc(){
+  if(!isAdmin()) return;
+  const sel = document.getElementById('orcFiltroVend');
+  if(!sel) return;
+  const valAtual = sel.value;
+  sel.innerHTML = '<option value="">Todos os vendedores</option>';
+  usuarios.forEach(u=>{
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.nome;
+    sel.appendChild(opt);
+  });
+  if(valAtual) sel.value = valAtual;
+  sel.style.display = isAdmin() ? 'inline-block' : 'none';
+}
+
+// ── Sub-aba Pendentes ──
+function debounceOrc(){ clearTimeout(_orcDebTimer); _orcDebTimer = setTimeout(renderOrcPend, 200); }
+
+function renderOrcPend(){
+  const lista = document.getElementById('orcPendLista');
+  if(!lista) return;
+  const q = (document.getElementById('orcSearch')?.value||'').toLowerCase();
+  const filtroVend = document.getElementById('orcFiltroVend')?.value||'';
+  const uid = _perfil?.id;
+
+  let itens = ordens.filter(o=>o.col==='orcamento');
+  // Vendedor vê só os seus; admin vê tudo
+  if(!isAdmin()) itens = itens.filter(o=>o.usuario_id===uid);
+  else if(filtroVend) itens = itens.filter(o=>o.usuario_id===filtroVend);
+  // Busca textual
+  if(q) itens = itens.filter(o=>(o.nome||'').toLowerCase().includes(q)||(o.bairro||'').toLowerCase().includes(q)||(o.crm_id||'').toLowerCase().includes(q));
+  // Mais recentes primeiro
+  itens = [...itens].sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em));
+
+  const sub = document.getElementById('orcSubtitle');
+  if(sub) sub.textContent = itens.length + ' orçamento(s) pendente(s)';
+
+  if(!itens.length){
+    lista.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--mut2)">
+      <div style="font-size:32px;margin-bottom:12px">📄</div>
+      <div style="font-size:14px;font-weight:600">Nenhum orçamento pendente</div>
+      <div style="font-size:12px;margin-top:6px">Os orçamentos recebidos pelo cadastro.html aparecem aqui</div>
+    </div>`;
+    return;
+  }
+
+  lista.innerHTML = itens.map(o=>{
+    const vend = usuarios.find(u=>u.id===o.usuario_id);
+    const vendNome = vend?.nome || 'Sem vendedor';
+    const data = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—';
+    const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : null;
+    const vencida = o.orc_validade && new Date(o.orc_validade+'T00:00:00') < new Date();
+    const valorFmt = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700;margin-bottom:2px">${o.crm_id||'—'}</div>
+          <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div>
+          <div style="font-size:12px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--mut2)">Entrada: ${data}</div>
+          ${isAdmin()?`<div style="font-size:11px;color:var(--mut);margin-top:2px">👤 ${vendNome}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;background:var(--card);border:1px solid var(--bor);border-radius:20px;padding:3px 10px;color:var(--mut2)">${o.tipo||'—'}</span>
+        ${valorFmt!=='—'?`<span style="font-size:12px;font-weight:700;color:var(--g)">${valorFmt}</span>`:''}
+        ${validade?`<span style="font-size:11px;border-radius:20px;padding:3px 10px;background:${vencida?'var(--r2)':'var(--card)'};border:1px solid ${vencida?'var(--r3)':'var(--bor)'};color:${vencida?'var(--r)':'var(--mut2)'}">📅 ${vencida?'Vencido':'Válido até'} ${validade}</span>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
+        <button class="btn btn-sm btn-g" onclick="confirmarConverterOrc('${o.id}')">✅ Converter em Ordem</button>
+        <button class="btn btn-sm btn-wa" onclick="enviarWaOrc('${o.id}')">💬 WhatsApp</button>
+        <button class="btn btn-sm" onclick="confirmarArquivarOrc('${o.id}')">🏆 Arquivar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Sub-aba Gerador de PDF ──
+function abrirOrcGerador(id){
+  _orcGeradorId = id;
+  setOrcTab('gerador');
+}
+
+function renderOrcGerador(id){
+  const cont = document.getElementById('orcGeradorConteudo');
+  if(!cont) return;
+
+  const o = id ? ordens.find(x=>x.id===id) : null;
+  const vend = o ? (usuarios.find(u=>u.id===o.usuario_id)||_perfil) : _perfil;
+  const marcaCor = vend?.marca_cor||'#f5a623';
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo = vend?.marca_logo_url||'';
+  const marcaSlogan = vend?.marca_slogan||'';
+
+  // Validade padrão = hoje + 3 dias
+  const dataHoje = new Date();
+  const dataValPad = new Date(dataHoje.getTime()+3*24*60*60*1000).toISOString().split('T')[0];
+
+  cont.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:700px">
+      <!-- Painel esquerdo: campos -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">📋 Dados do Orçamento</div>
+          ${o?`<div style="font-size:11px;font-family:var(--mono);color:var(--acc);margin-bottom:8px">${o.crm_id}</div>`:''}
+          <div class="fi"><label>Cliente</label><input type="text" id="orc_g_nome" value="${o?.nome||''}" placeholder="Nome do cliente"></div>
+          <div class="fi"><label>Endereço</label><input type="text" id="orc_g_end" value="${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')}" placeholder="Endereço completo"></div>
+          <div class="fi"><label>Tipo de Resíduo / Serviço</label><input type="text" id="orc_g_tipo" value="${o?.tipo||''}" placeholder="Ex: 1 caçamba entulho"></div>
+          <div class="fi-row">
+            <div class="fi"><label>Prazo de locação (dias)</label><input type="number" id="orc_g_prazo" value="${o?.orc_prazo||7}" min="1" placeholder="7"></div>
+            <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}"></div>
+          </div>
+          <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi"><label>Observações</label><textarea id="orc_g_obs" rows="3" placeholder="Informações adicionais, condições...">${o?.obs||''}</textarea></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-acc" onclick="gerarPDFOrcamento()">📄 Gerar PDF</button>
+          ${o?`<button class="btn btn-wa" onclick="salvarDadosOrcEEnviarWA('${o.id}')">💬 Salvar e enviar WA</button>`:''}
+          ${o?`<button class="btn btn-g" onclick="confirmarConverterOrc('${o.id}')">✅ Converter em Ordem</button>`:''}
+        </div>
+      </div>
+      <!-- Painel direito: preview -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👁 Preview</div>
+        <div id="orcPdfPreview" style="background:#fff;border-radius:var(--rad2);padding:20px;color:#111;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.3);min-height:300px">
+          <!-- Cabeçalho -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid ${marcaCor}">
+            <div>
+              ${marcaLogo?`<img src="${marcaLogo}" style="height:40px;object-fit:contain;margin-bottom:4px"><br>`:''}
+              <div style="font-size:15px;font-weight:800;color:${marcaCor}">${marcaNome}</div>
+              ${marcaSlogan?`<div style="font-size:9px;color:#666">${marcaSlogan}</div>`:''}
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:14px;font-weight:800;color:${marcaCor}">ORÇAMENTO</div>
+              <div style="font-size:9px;color:#888">${o?.crm_id||'ORC202600000'}</div>
+              <div style="font-size:9px;color:#888">${new Date().toLocaleDateString('pt-BR')}</div>
+            </div>
+          </div>
+          <!-- Cliente -->
+          <div style="background:#f8f8f8;border-radius:6px;padding:10px;margin-bottom:10px">
+            <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:4px">Cliente</div>
+            <div id="prev_nome" style="font-weight:700;font-size:12px">${o?.nome||'—'}</div>
+            <div id="prev_end" style="color:#555;font-size:10px">${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')||'—'}</div>
+          </div>
+          <!-- Serviço -->
+          <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+            <thead><tr style="background:${marcaCor}"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#fff;font-weight:700">SERVIÇO</th><th style="padding:6px 8px;text-align:center;font-size:9px;color:#fff;font-weight:700">PRAZO</th><th style="padding:6px 8px;text-align:right;font-size:9px;color:#fff;font-weight:700">VALOR</th></tr></thead>
+            <tbody><tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px;font-size:10px" id="prev_tipo">${o?.tipo||'—'}</td>
+              <td style="padding:8px;text-align:center;font-size:10px" id="prev_prazo">${o?.orc_prazo||7} dias</td>
+              <td style="padding:8px;text-align:right;font-weight:800;font-size:13px;color:${marcaCor}" id="prev_valor">${o?.orc_valor?'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+            </tr></tbody>
+          </table>
+          <!-- Validade e obs -->
+          <div style="font-size:9px;color:#888;margin-bottom:6px" id="prev_validade">Válido até: ${o?.orc_validade?new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+          <div id="prev_obs" style="font-size:9px;color:#555;background:#fffbe6;border-radius:4px;padding:6px;display:${o?.obs?'block':'none'}">${o?.obs||''}</div>
+          <!-- Rodapé -->
+          <div style="margin-top:14px;padding-top:10px;border-top:1px solid #eee;font-size:8px;color:#aaa;text-align:center">
+            CaçambaSP — cacambasp@gmail.com — CNPJ: 00.000.000/0001-00
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function atualizarPreviewPDF(){
+  const valor = parseFloat(document.getElementById('orc_g_valor')?.value||0);
+  const el = document.getElementById('prev_valor');
+  if(el) el.textContent = valor>0?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+}
+
+async function gerarPDFOrcamento(){
+  // Salva dados no banco se tiver ID, depois abre janela de impressão
+  const id = _orcGeradorId;
+  const valor = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
+  const validade = document.getElementById('orc_g_validade')?.value||null;
+  const prazo = parseInt(document.getElementById('orc_g_prazo')?.value||7);
+  const obs = document.getElementById('orc_g_obs')?.value||'';
+
+  if(id){
+    try{
+      await api('ordens?id=eq.'+id,{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},'PATCH',tok());
+      // Atualiza local
+      const idx=ordens.findIndex(x=>x.id===id);
+      if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
+      toast('Dados salvos','ok');
+    }catch(e){ toast('Erro ao salvar','err'); }
+  }
+
+  // Abre preview em nova janela para impressão
+  const o = id ? ordens.find(x=>x.id===id) : {};
+  const vend = o ? (usuarios.find(u=>u.id===o?.usuario_id)||_perfil) : _perfil;
+  const marcaCor = vend?.marca_cor||'#f5a623';
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo = vend?.marca_logo_url||'';
+  const marcaSlogan = vend?.marca_slogan||'';
+  const nome = document.getElementById('orc_g_nome')?.value||o?.nome||'—';
+  const end = document.getElementById('orc_g_end')?.value||[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')||'—';
+  const tipo = document.getElementById('orc_g_tipo')?.value||o?.tipo||'—';
+  const valorFmt = valor?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  const validadeFmt = validade?new Date(validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
+  const obsTexto = obs;
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Orçamento ${o?.crm_id||''}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:680px;margin:0 auto}
+    @media print{body{padding:16px}.no-print{display:none!important}}
+    .cabecalho{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid ${marcaCor}}
+    .marca-nome{font-size:20px;font-weight:800;color:${marcaCor}}
+    .marca-slogan{font-size:10px;color:#888;margin-top:2px}
+    .orc-titulo{font-size:18px;font-weight:800;color:${marcaCor};text-align:right}
+    .orc-cod{font-size:10px;color:#888;text-align:right}
+    .secao{background:#f7f7f7;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+    .secao-label{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin-bottom:14px}
+    thead tr{background:${marcaCor}}
+    thead th{padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+    tbody td{padding:10px;border-bottom:1px solid #eee;font-size:11px}
+    .valor-cell{font-size:16px;font-weight:800;color:${marcaCor};text-align:right}
+    .validade{font-size:10px;color:#888;margin-bottom:8px}
+    .obs-box{background:#fffbe6;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:10px;color:#555;margin-bottom:14px}
+    .rodape{border-top:1px solid #eee;padding-top:12px;font-size:9px;color:#aaa;text-align:center;margin-top:16px}
+    .btn-print{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#000;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px}
+  </style></head><body>
+  <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <div class="cabecalho">
+    <div>${marcaLogo?`<img src="${marcaLogo}" style="height:48px;object-fit:contain;margin-bottom:4px"><br>`:''}<div class="marca-nome">${marcaNome}</div>${marcaSlogan?`<div class="marca-slogan">${marcaSlogan}</div>`:''}</div>
+    <div><div class="orc-titulo">ORÇAMENTO</div><div class="orc-cod">${o?.crm_id||''}</div><div class="orc-cod">${new Date().toLocaleDateString('pt-BR')}</div></div>
+  </div>
+  <div class="secao"><div class="secao-label">Para</div><div style="font-size:14px;font-weight:700">${nome}</div><div style="font-size:11px;color:#555;margin-top:2px">${end}</div></div>
+  <table>
+    <thead><tr><th style="text-align:left">Descrição do Serviço</th><th style="text-align:center">Prazo</th><th style="text-align:right">Valor</th></tr></thead>
+    <tbody><tr>
+      <td>${tipo}</td>
+      <td style="text-align:center">${prazo} dias</td>
+      <td class="valor-cell">${valorFmt}</td>
+    </tr></tbody>
+  </table>
+  <div class="validade">📅 Proposta válida até: <strong>${validadeFmt}</strong></div>
+  ${obsTexto?`<div class="obs-box">📝 <strong>Observações:</strong> ${obsTexto}</div>`:''}
+  <div class="rodape">CaçambaSP · cacambasp@gmail.com · Para aceitar este orçamento, responda esta mensagem ou entre em contato conosco.</div>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('Popup bloqueado. Habilite popups para gerar o PDF.','warn');
+}
+
+async function salvarDadosOrcEEnviarWA(id){
+  const valor = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
+  const validade = document.getElementById('orc_g_validade')?.value||null;
+  const prazo = parseInt(document.getElementById('orc_g_prazo')?.value||7);
+  const obs = document.getElementById('orc_g_obs')?.value||'';
+  try{
+    await api('ordens?id=eq.'+id,{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},'PATCH',tok());
+    const idx=ordens.findIndex(x=>x.id===id);
+    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
+    toast('Dados salvos','ok');
+  }catch(e){ toast('Erro ao salvar','err'); return; }
+  enviarWaOrc(id);
+}
+
+function enviarWaOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  const vend = usuarios.find(u=>u.id===o.usuario_id)||_perfil;
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const valor = o.orc_valor?'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'a confirmar';
+  const validade = o.orc_validade?new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
+  const prazo = o.orc_prazo||7;
+  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento solicitado:\n\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${[o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}\n📅 *Prazo de locação:* ${prazo} dias\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Para confirmar, basta responder esta mensagem!\n\n_${marcaNome}_`;
+  const cel = (o.cel||'').replace(/\D/g,'');
+  const num = cel.length===11?'55'+cel:cel.length===13?cel:cel;
+  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ── Converter em Ordem ──
+async function confirmarConverterOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  if(!confirm(`Converter orçamento ${o.crm_id} de "${o.nome}" em Ordem de Serviço?\n\nA ordem entrará no Kanban como "Contratar Fornecedor".`)) return;
+  await converterOrcEmOrdem(id);
+}
+
+async function converterOrcEmOrdem(id){
+  try{
+    const o = ordens.find(x=>x.id===id);
+    if(!o){ toast('Orçamento não encontrado','err'); return; }
+    // Gera novo crm_id tipo LC
+    const anoAtual = new Date().getFullYear();
+    const lcs = ordens.filter(x=>x.crm_id&&x.crm_id.startsWith('LC'+anoAtual));
+    const proxNum = lcs.length+1;
+    const novoCrmId = 'LC'+anoAtual+String(proxNum).padStart(8,'0');
+    // Move para coluna contratar e troca o crm_id
+    await api('ordens?id=eq.'+id,{
+      col:'contratar',
+      crm_id:novoCrmId,
+      orc_convertido_em:new Date().toISOString()
+    },'PATCH',tok());
+    // Atualiza local
+    const idx=ordens.findIndex(x=>x.id===id);
+    if(idx>=0) Object.assign(ordens[idx],{col:'contratar',crm_id:novoCrmId,orc_convertido_em:new Date().toISOString()});
+    toast(`✅ Convertido! Código: ${novoCrmId}`,'ok');
+    _atualizarOrcBadge();
+    renderOrcPend();
+    renderBoard();
+  }catch(e){
+    console.error(e);
+    toast('Erro ao converter orçamento','err');
+  }
+}
+
+// ── Arquivar orçamento ──
+async function confirmarArquivarOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  if(!confirm(`Arquivar orçamento ${o.crm_id}?\n\nEle irá para o Histórico.`)) return;
+  try{
+    await api('ordens?id=eq.'+id,{col:'concluido',concluido_em:new Date().toISOString()},'PATCH',tok());
+    const idx=ordens.findIndex(x=>x.id===id);
+    if(idx>=0) Object.assign(ordens[idx],{col:'concluido',concluido_em:new Date().toISOString()});
+    toast('Orçamento arquivado','ok');
+    _atualizarOrcBadge();
+    renderOrcPend();
+  }catch(e){ toast('Erro ao arquivar','err'); }
+}
+
+// ── Sub-aba Histórico ──
+function debounceOrcHist(){ clearTimeout(_orcHistDebTimer); _orcHistDebTimer = setTimeout(renderOrcHist, 200); }
+
+function renderOrcHist(){
+  const lista = document.getElementById('orcHistLista');
+  if(!lista) return;
+  const q = (document.getElementById('orcHistSearch')?.value||'').toLowerCase();
+  const de = document.getElementById('orcHistDe')?.value;
+  const ate = document.getElementById('orcHistAte')?.value;
+  const uid = _perfil?.id;
+
+  // Histórico = ordens que eram ORC e foram convertidas ou arquivadas
+  let itens = ordens.filter(o=>(o.crm_id||'').startsWith('ORC')||(o.orc_convertido_em));
+  // Excluir os que ainda estão pendentes
+  itens = itens.filter(o=>o.col!=='orcamento');
+  if(!isAdmin()) itens = itens.filter(o=>o.usuario_id===uid);
+  if(q) itens = itens.filter(o=>(o.nome||'').toLowerCase().includes(q)||(o.bairro||'').toLowerCase().includes(q)||(o.crm_id||'').toLowerCase().includes(q));
+  if(de) itens = itens.filter(o=>o.criado_em && new Date(o.criado_em)>=new Date(de));
+  if(ate) itens = itens.filter(o=>o.criado_em && new Date(o.criado_em)<=new Date(ate+'T23:59:59'));
+  itens = [...itens].sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em));
+
+  if(!itens.length){
+    lista.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--mut2)">
+      <div style="font-size:32px;margin-bottom:12px">🏆</div>
+      <div style="font-size:14px;font-weight:600">Nenhum orçamento no histórico</div>
+    </div>`;
+    return;
+  }
+
+  lista.innerHTML = itens.map(o=>{
+    const convertido = !!o.orc_convertido_em;
+    const data = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—';
+    const status = convertido
+      ? `<span style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700">✅ Convertido → ${o.crm_id}</span>`
+      : `<span style="background:var(--card);color:var(--mut2);border:1px solid var(--bor);border-radius:20px;padding:2px 10px;font-size:10px;">🏆 Arquivado</span>`;
+    const valorFmt = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--mut2);margin-bottom:2px">${o.crm_id||'—'}</div>
+        <div style="font-size:13px;font-weight:700">${o.nome||'—'}</div>
+        <div style="font-size:11px;color:var(--mut2)">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'} · ${data}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        ${valorFmt!=='—'?`<span style="font-size:13px;font-weight:700;color:var(--g)">${valorFmt}</span>`:''}
+        ${status}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Atualizar badge sempre que ordens mudam ──
+// Badge é atualizado automaticamente via _atualizarOrcBadge() chamado em renderOrc()
 </script>
 
 <!-- BOTTOM NAV MOBILE -->
