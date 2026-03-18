@@ -1492,7 +1492,7 @@ function toggleBottomMenu(){
   overlay.style.display=show?'block':'none';
 }
 function _updateBnbBadge(){
-  const n=ordens.filter(c=>c.col==='inadimp'&&c.col!=='concluido').length;
+  const n=ordens.filter(c=>c.col==='inadimp').length;
   const b=document.getElementById('bnbBadge');
   if(b){b.textContent=n;b.classList.toggle('show',n>0);}
 }
@@ -1570,7 +1570,7 @@ function clearFilter(){
 
 // ── STATS ──
 function renderStats(){
-  const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido');
+  const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const pagos=src.filter(c=>c.pago).length;
@@ -1594,14 +1594,14 @@ function renderInadBadge(){
   _atualizarCobrBadge();
 }
 function _atualizarCobrBadge(){
-  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA).length;
+  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA).length;
   const b=document.getElementById('cobrBadge');
   if(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';}
 }
 
 // ── KANBAN ──
 function renderBoard(){
-  const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido');
+  const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   const board=document.getElementById('board');
   board.innerHTML='';
   COLS.forEach(col=>{
@@ -1988,7 +1988,7 @@ function updNFPreview(){
 function verificarInadimplente(cel){
   if(!cel||cel.length<8)return;
   const telLimpo=cel.replace(/\D/g,'');
-  const devedoras=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&(c.cel||'').replace(/\D/g,'')===telLimpo);
+  const devedoras=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===telLimpo);
   const avisoEl=document.getElementById('o_inad_aviso');if(!avisoEl)return;
   if(devedoras.length){
     const total=devedoras.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
@@ -2254,7 +2254,7 @@ function _renderOutrasOrdens(c){
   if(!el)return;
   _outrasOrdensCheck.clear();
   const tel=(c.cel||'').replace(/\D/g,'');
-  const outras=ordens.filter(x=>x.id!==c.id&&x.col!=='concluido'&&tel&&(x.cel||'').replace(/\D/g,'')===tel);
+  const outras=ordens.filter(x=>x.id!==c.id&&x.col!=='concluido'&&x.col!=='orcamento'&&tel&&(x.cel||'').replace(/\D/g,'')===tel);
   if(!outras.length){el.style.display='none';return;}
   el.style.display='block';
   el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">
@@ -2817,7 +2817,7 @@ function _cobrarRow(c, tipo){
 // Cobrar em lote — abre WhatsApp um por vez com intervalo
 let _cobrarLoteIdx = 0, _cobrarLoteFila = [];
 function cobrarLote(tipo){
-  const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.rec > 0 && c.cel)
+  const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.col !== 'orcamento' && c.rec > 0 && c.cel)
     .map(c => ({ ...c, dias: diasEmAberto(c) }));
   _cobrarLoteFila = tipo==='critico'
     ? pendentes.filter(c => c.dias >= COBR_DIAS_CRITICO)
@@ -3279,7 +3279,7 @@ function setFinFiltro(f){
   renderFinanceiro();
 }
 function _finFilter(){
-  const a=ordens.filter(c=>c.col!=='concluido');
+  const a=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   if(_finFiltro==='todos') return a;
   if(_finFiltro==='falta_cli') return a.filter(c=>!c.pago&&c.col!=='inadimp');
   if(_finFiltro==='falta_forn') return a.filter(c=>!c.forn_pago);
@@ -3288,7 +3288,7 @@ function _finFilter(){
   return a;
 }
 function _finCounts(){
-  const a=ordens.filter(c=>c.col!=='concluido');
+  const a=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   return{
     todos:a.length,
     falta_cli:a.filter(c=>!c.pago&&c.col!=='inadimp').length,
@@ -3480,7 +3480,7 @@ async function confirmarExcluirTodos(){
   const ok=await showConfirm({ico:'🗑',title:'Excluir todo o histórico',body:`<span style="color:var(--r)">Excluir permanentemente ${n} ordem(ns)?<br>Esta ação não pode ser desfeita.</span>`,ok:'🗑 Excluir',okClass:'btn-r'});
   if(!ok)return;
   const ids=ordens.filter(c=>c.col==='concluido').map(c=>c.id);
-  ordens=ordens.filter(c=>c.col!=='concluido');
+  ordens=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   renderHist(); renderStats();
   const CHUNK=50;
   for(let i=0;i<ids.length;i+=CHUNK){
@@ -3673,7 +3673,7 @@ function renderExtratoRevisao(){
     if(idLimpo.startsWith('GRP')){
       tipo='grp';
       const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'XXXXX';
-      const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&(c.nome||'').toLowerCase().includes(nomePag));
+      const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.nome||'').toLowerCase().includes(nomePag));
       ordemMatch=cands.length===1?cands[0]:null;
     }else{
       ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
@@ -3741,7 +3741,7 @@ async function confirmarBaixaExtrato(){
   _extratoDados=[];_extratoConfirm=[];renderConcExtrato();
 }
 function renderConcManual(){
-  const pend=ordens.filter(c=>!c.pago&&c.col!=='concluido').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const pend=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   if(!pend.length){document.getElementById('concPanel-manual').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Todos os negócios estão pagos!</div>';return;}
   document.getElementById('concPanel-manual').innerHTML=pend.map(c=>`
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:13px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -3870,7 +3870,7 @@ function _relResumo(src,nm){
   const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
   const mg=tr-tc; const mgR=mg-imp;
   const pagos=src.filter(c=>c.pago).length;
-  const inad=src.filter(c=>!c.pago&&c.col!=='concluido');
+  const inad=src.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento');
   const tidx=inad.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const comNF=src.filter(c=>c.nf_num).length;
   const ticketMed=src.length?tr/src.length:0;
@@ -3981,7 +3981,7 @@ function _relRecebimento(src,nm){
 }
 function _relInadimp(src,nm){
   // Inadimplentes = sem pagamento do cliente, ainda ativas
-  const inad=ordens.filter(c=>!c.pago&&c.col!=='concluido').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const inad=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const total=inad.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   if(!inad.length)return`<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum inadimplente no momento!</div>`;
   return `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
@@ -4139,7 +4139,7 @@ function renderForns(){
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
     const cor=f.color||cores[i%cores.length];
     const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido');
+    const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');
     return `<div class="sup-card">
       <div class="sup-head" onclick="toggleSupBody('sup_${f.id}')">
         <div class="sup-av" style="background:${cor}22;color:${cor}">${ini}</div>
