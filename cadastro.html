@@ -387,17 +387,24 @@ function updateQtdInfo(){
 
 // ── PRÓXIMO CRM ID ──
 async function getNextCrmId(prefixo){
+  const ano = new Date().getFullYear();
+  const base = prefixo + ano;
   try{
-    const r = await fetch(SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=not.is.null&order=criado_em.desc&limit=1',{
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
-    });
+    // Busca TODOS os crm_ids com esse prefixo e pega o maior número
+    const r = await fetch(
+      SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=like.'+base+'*',
+      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
+    );
     const data = await r.json();
-    if(data?.length && data[0].crm_id){
-      const num = parseInt(data[0].crm_id.replace(/\D/g,'').slice(-4))||0;
-      return {base: prefixo + new Date().getFullYear(), num: num+1};
+    if(data?.length){
+      const maxNum = data.reduce((max, row)=>{
+        const n = parseInt((row.crm_id||'').replace(/\D/g,'').slice(-4))||0;
+        return n > max ? n : max;
+      }, 0);
+      return {base, num: maxNum+1};
     }
   }catch(e){}
-  return {base: prefixo + new Date().getFullYear(), num:1};
+  return {base, num:1};
 }
 
 function showErr(id, show){
