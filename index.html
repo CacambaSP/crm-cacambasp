@@ -4850,6 +4850,109 @@ async function confirmarExcluirTodosOrcHist(){
   }catch(e){ toast('Erro ao excluir','err'); }
 }
 
+// ── Converter orçamento em ordem ──
+async function confirmarConverterOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o){ toast('Orçamento não encontrado','err'); return; }
+  const ok = await showConfirm({
+    ico:'✅',
+    title:'Converter em Ordem',
+    body:`Converter o orçamento <strong>${o.crm_id||''}</strong> de <strong>${o.nome||''}</strong> em ordem de locação? Ele entrará no Kanban como "Contratar Fornecedor".`,
+    ok:'✅ Converter',
+    okClass:'btn-g'
+  });
+  if(!ok) return;
+  const novoCrmId = nextCrmId();
+  const agora = nowISO();
+  const patch = {
+    col: 'contratar',
+    crm_id: novoCrmId,
+    orc_convertido_em: agora
+  };
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id, 'PATCH', patch, tok());
+    Object.assign(o, patch);
+    setSyncDot('ok');
+    renderBoard();
+    renderOrcPend();
+    _atualizarOrcBadge();
+    addLog(id, 'Orçamento convertido em ordem', novoCrmId);
+    toast('✅ Ordem '+novoCrmId+' criada no Kanban!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao converter','err'); }
+}
+
+// ── Arquivar orçamento ──
+async function confirmarArquivarOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  const ok = await showConfirm({
+    ico:'🏆',
+    title:'Arquivar Orçamento',
+    body:`Arquivar o orçamento <strong>${o.crm_id||''}</strong> de <strong>${o.nome||''}</strong>? Ele irá para o Histórico.`,
+    ok:'🏆 Arquivar',
+    okClass:'btn-acc'
+  });
+  if(!ok) return;
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id, 'PATCH', {col:'concluido'}, tok());
+    o.col = 'concluido';
+    setSyncDot('ok');
+    renderOrcPend();
+    renderOrcHist();
+    _atualizarOrcBadge();
+    toast('🏆 Orçamento arquivado!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao arquivar','err'); }
+}
+
+// ── Histórico de orçamentos ──
+function debounceOrcHist(){ clearTimeout(_orcHistDebTimer); _orcHistDebTimer = setTimeout(renderOrcHist, 200); }
+
+function renderOrcHist(){
+  const lista = document.getElementById('orcHistLista');
+  if(!lista) return;
+  const de = document.getElementById('orcHistDe')?.value;
+  const ate = document.getElementById('orcHistAte')?.value;
+  // Histórico = orçamentos arquivados (col=concluido com crm_id ORC) OU já convertidos
+  let itens = ordens.filter(o=>{
+    const isOrc = (o.crm_id||'').startsWith('ORC') || o.orc_convertido_em;
+    const isArq = o.col==='concluido' || o.orc_convertido_em;
+    return isOrc && isArq;
+  });
+  if(de) itens = itens.filter(o=>o.criado_em && o.criado_em.slice(0,10)>=de);
+  if(ate) itens = itens.filter(o=>o.criado_em && o.criado_em.slice(0,10)<=ate);
+  itens = [...itens].sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em));
+
+  if(!itens.length){
+    lista.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--mut2)">
+      <div style="font-size:32px;margin-bottom:12px">🏆</div>
+      <div style="font-size:14px;font-weight:600">Nenhum orçamento no histórico</div>
+    </div>`;
+    return;
+  }
+  lista.innerHTML = itens.map(o=>{
+    const convertido = !!o.orc_convertido_em;
+    const data = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—';
+    const valorFmt = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    const statusBadge = convertido
+      ? `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✅ Convertido</span>`
+      : `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--card);border:1px solid var(--bor);color:var(--mut2)">🏆 Arquivado</span>`;
+    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700">${o.crm_id||'—'}</div>
+        <div style="font-size:13px;font-weight:600">${o.nome||'—'}</div>
+        <div style="font-size:11px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'} · ${data}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        ${valorFmt!=='—'?`<span style="font-size:12px;font-weight:700;color:var(--g)">${valorFmt}</span>`:''}
+        ${statusBadge}
+        ${!convertido?`<button class="btn btn-xs btn-r" onclick="confirmarExcluirOrcHist('${o.id}','${o.crm_id||''}')">🗑</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ── Render principal ──
 function renderOrc(){
   _atualizarOrcBadge();
