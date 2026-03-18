@@ -5266,6 +5266,39 @@ function baixarPDFDireto(id){
   const d = _pdfDados(o, null);
   _abrirPDFPorTema(d);
 }
+
+async function salvarDadosOrcEEnviarWA(id){
+  const valor    = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
+  const validade = document.getElementById('orc_g_validade')?.value||null;
+  const prazo    = parseInt(document.getElementById('orc_g_prazo')?.value||7);
+  const obs      = document.getElementById('orc_g_obs')?.value||'';
+  try{
+    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},tok());
+    const idx=ordens.findIndex(x=>x.id===id);
+    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
+    toast('Dados salvos','ok');
+  }catch(e){ toast('Erro ao salvar','err'); return; }
+  enviarWaOrc(id);
+}
+
+function enviarWaOrc(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  const vend = usuarios.find(u=>u.id===o.usuario_id)||_perfil;
+  const marcaNome   = vend?.marca_nome   || 'CaçambaSP';
+  const marcaSlogan = vend?.marca_slogan || '';
+  const marcaTelRaw = (vend?.marca_tel||'').replace(/\D/g,'');
+  const waResposta  = marcaTelRaw.length>=10 ? marcaTelRaw : '551142378757';
+  const valor    = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'a confirmar';
+  const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const prazo    = o.orc_prazo||7;
+  const endFmt   = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento da *${marcaNome}*:\n\n📋 *Orçamento:* ${o.crm_id||''}\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${endFmt}\n📅 *Prazo de locação:* ${prazo} dias\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Qualquer dúvida, fale comigo aqui pelo WhatsApp! 😊\n\n_${marcaNome}${marcaSlogan?' · '+marcaSlogan:''}_`;
+  const cel = (o.cel||'').replace(/\D/g,'');
+  const celLimpo = cel.startsWith('55') && cel.length>=12 ? cel.slice(2) : cel;
+  const numCliente = '55'+celLimpo;
+  window.open('https://wa.me/'+numCliente+'?text='+encodeURIComponent(msg),'_blank');
+}
 </script>
 
 <!-- BOTTOM NAV MOBILE -->
