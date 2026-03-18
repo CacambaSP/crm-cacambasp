@@ -254,7 +254,7 @@ select option{background:#191c26;color:#e6e8f0}
 // ── CONFIG ──
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
-const EQUIPE_WA = '5511142378757';
+const EQUIPE_WA = '551142378757';
 
 // Pega uid do vendedor pela URL (?v=xxx)
 const params = new URLSearchParams(window.location.search);
@@ -387,17 +387,21 @@ function updateQtdInfo(){
 
 // ── PRÓXIMO CRM ID ──
 async function getNextCrmId(prefixo){
+  const ano = new Date().getFullYear();
+  const base = prefixo + ano;
   try{
-    const r = await fetch(SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=not.is.null&order=criado_em.desc&limit=1',{
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
-    });
+    // Filtra pelo prefixo correto (ORC ou LC) — sequências independentes
+    const r = await fetch(
+      SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=like.'+base+'*&order=criado_em.desc&limit=1',
+      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
+    );
     const data = await r.json();
     if(data?.length && data[0].crm_id){
       const num = parseInt(data[0].crm_id.replace(/\D/g,'').slice(-4))||0;
-      return {base: prefixo + new Date().getFullYear(), num: num+1};
+      return {base, num: num+1};
     }
   }catch(e){}
-  return {base: prefixo + new Date().getFullYear(), num:1};
+  return {base, num:1};
 }
 
 function showErr(id, show){
