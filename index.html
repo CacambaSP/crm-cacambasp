@@ -816,11 +816,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <div class="fi"><label>CEP</label><input type="text" id="o_cep"></div>
         <div class="fi"><label>Tipo de serviço</label>
           <select id="o_tipo">
-            <option>1 caçamba (troca)</option>
-            <option>1 caçamba (retirada)</option>
-            <option>2 caçambas</option>
-            <option>Caçamba demolição</option>
-            <option>Caçamba entulho leve</option>
+            <option>Nova coloca</option>
+            <option>Troca</option>
           </select>
         </div>
       </div>
@@ -1872,7 +1869,7 @@ function openNovaOrdem(){
   const _inadEl=document.getElementById('o_inad_aviso');if(_inadEl)_inadEl.style.display='none';
   document.getElementById('o_rec').value=''; document.getElementById('o_cst').value='';
   document.getElementById('o_data').value=new Date().toISOString().slice(0,10);
-  document.getElementById('o_tipo').value='1 caçamba (troca)';
+  document.getElementById('o_tipo').value='Nova coloca';
   const fSel=document.getElementById('o_forn');
   fSel.innerHTML='<option value="">- Selecionar -</option>';
   forns.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;fSel.appendChild(o);});
@@ -1894,7 +1891,7 @@ function editarOrdemAtual(){
   document.getElementById('o_bairro').value=c.bairro||'';
   document.getElementById('o_cidade').value=c.cidade||'';
   document.getElementById('o_cep').value=c.cep||'';
-  document.getElementById('o_tipo').value=c.tipo||'1 caçamba (troca)';
+  document.getElementById('o_tipo').value=c.tipo||'Nova coloca';
   document.getElementById('o_data').value=c.data||'';
   document.getElementById('o_obs').value=c.obs||'';
   document.getElementById('o_rec').value=c.rec||'';
