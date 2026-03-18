@@ -254,7 +254,7 @@ select option{background:#191c26;color:#e6e8f0}
 // ── CONFIG ──
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
-const EQUIPE_WA = '551142378757';
+const EQUIPE_WA = '5511142378757';
 
 // Pega uid do vendedor pela URL (?v=xxx)
 const params = new URLSearchParams(window.location.search);
@@ -387,21 +387,17 @@ function updateQtdInfo(){
 
 // ── PRÓXIMO CRM ID ──
 async function getNextCrmId(prefixo){
-  const ano = new Date().getFullYear();
-  const base = prefixo + ano;
   try{
-    // Filtra pelo prefixo correto (ORC ou LC) — sequências independentes
-    const r = await fetch(
-      SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=like.'+base+'*&order=criado_em.desc&limit=1',
-      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
-    );
+    const r = await fetch(SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=not.is.null&order=criado_em.desc&limit=1',{
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+    });
     const data = await r.json();
     if(data?.length && data[0].crm_id){
       const num = parseInt(data[0].crm_id.replace(/\D/g,'').slice(-4))||0;
-      return {base, num: num+1};
+      return {base: prefixo + new Date().getFullYear(), num: num+1};
     }
   }catch(e){}
-  return {base, num:1};
+  return {base: prefixo + new Date().getFullYear(), num:1};
 }
 
 function showErr(id, show){
@@ -511,13 +507,11 @@ async function enviarCadastro(){
         cep,
         tipo: qtd > 1 ? tipo + ' (' + (i+1) + '/' + qtd + ')' : tipo,
         data,
-        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + obs,
+        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + (_cadTemNF?'[NF solicitada] ':'') + obs,
         rec: 0, cst: 0,
         pago: false, pago_em: null, pago_valor: null, pago_obs: null,
         forn_id: null,
         forn_pago: false, forn_pago_em: null, forn_pago_valor: null,
-        nf_num: '',
-        nf_solicitada: _cadTemNF === true,
         grp_id: '',
         usuario_id: VEND_UID,
         criado_em: new Date(Date.now() + i * 1000).toISOString()
