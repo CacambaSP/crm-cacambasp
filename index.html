@@ -4806,6 +4806,7 @@ function renderOrcPend(){
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
         <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
+        <button class="btn btn-sm" onclick="baixarPDFDireto('${o.id}')" title="Baixar PDF para enviar pelo WhatsApp">⬇️ Baixar PDF</button>
         <button class="btn btn-sm btn-g" onclick="confirmarConverterOrc('${o.id}')">✅ Converter em Ordem</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWaOrc('${o.id}')">💬 WhatsApp</button>
         <button class="btn btn-sm" onclick="confirmarArquivarOrc('${o.id}')">🏆 Arquivar</button>
@@ -5039,7 +5040,9 @@ function enviarWaOrc(id){
   const prazo = o.orc_prazo||7;
   const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento solicitado:\n\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${[o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}\n📅 *Prazo de locação:* ${prazo} dias\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Para confirmar, basta responder esta mensagem!\n\n_${marcaNome}_`;
   const cel = (o.cel||'').replace(/\D/g,'');
-  const num = cel.length===11?'55'+cel:cel.length===13?cel:cel;
+  // Normaliza: remove 55 do início se já tiver, depois adiciona
+  const celLimpo = cel.startsWith('55') && cel.length>=12 ? cel.slice(2) : cel;
+  const num = '55'+celLimpo;
   window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank');
 }
 
@@ -5146,7 +5149,49 @@ function renderOrcHist(){
 
 // ── Atualizar badge sempre que ordens mudam ──
 // Badge é atualizado automaticamente via _atualizarOrcBadge() chamado em renderOrc()
-</script>
+
+// ── Baixar PDF direto (para enviar pelo WhatsApp no celular) ──
+function baixarPDFDireto(id){
+  const o = ordens.find(x=>x.id===id);
+  if(!o){ toast('Orçamento não encontrado','err'); return; }
+  const vend = usuarios.find(u=>u.id===o.usuario_id)||_perfil;
+  const marcaCor = vend?.marca_cor||'#f5a623';
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo = vend?.marca_logo_url||'';
+  const marcaSlogan = vend?.marca_slogan||'';
+  const valorFmt = o.orc_valor?'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  const validadeFmt = o.orc_validade?new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
+  const prazoVal = o.orc_prazo||7;
+  const endFmt = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+  const obsHtml = o.obs?`<div style="background:#fffbe6;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:10px;color:#555;margin-bottom:14px">📝 ${o.obs}</div>`:'';
+  const logoHtml = marcaLogo?`<img src="${marcaLogo}" style="height:48px;object-fit:contain;margin-bottom:4px"><br>`:'';
+  const sloganHtml = marcaSlogan?`<div style="font-size:10px;color:#888;margin-top:2px">${marcaSlogan}</div>`:'';
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${o.crm_id||''}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:680px;margin:0 auto}
+  .cab{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid ${marcaCor}}
+  .mn{font-size:20px;font-weight:800;color:${marcaCor}}.ot{font-size:18px;font-weight:800;color:${marcaCor};text-align:right}.oc{font-size:10px;color:#888;text-align:right}
+  .sec{background:#f7f7f7;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px}thead tr{background:${marcaCor}}
+  thead th{padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase}
+  tbody td{padding:10px;border-bottom:1px solid #eee;font-size:11px}.vc{font-size:16px;font-weight:800;color:${marcaCor};text-align:right}
+  .rod{border-top:1px solid #eee;padding-top:12px;font-size:9px;color:#aaa;text-align:center;margin-top:16px}
+  .bp{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#000;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px}
+  @media print{.bp{display:none!important}}</style></head><body>
+  <button class="bp" onclick="window.print()">🖨️ Salvar como PDF</button>
+  <div class="cab"><div>${logoHtml}<div class="mn">${marcaNome}</div>${sloganHtml}</div>
+  <div><div class="ot">ORÇAMENTO</div><div class="oc">${o.crm_id||''}</div><div class="oc">${new Date().toLocaleDateString('pt-BR')}</div></div></div>
+  <div class="sec"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:6px">Para</div>
+  <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div><div style="font-size:11px;color:#555;margin-top:2px">${endFmt}</div></div>
+  <table><thead><tr><th style="text-align:left">Serviço</th><th style="text-align:center">Prazo</th><th style="text-align:right">Valor</th></tr></thead>
+  <tbody><tr><td>${o.tipo||'—'}</td><td style="text-align:center">${prazoVal} dias</td><td class="vc">${valorFmt}</td></tr></tbody></table>
+  <div style="font-size:10px;color:#888;margin-bottom:8px">📅 Válido até: <strong>${validadeFmt}</strong></div>
+  ${obsHtml}<div class="rod">CaçambaSP · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  if(win){win.document.write(html);win.document.close();}
+  else toast('Popup bloqueado. Habilite popups para gerar o PDF.','warn');
+}
 
 <!-- BOTTOM NAV MOBILE -->
 <nav class="bottom-nav" id="bottomNav">
