@@ -1619,9 +1619,9 @@ function renderBoard(){
         <div class="col-cnt">${cc.length}${isAdmin()&&tv?' · R$'+fmts(tv):''}</div>
       </div>
       <div class="col-cards" id="col_${col.id}"
-        ondragover="e=>{e.preventDefault();this.classList.add('drag-over')}"
+        ondragover="event.preventDefault();event.currentTarget.classList.add('drag-over')"
         ondrop="oDrop(event,'${col.id}')"
-        ondragleave="this.classList.remove('drag-over')">
+        ondragleave="event.currentTarget.classList.remove('drag-over')">
         ${cc.length===0?'<div class="empty-col">📭 Vazio</div>':''}
         ${cc.map(c=>cardHTML(c,col.color)).join('')}
       </div>`;
