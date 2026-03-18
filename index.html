@@ -4702,6 +4702,48 @@ let _orcHistDebTimer = null;
 // ── Atualizar badge sempre que ordens mudam ──
 // Badge é atualizado automaticamente via _atualizarOrcBadge() chamado em renderOrc()
 
+
+// ── Excluir orçamento do histórico ──
+async function confirmarExcluirOrcHist(id, crm){
+  const ordem = ordens.find(x=>x.id===id);
+  if(ordem && ordem.orc_convertido_em){
+    toast('Nao e possivel excluir um orcamento ja convertido em pedido. Exclua pelo Kanban se necessario.','warn');
+    return;
+  }
+  if(!confirm('Excluir o orcamento '+crm+' permanentemente? Esta acao nao pode ser desfeita.')) return;
+  try{
+    await api('ordens?id=eq.'+id,'DELETE',null,tok());
+    ordens = ordens.filter(x=>x.id!==id);
+    toast('Excluido com sucesso','ok');
+    renderOrcHist();
+    _atualizarOrcBadge();
+  }catch(e){ toast('Erro ao excluir','err'); }
+}
+
+async function confirmarExcluirTodosOrcHist(){
+  let itens = ordens.filter(o=>((o.crm_id||'').startsWith('ORC')||(o.orc_convertido_em)) && o.col!=='orcamento');
+  // Protege convertidos
+  const somenteArquivados = itens.filter(o=>!o.orc_convertido_em);
+  const totalConvertidos = itens.length - somenteArquivados.length;
+  if(!somenteArquivados.length){
+    toast('Nenhum orcamento arquivado para excluir. Os convertidos em pedido nao podem ser excluidos aqui.','warn');
+    return;
+  }
+  const aviso = totalConvertidos > 0 ? ' ('+totalConvertidos+' convertidos serao preservados)' : '';
+  if(!confirm('Excluir '+somenteArquivados.length+' orcamento(s) arquivado(s)?'+aviso+' Esta acao nao pode ser desfeita.')) return;
+  try{
+    const ids = somenteArquivados.map(o=>o.id);
+    for(let i=0;i<ids.length;i+=10){
+      const chunk = ids.slice(i,i+10);
+      await api('ordens?id=in.('+chunk.join(',')+')', 'DELETE', null, tok());
+    }
+    ordens = ordens.filter(o=>!ids.includes(o.id));
+    toast(ids.length+' registro(s) excluido(s)','ok');
+    renderOrcHist();
+    _atualizarOrcBadge();
+  }catch(e){ toast('Erro ao excluir','err'); }
+}
+
 // ── Render principal ──
 function renderOrc(){
   _atualizarOrcBadge();
