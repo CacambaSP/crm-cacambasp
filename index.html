@@ -4842,15 +4842,15 @@ function renderOrcGerador(id){
         <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px">
           <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">📋 Dados do Orçamento</div>
           ${o?`<div style="font-size:11px;font-family:var(--mono);color:var(--acc);margin-bottom:8px">${o.crm_id}</div>`:''}
-          <div class="fi"><label>Cliente</label><input type="text" id="orc_g_nome" value="${o?.nome||''}" placeholder="Nome do cliente"></div>
-          <div class="fi"><label>Endereço</label><input type="text" id="orc_g_end" value="${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')}" placeholder="Endereço completo"></div>
-          <div class="fi"><label>Tipo de Resíduo / Serviço</label><input type="text" id="orc_g_tipo" value="${o?.tipo||''}" placeholder="Ex: 1 caçamba entulho"></div>
+          <div class="fi"><label>Cliente</label><input type="text" id="orc_g_nome" value="${o?.nome||''}" placeholder="Nome do cliente" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi"><label>Endereço</label><input type="text" id="orc_g_end" value="${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')}" placeholder="Endereço completo" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi"><label>Tipo de Resíduo / Serviço</label><input type="text" id="orc_g_tipo" value="${o?.tipo||''}" placeholder="Ex: 1 caçamba entulho" oninput="atualizarPreviewPDF()"></div>
           <div class="fi-row">
-            <div class="fi"><label>Prazo de locação (dias)</label><input type="number" id="orc_g_prazo" value="${o?.orc_prazo||7}" min="1" placeholder="7"></div>
-            <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}"></div>
+            <div class="fi"><label>Prazo de locação (dias)</label><input type="number" id="orc_g_prazo" value="${o?.orc_prazo||7}" min="1" placeholder="7" oninput="atualizarPreviewPDF()"></div>
+            <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
           </div>
           <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
-          <div class="fi"><label>Observações</label><textarea id="orc_g_obs" rows="3" placeholder="Informações adicionais, condições...">${o?.obs||''}</textarea></div>
+          <div class="fi"><label>Observações</label><textarea id="orc_g_obs" rows="3" placeholder="Informações adicionais, condições..." oninput="atualizarPreviewPDF()">${o?.obs||''}</textarea></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-acc" onclick="gerarPDFOrcamento()">📄 Gerar PDF</button>
@@ -4895,7 +4895,7 @@ function renderOrcGerador(id){
           <div id="prev_obs" style="font-size:9px;color:#555;background:#fffbe6;border-radius:4px;padding:6px;display:${o?.obs?'block':'none'}">${o?.obs||''}</div>
           <!-- Rodapé -->
           <div style="margin-top:14px;padding-top:10px;border-top:1px solid #eee;font-size:8px;color:#aaa;text-align:center">
-            CaçambaSP — cacambasp@gmail.com — CNPJ: 00.000.000/0001-00
+            CaçambaSP — cacambasp@gmail.com — CNPJ: 44.538.708/0001-76
           </div>
         </div>
       </div>
@@ -4904,8 +4904,35 @@ function renderOrcGerador(id){
 
 function atualizarPreviewPDF(){
   const valor = parseFloat(document.getElementById('orc_g_valor')?.value||0);
-  const el = document.getElementById('prev_valor');
-  if(el) el.textContent = valor>0?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  const elValor = document.getElementById('prev_valor');
+  if(elValor) elValor.textContent = valor>0?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+
+  const validade = document.getElementById('orc_g_validade')?.value||'';
+  const elValidade = document.getElementById('prev_validade');
+  if(elValidade){
+    const validadeFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    elValidade.textContent = 'Válido até: '+validadeFmt;
+  }
+
+  const prazo = document.getElementById('orc_g_prazo')?.value||'7';
+  const elPrazo = document.getElementById('prev_prazo');
+  if(elPrazo) elPrazo.textContent = prazo+' dias';
+
+  const tipo = document.getElementById('orc_g_tipo')?.value||'';
+  const elTipo = document.getElementById('prev_tipo');
+  if(elTipo && tipo) elTipo.textContent = tipo;
+
+  const nome = document.getElementById('orc_g_nome')?.value||'';
+  const elNome = document.getElementById('prev_nome');
+  if(elNome && nome) elNome.textContent = nome;
+
+  const end = document.getElementById('orc_g_end')?.value||'';
+  const elEnd = document.getElementById('prev_end');
+  if(elEnd && end) elEnd.textContent = end;
+
+  const obs = document.getElementById('orc_g_obs')?.value||'';
+  const elObs = document.getElementById('prev_obs');
+  if(elObs){ elObs.textContent = obs; elObs.style.display = obs?'block':'none'; }
 }
 
 async function gerarPDFOrcamento(){
@@ -4980,7 +5007,7 @@ async function gerarPDFOrcamento(){
   </table>
   <div class="validade">📅 Proposta válida até: <strong>${validadeFmt}</strong></div>
   ${obsTexto?`<div class="obs-box">📝 <strong>Observações:</strong> ${obsTexto}</div>`:''}
-  <div class="rodape">CaçambaSP · cacambasp@gmail.com · Para aceitar este orçamento, responda esta mensagem ou entre em contato conosco.</div>
+  <div class="rodape">CaçambaSP · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com · Para aceitar este orçamento, responda esta mensagem ou entre em contato conosco.</div>
   </body></html>`;
 
   const win = window.open('','_blank');
