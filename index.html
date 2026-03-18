@@ -5058,11 +5058,15 @@ async function converterOrcEmOrdem(id){
   try{
     const o = ordens.find(x=>x.id===id);
     if(!o){ toast('Orçamento não encontrado','err'); return; }
-    // Gera novo crm_id tipo LC
+    // Gera novo crm_id tipo LC — pega o maior número existente
     const anoAtual = new Date().getFullYear();
-    const lcs = ordens.filter(x=>x.crm_id&&x.crm_id.startsWith('LC'+anoAtual));
-    const proxNum = lcs.length+1;
-    const novoCrmId = 'LC'+anoAtual+String(proxNum).padStart(8,'0');
+    const baseLC = 'LC'+anoAtual;
+    const maxLC = ordens.reduce((max, x)=>{
+      if(!x.crm_id||!x.crm_id.startsWith(baseLC)) return max;
+      const n = parseInt(x.crm_id.replace(/\D/g,'').slice(-4))||0;
+      return n > max ? n : max;
+    }, 0);
+    const novoCrmId = baseLC+String(maxLC+1).padStart(4,'0');
     // Move para coluna contratar e troca o crm_id
     await api('ordens?id=eq.'+id,'PATCH',{
       col:'contratar',
