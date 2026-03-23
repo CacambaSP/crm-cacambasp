@@ -684,38 +684,29 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
           </div>
           <!-- Tabs -->
           <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--bor);padding-bottom:12px">
-            <button class="btn btn-sm btn-acc" id="comTab_config" onclick="setComTab('config')">⚙️ Configurar</button>
-            <button class="btn btn-sm" id="comTab_rel" onclick="setComTab('rel')">📊 Relatório</button>
+            <button class="btn btn-sm btn-acc" id="comTab_fechamento" onclick="setComTab('fechamento')">&#9889; Fechamento</button>
+            <button class="btn btn-sm" id="comTab_hist" onclick="setComTab('hist')">&#128203; Hist&#243;rico</button>
+            <button class="btn btn-sm" id="comTab_config" onclick="setComTab('config')">&#9881;&#65039; Modelos</button>
           </div>
-          <!-- Config -->
-          <div id="comissaoConfig">
-            <!-- Taxa administrativa global -->
+          <!-- Fechamento -->
+          <div id="comissaoFechamento"></div>
+          <!-- Historico -->
+          <div id="comissaoHist" style="display:none"></div>
+          <!-- Config / Modelos -->
+          <div id="comissaoConfig" style="display:none">
             <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px;margin-bottom:20px">
-              <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⚙️ Taxa Administrativa Global</div>
+              <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Taxa Administrativa Global</div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <span style="font-size:13px;color:var(--mut2)">R$ por ordem (deduzido antes da comissão)</span>
+                <span style="font-size:13px;color:var(--mut2)">R$ por ordem (deduzido antes da comiss&#227;o)</span>
                 <input type="number" id="taxaAdminInput" min="0" step="0.50"
                   style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--acc);text-align:center;outline:none">
                 <button class="btn btn-sm btn-acc" onclick="salvarTaxaAdmin()">Salvar</button>
               </div>
             </div>
-            <!-- Perfis por vendedor -->
-            <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">👤 Perfil de comissão por vendedor</div>
             <div id="comissaoVendedores"></div>
           </div>
-          <!-- Relatório -->
-          <div id="comissaoRel" style="display:none">
-            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-              <select id="comRelMes" onchange="renderComissaoRel()"
-                style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none"></select>
-              <span style="color:var(--mut2);font-size:12px">ou</span>
-              <input type="date" id="comRelDe" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
-              <span style="color:var(--mut2);font-size:12px">até</span>
-              <input type="date" id="comRelAte" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
-              <button class="btn btn-sm btn-acc" onclick="renderComissaoRel()">↻ Calcular</button>
-            </div>
-            <div id="comissaoRelConteudo"></div>
-          </div>
+          <!-- Rel legado oculto -->
+          <div id="comissaoRel" style="display:none"><div id="comissaoRelConteudo"></div></div>
         </div>
       </div>
 
@@ -1370,8 +1361,8 @@ function startAutoRefresh(){
   initServiceWorker().then(()=>_renderBtnNotif());
   // Tenta Realtime primeiro, fallback para polling
   _iniciarRealtime();
-  // Polling a cada 20s como fallback (e para sincronizar se realtime cair)
-  _autoRefreshId=setInterval(_pollOrdens, 20000);
+  // Polling a cada 8s como fallback (e para sincronizar se realtime cair)
+  _autoRefreshId=setInterval(_pollOrdens, 8000);
   // Refresh de token a cada 45 min
   _tokenRefreshId=setInterval(async()=>{
     try{
@@ -1432,15 +1423,20 @@ async function _pollOrdens(forcar){
       ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
       : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok());
     if(!novos){setSyncDot('err');return;}
-    const antes=JSON.stringify(ordens.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id));
-    const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id));
+    const antes=JSON.stringify(ordens.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor));
+    const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor));
     setSyncDot('ok');
     if(antes!==depois||forcar){
       const qtdAntes=ordens.length;
+      const qtdOrcAntes=ordens.filter(c=>c.col==='orcamento').length;
       checarNovasOrdens(novos);
       ordens=novos;
-      renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge();
-      if(novos.length>qtdAntes) toast('🔔 Nova ordem recebida!','ok');
+      renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge();
+      // Detectar nova ordem normal
+      const qtdDepois=novos.filter(c=>c.col!=='orcamento').length;
+      const qtdOrcDepois=novos.filter(c=>c.col==='orcamento').length;
+      if(novos.filter(c=>c.col!=='orcamento').length > ordens.filter(c=>c.col!=='orcamento').length) toast('🔔 Nova ordem recebida!','ok');
+      if(qtdOrcDepois > qtdOrcAntes) toast('📄 Nova cotação recebida!','info');
     }
   }catch(e){ setSyncDot('err'); }
 }
@@ -2878,18 +2874,36 @@ function initCobrancaConfig(){
 // ══════════════════════════════════════════
 
 // Estado global de comissões
-let _taxaAdmin = 10;       // R$ por ordem — carregado do config
-let _perfisComissao = {};  // { uid: { tipo, fixo, pct, pct_gerente, gerente_id } }
+// ══════════════════════════════════════════════════════════════
+// BLOCO 7 — COMISSÕES CaçambaSP
+// Modelo real por vendedor — carregado dos perfis por nome
+// ══════════════════════════════════════════════════════════════
 
-// Tipos de comissão disponíveis
+let _taxaAdmin = 10; // R$ por ordem (taxa adm Douglas)
+let _perfisComissao = {}; // legado — mantido para compatibilidade
+let _comissaoAnuncioClaudia = 0;
+let _comissaoAnuncioSandra  = 0;
+let _fechamentoAtual = null; // resultado do último cálculo
+
 const TIPOS_COMISSAO = {
-  'tudo':           'Tudo menos deduções (100% do lucro líquido)',
-  'pct':            '% do lucro líquido',
-  'fixo_pct':       'Valor fixo + % do lucro líquido',
+  'tudo':              'Tudo menos deduções (100% do lucro líquido)',
+  'pct':               '% do lucro líquido',
+  'fixo_pct':          'Valor fixo + % do lucro líquido',
   'pct_compartilhado': '% do lucro líquido (divide com gerente)',
 };
 
-// Carregar config de comissões do localStorage (persiste sem banco extra)
+// ── helpers de identificação por nome ──
+function _nomeUsuario(u){ return (u?.nome||u?.email||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _modeloComissao(u){
+  const n = _nomeUsuario(u);
+  if(n.startsWith('luciana')) return 'luciana';
+  if(n.startsWith('claudia')||n.startsWith('cláudia')) return 'claudia';
+  if(n.startsWith('ricardo')) return 'ricardo';
+  if(n.startsWith('sandra'))  return 'sandra';
+  if(n.startsWith('douglas')) return 'douglas';
+  return 'outro';
+}
+
 function _carregarComissoes(){
   try{
     const s = localStorage.getItem('crm_comissoes');
@@ -2901,7 +2915,6 @@ function _carregarComissoes(){
 
 function _salvarComissoes(){
   localStorage.setItem('crm_comissoes', JSON.stringify(_perfisComissao));
-  // Persistir no Supabase também (assíncrono, sem bloquear)
   _syncComissaoSupabase();
 }
 
@@ -2909,14 +2922,13 @@ async function _syncComissaoSupabase(){
   if(!tok()) return;
   try{
     const val = JSON.stringify({perfis:_perfisComissao, taxa_admin:_taxaAdmin});
-    // Upsert na tabela config com chave 'crm_comissoes'
     const existe = await api('config?chave=eq.crm_comissoes',undefined,undefined,tok());
     if(existe && existe.length > 0){
-      await api('config?chave=eq.crm_comissoes','PATCH',{valor:val,atualizado_em:nowISO()},tok());
+      await api('config?chave=eq.crm_comissoes','PATCH',{valor:val},tok());
     }else{
-      await api('config','POST',{chave:'crm_comissoes',valor:val,atualizado_em:nowISO()},tok());
+      await api('config','POST',{chave:'crm_comissoes',valor:val},tok());
     }
-  }catch(e){ console.warn('Erro ao salvar comissões no Supabase', e); }
+  }catch(e){ console.warn('Erro ao salvar comissões',e); }
 }
 
 async function _carregarComissoesSupabase(){
@@ -2927,14 +2939,10 @@ async function _carregarComissoesSupabase(){
       const data = JSON.parse(res[0].valor);
       if(data.perfis) _perfisComissao = data.perfis;
       if(data.taxa_admin !== undefined) _taxaAdmin = parseFloat(data.taxa_admin)||10;
-      // Atualiza localStorage também
       localStorage.setItem('crm_comissoes', JSON.stringify(_perfisComissao));
       localStorage.setItem('crm_taxa_admin', String(_taxaAdmin));
     }
-  }catch(e){
-    // Fallback para localStorage se Supabase falhar
-    _carregarComissoes();
-  }
+  }catch(e){ _carregarComissoes(); }
 }
 
 function salvarTaxaAdmin(){
@@ -2946,7 +2954,7 @@ function salvarTaxaAdmin(){
   renderComissaoView();
 }
 
-// ── Cálculo do lucro líquido de uma ordem ──
+// ── Lucro líquido de uma ordem (base para cálculo) ──
 function calcLucroLiquido(c){
   const rec  = parseFloat(c.rec)||0;
   const cst  = parseFloat(c.cst)||0;
@@ -2955,137 +2963,543 @@ function calcLucroLiquido(c){
   return rec - cst - _taxaAdmin - imp;
 }
 
-// ── Calcular comissão de um vendedor em uma ordem ──
+// ── Legado: calcComissaoOrdem (mantido para compatibilidade) ──
 function calcComissaoOrdem(c, uid){
-  const perfil = _perfisComissao[uid];
-  if(!perfil || !perfil.tipo) return { comissao: 0, gerente: 0, detalhes: 'Sem perfil configurado' };
+  const u = usuarios.find(x=>x.id===uid);
+  const modelo = _modeloComissao(u);
   const ll = calcLucroLiquido(c);
-  let comissao = 0, gerente = 0, detalhes = '';
-  const fixo = parseFloat(perfil.fixo)||0;
-  const pct  = parseFloat(perfil.pct)||0;
-  const pctG = parseFloat(perfil.pct_gerente)||0;
-
-  switch(perfil.tipo){
-    case 'tudo':
-      comissao = ll;
-      detalhes = 'Lucro líquido: R$ '+fmt(ll);
-      break;
-    case 'pct':
-      comissao = ll * (pct/100);
-      detalhes = pct+'% de R$ '+fmt(ll);
-      break;
-    case 'fixo_pct':
-      comissao = fixo + ll * (pct/100);
-      detalhes = 'R$ '+fmt(fixo)+' + '+pct+'% de R$ '+fmt(ll);
-      break;
-    case 'pct_compartilhado':
-      comissao = ll * (pct/100);
-      gerente  = ll * (pctG/100);
-      detalhes = pct+'% vendedor + '+pctG+'% gerente de R$ '+fmt(ll);
-      break;
+  if(modelo==='ricardo'){
+    return { comissao: 15, gerente: 0, ll, detalhes: 'R$15 fixo por ordem' };
   }
-  return { comissao: Math.max(comissao,0), gerente: Math.max(gerente,0), ll, detalhes };
+  if(['luciana','claudia','sandra'].includes(modelo)){
+    return { comissao: ll, gerente: 0, ll, detalhes: '100% do lucro líquido' };
+  }
+  return { comissao: 0, gerente: 0, ll, detalhes: '-' };
 }
 
-// ── Render principal da tela ──
+// ══════════════════════════════════════════════════════════════
+// FECHAMENTO MENSAL — cálculo real por modelo
+// ══════════════════════════════════════════════════════════════
+
+function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
+  const result = {};
+  const TAXA_ADM = _taxaAdmin || 10;
+
+  // IDs dos usuários por modelo
+  const uLuciana = usuarios.find(u => _modeloComissao(u)==='luciana');
+  const uClaudia = usuarios.find(u => _modeloComissao(u)==='claudia');
+  const uRicardo = usuarios.find(u => _modeloComissao(u)==='ricardo');
+  const uSandra  = usuarios.find(u => _modeloComissao(u)==='sandra');
+  const uDouglas = usuarios.find(u => _modeloComissao(u)==='douglas');
+
+  // Helper lucro líquido por ordem (sem taxa adm — ela vai para Douglas)
+  function ll(c){
+    const rec = parseFloat(c.rec)||0;
+    const cst = parseFloat(c.cst)||0;
+    const imp = c.nf_num ? rec * ((parseFloat(c.nf_taxa)||_taxaNF)/100) : 0;
+    return rec - cst - TAXA_ADM - imp;
+  }
+
+  // ── TAXA ADM — Douglas recebe R$10 de TODAS as ordens ──
+  const todasOrdens = ordens_mes.filter(c => c.col!=='orcamento');
+  const totalTaxaAdm = todasOrdens.length * TAXA_ADM;
+
+  // ── LUCIANA — 100% do lucro líquido das ordens dela ──
+  let luciana = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+  if(uLuciana){
+    const ords = ordens_mes.filter(c => c.usuario_id===uLuciana.id && c.pago);
+    const somaLL = ords.reduce((s,c)=>s+ll(c),0);
+    luciana = {
+      vendedor: uLuciana,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+      totalVendedor: somaLL,
+      totalDouglas: 0,
+      modelo: 'luciana'
+    };
+  }
+
+  // ── RICARDO — R$15 fixo por ordem paga ──
+  let ricardo = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+  if(uRicardo){
+    const ords = ordens_mes.filter(c => c.usuario_id===uRicardo.id && c.pago);
+    const total = ords.length * 15;
+    ricardo = {
+      vendedor: uRicardo,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:15})),
+      totalVendedor: total,
+      totalDouglas: 0,
+      modelo: 'ricardo'
+    };
+  }
+
+  // ── CLAUDIA — R$1.000 fixo + split após descontos ──
+  let claudia = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+  if(uClaudia){
+    const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id && c.pago);
+    const somaLL = ords.reduce((s,c)=>s+ll(c),0);
+    const apos_anuncio = somaLL - (anuncioClaudia||0);
+    const restante = Math.max(apos_anuncio, 0);
+    const split50 = restante / 2;
+    claudia = {
+      vendedor: uClaudia,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+      somaLL, anuncio: anuncioClaudia||0, apos_anuncio: restante,
+      fixo: 1000,
+      splitVendedor: split50,
+      splitDouglas: split50,
+      totalVendedor: 1000 + split50,
+      totalDouglas: split50,
+      modelo: 'claudia'
+    };
+  }
+
+  // ── SANDRA — R$300 fixo + split 40/30/30 após anúncio ──
+  let sandra = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0, totalClaudia:0 };
+  if(uSandra){
+    const ords = ordens_mes.filter(c => c.usuario_id===uSandra.id && c.pago);
+    const somaLL = ords.reduce((s,c)=>s+ll(c),0);
+    const apos_anuncio = Math.max(somaLL - (anuncioSandra||0), 0);
+    const split40 = apos_anuncio * 0.40;
+    const split30d = apos_anuncio * 0.30;
+    const split30c = apos_anuncio * 0.30;
+    sandra = {
+      vendedor: uSandra,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+      somaLL, anuncio: anuncioSandra||0, apos_anuncio,
+      fixo: 300,
+      splitVendedor: split40,
+      splitDouglas: split30d,
+      splitClaudia: split30c,
+      totalVendedor: 300 + split40,
+      totalDouglas: split30d,
+      totalClaudia: split30c,
+      modelo: 'sandra'
+    };
+  }
+
+  // ── DOUGLAS — consolida tudo ──
+  const totalDouglas = totalTaxaAdm
+    + (claudia.totalDouglas||0)
+    + (sandra.totalDouglas||0);
+
+  // Claudia recebe extra do fechamento da Sandra
+  const totalClaudiaExtra = sandra.totalClaudia||0;
+
+  return {
+    luciana, ricardo, claudia, sandra,
+    totalTaxaAdm, totalDouglas, totalClaudiaExtra,
+    douglas: { totalVendedor: totalDouglas },
+    totalOrdens: todasOrdens.length,
+    anuncioClaudia: anuncioClaudia||0,
+    anuncioSandra: anuncioSandra||0
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER TELA COMISSÕES
+// ══════════════════════════════════════════════════════════════
+
 function renderComissaoView(){
   _carregarComissoes();
-  setComTab('config');
+  setComTab('fechamento');
 }
 
 function setComTab(tab){
-  document.getElementById('comTab_config').className='btn btn-sm'+(tab==='config'?' btn-acc':'');
-  document.getElementById('comTab_rel').className='btn btn-sm'+(tab==='rel'?' btn-acc':'');
-  document.getElementById('comissaoConfig').style.display = tab==='config'?'':'none';
-  document.getElementById('comissaoRel').style.display    = tab==='rel'?'':'none';
-  if(tab==='config') _renderConfigComissao();
-  if(tab==='rel')    { _initComRelMes(); renderComissaoRel(); }
+  ['fechamento','hist','config'].forEach(t=>{
+    const btn = document.getElementById('comTab_'+t);
+    if(btn) btn.className='btn btn-sm'+(tab===t?' btn-acc':'');
+  });
+  document.getElementById('comissaoFechamento').style.display = tab==='fechamento'?'':'none';
+  document.getElementById('comissaoHist').style.display       = tab==='hist'?'':'none';
+  document.getElementById('comissaoConfig').style.display     = tab==='config'?'':'none';
+  if(tab==='fechamento') _renderFechamento();
+  if(tab==='hist')       _renderHistComissao();
+  if(tab==='config')     _renderConfigComissao();
 }
 
-function _renderConfigComissao(){
-  // Taxa admin
-  const inp = document.getElementById('taxaAdminInput');
-  if(inp) inp.value = _taxaAdmin.toFixed(2);
-
-  // Vendedores
-  const el = document.getElementById('comissaoVendedores');
+function _renderFechamento(){
+  const el = document.getElementById('comissaoFechamento');
   if(!el) return;
-  const vendedores = usuarios.filter(u => u.ativo!==false);
-  if(!vendedores.length){ el.innerHTML='<div style="color:var(--mut2);font-size:13px">Nenhum usuário cadastrado.</div>'; return; }
+  const now = new Date();
+  const mesAtual = now.getMonth();
+  const anoAtual = now.getFullYear();
 
-  el.innerHTML = vendedores.map(u => {
-    const p = _perfisComissao[u.id] || { tipo:'', fixo:0, pct:0, pct_gerente:0, gerente_id:'' };
-    const outros = vendedores.filter(x => x.id !== u.id);
-    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:34px;height:34px;border-radius:9px;background:var(--acc2);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
-        <div>
-          <div style="font-weight:700">${u.nome||u.email}</div>
-          <div style="font-size:11px;color:var(--mut2)">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</div>
-        </div>
-      </div>
-      <div class="fi-row" style="margin-bottom:10px">
+  // Opções de mês
+  let opsMes = '';
+  for(let i=0;i<6;i++){
+    const d = new Date(anoAtual, mesAtual-i, 1);
+    const v = (d.getFullYear())+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const label = MESES[d.getMonth()]+' '+d.getFullYear();
+    opsMes += `<option value="${v}">${label}</option>`;
+  }
+
+  el.innerHTML = `
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:18px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">📅 Parâmetros do Fechamento</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px">
         <div class="fi">
-          <label>Tipo de comissão</label>
-          <select id="com_tipo_${u.id}" onchange="_toggleComCampos('${u.id}')"
-            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;width:100%">
-            <option value="">— Sem comissão —</option>
-            ${Object.entries(TIPOS_COMISSAO).map(([k,v])=>`<option value="${k}" ${p.tipo===k?'selected':''}>${v}</option>`).join('')}
-          </select>
+          <label>Mês de referência</label>
+          <select id="fechMes" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%">${opsMes}</select>
         </div>
-      </div>
-      <div id="com_campos_${u.id}" style="display:${p.tipo?'grid':'none'};grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
-        <div class="fi" id="com_fixo_wrap_${u.id}" style="display:${['fixo_pct'].includes(p.tipo)?'':'none'}">
-          <label>Valor fixo (R$)</label>
-          <input type="number" id="com_fixo_${u.id}" value="${p.fixo||0}" min="0" step="1"
+        <div class="fi">
+          <label>💰 Anúncio Claudia (R$)</label>
+          <input type="number" id="fechAnuncioClaudia" value="0" min="0" step="50"
             style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:14px;color:var(--acc);text-align:center;outline:none;width:100%">
         </div>
-        <div class="fi" id="com_pct_wrap_${u.id}" style="display:${['pct','fixo_pct','pct_compartilhado'].includes(p.tipo)?'':'none'}">
-          <label>% do lucro líquido</label>
-          <input type="number" id="com_pct_${u.id}" value="${p.pct||0}" min="0" max="100" step="1"
-            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:14px;color:var(--g);text-align:center;outline:none;width:100%">
-        </div>
-        <div class="fi" id="com_pctg_wrap_${u.id}" style="display:${p.tipo==='pct_compartilhado'?'':'none'}">
-          <label>% gerente</label>
-          <input type="number" id="com_pctg_${u.id}" value="${p.pct_gerente||0}" min="0" max="100" step="1"
-            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:14px;color:var(--b);text-align:center;outline:none;width:100%">
-        </div>
-        <div class="fi" id="com_ger_wrap_${u.id}" style="display:${p.tipo==='pct_compartilhado'?'':'none'}">
-          <label>Quem é a gerente</label>
-          <select id="com_ger_${u.id}"
-            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;width:100%">
-            <option value="">— Selecionar —</option>
-            ${outros.map(x=>`<option value="${x.id}" ${p.gerente_id===x.id?'selected':''}>${x.nome||x.email}</option>`).join('')}
-          </select>
+        <div class="fi">
+          <label>💰 Anúncio Sandra (R$)</label>
+          <input type="number" id="fechAnuncioSandra" value="0" min="0" step="50"
+            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:14px;color:var(--acc);text-align:center;outline:none;width:100%">
         </div>
       </div>
-      <button class="btn btn-sm btn-acc" onclick="salvarPerfilComissao('${u.id}')">💾 Salvar</button>
+      <button class="btn btn-acc" onclick="calcularFechamento()">⚡ Calcular Fechamento</button>
+    </div>
+    <div id="fechResultado"></div>
+  `;
+}
+
+function calcularFechamento(){
+  const mesVal = document.getElementById('fechMes')?.value;
+  if(!mesVal){ toast('Selecione o mês','warn'); return; }
+  const [ano,mes] = mesVal.split('-').map(Number);
+  const anuncioC = parseFloat(document.getElementById('fechAnuncioClaudia')?.value)||0;
+  const anuncioS = parseFloat(document.getElementById('fechAnuncioSandra')?.value)||0;
+
+  // Filtrar ordens do mês com pagamento registrado
+  const src = ordens.filter(c => {
+    if(!c.pago || !c.pago_em || c.col==='orcamento') return false;
+    const d = new Date(c.pago_em);
+    return d.getMonth()+1===mes && d.getFullYear()===ano;
+  });
+
+  if(!src.length){
+    document.getElementById('fechResultado').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem com pagamento registrado no período.<br><small style="font-size:11px">Verifique se as ordens estão marcadas como pagas com data.</small></div>';
+    return;
+  }
+
+  _fechamentoAtual = _calcFechamento(src, anuncioC, anuncioS);
+  _fechamentoAtual.mes = mesVal;
+  _fechamentoAtual.totalOrdens = src.length;
+
+  const f = _fechamentoAtual;
+  const mesLabel = MESES[mes-1]+' '+ano;
+
+  const _card = (titulo, cor, icon, vendedor, valor, linhas, extra) => `
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px;overflow:hidden">
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--bor)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div style="width:38px;height:38px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px">${titulo}</div>
+          <div style="font-size:11px;color:var(--mut2)">${vendedor} · ${(extra||'')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:${cor};font-family:var(--mono)">R$ ${fmt(valor)}</div>
+          <div style="font-size:10px;color:var(--mut2)">a receber</div>
+        </div>
+        <span style="color:var(--mut2);font-size:11px">▼</span>
+      </div>
+      <div style="display:none;padding:14px 16px">
+        ${linhas}
+      </div>
     </div>`;
-  }).join('');
+
+  const _linha = (label, val, cor) =>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bor);font-size:12px">
+      <span style="color:var(--mut2)">${label}</span>
+      <span style="font-weight:600;color:${cor||'var(--txt)'};font-family:var(--mono)">R$ ${fmt(val)}</span>
+    </div>`;
+
+  const _tabelaOrdens = (ords) => {
+    if(!ords||!ords.length) return '<div style="color:var(--mut2);font-size:12px;padding:8px 0">Nenhuma ordem no período.</div>';
+    return `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">
+      <thead><tr style="background:rgba(255,255,255,.03)">
+        <th style="padding:6px 8px;text-align:left;color:var(--mut2)">Endereço</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Receita</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Custo</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Luc. Líq.</th>
+      </tr></thead>
+      <tbody>
+        ${ords.map(({c,ll})=>`<tr style="border-top:1px solid var(--bor)">
+          <td style="padding:6px 8px">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</td>
+          <td style="padding:6px 8px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(c.rec)}</td>
+          <td style="padding:6px 8px;text-align:right;color:var(--r);font-family:var(--mono)">R$ ${fmt(c.cst)}</td>
+          <td style="padding:6px 8px;text-align:right;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  };
+
+  // Cards por vendedor
+  let html = `
+    <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:13px;font-weight:700">Fechamento ${mesLabel}</div>
+        <div style="font-size:11px;color:var(--mut2)">${src.length} ordens pagas · Taxa adm: R$${_taxaAdmin}/ordem</div>
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">Douglas: R$ ${fmt(f.totalDouglas)}</div>
+    </div>`;
+
+  // LUCIANA
+  if(f.luciana.vendedor){
+    const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
+      + _tabelaOrdens(f.luciana.ordens);
+    html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
+  }
+
+  // CLAUDIA
+  if(f.claudia.vendedor){
+    const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
+      + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
+      + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
+      + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
+      + _linha('(+) Fixo garantido',1000,'var(--g)')
+      + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
+      + _tabelaOrdens(f.claudia.ordens);
+    const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
+    html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra, linhas, `R$1.000 fixo + 50% do restante${extra}`);
+  }
+
+  // RICARDO
+  if(f.ricardo.vendedor){
+    const linhas = _linha('Ordens pagas',f.ricardo.ordens.length,'var(--txt)')
+      + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
+      + _tabelaOrdens(f.ricardo.ordens);
+    html += _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem');
+  }
+
+  // SANDRA
+  if(f.sandra.vendedor){
+    const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
+      + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
+      + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
+      + _linha('40% Sandra (split)',f.sandra.splitVendedor,'var(--acc)')
+      + _linha('(+) Fixo garantido',300,'var(--g)')
+      + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
+      + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
+      + _tabelaOrdens(f.sandra.ordens);
+    html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
+  }
+
+  // DOUGLAS — resumo
+  const linhasDouglas = _linha('Taxa adm (R$'+_taxaAdmin+' × '+todasOrdens.length+' ordens)',f.totalTaxaAdm,'var(--g)')
+    + _linha('50% do fechamento da Claudia',f.claudia.totalDouglas||0,'var(--g)')
+    + _linha('30% do fechamento da Sandra',f.sandra.totalDouglas||0,'var(--g)');
+  html += _card('Douglas (você)','var(--acc)','👑','dono',f.totalDouglas,linhasDouglas,'Taxa adm + splits');
+
+  // Botão salvar fechamento
+  html += `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button>
+    <button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button>
+  </div>`;
+
+  const todasOrdens = src; // para referência no escopo
+  document.getElementById('fechResultado').innerHTML = html;
 }
 
-function _toggleComCampos(uid){
-  const tipo = document.getElementById('com_tipo_'+uid)?.value;
-  document.getElementById('com_campos_'+uid).style.display = tipo ? 'grid' : 'none';
-  document.getElementById('com_fixo_wrap_'+uid).style.display  = ['fixo_pct'].includes(tipo)?'':'none';
-  document.getElementById('com_pct_wrap_'+uid).style.display   = ['pct','fixo_pct','pct_compartilhado'].includes(tipo)?'':'none';
-  document.getElementById('com_pctg_wrap_'+uid).style.display  = tipo==='pct_compartilhado'?'':'none';
-  document.getElementById('com_ger_wrap_'+uid).style.display   = tipo==='pct_compartilhado'?'':'none';
+async function salvarFechamento(){
+  if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
+  const f = _fechamentoAtual;
+  const mes = f.mes+'-01'; // ex: 2026-03-01
+
+  const registros = [];
+
+  if(f.luciana.vendedor && f.luciana.ordens.length){
+    registros.push({
+      mes, usuario_id: f.luciana.vendedor.id,
+      total_ordens: f.luciana.ordens.length,
+      valor_bruto: f.luciana.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.luciana.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.luciana.totalVendedor,
+      valor_vendedor: f.luciana.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+  if(f.claudia.vendedor){
+    registros.push({
+      mes, usuario_id: f.claudia.vendedor.id,
+      total_ordens: f.claudia.ordens.length,
+      valor_bruto: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: f.claudia.anuncio||0,
+      fixo_garantido: 1000,
+      lucro_liquido: f.claudia.apos_anuncio||0,
+      valor_vendedor: f.claudia.totalVendedor + (f.totalClaudiaExtra||0),
+      valor_douglas: f.claudia.totalDouglas||0,
+      valor_claudia_extra: f.totalClaudiaExtra||0,
+      status: 'pendente'
+    });
+  }
+  if(f.ricardo.vendedor && f.ricardo.ordens.length){
+    registros.push({
+      mes, usuario_id: f.ricardo.vendedor.id,
+      total_ordens: f.ricardo.ordens.length,
+      valor_bruto: f.ricardo.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.ricardo.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.ricardo.totalVendedor,
+      valor_vendedor: f.ricardo.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+  if(f.sandra.vendedor){
+    registros.push({
+      mes, usuario_id: f.sandra.vendedor.id,
+      total_ordens: f.sandra.ordens.length,
+      valor_bruto: f.sandra.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.sandra.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: f.sandra.anuncio||0,
+      fixo_garantido: 300,
+      lucro_liquido: f.sandra.apos_anuncio||0,
+      valor_vendedor: f.sandra.totalVendedor,
+      valor_douglas: f.sandra.splitDouglas||0,
+      valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+
+  if(!registros.length){ toast('Nenhum vendedor com ordens no período','warn'); return; }
+
+  try{
+    for(const reg of registros){
+      // Upsert por mes+usuario_id
+      const existe = await api(`comissoes_fechamento?mes=eq.${reg.mes}&usuario_id=eq.${reg.usuario_id}`,undefined,undefined,tok());
+      if(existe && existe.length){
+        await api(`comissoes_fechamento?mes=eq.${reg.mes}&usuario_id=eq.${reg.usuario_id}`,'PATCH',reg,tok());
+      }else{
+        await api('comissoes_fechamento','POST',reg,tok());
+      }
+    }
+    toast('✅ Fechamento salvo com sucesso!','ok');
+    setComTab('hist');
+  }catch(e){
+    toast('Erro ao salvar: '+e.message,'err');
+  }
 }
 
-function salvarPerfilComissao(uid){
-  const tipo  = document.getElementById('com_tipo_'+uid)?.value||'';
-  const fixo  = parseFloat(document.getElementById('com_fixo_'+uid)?.value)||0;
-  const pct   = parseFloat(document.getElementById('com_pct_'+uid)?.value)||0;
-  const pctg  = parseFloat(document.getElementById('com_pctg_'+uid)?.value)||0;
-  const gerid = document.getElementById('com_ger_'+uid)?.value||'';
-  _perfisComissao[uid] = { tipo, fixo, pct, pct_gerente: pctg, gerente_id: gerid };
-  _salvarComissoes();
-  const u = usuarios.find(x=>x.id===uid);
-  toast('✅ Comissão de '+(u?.nome||'vendedor')+' salva!');
+function imprimirFechamento(){
+  if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
+  const f = _fechamentoAtual;
+  const [ano,mes] = f.mes.split('-').map(Number);
+  const mesLabel = MESES[mes-1]+' '+ano;
+  const linhas = [
+    ['Luciana', f.luciana.totalVendedor],
+    ['Claudia', f.claudia.totalVendedor + (f.totalClaudiaExtra||0)],
+    ['Ricardo', f.ricardo.totalVendedor],
+    ['Sandra', f.sandra.totalVendedor],
+    ['Douglas', f.totalDouglas],
+  ].filter(([,v])=>v>0);
+
+  const html = `<html><head><style>body{font-family:Arial,sans-serif;padding:28px;font-size:13px;color:#111}h2{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5;font-weight:700}td.val{text-align:right;font-weight:700;font-family:monospace}.total{background:#f5a62315;font-weight:800}</style></head><body>
+    <h2>💸 Fechamento de Comissões — ${mesLabel}</h2>
+    <small>Gerado em ${new Date().toLocaleDateString('pt-BR')} · ${f.totalOrdens} ordens pagas</small>
+    <table>
+      <thead><tr><th>Vendedor</th><th style="text-align:right">A receber (R$)</th></tr></thead>
+      <tbody>
+        ${linhas.map(([n,v])=>`<tr><td>${n}</td><td class="val">R$ ${fmt(v)}</td></tr>`).join('')}
+        <tr class="total"><td>TOTAL PAGO</td><td class="val">R$ ${fmt(linhas.reduce((s,[,v])=>s+v,0))}</td></tr>
+      </tbody>
+    </table>
+  </body></html>`;
+  const w = window.open('','_blank','width=500,height=600');
+  w.document.write(html+'<script>window.onload=function(){window.print();}<\/script>');
+  w.document.close();
 }
 
-// ── RELATÓRIO DE COMISSÕES ──
+// ── HISTÓRICO DE FECHAMENTOS ──
+async function _renderHistComissao(){
+  const el = document.getElementById('comissaoHist');
+  if(!el) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--mut2);font-size:13px">Carregando...</div>';
+  try{
+    const data = await api('comissoes_fechamento?order=mes.desc,criado_em.desc&limit=60',undefined,undefined,tok());
+    if(!data||!data.length){
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fechamento salvo ainda.</div>';
+      return;
+    }
+    // Agrupar por mês
+    const porMes = {};
+    data.forEach(r=>{
+      if(!porMes[r.mes]) porMes[r.mes]=[];
+      porMes[r.mes].push(r);
+    });
+
+    el.innerHTML = Object.entries(porMes).map(([mes,rows])=>{
+      const [ano,m] = mes.split('-').map(Number);
+      const label = MESES[m-1]+' '+ano;
+      const totalPago = rows.reduce((s,r)=>s+(parseFloat(r.valor_vendedor)||0),0);
+      const todosPagos = rows.every(r=>r.status==='pago');
+      return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px;overflow:hidden">
+        <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bor)">
+          <div>
+            <div style="font-weight:700">${label}</div>
+            <div style="font-size:11px;color:var(--mut2)">${rows.length} vendedor(es)</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:18px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(totalPago)}</div>
+            <span style="font-size:10px;padding:3px 8px;border-radius:20px;background:${todosPagos?'var(--g2)':'var(--acc2)'};color:${todosPagos?'var(--g)':'var(--acc)'}">${todosPagos?'✅ Pago':'⏳ Pendente'}</span>
+          </div>
+        </div>
+        <div style="padding:10px 16px">
+          ${rows.map(r=>{
+            const u = usuarios.find(x=>x.id===r.usuario_id);
+            const nome = u?.nome||r.usuario_id.slice(0,8);
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bor)">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--acc2);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">${(nome[0]||'?').toUpperCase()}</div>
+                <div>
+                  <div style="font-weight:600;font-size:13px">${nome}</div>
+                  <div style="font-size:10px;color:var(--mut2)">${r.total_ordens||0} ordens</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(r.valor_vendedor)}</div>
+                ${r.status==='pago'
+                  ? `<span style="font-size:10px;color:var(--g)">✅ ${r.pago_em?new Date(r.pago_em).toLocaleDateString('pt-BR'):''}</span>`
+                  : `<button class="btn btn-sm btn-g" onclick="marcarComissaoPaga('${r.id}')">Marcar pago</button>`
+                }
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML = '<div style="padding:20px;color:var(--r);font-size:13px">Erro ao carregar histórico.</div>';
+  }
+}
+
+async function marcarComissaoPaga(id){
+  showConfirm('Marcar este pagamento como pago?', async ()=>{
+    try{
+      await api('comissoes_fechamento?id=eq.'+id,'PATCH',{status:'pago',pago_em:nowISO()},tok());
+      toast('✅ Marcado como pago!','ok');
+      _renderHistComissao();
+    }catch(e){ toast('Erro: '+e.message,'err'); }
+  });
+}
+
+// ── Config (legado mantido) ──
+function _renderConfigComissao(){
+  const inp = document.getElementById('taxaAdminInput');
+  if(inp) inp.value = _taxaAdmin.toFixed(2);
+  const el = document.getElementById('comissaoVendedores');
+  if(!el) return;
+  el.innerHTML = `<div style="background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px 16px;font-size:13px;color:var(--txt)">
+    <b>ℹ️ Modelos de comissão configurados:</b><br><br>
+    <b>Luciana</b> — 100% do lucro líquido (rec - cst - R$${_taxaAdmin} - NF)<br>
+    <b>Claudia</b> — R$1.000 fixo + 50% do restante após anúncio<br>
+    <b>Ricardo</b> — R$15 fixo por ordem paga<br>
+    <b>Sandra</b> — R$300 fixo + 40% do restante após anúncio (30% Claudia, 30% Douglas)<br>
+    <b>Douglas</b> — R$${_taxaAdmin} × todas as ordens + 50% Claudia + 30% Sandra<br><br>
+    <small style="color:var(--mut2)">Para alterar os modelos, contate o administrador do sistema.</small>
+  </div>`;
+}
+
+// ── Relatório legado mantido ──
 function _initComRelMes(){
   const sel = document.getElementById('comRelMes');
   if(!sel || sel.options.length) return;
@@ -3102,107 +3516,7 @@ function _initComRelMes(){
 function renderComissaoRel(){
   const el = document.getElementById('comissaoRelConteudo');
   if(!el) return;
-  _carregarComissoes();
-
-  // Período — mês ou livre
-  const de  = document.getElementById('comRelDe')?.value;
-  const ate = document.getElementById('comRelAte')?.value;
-  let src;
-  if(de || ate){
-    src = ordens.filter(c => c.pago && c.data && (!de||c.data>=de) && (!ate||c.data<=ate));
-  } else {
-    const [mes,ano] = (document.getElementById('comRelMes')?.value||((new Date().getMonth()+1)+'/'+new Date().getFullYear())).split('/').map(Number);
-    src = ordens.filter(c => {
-      if(!c.pago||!c.data) return false;
-      const d = new Date(c.data+'T12:00:00');
-      return d.getMonth()+1===mes && d.getFullYear()===ano;
-    });
-  }
-
-  if(!src.length){ el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem paga no período.</div>'; return; }
-
-  // Calcular por vendedor
-  const vendedores = usuarios.filter(u => u.ativo!==false);
-  const gerentesExtra = {}; // acumulador de comissão de gerente por uid
-
-  const rows = vendedores.map(u => {
-    const minhas = src.filter(c => c.usuario_id === u.id);
-    if(!minhas.length && !_perfisComissao[u.id]?.tipo) return null;
-    let totalComissao=0, totalLL=0, totalRec=0;
-    const detalhes = minhas.map(c => {
-      const r = calcComissaoOrdem(c, u.id);
-      totalComissao += r.comissao;
-      totalLL += r.ll;
-      totalRec += parseFloat(c.rec)||0;
-      // Acumula comissão de gerente
-      const p = _perfisComissao[u.id];
-      if(p?.tipo==='pct_compartilhado' && p.gerente_id && r.gerente>0){
-        gerentesExtra[p.gerente_id] = (gerentesExtra[p.gerente_id]||0) + r.gerente;
-      }
-      return { c, r };
-    });
-    return { u, minhas, totalComissao, totalLL, totalRec, detalhes };
-  }).filter(Boolean);
-
-  // Adicionar comissões extras de gerente
-  rows.forEach(row => {
-    const extra = gerentesExtra[row.u.id]||0;
-    if(extra > 0){
-      row.totalComissao += extra;
-      row.extraGerente = extra;
-    }
-  });
-
-  const totalGeral = rows.reduce((s,r)=>s+r.totalComissao,0);
-
-  el.innerHTML = `
-    <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px;color:var(--mut2)">Total de comissões no período</div>
-      <div style="font-size:24px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(totalGeral)}</div>
-    </div>
-    ${rows.map(row => {
-      const tipo = TIPOS_COMISSAO[_perfisComissao[row.u.id]?.tipo] || 'Sem perfil';
-      return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:10px;overflow:hidden">
-        <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display?'':'block'">
-          <div style="width:34px;height:34px;border-radius:9px;background:var(--acc2);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700">${(row.u.nome||'?')[0].toUpperCase()}</div>
-          <div style="flex:1">
-            <div style="font-weight:700">${row.u.nome||row.u.email}</div>
-            <div style="font-size:11px;color:var(--mut2)">${tipo} · ${row.minhas.length} ordem(ns)</div>
-            ${row.extraGerente?`<div style="font-size:11px;color:var(--b)">+ R$ ${fmt(row.extraGerente)} como gerente</div>`:''}
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:20px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(row.totalComissao)}</div>
-            <div style="font-size:10px;color:var(--mut2)">Lucro líquido: R$ ${fmt(row.totalLL)}</div>
-          </div>
-          <span style="color:var(--mut2);font-size:12px">▼</span>
-        </div>
-        <div style="display:none;border-top:1px solid var(--bor)">
-          <table style="width:100%;border-collapse:collapse;font-size:11px">
-            <thead><tr style="background:rgba(255,255,255,.02)">
-              <th style="padding:8px 14px;text-align:left;color:var(--mut2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Endereço</th>
-              <th style="padding:8px 14px;text-align:right;color:var(--mut2);font-weight:700">Data</th>
-              <th style="padding:8px 14px;text-align:right;color:var(--mut2);font-weight:700">Receita</th>
-              <th style="padding:8px 14px;text-align:right;color:var(--mut2);font-weight:700">Luc. Líq.</th>
-              <th style="padding:8px 14px;text-align:right;color:var(--acc);font-weight:700">Comissão</th>
-            </tr></thead>
-            <tbody>
-              ${row.detalhes.map(({c,r})=>`<tr style="border-top:1px solid var(--bor)">
-                <td style="padding:8px 14px;font-weight:600">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</td>
-                <td style="padding:8px 14px;text-align:right;color:var(--mut2);font-family:var(--mono)">${dateF(c.data)}</td>
-                <td style="padding:8px 14px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(c.rec)}</td>
-                <td style="padding:8px 14px;text-align:right;color:var(--b);font-family:var(--mono)">R$ ${fmt(r.ll)}</td>
-                <td style="padding:8px 14px;text-align:right;color:var(--acc);font-family:var(--mono);font-weight:700">R$ ${fmt(r.comissao)}</td>
-              </tr>`).join('')}
-              <tr style="border-top:2px solid var(--bor);background:rgba(255,255,255,.03)">
-                <td colspan="4" style="padding:10px 14px;font-weight:700;color:var(--mut2)">Total ${row.u.nome||''}</td>
-                <td style="padding:10px 14px;text-align:right;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(row.totalComissao)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-    }).join('')}
-  `;
+  el.innerHTML = '<div style="padding:20px;color:var(--mut2);font-size:13px;text-align:center">Use a aba <b>Fechamento</b> para calcular comissões.</div>';
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
