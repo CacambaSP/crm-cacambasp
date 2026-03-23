@@ -2727,12 +2727,15 @@ async function initOneSignal(){
           if(!ok) await OneSignal.User.PushSubscription.optIn();
         }catch(e){}
         document.getElementById('btnNotifPush')?.remove();
-        // Salva subscription ID no Supabase para roteamento de push
+        // Salva OneSignal subscription ID no Supabase para roteamento de push
         try{
+          // Aguarda um momento para o OneSignal finalizar o registro
+          await new Promise(r=>setTimeout(r,2000));
           const subId = OneSignal.User.PushSubscription.id;
           if(subId && uid && (!_perfil?.onesignal_id || _perfil.onesignal_id !== subId)){
             await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},tok());
             if(_perfil) _perfil.onesignal_id = subId;
+            console.log('OneSignal subId salvo:', subId);
           }
         }catch(e){ console.warn('Erro ao salvar onesignal_id:',e); }
       } else {
@@ -2783,11 +2786,13 @@ function _renderBtnNotif(){
             btn.remove(); toast('🔔 Notificações ativadas!');
             try{
               await window.OneSignal.User.PushSubscription.optIn();
+              await new Promise(r=>setTimeout(r,2000));
               const subId = window.OneSignal.User.PushSubscription.id;
               const uid = _perfil?.id || _currentUser?.user?.id;
               if(subId && uid){
                 await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},tok());
                 if(_perfil) _perfil.onesignal_id = subId;
+                console.log('OneSignal subId salvo (botão):', subId);
               }
             }catch(e){ console.warn('Erro optIn:',e); }
           }
