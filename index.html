@@ -886,6 +886,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <button class="btn btn-sm btn-pix" onclick="openPixDoDetail()">⚡ Pix</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWAForn()">🚛 WA Forn.</button>
+        <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm btn-r" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
@@ -2629,6 +2630,19 @@ function enviarWAForn(id){
   const url="https://wa.me/55"+tel+"?text="+encodeURIComponent(msg);
   window.open(url,"_blank");
 }
+function enviarTracking(id){
+  const oid=id||_detailId;
+  const c=ordens.find(x=>x.id===oid);
+  if(!c){toast('Ordem não encontrada','warn');return;}
+  if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
+  if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
+  const link='https://cacambasp-crm.vercel.app/tracking?id='+encodeURIComponent(c.crm_id);
+  const nome=(c.nome||'').split(' ')[0]||'Cliente';
+  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
+  const tel=c.cel.replace(/\D/g,'');
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+
 const _waTpl={
   cobranca:(c,pixPayload)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
