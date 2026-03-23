@@ -2717,14 +2717,16 @@ async function initOneSignal(){
         notifyButton: { enable: false },
         allowLocalhostAsSecureOrigin: true,
       });
-      // Vincula o usuário logado como external_id para roteamento
       const uid = _perfil?.id || _currentUser?.user?.id;
-      if(uid){
-        await OneSignal.login(uid);
-      }
-      // Botão "Ativar alertas" só aparece se não tiver permissão
-      const perm = await OneSignal.Notifications.permission;
-      if(!perm){
+      if(uid){ try{ await OneSignal.login(uid); }catch(e){ console.warn('OneSignal login:',e); } }
+      const permNativa = Notification.permission;
+      if(permNativa === 'granted'){
+        try{
+          const ok = await OneSignal.User.PushSubscription.optedIn;
+          if(!ok) await OneSignal.User.PushSubscription.optIn();
+        }catch(e){}
+        document.getElementById('btnNotifPush')?.remove();
+      } else {
         _renderBtnNotif();
       }
     });
