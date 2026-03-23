@@ -2719,6 +2719,7 @@ async function initOneSignal(){
       });
       const uid = _perfil?.id || _currentUser?.user?.id;
       if(uid){ try{ await OneSignal.login(uid); }catch(e){ console.warn('OneSignal login:',e); } }
+
       const permNativa = Notification.permission;
       if(permNativa === 'granted'){
         try{
@@ -2726,6 +2727,14 @@ async function initOneSignal(){
           if(!ok) await OneSignal.User.PushSubscription.optIn();
         }catch(e){}
         document.getElementById('btnNotifPush')?.remove();
+        // Salva subscription ID no Supabase para roteamento de push
+        try{
+          const subId = OneSignal.User.PushSubscription.id;
+          if(subId && uid && (!_perfil?.onesignal_id || _perfil.onesignal_id !== subId)){
+            await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},tok());
+            if(_perfil) _perfil.onesignal_id = subId;
+          }
+        }catch(e){ console.warn('Erro ao salvar onesignal_id:',e); }
       } else {
         _renderBtnNotif();
       }
@@ -2770,8 +2779,19 @@ function _renderBtnNotif(){
       if(window.OneSignal){
         await window.OneSignal.Notifications.requestPermission();
         const ok = await window.OneSignal.Notifications.permission;
-        if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
-        else toast('Permissão negada pelo navegador','warn');
+        if(ok){
+            btn.remove(); toast('🔔 Notificações ativadas!');
+            try{
+              await window.OneSignal.User.PushSubscription.optIn();
+              const subId = window.OneSignal.User.PushSubscription.id;
+              const uid = _perfil?.id || _currentUser?.user?.id;
+              if(subId && uid){
+                await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},tok());
+                if(_perfil) _perfil.onesignal_id = subId;
+              }
+            }catch(e){ console.warn('Erro optIn:',e); }
+          }
+          else toast('Permissão negada pelo navegador','warn');
       } else {
         const ok = await pedirPermissaoNotificacao();
         if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
