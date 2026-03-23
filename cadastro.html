@@ -1,0 +1,628 @@
+<!DOCTYPE html><!-- CaçambaSP Cadastro v4.0 — Bloco 2 -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solicitar Serviço</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0c0e14;color:#e6e8f0;font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
+.card{background:#13151e;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:32px 28px;width:100%;max-width:520px;box-shadow:0 24px 60px rgba(0,0,0,.5);margin:auto}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.logo-icon{width:52px;height:52px;background:var(--marca-cor,#f5a623);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden}
+.logo-icon img{width:100%;height:100%;object-fit:contain}
+.logo-text{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.logo-sub{font-size:13px;color:#7c84a0;margin-top:2px}
+h2{font-size:20px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.desc{font-size:14px;color:#7c84a0;margin-bottom:28px;line-height:1.6}
+.section{font-size:10px;font-weight:700;color:#4a5068;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;margin-top:24px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.fr{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:700;color:#7c84a0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+input,select,textarea{width:100%;background:#191c26;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:13px 14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;color:#e6e8f0;outline:none;transition:border-color .15s;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--marca-cor,#f5a623);box-shadow:0 0 0 3px color-mix(in srgb,var(--marca-cor,#f5a623) 15%,transparent)}
+input::placeholder,textarea::placeholder{color:#4a5068}
+textarea{resize:vertical;min-height:80px}
+select{cursor:pointer}
+select option{background:#191c26;color:#e6e8f0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--marca-cor,#f5a623)}
+.err-msg{font-size:11px;color:#ef4444;margin-top:5px;display:none;font-weight:600}
+.err-msg.show{display:block}
+.err-geral{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:#ef4444;margin-bottom:16px;display:none}
+.err-geral.show{display:block}
+.qtd-info{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:10px;padding:10px 14px;font-size:13px;color:#f5a623;margin-top:8px;display:none}
+.btn{width:100%;background:var(--marca-cor,#f5a623);color:#000;border:none;border-radius:12px;padding:16px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:16px;cursor:pointer;transition:.15s;margin-top:12px;letter-spacing:.2px}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+/* NF */
+.nf-box{background:#191c26;border:2px solid rgba(245,166,35,.25);border-radius:14px;padding:18px;margin-bottom:20px}
+.nf-box.ok-sim{border-color:rgba(245,166,35,.5);background:rgba(245,166,35,.06)}
+.nf-box.ok-nao{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.05)}
+.nf-btns{display:flex;gap:10px;margin-top:12px}
+.nf-btn{flex:1;padding:13px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:#13151e;color:#e6e8f0;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.nf-btn:hover{border-color:rgba(255,255,255,.25)}
+.nf-btn.sel-sim{background:rgba(245,166,35,.15);border-color:rgba(245,166,35,.5);color:#f5a623}
+.nf-btn.sel-nao{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#22c55e}
+.nf-info{font-size:12px;margin-top:10px;padding:8px 12px;border-radius:8px;display:none;font-weight:600}
+.nf-err{font-size:12px;color:#ef4444;margin-top:8px;display:none;font-weight:600}
+/* TIPO SOLICITAÇÃO */
+.tipo-sol-box{background:#191c26;border:2px solid rgba(255,255,255,.1);border-radius:14px;padding:18px;margin-bottom:20px}
+.tipo-sol-title{font-size:15px;font-weight:800;color:#e6e8f0;margin-bottom:4px}
+.tipo-sol-sub{font-size:13px;color:#7c84a0;margin-bottom:14px;line-height:1.5}
+.tipo-sol-btns{display:flex;gap:10px}
+.tipo-sol-btn{flex:1;padding:16px 10px;border-radius:12px;border:2px solid rgba(255,255,255,.1);background:#13151e;color:#e6e8f0;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;text-align:center;line-height:1.4}
+.tipo-sol-btn .ts-icon{font-size:22px;display:block;margin-bottom:6px}
+.tipo-sol-btn:hover{border-color:rgba(255,255,255,.3)}
+.tipo-sol-btn.sel-pedido{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.5);color:#22c55e}
+.tipo-sol-btn.sel-orcamento{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.5);color:#818cf8}
+.tipo-sol-err{font-size:12px;color:#ef4444;margin-top:10px;display:none;font-weight:600}
+/* SUCCESS */
+#successCard{display:none;text-align:center;padding:20px 0}
+.success-icon{font-size:60px;margin-bottom:16px}
+.success-title{font-size:24px;font-weight:800;margin-bottom:10px;color:#22c55e;letter-spacing:-.3px}
+.success-title.orc{color:#818cf8}
+.success-msg{font-size:14px;color:#7c84a0;line-height:1.7;margin-bottom:24px}
+.success-code{background:#191c26;border:1px solid rgba(245,166,35,.3);border-radius:12px;padding:16px 20px;font-family:'JetBrains Mono',monospace,sans-serif;font-size:20px;font-weight:800;color:#f5a623;letter-spacing:3px;display:inline-block;margin-bottom:24px}
+.success-code.orc{border-color:rgba(99,102,241,.4);color:#818cf8}
+.success-wa{background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.25);border-radius:12px;padding:14px 20px;font-size:14px;color:#25d366;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.success-wa:hover{background:rgba(37,211,102,.18)}
+.tip{font-size:12px;color:#4a5068;text-align:center;margin-top:20px;line-height:1.6}
+/* LOADING */
+#loadingMarca{display:flex;align-items:center;justify-content:center;padding:40px;color:#4a5068;font-size:14px;gap:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--marca-cor,#f5a623);border-radius:50%;animation:spin .7s linear infinite}
+@media(max-width:480px){.row2{grid-template-columns:1fr}.card{padding:24px 18px}.tipo-sol-btns{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<div class="card">
+
+  <!-- LOADING -->
+  <div id="loadingMarca">
+    <div class="spinner"></div>
+    Carregando...
+  </div>
+
+  <!-- FORM (oculto até carregar marca) -->
+  <div id="formCard" style="display:none">
+    <div class="logo">
+      <div class="logo-icon" id="logoIcon">🪣</div>
+      <div>
+        <div class="logo-text" id="marcaNomeEl">CaçambaSP</div>
+        <div class="logo-sub" id="marcaSloganEl">Solicitação de serviço</div>
+      </div>
+    </div>
+
+    <h2>Solicite sua caçamba</h2>
+    <p class="desc">Preencha os dados abaixo e entraremos em contato para confirmar o serviço.</p>
+
+    <div class="err-geral" id="err_geral"></div>
+
+    <div class="section">Seus dados</div>
+
+    <div class="fr">
+      <label>Nome completo <span class="req">*</span></label>
+      <input type="text" id="c_nome" placeholder="João da Silva" autocomplete="name">
+      <div class="err-msg" id="err_nome">Nome obrigatório</div>
+    </div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>CPF / CNPJ <span class="req">*</span></label>
+        <input type="text" id="c_cpf" placeholder="000.000.000-00" oninput="maskDoc(this)" autocomplete="off">
+        <div class="err-msg" id="err_cpf">Documento obrigatório</div>
+      </div>
+      <div class="fr">
+        <label>WhatsApp <span class="req">*</span></label>
+        <input type="tel" id="c_cel" placeholder="(11) 99999-9999" oninput="maskTel(this)" autocomplete="tel">
+        <div class="err-msg" id="err_cel">Celular obrigatório</div>
+      </div>
+    </div>
+
+    <div class="section">Endereço do serviço</div>
+
+    <div class="fr">
+      <label>CEP</label>
+      <input type="text" id="c_cep" placeholder="00000-000" oninput="maskCep(this)" onblur="buscaCep()" maxlength="9" autocomplete="postal-code">
+    </div>
+
+    <div class="fr">
+      <label>Endereço (rua e número) <span class="req">*</span></label>
+      <input type="text" id="c_end" placeholder="Rua das Flores, 123" autocomplete="street-address">
+      <div class="err-msg" id="err_end">Endereço obrigatório</div>
+    </div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>Bairro <span class="req">*</span></label>
+        <input type="text" id="c_bairro" placeholder="Vila Madalena" autocomplete="address-level3">
+        <div class="err-msg" id="err_bairro">Bairro obrigatório</div>
+      </div>
+      <div class="fr">
+        <label>Cidade</label>
+        <input type="text" id="c_cidade" placeholder="São Paulo" autocomplete="address-level2">
+      </div>
+    </div>
+
+    <div class="section">Serviço</div>
+
+    <div class="row2">
+      <div class="fr">
+        <label>Tipo de serviço <span class="req">*</span></label>
+        <select id="c_tipo">
+          <option value="Nova Entrega">Nova Entrega</option>
+          <option value="Troca">Troca</option>
+          <option value="Retirada">Só Retirada</option>
+        </select>
+      </div>
+      <div class="fr">
+        <label>Quantidade de caçambas</label>
+        <select id="c_qtd" onchange="updateQtdInfo()">
+          <option value="1">1 caçamba</option>
+          <option value="2">2 caçambas</option>
+          <option value="3">3 caçambas</option>
+          <option value="4">4 caçambas</option>
+          <option value="5">5 caçambas</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fr">
+      <label>Tipo de resíduo <span class="req">*</span></label>
+      <select id="c_residuo">
+        <option value="Entulho de obra">Entulho de obra</option>
+        <option value="Madeira / móveis">Madeira / móveis</option>
+        <option value="Terra / barro">Terra / barro</option>
+        <option value="Misto (entulho + móveis)">Misto (entulho + móveis)</option>
+        <option value="Jardim / poda">Jardim / poda</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
+
+    <div class="qtd-info" id="qtd_info">Serão criadas <strong id="qtd_num">2</strong> ordens separadas no sistema.</div>
+
+    <div class="fr">
+      <label>Data desejada para o serviço <span class="req">*</span></label>
+      <input type="date" id="c_data">
+      <div class="err-msg" id="err_data">Data obrigatória</div>
+    </div>
+
+    <div class="fr">
+      <label>Observações</label>
+      <textarea id="c_obs" placeholder="Tipo de material, acesso ao local, informações relevantes..."></textarea>
+    </div>
+
+    <!-- NOTA FISCAL -->
+    <div class="nf-box" id="nf_box">
+      <div style="font-size:11px;font-weight:700;color:#4a5068;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🧾 Nota Fiscal</div>
+      <div style="font-size:15px;font-weight:800;color:#e6e8f0;margin-bottom:4px">Este serviço precisará de Nota Fiscal?</div>
+      <div style="font-size:13px;color:#7c84a0;line-height:1.5">A NF não pode ser solicitada após o pagamento ser gerado.</div>
+      <div class="nf-btns">
+        <button type="button" class="nf-btn" id="nf_sim" onclick="escolherNFCad(true)">🧾 Sim, quero NF</button>
+        <button type="button" class="nf-btn" id="nf_nao" onclick="escolherNFCad(false)">✅ Não preciso de NF</button>
+      </div>
+      <div class="nf-info" id="nf_info"></div>
+      <div class="nf-err" id="nf_err">⚠️ Por favor, escolha uma opção antes de enviar.</div>
+    </div>
+
+    <!-- TIPO DE SOLICITAÇÃO -->
+    <div class="tipo-sol-box" id="tipo_sol_box">
+      <div style="font-size:11px;font-weight:700;color:#4a5068;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📋 Tipo de solicitação</div>
+      <div class="tipo-sol-title">O que você deseja fazer?</div>
+      <div class="tipo-sol-sub">Escolha entre receber um orçamento sem compromisso ou confirmar o pedido direto.</div>
+      <div class="tipo-sol-btns">
+        <button type="button" class="tipo-sol-btn" id="ts_orcamento" onclick="escolherTipoSol('orcamento')">
+          <span class="ts-icon">📄</span>
+          Quero um orçamento
+          <div style="font-size:11px;font-weight:500;color:#7c84a0;margin-top:4px">Recebo o valor antes de confirmar</div>
+        </button>
+        <button type="button" class="tipo-sol-btn" id="ts_pedido" onclick="escolherTipoSol('pedido')">
+          <span class="ts-icon">✅</span>
+          Confirmar pedido
+          <div style="font-size:11px;font-weight:500;color:#7c84a0;margin-top:4px">Já quero agendar o serviço</div>
+        </button>
+      </div>
+      <div class="tipo-sol-err" id="tipo_sol_err">⚠️ Por favor, escolha uma opção antes de enviar.</div>
+    </div>
+
+    <button class="btn" id="btnEnviar" onclick="enviarCadastro()">✅ Enviar Solicitação</button>
+
+    <p class="tip">Após o envio, entraremos em contato pelo WhatsApp para confirmar.<br>Dúvidas? Fale conosco: <strong id="tipTel">(11) 4237-8757</strong></p>
+  </div>
+
+  <!-- SUCESSO -->
+  <div id="successCard">
+    <div class="success-icon" id="successIcon">🎉</div>
+    <div class="success-title" id="successTitle">Solicitação enviada!</div>
+    <p class="success-msg" id="successMsg">Recebemos sua solicitação com sucesso.<br>Nossa equipe entrará em contato pelo WhatsApp em breve para confirmar o agendamento.</p>
+    <div style="margin-bottom:8px;font-size:12px;color:#7c84a0;text-transform:uppercase;letter-spacing:.5px;font-weight:700">Seu código de acompanhamento</div>
+    <div class="success-code" id="successCode">—</div>
+    <div style="background:#191c26;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#7c84a0;line-height:1.7" id="successResumo"></div>
+    <div class="success-wa" onclick="notificarEquipe()" id="btnNotif">
+      📲 Confirmar pelo WhatsApp
+    </div>
+    <button onclick="window.location.reload()" style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px;color:#7c84a0;cursor:pointer;margin-top:8px">Nova solicitação</button>
+    <p class="tip">Guarde o código acima — ele identifica sua ordem no sistema.<br>Dúvidas? Fale conosco: <strong id="tipTel2">(11) 4237-8757</strong></p>
+  </div>
+
+</div>
+
+<script>
+// ── CONFIG ──
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+const EQUIPE_WA = '551142378757';
+
+// Pega uid do vendedor pela URL (?v=xxx)
+const params = new URLSearchParams(window.location.search);
+const VEND_UID = params.get('v') || null;
+
+// Estado global da marca carregada
+let _marca = {
+  nome: 'CaçambaSP',
+  slogan: 'Solicitação de serviço',
+  cor: '#f5a623',
+  logo: null,
+  tel: EQUIPE_WA,
+  uid: null
+};
+
+// Estado do formulário
+let _cadTemNF = null;
+let _tipoSol = null; // 'orcamento' ou 'pedido'
+
+// Data mínima = hoje
+document.getElementById('c_data').min = new Date().toISOString().split('T')[0];
+
+// ── CARREGAR MARCA ──
+async function carregarMarca(){
+  if(!VEND_UID){
+    aplicarMarca(_marca);
+    return;
+  }
+  try{
+    const r = await fetch(
+      SUPA_URL+'/rest/v1/perfis?id=eq.'+VEND_UID+'&select=nome,marca_nome,marca_slogan,marca_cor,marca_logo_url,marca_tel',
+      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
+    );
+    const data = await r.json();
+    if(data?.[0]){
+      const p = data[0];
+      _marca = {
+        nome:   p.marca_nome  || p.nome || 'CaçambaSP',
+        slogan: p.marca_slogan|| 'Solicitação de serviço',
+        cor:    p.marca_cor   || '#f5a623',
+        logo:   p.marca_logo_url || null,
+        tel:    p.marca_tel   || EQUIPE_WA,
+        uid:    VEND_UID
+      };
+    }
+  }catch(e){
+    console.warn('Erro ao carregar marca:', e);
+  }
+  aplicarMarca(_marca);
+}
+
+function aplicarMarca(m){
+  // CSS var global
+  document.documentElement.style.setProperty('--marca-cor', m.cor);
+
+  // Header
+  document.getElementById('marcaNomeEl').textContent = m.nome;
+  document.getElementById('marcaSloganEl').textContent = m.slogan || 'Solicitação de serviço';
+  document.title = m.nome + ' — Solicitar Serviço';
+
+  // Logo
+  const iconEl = document.getElementById('logoIcon');
+  if(m.logo){
+    iconEl.innerHTML = `<img src="${m.logo}" alt="${m.nome}">`;
+    iconEl.style.background = 'transparent';
+    iconEl.style.border = '2px solid rgba(255,255,255,.08)';
+  } else {
+    iconEl.innerHTML = '🪣';
+    iconEl.style.background = m.cor;
+  }
+
+  // Tel de contato no rodapé
+  const telFmt = m.tel ? m.tel.replace(/^\+/,'').replace(/^55/,'').replace(/^(\d{2})(\d{4,5})(\d{4})$/,'($1) $2-$3') : '(11) 4237-8757';
+  document.getElementById('tipTel').textContent = telFmt;
+  document.getElementById('tipTel2').textContent = telFmt;
+
+  // Mostrar form
+  document.getElementById('loadingMarca').style.display = 'none';
+  document.getElementById('formCard').style.display = 'block';
+}
+
+// Inicia carregamento da marca
+carregarMarca();
+
+// ── MÁSCARAS ──
+function maskTel(el){
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>10) v = v.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');
+  else if(v.length>6) v = v.replace(/^(\d{2})(\d{4})(\d*)$/,'($1) $2-$3');
+  else if(v.length>2) v = v.replace(/^(\d{2})(\d*)$/,'($1) $2');
+  el.value = v;
+}
+function maskDoc(el){
+  let v = el.value.replace(/\D/g,'');
+  if(v.length<=11) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})$/,'$1.$2.$3-$4').replace(/-$/,'');
+  else v = v.slice(0,14).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})$/,'$1.$2.$3/$4-$5').replace(/-$/,'');
+  el.value = v;
+}
+function maskCep(el){
+  let v = el.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>5) v = v.replace(/^(\d{5})(\d*)$/,'$1-$2');
+  el.value = v;
+}
+
+// ── BUSCA CEP ──
+async function buscaCep(){
+  const cep = document.getElementById('c_cep').value.replace(/\D/g,'');
+  if(cep.length!==8) return;
+  try{
+    const r = await fetch('https://viacep.com.br/ws/'+cep+'/json/');
+    const d = await r.json();
+    if(!d.erro){
+      const end = document.getElementById('c_end');
+      if(!end.value) end.value = d.logradouro||'';
+      const b = document.getElementById('c_bairro');
+      if(!b.value) b.value = d.bairro||'';
+      const c = document.getElementById('c_cidade');
+      if(!c.value) c.value = d.localidade||'';
+    }
+  }catch(e){}
+}
+
+// ── QTD INFO ──
+function updateQtdInfo(){
+  const qtd = parseInt(document.getElementById('c_qtd').value)||1;
+  const info = document.getElementById('qtd_info');
+  document.getElementById('qtd_num').textContent = qtd;
+  info.style.display = qtd > 1 ? 'block' : 'none';
+}
+
+// ── PRÓXIMO CRM ID ──
+async function getNextCrmId(prefixo){
+  const ano = new Date().getFullYear();
+  const base = prefixo + ano;
+  try{
+    // Busca TODOS os crm_ids com esse prefixo e pega o maior número
+    const r = await fetch(
+      SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=like.'+base+'%25',
+      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
+    );
+    const data = await r.json();
+    if(data?.length){
+      const maxNum = data.reduce((max, row)=>{
+        const n = parseInt((row.crm_id||'').replace(/\D/g,'').slice(-4))||0;
+        return n > max ? n : max;
+      }, 0);
+      return {base, num: maxNum+1};
+    }
+  }catch(e){}
+  return {base, num:1};
+}
+
+function showErr(id, show){
+  const el = document.getElementById(id);
+  if(el) el.classList.toggle('show', show);
+}
+
+// ── NF ──
+function escolherNFCad(sim){
+  _cadTemNF = sim;
+  document.getElementById('nf_sim').className = 'nf-btn'+(sim?' sel-sim':'');
+  document.getElementById('nf_nao').className = 'nf-btn'+(!sim?' sel-nao':'');
+  document.getElementById('nf_err').style.display = 'none';
+  const info = document.getElementById('nf_info');
+  const box  = document.getElementById('nf_box');
+  info.style.display = 'block';
+  if(sim){
+    info.style.background='rgba(245,166,35,.1)'; info.style.color='#f5a623';
+    info.textContent='🧾 Nota Fiscal solicitada — nossa equipe confirmará o valor com imposto incluído.';
+    box.className='nf-box ok-sim';
+  }else{
+    info.style.background='rgba(34,197,94,.1)'; info.style.color='#22c55e';
+    info.textContent='✅ Entendido — sem Nota Fiscal para este serviço.';
+    box.className='nf-box ok-nao';
+  }
+}
+
+// ── TIPO SOLICITAÇÃO ──
+function escolherTipoSol(tipo){
+  _tipoSol = tipo;
+  document.getElementById('ts_pedido').className    = 'tipo-sol-btn' + (tipo==='pedido'   ? ' sel-pedido':'');
+  document.getElementById('ts_orcamento').className = 'tipo-sol-btn' + (tipo==='orcamento'? ' sel-orcamento':'');
+  document.getElementById('tipo_sol_err').style.display = 'none';
+
+  // Atualiza texto do botão
+  const btn = document.getElementById('btnEnviar');
+  if(tipo === 'orcamento'){
+    btn.textContent = '📄 Solicitar Orçamento';
+  } else {
+    btn.textContent = '✅ Confirmar Pedido';
+  }
+}
+
+// ── ENVIAR ──
+async function enviarCadastro(){
+  const nome    = document.getElementById('c_nome').value.trim();
+  const cpf     = document.getElementById('c_cpf').value.trim();
+  const cel     = document.getElementById('c_cel').value.trim();
+  const end     = document.getElementById('c_end').value.trim();
+  const bairro  = document.getElementById('c_bairro').value.trim();
+  const cidade  = document.getElementById('c_cidade').value.trim();
+  const cep     = document.getElementById('c_cep').value.trim();
+  const tipo    = document.getElementById('c_tipo').value;
+  const qtd     = parseInt(document.getElementById('c_qtd').value)||1;
+  const data    = document.getElementById('c_data').value;
+  const obs     = document.getElementById('c_obs').value.trim();
+  const residuo = document.getElementById('c_residuo').value;
+
+  // Validações
+  if(_cadTemNF === null){
+    document.getElementById('nf_err').style.display = 'block';
+    document.getElementById('nf_box').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  if(_tipoSol === null){
+    document.getElementById('tipo_sol_err').style.display = 'block';
+    document.getElementById('tipo_sol_box').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+
+  let ok = true;
+  showErr('err_nome',  !nome);  if(!nome)  ok=false;
+  showErr('err_cpf',   !cpf);   if(!cpf)   ok=false;
+  showErr('err_cel',   !cel);   if(!cel)   ok=false;
+  showErr('err_end',   !end);   if(!end)   ok=false;
+  showErr('err_bairro',!bairro);if(!bairro)ok=false;
+  showErr('err_data',  !data);  if(!data)  ok=false;
+  if(!ok) return;
+
+  const btn = document.getElementById('btnEnviar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  document.getElementById('err_geral').classList.remove('show');
+
+  // Define prefixo e coluna conforme tipo
+  const isOrcamento = (_tipoSol === 'orcamento');
+  const prefixo     = isOrcamento ? 'ORC' : 'LC';
+  const colDestino  = isOrcamento ? 'orcamento' : 'contratar';
+
+  try{
+    const {base, num} = await getNextCrmId(prefixo);
+    const codigos = [];
+
+    for(let i=0; i<qtd; i++){
+      const crmId = base + String(num + i).padStart(4,'0');
+      codigos.push(crmId);
+
+      const ordem = {
+        id: crypto.randomUUID(),
+        crm_id: crmId,
+        col: colDestino,
+        nome, cpf, cel,
+        email_cli: '',
+        logradouro: end,
+        bairro,
+        cidade: cidade || 'São Paulo',
+        cep,
+        tipo: qtd > 1 ? tipo + ' (' + (i+1) + '/' + qtd + ')' : tipo,
+        data,
+        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + (_cadTemNF?'[NF solicitada] ':'') + obs,
+        rec: 0, cst: 0,
+        pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+        forn_id: null,
+        forn_pago: false, forn_pago_em: null, forn_pago_valor: null,
+        grp_id: '',
+        usuario_id: VEND_UID,
+        criado_em: new Date(Date.now() + i * 1000).toISOString()
+      };
+
+      await fetch(SUPA_URL+'/rest/v1/ordens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(ordem)
+      });
+    }
+
+    // Monta mensagem WA
+    const dataFmt = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    const tipoLabel = isOrcamento ? '📄 ORÇAMENTO' : '✅ PEDIDO CONFIRMADO';
+    const msg =
+      '🪣 *'+tipoLabel+' — '+_marca.nome+'*\n\n'+
+      '👤 *Cliente:* '+nome+'\n'+
+      '📄 *CPF/CNPJ:* '+cpf+'\n'+
+      '📲 *WhatsApp:* '+cel+'\n'+
+      '📍 *Endereço:* '+end+(bairro?', '+bairro:'')+(cidade?', '+cidade:'')+(cep?' — CEP '+cep:'')+'\n'+
+      '📅 *Data:* '+dataFmt+'\n'+
+      '🗑️ *Serviço:* '+qtd+'x '+tipo+'\n'+
+      (_cadTemNF?'🧾 *Nota Fiscal:* SIM\n':'🚫 *Nota Fiscal:* Não\n')+
+      (residuo?'♻️ *Resíduo:* '+residuo+'\n':'')+
+      (obs?'📝 *Obs:* '+obs+'\n':'')+
+      '\n🔑 *Código'+(qtd>1?'s':'')+':* '+codigos.join(', ');
+
+    window._notifMsg = msg;
+    window._notifTel = (_marca.tel || EQUIPE_WA).replace(/^\+/,'');
+
+    // Abre WA automaticamente
+    try{ window.open('https://wa.me/'+window._notifTel+'?text='+encodeURIComponent(msg), '_blank'); }catch(e){}
+
+    // Tela de sucesso
+    document.getElementById('formCard').style.display = 'none';
+    const sc = document.getElementById('successCard');
+    sc.style.display = 'block';
+
+    // Dispara push via Edge Function (fire-and-forget — não bloqueia)
+    try{
+      const primeiraOrdemId = codigos[0];
+      fetch(SUPA_URL+'/functions/v1/notificar-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+        body: JSON.stringify({
+          tipo: isOrcamento ? 'novo_orcamento' : 'nova_ordem',
+          crm_id: codigos.join(', '),
+          nome_cliente: nome,
+          bairro: bairro,
+          usuario_id: VEND_UID,
+        })
+      }).catch(()=>{}); // silencia erros de push
+    }catch(e){}
+
+    const successCode = document.getElementById('successCode');
+    const successTitle = document.getElementById('successTitle');
+    const successMsg = document.getElementById('successMsg');
+    const successIcon = document.getElementById('successIcon');
+
+    successCode.textContent = codigos.join(' · ');
+
+    if(isOrcamento){
+      successIcon.textContent = '📄';
+      successTitle.textContent = 'Orçamento solicitado!';
+      successTitle.className = 'success-title orc';
+      successCode.className = 'success-code orc';
+      successMsg.innerHTML = 'Recebemos sua solicitação de orçamento.<br>Nossa equipe entrará em contato pelo WhatsApp com os valores em breve.';
+    } else {
+      successIcon.textContent = '🎉';
+      successTitle.textContent = 'Pedido confirmado!';
+      successTitle.className = 'success-title';
+      successCode.className = 'success-code';
+      successMsg.innerHTML = 'Recebemos seu pedido com sucesso.<br>Nossa equipe entrará em contato pelo WhatsApp para confirmar o agendamento.';
+    }
+
+    const dataFmtOk = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    document.getElementById('successResumo').innerHTML =
+      '<strong>📍 Endereço:</strong> '+end+(bairro?', '+bairro:'')+'<br>'+
+      '<strong>📅 Data:</strong> '+dataFmtOk+'<br>'+
+      '<strong>🗑️ Serviço:</strong> '+qtd+'x '+tipo+'<br>'+
+      (residuo?'<strong>♻️ Resíduo:</strong> '+residuo+'<br>':'')+
+      '<strong>📲 WhatsApp:</strong> '+cel;
+
+  }catch(e){
+    console.error(e);
+    const el = document.getElementById('err_geral');
+    el.textContent = 'Erro ao enviar. Tente novamente ou entre em contato pelo WhatsApp.';
+    el.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = isOrcamento ? '📄 Solicitar Orçamento' : '✅ Confirmar Pedido';
+  }
+}
+
+function notificarEquipe(){
+  const msg = window._notifMsg || 'Nova solicitação — verifique o sistema.';
+  const tel = window._notifTel || EQUIPE_WA;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg), '_blank');
+}
+</script>
+</body>
+</html>
