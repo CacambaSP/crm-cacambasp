@@ -3510,6 +3510,7 @@ async function _renderHistComissao(){
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(r.valor_vendedor)}</div>
+                <button class="btn btn-sm" onclick="_renderDetalheOrdens('${r.usuario_id}','${mes}')" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.25);font-size:10px">📋 Ordens</button>
                 ${r.status==='pago'
                   ? `<span style="font-size:10px;color:var(--g)">✅ ${r.pago_em?new Date(r.pago_em).toLocaleDateString('pt-BR'):''}</span>`
                   : `<button class="btn btn-sm btn-g" onclick="marcarComissaoPaga('${r.id}')">Marcar pago</button>`
@@ -3523,6 +3524,139 @@ async function _renderHistComissao(){
   }catch(e){
     el.innerHTML = '<div style="padding:20px;color:var(--r);font-size:13px">Erro ao carregar histórico.</div>';
   }
+}
+
+async function _renderDetalheOrdens(usuarioId, mes){
+  // Busca ordens do vendedor pagas naquele mês
+  const u = usuarios.find(x=>x.id===usuarioId);
+  const nome = u?.nome||'Vendedor';
+  const [ano,m] = mes.split('-').map(Number);
+  const label = MESES[m-1]+' '+ano;
+  const mesInicio = mes.slice(0,7)+'-01';
+  const proximoMes = new Date(ano, m, 1).toISOString().slice(0,10);
+
+  // Modal de detalhe
+  const modalId = 'detalheOrdensModal';
+  let modal = document.getElementById(modalId);
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `<div class="modal-box" style="max-width:700px;width:95%">
+      <div class="mh"><div class="mh-ico" style="background:rgba(99,102,241,.15)">📋</div>
+        <div><div class="mh-title" id="detalheOrdensTitle">Ordens</div><div class="mh-sub" id="detalheOrdensSub"></div></div>
+        <button class="nb mh-close" onclick="closeModal('detalheOrdensModal')">✕</button>
+      </div>
+      <div id="detalheOrdensBody" style="max-height:60vh;overflow-y:auto;padding:0 4px"></div>
+      <div style="padding-top:12px;border-top:1px solid var(--bor);display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="imprimirDetalheOrdens()">🖨️ Imprimir</button>
+        <button class="btn btn-sm btn-b" onclick="closeModal('detalheOrdensModal')">Fechar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById('detalheOrdensTitle').textContent = nome+' — '+label;
+  document.getElementById('detalheOrdensSub').textContent = 'Carregando ordens...';
+  document.getElementById('detalheOrdensBody').innerHTML = '<div style="padding:20px;color:var(--mut2);text-align:center">⏳ Carregando...</div>';
+  openModal(modalId);
+
+  try{
+    // Busca ordens pagas do vendedor no mês (por pago_em)
+    const ords = await api(
+      `ordens?usuario_id=eq.${usuarioId}&pago=eq.true&pago_em=gte.${mesInicio}&pago_em=lt.${proximoMes}&order=pago_em.asc`,
+      undefined,undefined,tok()
+    );
+
+    if(!ords||!ords.length){
+      document.getElementById('detalheOrdensSub').textContent = '0 ordens';
+      document.getElementById('detalheOrdensBody').innerHTML = '<div style="padding:30px;color:var(--mut2);text-align:center">Nenhuma ordem paga neste mês.</div>';
+      return;
+    }
+
+    // Calcula totais
+    let totalRec=0,totalCst=0,totalNF=0,totalLucro=0;
+    const rows = ords.map(o=>{
+      const rec=parseFloat(o.rec)||0;
+      const cst=parseFloat(o.cst)||0;
+      const taxa=o.nf_num?(parseFloat(o.nf_taxa)||11):0;
+      const nf=o.nf_num?rec*(taxa/100):0;
+      const lucro=rec-cst-nf-10; // taxa adm R$10
+      totalRec+=rec; totalCst+=cst; totalNF+=nf; totalLucro+=lucro;
+      const dataP=o.pago_em?new Date(o.pago_em).toLocaleDateString('pt-BR'):'—';
+      return `<tr style="border-bottom:1px solid var(--bor)">
+        <td style="padding:7px 8px;font-size:12px;color:var(--acc);font-weight:600">${o.crm_id||'—'}</td>
+        <td style="padding:7px 8px;font-size:12px">${o.nome||'—'}</td>
+        <td style="padding:7px 8px;font-size:12px;color:var(--mut2)">${o.bairro||'—'}</td>
+        <td style="padding:7px 8px;font-size:12px;color:var(--mut2)">${dataP}</td>
+        <td style="padding:7px 8px;font-size:12px;text-align:right;font-family:var(--mono)">R$ ${fmt(rec)}</td>
+        <td style="padding:7px 8px;font-size:12px;text-align:right;font-family:var(--mono);color:var(--r)">R$ ${fmt(cst)}</td>
+        <td style="padding:7px 8px;font-size:12px;text-align:right;font-family:var(--mono);color:var(--mut2)">${nf>0?'R$ '+fmt(nf):'—'}</td>
+        <td style="padding:7px 8px;font-size:12px;text-align:right;font-family:var(--mono);font-weight:700;color:${lucro>=0?'var(--g)':'var(--r)'}">R$ ${fmt(lucro)}</td>
+      </tr>`;
+    });
+
+    document.getElementById('detalheOrdensSub').textContent = ords.length+' ordens pagas';
+    document.getElementById('detalheOrdensBody').innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg2);font-size:10px;text-transform:uppercase;color:var(--mut2)">
+              <th style="padding:8px;text-align:left">CRM</th>
+              <th style="padding:8px;text-align:left">Cliente</th>
+              <th style="padding:8px;text-align:left">Bairro</th>
+              <th style="padding:8px;text-align:left">Pg. em</th>
+              <th style="padding:8px;text-align:right">Rec</th>
+              <th style="padding:8px;text-align:right">Cst</th>
+              <th style="padding:8px;text-align:right">NF</th>
+              <th style="padding:8px;text-align:right">Lucro liq.</th>
+            </tr>
+          </thead>
+          <tbody>${rows.join('')}</tbody>
+          <tfoot>
+            <tr style="background:var(--bg2);font-weight:800;border-top:2px solid var(--bor)">
+              <td colspan="4" style="padding:10px 8px;font-size:12px">TOTAL (${ords.length} ordens)</td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--mono);color:var(--g)">R$ ${fmt(totalRec)}</td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--mono);color:var(--r)">R$ ${fmt(totalCst)}</td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--mono);color:var(--mut2)">${totalNF>0?'R$ '+fmt(totalNF):'—'}</td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--mono);color:${totalLucro>=0?'var(--g)':'var(--r)'}">R$ ${fmt(totalLucro)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+    // Guarda para impressão
+    window._detalheOrdensCache = { nome, label, ords, totalRec, totalCst, totalNF, totalLucro };
+  }catch(e){
+    document.getElementById('detalheOrdensBody').innerHTML = '<div style="padding:20px;color:var(--r)">Erro ao carregar ordens: '+e.message+'</div>';
+  }
+}
+
+function imprimirDetalheOrdens(){
+  const c = window._detalheOrdensCache;
+  if(!c) return;
+  const html = `<html><head><style>
+    body{font-family:Arial,sans-serif;padding:24px;font-size:12px;color:#111}
+    h2{margin-bottom:4px}h3{color:#666;font-weight:400;margin:0 0 16px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:7px 10px;border:1px solid #ddd;text-align:left}
+    th{background:#f5f5f5;font-weight:700;font-size:11px}
+    tfoot td{background:#f5a62315;font-weight:800}
+    .val{text-align:right;font-family:monospace}
+  </style></head><body>
+  <h2>📋 ${c.nome} — ${c.label}</h2>
+  <h3>${c.ords.length} ordens pagas</h3>
+  <table>
+    <thead><tr><th>CRM</th><th>Cliente</th><th>Bairro</th><th>Pago em</th><th class="val">Rec</th><th class="val">Cst</th><th class="val">NF</th><th class="val">Lucro liq.</th></tr></thead>
+    <tbody>${c.ords.map(o=>{
+      const rec=parseFloat(o.rec)||0,cst=parseFloat(o.cst)||0;
+      const nf=o.nf_num?rec*((parseFloat(o.nf_taxa)||11)/100):0;
+      const lucro=rec-cst-nf-10;
+      const dp=o.pago_em?new Date(o.pago_em).toLocaleDateString('pt-BR'):'—';
+      return `<tr><td>${o.crm_id||'—'}</td><td>${o.nome||'—'}</td><td>${o.bairro||'—'}</td><td>${dp}</td><td class="val">R$ ${fmt(rec)}</td><td class="val">R$ ${fmt(cst)}</td><td class="val">${nf>0?'R$ '+fmt(nf):'—'}</td><td class="val">R$ ${fmt(lucro)}</td></tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr><td colspan="4">TOTAL</td><td class="val">R$ ${fmt(c.totalRec)}</td><td class="val">R$ ${fmt(c.totalCst)}</td><td class="val">${c.totalNF>0?'R$ '+fmt(c.totalNF):'—'}</td><td class="val">R$ ${fmt(c.totalLucro)}</td></tr></tfoot>
+  </table></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.print();
 }
 
 async function marcarComissaoPaga(id){
