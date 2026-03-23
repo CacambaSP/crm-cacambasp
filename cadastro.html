@@ -563,6 +563,22 @@ async function enviarCadastro(){
     const sc = document.getElementById('successCard');
     sc.style.display = 'block';
 
+    // Dispara push via Edge Function (fire-and-forget — não bloqueia)
+    try{
+      const primeiraOrdemId = codigos[0];
+      fetch(SUPA_URL+'/functions/v1/notificar-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+        body: JSON.stringify({
+          tipo: isOrcamento ? 'novo_orcamento' : 'nova_ordem',
+          crm_id: codigos.join(', '),
+          nome_cliente: nome,
+          bairro: bairro,
+          usuario_id: VEND_UID,
+        })
+      }).catch(()=>{}); // silencia erros de push
+    }catch(e){}
+
     const successCode = document.getElementById('successCode');
     const successTitle = document.getElementById('successTitle');
     const successMsg = document.getElementById('successMsg');

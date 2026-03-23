@@ -393,6 +393,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
   .mob-overlay{display:none!important}
 }
 </style>
+<!-- OneSignal -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 </head>
 <body>
 
@@ -1332,6 +1334,7 @@ async function loadApp(){
       setTimeout(()=>document.getElementById('loadScreen').style.display='none',300);
     },300);
     startAutoRefresh();
+    initOneSignal(); // Push notifications
   }catch(e){
     console.error(e);
     document.getElementById('loadTxt').textContent='Erro ao carregar. Tente novamente.';
@@ -2703,6 +2706,31 @@ async function pedirPermissaoNotificacao(){
   return result === 'granted';
 }
 
+// ── ONESIGNAL PUSH ──
+async function initOneSignal(){
+  try{
+    if(!window.OneSignalDeferred) window.OneSignalDeferred=[];
+    window.OneSignalDeferred.push(async (OneSignal)=>{
+      await OneSignal.init({
+        appId: 'c2dbdd20-6f19-433f-8106-f45d3e37714d',
+        serviceWorkerPath: '/sw.js',
+        notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true,
+      });
+      // Vincula o usuário logado como external_id para roteamento
+      const uid = _perfil?.id || _currentUser?.user?.id;
+      if(uid){
+        await OneSignal.login(uid);
+      }
+      // Botão "Ativar alertas" só aparece se não tiver permissão
+      const perm = await OneSignal.Notifications.permission;
+      if(!perm){
+        _renderBtnNotif();
+      }
+    });
+  }catch(e){ console.warn('OneSignal init falhou:', e); }
+}
+
 // Notificação local via SW (não precisa de servidor push)
 async function notificarLocal(title, body, tag, url){
   if(!_swReg) return;
@@ -2729,16 +2757,25 @@ function checarNovasOrdens(ordensNovas){
 function _renderBtnNotif(){
   const existing = document.getElementById('btnNotifPush');
   if(existing || !('Notification' in window)) return;
-  if(Notification.permission === 'granted') return; // já ativado
+  if(Notification.permission === 'granted') return;
   const btn = document.createElement('button');
   btn.id = 'btnNotifPush';
   btn.className = 'btn btn-sm';
   btn.innerHTML = '🔔 Ativar alertas';
   btn.title = 'Receber notificações de novas ordens';
   btn.onclick = async () => {
-    const ok = await pedirPermissaoNotificacao();
-    if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
-    else toast('Permissão negada pelo navegador','warn');
+    try{
+      if(window.OneSignal){
+        await window.OneSignal.Notifications.requestPermission();
+        const ok = await window.OneSignal.Notifications.permission;
+        if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
+        else toast('Permissão negada pelo navegador','warn');
+      } else {
+        const ok = await pedirPermissaoNotificacao();
+        if(ok){ btn.remove(); toast('🔔 Notificações ativadas!'); }
+        else toast('Permissão negada pelo navegador','warn');
+      }
+    }catch(e){ toast('Erro ao ativar notificações','err'); }
   };
   document.querySelector('.topbar-right')?.prepend(btn);
 }

@@ -1,5 +1,7 @@
-// CaçambaSP Service Worker v1.0
-const CACHE = 'cacambasp-v1';
+// CaçambaSP Service Worker v2.0 — OneSignal
+importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
+
+const CACHE = 'cacambasp-v2';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
