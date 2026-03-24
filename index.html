@@ -2037,7 +2037,7 @@ function onFornChange(){
   const f=forns.find(x=>x.id===fid);
   if(!f) return;
   const cstEl=document.getElementById('o_cst');
-  if(cstEl.value&&parseFloat(cstEl.value)>0) return; // já tem valor — não sobrescreve
+  // Sempre atualiza ao trocar fornecedor — permite sobrescrever com preço do bairro
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   // Busca preço específico do bairro
   const reg=term?regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase();return b&&(b.includes(term)||term.includes(b));}):null;
@@ -2639,7 +2639,7 @@ function enviarTracking(id){
   if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
-  const link='https://cacambasp-crm.vercel.app/tracking?id='+encodeURIComponent(c.crm_id);
+  const link='https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id);
   const nome=(c.nome||'').split(' ')[0]||'Cliente';
   const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
   const tel=c.cel.replace(/\D/g,'');
@@ -5405,6 +5405,14 @@ async function confirmarConverterOrc(id){
     _atualizarOrcBadge();
     addLog(id, 'Orçamento convertido em ordem', novoCrmId);
     toast('✅ Ordem '+novoCrmId+' criada no Kanban!');
+    // Notifica equipe via push
+    try{
+      fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-push',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
+        body:JSON.stringify({tipo:'nova_ordem',ordem_id:id,crm_id:novoCrmId,nome_cliente:o.nome||'',bairro:o.bairro||'',usuario_id:o.usuario_id||null})
+      });
+    }catch(e){ console.warn('Push falhou:',e); }
   }catch(e){ setSyncDot('err'); toast('Erro ao converter','err'); }
 }
 
