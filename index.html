@@ -1138,7 +1138,7 @@ let _histPage=1; const HIST_PER=50;
 let _confirmResolve=null;
 let _filterTimer=null, _histTimer=null, _cliTimer=null, _nfTimer=null;
 let _autoRefreshId=null, _tokenRefreshId=null;
-let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0');
+let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0'); // fallback local
 let _histSelected=new Set(), _histSelMode=false;
 let _ordemEditId=null;
 
@@ -1149,7 +1149,24 @@ function renderCobr(){return renderCobrancaAuto();}
 function renderComissao(){return renderComissaoView();}
 const fmts=v=>parseFloat(v||0).toLocaleString('pt-BR');
 const uid=()=>crypto.randomUUID();
-const nextCrmId=()=>{_pixSeq++;localStorage.setItem('crm_pixseq',_pixSeq);return 'LC'+new Date().getFullYear()+String(_pixSeq).padStart(4,'0');}
+const nextCrmId=async(prefixo='LC')=>{
+  const ano=new Date().getFullYear();
+  const base=prefixo+ano;
+  try{
+    const dados=await api('ordens?select=crm_id&crm_id=like.'+base+'*');
+    if(dados?.length){
+      const maxNum=dados.reduce((max,row)=>{
+        const n=parseInt((row.crm_id||'').replace(/\D/g,'').slice(-4))||0;
+        return n>max?n:max;
+      },0);
+      const num=maxNum+1;
+      if(prefixo==='LC'){_pixSeq=num;localStorage.setItem('crm_pixseq',_pixSeq);}
+      return base+String(num).padStart(4,'0');
+    }
+  }catch(e){ console.warn('nextCrmId fallback localStorage',e); }
+  _pixSeq++;localStorage.setItem('crm_pixseq',_pixSeq);
+  return base+String(_pixSeq).padStart(4,'0');
+};
 const dateF=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
 const nowISO=()=>new Date().toISOString();
 
@@ -2092,7 +2109,7 @@ async function salvarOrdem(){
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     // NOVA
-    const crmId=nextCrmId();
+    const crmId=await nextCrmId('LC');
     const novaOrdem={
       id:uid(),crm_id:crmId,col:'contratar',
       nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
@@ -2524,10 +2541,10 @@ function buildPix(chave,nome,cidade,valor,txid){
 }
 
 // ── PIX — funções ──
-function openPixDoDetail(){
+async function openPixDoDetail(){
   const c=ordens.find(x=>x.id===_detailId);if(!c)return;
   if(!c.rec||c.rec<=0){toast('Defina o valor cobrado antes','warn');return;}
-  const pixId=c.crm_id||nextCrmId();
+  const pixId=c.crm_id||(await nextCrmId('LC'));
   if(!c.crm_id){c.crm_id=pixId;api('ordens?id=eq.'+c.id,'PATCH',{crm_id:pixId},tok()).catch(()=>{});}
   _pixCardId=c.id; _pixId=pixId;
   document.getElementById('pix_id').textContent=pixId;
@@ -5388,7 +5405,7 @@ async function confirmarConverterOrc(id){
     okClass:'btn-g'
   });
   if(!ok) return;
-  const novoCrmId = nextCrmId();
+  const novoCrmId = await nextCrmId('LC');
   const agora = nowISO();
   const patch = {
     col: 'contratar',
