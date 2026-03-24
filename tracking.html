@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Acompanhe sua Caçamba</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --acc:#f5a623;
+    --bg:#0f1117;
+    --card:#1a1d27;
+    --bor:#2a2d3a;
+    --txt:#e8eaf0;
+    --mut:#8b8fa8;
+    --g:#22c55e;
+    --r:#ef4444;
+    --rad:14px;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);
+    color:var(--txt);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:0 0 40px;
+  }
+
+  /* HEADER DA MARCA */
+  #header{
+    width:100%;
+    padding:20px 20px 16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    position:relative;
+  }
+  #brand-bar{
+    width:100%;
+    height:4px;
+    background:var(--acc);
+    position:absolute;
+    top:0;left:0;
+    border-radius:0 0 4px 4px;
+  }
+  #brand-logo{
+    width:64px;height:64px;
+    border-radius:50%;
+    object-fit:cover;
+    border:3px solid var(--acc);
+    display:none;
+  }
+  #brand-initial{
+    width:64px;height:64px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:24px;font-weight:800;
+    border:3px solid var(--acc);
+    background:rgba(245,166,35,.15);
+    color:var(--acc);
+  }
+  #brand-nome{font-size:18px;font-weight:700;color:var(--txt);text-align:center}
+  #brand-slogan{font-size:12px;color:var(--mut);text-align:center}
+
+  /* CARD PRINCIPAL */
+  .card{
+    width:calc(100% - 32px);
+    max-width:480px;
+    background:var(--card);
+    border:1px solid var(--bor);
+    border-radius:var(--rad);
+    padding:18px;
+    margin-top:12px;
+  }
+
+  /* STATUS */
+  #status-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    padding:20px 0;
+  }
+  #status-icon{font-size:48px;line-height:1}
+  #status-label{
+    font-size:18px;font-weight:700;
+    text-align:center;
+    color:var(--txt);
+  }
+  #status-sub{
+    font-size:13px;color:var(--mut);
+    text-align:center;line-height:1.5;
+  }
+
+  /* PROGRESSO */
+  #progress-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    margin:8px 0;
+    width:100%;
+  }
+  .prog-step{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    flex:1;
+  }
+  .prog-dot{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+    border:2px solid var(--bor);
+    background:var(--bg);
+    transition:all .3s;
+    position:relative;z-index:1;
+  }
+  .prog-dot.done{background:var(--g);border-color:var(--g);color:#fff}
+  .prog-dot.active{border-color:var(--acc);background:rgba(245,166,35,.15);color:var(--acc)}
+  .prog-line{
+    height:2px;flex:1;
+    background:var(--bor);
+    margin-top:-18px;
+    transition:background .3s;
+  }
+  .prog-line.done{background:var(--g)}
+  .prog-label{font-size:9px;color:var(--mut);text-align:center;max-width:52px;line-height:1.3}
+
+  /* DIVISOR */
+  .div-row{
+    display:flex;align-items:center;gap:10px;
+    margin:12px 0 6px;
+  }
+  .div-line{flex:1;height:1px;background:var(--bor)}
+  .div-txt{font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.7px;white-space:nowrap}
+
+  /* LINHAS DE INFO */
+  .info-row{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid var(--bor);
+  }
+  .info-row:last-child{border-bottom:none}
+  .info-ico{
+    width:32px;height:32px;border-radius:8px;
+    background:rgba(245,166,35,.1);
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;flex-shrink:0;
+  }
+  .info-key{font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .info-val{font-size:14px;color:var(--txt);font-weight:500;margin-top:2px;line-height:1.4}
+
+  /* BOTÃO WHATSAPP */
+  #btn-wa{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;padding:14px;border:none;border-radius:10px;
+    background:rgba(37,211,102,.12);color:#25d366;
+    font-size:15px;font-weight:700;cursor:pointer;
+    border:1px solid rgba(37,211,102,.25);
+    text-decoration:none;
+    margin-top:4px;
+    transition:background .2s;
+  }
+  #btn-wa:active{background:rgba(37,211,102,.22)}
+
+  /* LOADING / ERRO */
+  #loading{
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+    padding:60px 20px;
+    color:var(--mut);font-size:14px;
+  }
+  .spinner{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid var(--bor);
+    border-top-color:var(--acc);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  #erro{
+    display:none;
+    flex-direction:column;align-items:center;gap:12px;
+    padding:60px 20px;text-align:center;
+  }
+  #erro-ico{font-size:48px}
+  #erro-txt{color:var(--mut);font-size:14px;line-height:1.6}
+
+  /* RODAPÉ */
+  #footer{
+    margin-top:28px;
+    text-align:center;
+    font-size:11px;
+    color:var(--mut);
+    opacity:.6;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="brand-bar"></div>
+  <div id="brand-initial">C</div>
+  <img id="brand-logo" src="" alt="Logo">
+  <div id="brand-nome">CaçambaSP</div>
+  <div id="brand-slogan">Rastreamento do pedido</div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <span>Buscando seu pedido...</span>
+</div>
+
+<div id="erro" style="display:none">
+  <div id="erro-ico">🔍</div>
+  <div id="erro-txt">Pedido não encontrado.<br>Verifique o link ou entre em contato.</div>
+</div>
+
+<div id="conteudo" style="display:none;width:100%;flex-direction:column;align-items:center">
+
+  <!-- STATUS -->
+  <div class="card">
+    <div id="status-wrap">
+      <div id="status-icon">⏳</div>
+      <div id="status-label">Carregando...</div>
+      <div id="status-sub"></div>
+    </div>
+
+    <!-- BARRA DE PROGRESSO -->
+    <div id="progress-wrap">
+      <div class="prog-step">
+        <div class="prog-dot" id="ps0">📋</div>
+        <div class="prog-label">Pedido</div>
+      </div>
+      <div class="prog-line" id="pl0"></div>
+      <div class="prog-step">
+        <div class="prog-dot" id="ps1">🚛</div>
+        <div class="prog-label">Entrega</div>
+      </div>
+      <div class="prog-line" id="pl1"></div>
+      <div class="prog-step">
+        <div class="prog-dot" id="ps2">✅</div>
+        <div class="prog-label">No local</div>
+      </div>
+      <div class="prog-line" id="pl2"></div>
+      <div class="prog-step">
+        <div class="prog-dot" id="ps3">🔄</div>
+        <div class="prog-label">Retirada</div>
+      </div>
+      <div class="prog-line" id="pl3"></div>
+      <div class="prog-step">
+        <div class="prog-dot" id="ps4">🏁</div>
+        <div class="prog-label">Concluído</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETALHES DO PEDIDO -->
+  <div class="card">
+    <div class="div-row"><div class="div-line"></div><div class="div-txt">Detalhes do pedido</div><div class="div-line"></div></div>
+
+    <div class="info-row">
+      <div class="info-ico">📦</div>
+      <div>
+        <div class="info-key">Pedido</div>
+        <div class="info-val" id="det-crm">—</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-ico">📍</div>
+      <div>
+        <div class="info-key">Endereço de entrega</div>
+        <div class="info-val" id="det-end">—</div>
+      </div>
+    </div>
+
+    <div class="info-row" id="det-data-row">
+      <div class="info-ico">📅</div>
+      <div>
+        <div class="info-key">Data</div>
+        <div class="info-val" id="det-data">—</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-ico">🗑️</div>
+      <div>
+        <div class="info-key">Caçamba</div>
+        <div class="info-val">Caçamba 4m³</div>
+      </div>
+    </div>
+
+    <div class="info-row" id="det-tipo-row">
+      <div class="info-ico">📝</div>
+      <div>
+        <div class="info-key">Tipo de serviço</div>
+        <div class="info-val" id="det-tipo">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTATO DO ATENDENTE -->
+  <div class="card">
+    <div class="div-row"><div class="div-line"></div><div class="div-txt">Seu atendente</div><div class="div-line"></div></div>
+
+    <div class="info-row">
+      <div class="info-ico">👤</div>
+      <div>
+        <div class="info-key">Responsável</div>
+        <div class="info-val" id="det-atend">—</div>
+      </div>
+    </div>
+
+    <a id="btn-wa" href="#" target="_blank" style="display:none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Falar com atendente
+    </a>
+  </div>
+
+</div>
+
+<div id="footer">CaçambaSP · cacambasp.com.br</div>
+
+<script>
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+const LOGOS_BUCKET = 'https://ejfuqijtiberxsnvxdwm.supabase.co/storage/v1/object/public/logos/';
+
+// Mapeamento status interno → cliente
+const STATUS_MAP = {
+  contratar: { icon:'⏳', label:'Pedido confirmado', sub:'Estamos agendando a entrega da sua caçamba.', step:0 },
+  entrega:   { icon:'🚛', label:'Caçamba a caminho', sub:'Sua caçamba está sendo entregue agora!', step:1 },
+  pagar:     { icon:'✅', label:'Caçamba entregue',  sub:'Sua caçamba está no local. Utilize à vontade!', step:2 },
+  faltapg:   { icon:'✅', label:'Caçamba entregue',  sub:'Sua caçamba está no local. Utilize à vontade!', step:2 },
+  baixar:    { icon:'🔄', label:'Retirada agendada', sub:'Vamos buscar sua caçamba em breve.', step:3 },
+  inadimp:   { icon:'🔄', label:'Retirada agendada', sub:'Vamos buscar sua caçamba em breve.', step:3 },
+  concluido: { icon:'🏁', label:'Serviço concluído', sub:'Obrigado por escolher a CaçambaSP! 😊', step:4 },
+  orcamento: { icon:'📋', label:'Orçamento em análise', sub:'Estamos analisando seu orçamento. Entraremos em contato em breve.', step:0 },
+};
+
+function dateF(d){
+  if(!d) return '—';
+  try{
+    const [y,m,dia]=d.split('-');
+    return `${dia}/${m}/${y}`;
+  }catch(e){ return d; }
+}
+
+async function api(path){
+  const r = await fetch(SUPA_URL+'/rest/v1/'+path,{
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+function aplicarCor(cor){
+  if(!cor) return;
+  document.getElementById('brand-bar').style.background = cor;
+  document.getElementById('brand-initial').style.borderColor = cor;
+  document.getElementById('brand-initial').style.color = cor;
+  document.getElementById('brand-initial').style.background = cor+'22';
+  // Aplica como variável CSS para elementos que usam var(--acc)
+  document.documentElement.style.setProperty('--acc', cor);
+}
+
+function setProgresso(step){
+  // step: 0=pedido, 1=entrega, 2=no local, 3=retirada, 4=concluído
+  for(let i=0;i<=4;i++){
+    const dot = document.getElementById('ps'+i);
+    if(i < step){ dot.classList.add('done'); dot.classList.remove('active'); }
+    else if(i === step){ dot.classList.add('active'); dot.classList.remove('done'); }
+    else{ dot.classList.remove('done','active'); }
+  }
+  for(let i=0;i<=3;i++){
+    const line = document.getElementById('pl'+i);
+    if(i < step) line.classList.add('done');
+    else line.classList.remove('done');
+  }
+}
+
+async function carregar(){
+  const params = new URLSearchParams(window.location.search);
+  const crmId = params.get('id');
+
+  if(!crmId){
+    mostrarErro('Link inválido. Nenhum pedido informado.');
+    return;
+  }
+
+  try{
+    // Busca a ordem
+    const ordens = await api(`ordens?crm_id=eq.${encodeURIComponent(crmId)}&select=crm_id,col,nome,logradouro,bairro,cidade,data,tipo,usuario_id&limit=1`);
+    if(!ordens || !ordens.length){
+      mostrarErro('Pedido <strong>'+crmId+'</strong> não encontrado.<br>Verifique o link recebido.');
+      return;
+    }
+
+    const ord = ordens[0];
+
+    // Busca perfil do vendedor
+    let vendedor = null;
+    if(ord.usuario_id){
+      try{
+        const perfis = await api(`perfis?id=eq.${ord.usuario_id}&select=nome,marca_nome,marca_tel,marca_logo_url,marca_cor,marca_slogan&limit=1`);
+        if(perfis && perfis.length) vendedor = perfis[0];
+      }catch(e){ /* ignora — usa padrão */ }
+    }
+
+    renderizar(ord, vendedor);
+
+  }catch(e){
+    mostrarErro('Erro ao buscar pedido. Tente novamente em instantes.');
+  }
+}
+
+function renderizar(ord, vend){
+  // Esconde loading
+  document.getElementById('loading').style.display = 'none';
+
+  // Aplica marca do vendedor
+  const cor      = (vend && vend.marca_cor)     || '#f5a623';
+  const nomeVend = (vend && (vend.marca_nome || vend.nome)) || 'CaçambaSP';
+  const slogan   = (vend && vend.marca_slogan)  || 'Rastreamento do pedido';
+  const logoUrl  = (vend && vend.marca_logo_url)? LOGOS_BUCKET + vend.marca_logo_url : null;
+  const telVend  = (vend && vend.marca_tel)     || null;
+
+  aplicarCor(cor);
+
+  // Nome e slogan da marca
+  document.getElementById('brand-nome').textContent = nomeVend;
+  document.getElementById('brand-slogan').textContent = slogan;
+
+  // Logo ou inicial
+  if(logoUrl){
+    const img = document.getElementById('brand-logo');
+    img.src = logoUrl;
+    img.style.borderColor = cor;
+    img.style.display = 'block';
+    document.getElementById('brand-initial').style.display = 'none';
+  } else {
+    const ini = nomeVend.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    document.getElementById('brand-initial').textContent = ini;
+  }
+
+  // Status
+  const s = STATUS_MAP[ord.col] || { icon:'📦', label:'Em andamento', sub:'', step:0 };
+  document.getElementById('status-icon').textContent = s.icon;
+  document.getElementById('status-label').textContent = s.label;
+  document.getElementById('status-sub').textContent = s.sub;
+  setProgresso(s.step);
+
+  // Detalhes
+  document.getElementById('det-crm').textContent = ord.crm_id || '—';
+  const endParts = [ord.logradouro, ord.bairro, ord.cidade].filter(Boolean);
+  document.getElementById('det-end').textContent = endParts.join(', ') || '—';
+  document.getElementById('det-data').textContent = dateF(ord.data);
+  if(ord.tipo){
+    document.getElementById('det-tipo').textContent = ord.tipo;
+  } else {
+    document.getElementById('det-tipo-row').style.display = 'none';
+  }
+
+  // Atendente
+  document.getElementById('det-atend').textContent = nomeVend;
+
+  // Botão WhatsApp do atendente
+  if(telVend){
+    const tel = telVend.replace(/\D/g,'');
+    const msg = `Olá! Estou acompanhando meu pedido *${ord.crm_id}* e gostaria de falar com você.`;
+    const btn = document.getElementById('btn-wa');
+    btn.href = 'https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
+    btn.style.display = 'flex';
+  }
+
+  // Mostra conteúdo
+  const cont = document.getElementById('conteudo');
+  cont.style.display = 'flex';
+  cont.style.flexDirection = 'column';
+  cont.style.alignItems = 'center';
+}
+
+function mostrarErro(msg){
+  document.getElementById('loading').style.display = 'none';
+  const el = document.getElementById('erro');
+  el.style.display = 'flex';
+  document.getElementById('erro-txt').innerHTML = msg;
+}
+
+carregar();
+</script>
+</body>
+</html>
