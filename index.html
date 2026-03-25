@@ -384,7 +384,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
   .fi-row{grid-template-columns:1fr}
   .dash-grid{grid-template-columns:1fr 1fr}
   .kanban-wrap{padding:0 12px}
-  .card-del,.card-trophy{opacity:1;display:flex!important}
+  .card-trophy{opacity:1;display:flex!important}
   .card-cb{display:flex!important}
   .view{height:calc(100dvh - var(--topbar) - 56px)}
   .bottom-nav{display:block}
@@ -539,7 +539,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
             <div><div class="ph-title">Histórico de Ordens</div><div class="ph-sub" id="histCount"></div></div>
             <div class="ph-acts">
               <button class="btn btn-sm" id="histSelBtn" onclick="histIniciarSelecao()">☑️ Selecionar</button>
-              <button class="btn btn-sm btn-r" onclick="confirmarExcluirTodos()">🗑 Excluir todos</button>
+              <button class="btn btn-sm btn-r admin-only" onclick="confirmarExcluirTodos()">🗑 Excluir todos</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -892,7 +892,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
-        <button class="btn btn-sm btn-r" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
+        <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
 
@@ -1719,7 +1719,7 @@ function cardHTML(c,color){
     ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault()" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
     <div class="card-bar" style="background:${color}"></div>
-    <div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>
+    ${isAdmin()?`<div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>`:''}
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${document.getElementById('card_'+c.id)?.querySelector('.card-cb')?.textContent||''}</div>
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
@@ -1862,7 +1862,7 @@ function updateSelBar(){
         </select>
         <button class="btn btn-sm btn-wa" onclick="selCobrarAgrupado()">📲 Cobrar agrupado</button>
         <button class="btn btn-sm btn-acc" onclick="selArquivarLote()">🏆 Arquivar</button>
-        <button class="btn btn-sm btn-r" onclick="selDeletarLote()">🗑 Excluir</button>
+        ${isAdmin()?'<button class="btn btn-sm btn-r" onclick="selDeletarLote()">🗑 Excluir</button>':''}
       </div>`;
   }else{
     bar.classList.remove('show');
@@ -1923,6 +1923,7 @@ async function selArquivarLote(){
   }catch(e){setSyncDot('err');toast('Erro ao arquivar','err');}
 }
 async function selDeletarLote(){
+  if(!isAdmin()){toast('Apenas administradores podem excluir ordens','warn');return;}
   if(!_selCards.size)return;
   const ids=[..._selCards];const n=ids.length;
   const ok=await showConfirm({ico:'🗑',title:'Excluir '+n+' ordem'+(n!==1?'ns':''),body:'<span style="color:var(--r)">Esta ação não pode ser desfeita.</span>',ok:'🗑 Excluir',okClass:'btn-r'});
@@ -2538,6 +2539,7 @@ function arquivarDoDetail(){if(_detailId)arquivarOrdem(_detailId);}
 
 // ── DELETAR ──
 async function confirmarDeletar(id){
+  if(!isAdmin()){toast('Apenas administradores podem excluir ordens','warn');return;}
   const c=ordens.find(x=>x.id===id);if(!c)return;
   const ok=await showConfirm({ico:'🗑',title:'Excluir ordem',body:`<strong>${c.logradouro||c.nome||'Ordem'}</strong><br><br><span style="color:var(--r)">Esta ação não pode ser desfeita.</span>`,ok:'🗑 Excluir',okClass:'btn-r'});
   if(!ok) return;
