@@ -164,9 +164,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .card:hover .card-del{display:flex}
 .card-trophy{position:absolute;bottom:7px;right:7px;width:26px;height:26px;border-radius:6px;border:1px solid var(--acc3);background:var(--acc2);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:5;pointer-events:auto;transition:.15s}
 .card:hover .card-trophy,.card-trophy.vis{display:flex}
-.card-cb{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:9px;z-index:5;pointer-events:auto}
+.card-cb{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:5;pointer-events:auto;transition:.1s}
 .card:hover .card-cb,.card.selected .card-cb{display:flex}
-.card.selected .card-cb{background:var(--acc);border-color:var(--acc);color:#000}
+.card:hover .card-cb:not(.selected){border-color:var(--acc);background:rgba(99,102,241,.08)}
+.card.selected .card-cb{background:var(--acc);border-color:var(--acc);color:#fff}
 
 /* ── FILTROS ── */
 .filter-bar{padding:12px 24px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--sur);flex-shrink:0}
@@ -1704,7 +1705,7 @@ function renderBoard(){
       <div class="col-cards" id="col_${col.id}"
         ondragover="event.preventDefault();event.currentTarget.classList.add('drag-over')"
         ondrop="oDrop(event,'${col.id}')"
-        ondragleave="event.currentTarget.classList.remove('drag-over')">
+        ondragleave="if(!event.currentTarget.contains(event.relatedTarget))event.currentTarget.classList.remove('drag-over')">
         ${cc.length===0?'<div class="empty-col">📭 Vazio</div>':''}
         ${cc.map(c=>cardHTML(c,col.color)).join('')}
       </div>`;
@@ -1716,12 +1717,12 @@ function cardHTML(c,color){
   const f=forns.find(s=>s.id===c.forn_id);
   const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
   return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true"
-    ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault()" ontouchstart="oTouchStart(event,'${c.id}')"
+    ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault();event.stopPropagation();this.closest('.col-cards')?.classList.add('drag-over')" ondrop="event.stopPropagation();oDrop(event,this.closest('.col-cards')?.id.replace('col_',''))" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
     <div class="card-bar" style="background:${color}"></div>
     ${isAdmin()?`<div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>`:''}
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
-    <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${document.getElementById('card_'+c.id)?.querySelector('.card-cb')?.textContent||''}</div>
+    <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
       ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
@@ -1737,6 +1738,7 @@ function cardHTML(c,color){
       ${f?`<span class="chip">🚛 ${f.nome.split(' ')[0]}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
+    ${!c.pago&&['faltapg','pagar','entrega'].includes(c.col)?`<div style="padding:6px 9px 8px;border-top:1px solid var(--bor)"><button class="btn btn-g btn-sm" style="width:100%;font-size:11px" onclick="event.stopPropagation();quickPagarCard('${c.id}')">✅ Marcar como pago</button></div>`:''}
   </div>`;
 }
 
@@ -4518,7 +4520,9 @@ async function confirmarBaixaExtrato(){
   }
   renderBoard();renderStats();renderFinanceiro();renderInadBadge();
   toast('✅ '+cnt+' ordem'+(cnt!==1?'ns':'')+' baixada'+(cnt!==1?'s':'')+'!');
-  _extratoDados=[];_extratoConfirm=[];renderConcExtrato();
+  _extratoDados=[];_extratoConfirm=[];
+  const xi=document.getElementById('xlsInput');if(xi)xi.value='';
+  renderConcExtrato();
 }
 function renderConcManual(){
   const pend=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
@@ -4539,6 +4543,22 @@ async function quickPagar(id){
   renderConcManual();renderBoard();renderStats();
   try{await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:c.pago_valor,pago_obs:c.pago_obs,col:'baixar'},tok());toast('✅ Marcado como pago!');}
   catch(e){toast('Erro','err');}
+}
+async function quickPagarCard(id){
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  const nome=c.nome?.split(' ')[0]||'cliente';
+  const val=c.rec?'R$ '+fmt(c.rec):'valor não definido';
+  const ok=await showConfirm({ico:'✅',title:'Marcar como pago?',body:`${nome} — ${val}\n\nA ordem vai para a coluna Baixar.`,ok:'✅ Confirmar',okClass:'btn-g',cancel:'Cancelar'});
+  if(!ok)return;
+  c.pago=true;c.pago_em=nowISO();c.pago_valor=parseFloat(c.rec)||0;c.pago_obs='Marcado pelo card';c.col='baixar';
+  renderBoard();renderStats();renderFinanceiro();
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:c.pago_valor,pago_obs:c.pago_obs,col:'baixar'},tok());
+    addLog(id,'Pago','R$ '+fmt(c.pago_valor)+' — via card');
+    setSyncDot('ok');
+    toast('✅ '+nome+' marcado como pago!');
+  }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
 }
 function renderConcHist(){
   const pagos=ordens.filter(c=>c.pago).sort((a,b)=>(b.pago_em||'').localeCompare(a.pago_em||''));
