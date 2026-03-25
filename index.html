@@ -1617,8 +1617,9 @@ function initFilters(){
   const vv=fv.value;
   fv.innerHTML='<option value="">Todos vendedores</option>';
   [...new Set(ordens.map(c=>c.usuario_id).filter(Boolean))].forEach(uid=>{
-    const u=usuarios.find(x=>x.id===uid)||{nome:uid};
-    const o=document.createElement('option');o.value=uid;o.textContent=u.nome||uid;fv.appendChild(o);
+    const u=usuarios.find(x=>x.id===uid);
+    if(!u) return;
+    const o=document.createElement('option');o.value=uid;o.textContent=u.nome||u.email||'Usuário';fv.appendChild(o);
   });
   if(vv) fv.value=vv;
 }
