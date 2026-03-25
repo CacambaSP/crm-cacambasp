@@ -2732,7 +2732,11 @@ function enviarPixWA(){
   const c=ordens.find(x=>x.id===_pixCardId);if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   const val=parseFloat(document.getElementById('pix_valor_edit').value)||parseFloat(c.rec)||0;
-  const msg='Olá '+( c.nome||'')+`! 👋\n\nSegue cobrança do serviço de caçamba:\n\n📍 *${c.logradouro||'-'}*${c.bairro?', '+c.bairro:''}${c.cidade?'\n🏙️ '+c.cidade:''}\n📅 ${dateF(c.data)}\n💰 *R$ ${fmt(val)}*\n\n⚡ *Pague via Pix (copia e cola):*\n\`${_pixPayload}\`\n\n_CaçambaSP — (11) 4237-8757_`;
+  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+  const vend=usuarios.find(u=>u.id===c.usuario_id)||_perfil;
+  const marcaNome=vend?.marca_nome||'CaçambaSP';
+  const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+  const msg='Olá '+(c.nome||'')+`! 👋\n\nSegue cobrança do serviço de caçamba:\n\n📍 *${c.logradouro||'-'}*${c.bairro?', '+c.bairro:''}${c.cidade?'\n🏙️ '+c.cidade:''}\n📅 ${dateF(c.data)}\n💰 *R$ ${fmt(val)}*\n\n📋 *Código Pix (copia e cola):*\n\`${_pixPayload}\`${trackLink?'\n\n📍 *Acompanhe e pague pelo link:*\n'+trackLink:''}\n\n_${marcaNome} — ${marcaTel}_`;
   closeModal('pixModal');
   window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -2797,10 +2801,14 @@ function enviarTracking(id){
 }
 
 const _waTpl={
-  cobranca:(c,pixPayload)=>{
+  cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
-    const pix=pixPayload?'\n\n📋 *Copia e cola:*\n`'+pixPayload+'`':'';
-    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+'\n💰 Valor: *R$ '+fmt(c.rec)+'*\n\n⚡ *Pague via Pix:*\nChave: `'+PIX_KEY+'`'+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
+              :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
+    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+'\n💰 Valor: *R$ '+fmt(c.rec)+'*'+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
   },
   pix:(c,pixPayload)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
@@ -2810,9 +2818,14 @@ const _waTpl={
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
     return 'Olá '+(c.nome||'')+'! 📦\n\nInformamos que a caçamba foi entregue no endereço:\n\n'+end+'\n📅 '+dateF(c.data)+'\n\nQualquer problema com a entrega, nos avise imediatamente.\n\nObrigado pela preferência! 🙏\n_CaçambaSP_';
   },
-  inadimp:(c)=>{
+  inadimp:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'');
-    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n💰 Valor em aberto: *R$ '+fmt(c.rec)+'*\n\nPedimos que regularize o pagamento o quanto antes para evitar medidas adicionais.\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\n_CaçambaSP — regularize sua situação_';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
+              :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
+    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n💰 Valor em aberto: *R$ '+fmt(c.rec)+'*\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
   },
   recebido:(c)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
