@@ -891,6 +891,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
+        <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
         <button class="btn btn-sm btn-r" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
@@ -969,15 +970,79 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 
 <!-- PAGAR FORNECEDOR MODAL -->
 <div class="mbg" id="pagarFornModal">
-  <div class="mbox" style="max-width:460px">
-    <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
+  <div class="mbox" style="max-width:500px">
+    <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
-      <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
-      <div class="fi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
+      <div class="fi-row">
+        <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
+        <div class="fi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
+      </div>
+      <div class="fi-row">
+        <div class="fi">
+          <label>Forma de pagamento</label>
+          <select id="pf_forma" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%">
+            <option value="Pix">Pix</option>
+            <option value="Transferencia">Transferência</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Boleto">Boleto</option>
+          </select>
+        </div>
+        <div class="fi">
+          <label>Etiqueta / Referência</label>
+          <input type="text" id="pf_ref" placeholder="Ex: FornJuliana25032026" style="font-family:var(--mono);font-size:12px">
+        </div>
+      </div>
+      <div class="fi" style="margin-bottom:4px">
+        <label>Observação (opcional)</label>
+        <input type="text" id="pf_obs_pg" placeholder="Ex: Pagamento antecipado, desconto combinado...">
+      </div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px">
+        💡 <strong>Dica:</strong> Use a mesma etiqueta para todas as ordens do mesmo lote.<br>Ex: <span style="font-family:var(--mono);color:var(--acc)">FornJuliana25032026</span>
+      </div>
       <div id="pf_outras" style="margin-bottom:12px"></div>
       <div class="mfooter">
         <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
         <button class="btn btn-acc" onclick="salvarPagoForn()">💰 Confirmar pagamento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DUPLICAR ORDEM MODAL -->
+<div class="mbg" id="duplicarModal">
+  <div class="mbox" style="max-width:460px">
+    <div class="mh">
+      <div class="mh-ico">📋</div>
+      <div class="mh-txt">
+        <div class="mh-title">Duplicar Ordem</div>
+        <div class="mh-sub" id="dup_sub">Criar nova a partir desta</div>
+      </div>
+      <button class="mx" onclick="closeModal('duplicarModal')">✕</button>
+    </div>
+    <div class="mb">
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--mut2)" id="dup_resumo"></div>
+      <div class="fi">
+        <label>Tipo da nova ordem</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button id="dup_btn_troca" class="btn btn-acc" onclick="setDupTipo('troca')" style="flex:1">🔄 Troca de Caçamba</button>
+          <button id="dup_btn_nova" class="btn" onclick="setDupTipo('nova')" style="flex:1">➕ Nova Locação</button>
+        </div>
+      </div>
+      <div class="fi">
+        <label>Data da nova ordem</label>
+        <input type="date" id="dup_data">
+      </div>
+      <div class="fi">
+        <label>Observação</label>
+        <input type="text" id="dup_obs" placeholder="Ex: Troca solicitada via WhatsApp">
+      </div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad3)">
+        ℹ️ Serão copiados: cliente, endereço, fornecedor e valores.<br>
+        Zerados: pagamentos, NF e referências financeiras.
+      </div>
+      <div class="mfooter">
+        <button class="btn" onclick="closeModal('duplicarModal')">Cancelar</button>
+        <button class="btn btn-acc" onclick="confirmarDuplicarOrdem()">📋 Criar ordem duplicada</button>
       </div>
     </div>
   </div>
@@ -1153,10 +1218,13 @@ const nextCrmId=async(prefixo='LC')=>{
   const ano=new Date().getFullYear();
   const base=prefixo+ano;
   try{
+    // Filtra EXATAMENTE pelo prefixo correto (LC ou ORC) — evita conflito entre os dois
     const dados=await api('ordens?select=crm_id&crm_id=like.'+base+'*');
-    if(dados?.length){
-      const maxNum=dados.reduce((max,row)=>{
-        const n=parseInt((row.crm_id||'').replace(/\D/g,'').slice(-4))||0;
+    const filtrados=(dados||[]).filter(row=>(row.crm_id||'').startsWith(base));
+    if(filtrados.length){
+      const maxNum=filtrados.reduce((max,row)=>{
+        const sufixo=(row.crm_id||'').slice(base.length);
+        const n=parseInt(sufixo)||0;
         return n>max?n:max;
       },0);
       const num=maxNum+1;
@@ -1532,7 +1600,7 @@ function closeMobSidebar(){
 // ── MODAIS ──
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function openModal(id){document.getElementById(id).classList.add('open');}
-['ordemModal','detailModal','pagarCliModal','pagarFornModal','pixModal','waModal','supModal','usrModal'].forEach(id=>{
+['ordemModal','detailModal','pagarCliModal','pagarFornModal','pixModal','waModal','supModal','usrModal','duplicarModal'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('click',e=>{if(e.target===el)closeModal(id);});
 });
@@ -1919,6 +1987,8 @@ function editarOrdemAtual(){
   forns.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;fSel.appendChild(o);});
   fSel.value=c.forn_id||'';
   updOrdemFin();
+  // Se tem fornecedor mas custo vazio, calcula automaticamente
+  if(c.forn_id && !(c.cst > 0)) onFornChange();
   switchOrdemTab('cliente');
   closeDetail();
   openModal('ordemModal');
@@ -2377,6 +2447,60 @@ function switchDetailTab(t){
   document.querySelectorAll('#detailModal .mtab-p').forEach((el,i)=>{el.classList.toggle('act',['dtab-info','dtab-financeiro','dtab-log'][i]==='dtab-'+t);});
 }
 
+// ── DUPLICAR ORDEM ──
+let _dupTipo = 'troca';
+function setDupTipo(tipo){
+  _dupTipo = tipo;
+  document.getElementById('dup_btn_troca').className = 'btn' + (tipo==='troca'?' btn-acc':'');
+  document.getElementById('dup_btn_nova').className  = 'btn' + (tipo==='nova'?' btn-acc':'');
+  document.getElementById('dup_obs').value = tipo==='troca' ? 'Troca solicitada via WhatsApp' : '';
+}
+function abrirDuplicarOrdem(){
+  const c = ordens.find(x=>x.id===_detailId); if(!c) return;
+  _dupTipo = 'troca';
+  document.getElementById('dup_btn_troca').className = 'btn btn-acc';
+  document.getElementById('dup_btn_nova').className  = 'btn';
+  document.getElementById('dup_sub').textContent = c.nome || 'Duplicar ordem';
+  document.getElementById('dup_resumo').innerHTML =
+    `<strong>${c.crm_id||'—'}</strong> · ${c.nome||'—'}<br>`+
+    `📍 ${[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—'}<br>`+
+    `💰 Receita: R$ ${fmt(c.rec||0)} · Custo: R$ ${fmt(c.cst||0)}`;
+  document.getElementById('dup_data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('dup_obs').value = 'Troca solicitada via WhatsApp';
+  closeModal('detailModal');
+  openModal('duplicarModal');
+}
+async function confirmarDuplicarOrdem(){
+  const orig = ordens.find(x=>x.id===_detailId); if(!orig) return;
+  const tipoNovo = _dupTipo==='troca' ? 'Troca' : (orig.tipo||'Nova coloca');
+  const dataNova = document.getElementById('dup_data').value || new Date().toISOString().slice(0,10);
+  const obsNova  = document.getElementById('dup_obs').value.trim();
+  const crmId = await nextCrmId('LC');
+  const novaOrdem = {
+    id: uid(), crm_id: crmId, col: 'contratar',
+    nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
+    logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
+    tipo: tipoNovo, data: dataNova, obs: obsNova,
+    rec: orig.rec, cst: orig.cst, forn_id: orig.forn_id,
+    pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+    forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
+    nf_num: '', nf_taxa: orig.nf_taxa||_taxaNF,
+    usuario_id: orig.usuario_id,
+    criado_em: nowISO()
+  };
+  ordens.push(novaOrdem);
+  renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
+  closeModal('duplicarModal');
+  setTimeout(()=>{ const el=document.getElementById('card_'+novaOrdem.id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },120);
+  try{
+    setSyncDot('sync');
+    await api('ordens','POST',novaOrdem,tok());
+    setSyncDot('ok');
+    addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
+    toast('✅ Ordem '+crmId+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
+  }catch(e){ setSyncDot('err'); toast('Erro ao criar ordem','err'); }
+}
+
 function closeDetail(){closeModal('detailModal');_detailId=null;}
 
 // ── ARQUIVAR ──
@@ -2508,21 +2632,30 @@ async function salvarPagoForn(){
   const c=ordens.find(x=>x.id===_detailId);if(!c)return;
   const val=parseFloat(document.getElementById('pf_val').value)||c.cst;
   const data=document.getElementById('pf_data').value;
-  const extras=Array.from(document.querySelectorAll('#pf_outras input:checked')).map(ch=>ch.value);
-  const todos=[c.id,...extras];
+  const forma=document.getElementById('pf_forma')?.value||'Pix';
+  const ref=document.getElementById('pf_ref')?.value.trim()||'';
+  const obsPg=document.getElementById('pf_obs_pg')?.value.trim()||'';
+  // Montar referência final: "Forma | Referência | Obs"
+  const pgRef=[forma, ref, obsPg].filter(Boolean).join(' | ');
   closeModal('pagarFornModal');
   let ok=0;
+  // Modo lote (Pagar todos) ou modo individual
+  const idsLote = _pgfornModoLote ? _pgfornLotePend.map(x=>x.id) : null;
+  _pgfornModoLote = false;
+  const extras=Array.from(document.querySelectorAll('#pf_outras input:checked')).map(ch=>ch.value);
+  const todos = idsLote || [c.id,...extras];
   for(const id of todos){
     const ord=ordens.find(x=>x.id===id);if(!ord)continue;
-    ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=val;
+    const valOrd = idsLote ? (parseFloat(ord.cst)||0) : val;
+    ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:val},tok());
+      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef},tok());
       setSyncDot('ok'); ok++;
-      addLog(id,'Fornecedor pago','R$ '+fmt(val));
+      addLog(id,'Fornecedor pago','R$ '+fmt(valOrd)+(ref?' · '+ref:''));
     }catch(e){setSyncDot('err');}
   }
-  renderBoard(); renderStats(); renderFinanceiro();
+  renderBoard(); renderStats(); renderFinanceiro(); initPgForn();
   if(_detailId) fillDetail(ordens.find(x=>x.id===_detailId));
   toast(`✅ ${ok} ordem${ok!==1?'ns':''} marcada${ok!==1?'s':''} como paga${ok!==1?'s':''} ao fornecedor!`);
 }
@@ -2726,14 +2859,17 @@ async function pedirPermissaoNotificacao(){
 // ── ONESIGNAL PUSH ──
 async function initOneSignal(){
   try{
+    // Evita dupla inicialização (causa 'SDK already initialized')
+    if(window._oneSignalInited) return;
+    window._oneSignalInited = true;
     if(!window.OneSignalDeferred) window.OneSignalDeferred=[];
     window.OneSignalDeferred.push(async (OneSignal)=>{
-      await OneSignal.init({
+      try{ await OneSignal.init({
         appId: 'c2dbdd20-6f19-433f-8106-f45d3e37714d',
         serviceWorkerPath: '/sw.js',
         notifyButton: { enable: false },
         allowLocalhostAsSecureOrigin: true,
-      });
+      }); }catch(e){ if(!(e?.message||'').includes('already')) throw e; }
       const uid = _perfil?.id || _currentUser?.user?.id;
       if(uid){ try{ await OneSignal.login(uid); }catch(e){ console.warn('OneSignal login:',e); } }
 
@@ -3228,6 +3364,10 @@ function _renderFechamento(){
     opsMes += `<option value="${v}">${label}</option>`;
   }
 
+  // Dropdown vendedores para filtro pós-cálculo
+  const vendOps = '<option value="">— Todos —</option>' +
+    usuarios.map(u=>`<option value="${u.id}">${u.nome||u.email}</option>`).join('');
+
   el.innerHTML = `
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:18px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">📅 Parâmetros do Fechamento</div>
@@ -3235,6 +3375,10 @@ function _renderFechamento(){
         <div class="fi">
           <label>Mês de referência</label>
           <select id="fechMes" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%">${opsMes}</select>
+        </div>
+        <div class="fi">
+          <label>👤 Ver vendedor específico</label>
+          <select id="fechFiltroVend" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%">${vendOps}</select>
         </div>
         <div class="fi">
           <label>💰 Anúncio Claudia (R$)</label>
@@ -3247,7 +3391,10 @@ function _renderFechamento(){
             style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:14px;color:var(--acc);text-align:center;outline:none;width:100%">
         </div>
       </div>
-      <button class="btn btn-acc" onclick="calcularFechamento()">⚡ Calcular Fechamento</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-acc" onclick="calcularFechamento()">⚡ Calcular Fechamento</button>
+        <span style="font-size:11px;color:var(--mut2)">Use "Ver vendedor" para exibir só o card daquele vendedor</span>
+      </div>
     </div>
     <div id="fechResultado"></div>
   `;
@@ -3389,7 +3536,68 @@ function calcularFechamento(){
   </div>`;
 
   const todasOrdens = src; // para referência no escopo
-  document.getElementById('fechResultado').innerHTML = html;
+
+  // Aplicar filtro de vendedor se selecionado
+  const filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
+  if(filtroVendId){
+    // Guardar html completo e mostrar só o vendedor escolhido
+    const uFilt = usuarios.find(u=>u.id===filtroVendId);
+    const nomeVend = (uFilt?.nome||'').toLowerCase();
+    // Monta array de chaves dos objetos do fechamento para identificar o vendedor
+    const mapaVend = {
+      [f.luciana?.vendedor?.id||'_nul1']: () => {
+        if(!f.luciana.vendedor) return '';
+        const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
+          + _tabelaOrdens(f.luciana.ordens);
+        return _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
+      },
+      [f.claudia?.vendedor?.id||'_nul2']: () => {
+        if(!f.claudia.vendedor) return '';
+        const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
+        const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
+          + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
+          + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
+          + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
+          + _linha('(+) Fixo garantido',1000,'var(--g)')
+          + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
+          + _tabelaOrdens(f.claudia.ordens);
+        return _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra,linhas,`R$1.000 fixo + 50% do restante${extra}`);
+      },
+      [f.ricardo?.vendedor?.id||'_nul3']: () => {
+        if(!f.ricardo.vendedor) return '';
+        const linhas = _linha('Ordens pagas',f.ricardo.ordens.length,'var(--txt)')
+          + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
+          + _tabelaOrdens(f.ricardo.ordens);
+        return _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem');
+      },
+      [f.sandra?.vendedor?.id||'_nul4']: () => {
+        if(!f.sandra.vendedor) return '';
+        const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
+          + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
+          + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
+          + _linha('40% Sandra (split)',f.sandra.splitVendedor,'var(--acc)')
+          + _linha('(+) Fixo garantido',300,'var(--g)')
+          + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
+          + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
+          + _tabelaOrdens(f.sandra.ordens);
+        return _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
+      },
+    };
+    // Douglas é sempre o user logado (dono)
+    const fnCard = mapaVend[filtroVendId];
+    let htmlFiltrado = html.split('<div style="margin-top:16px')[0]; // pega só o cabeçalho
+    // Remove todos os cards de vendedor e deixa só o selecionado
+    if(fnCard){
+      // Reconstruir: cabeçalho + card do vendedor filtrado + botões
+      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${src.length} ordens pagas no total do mês</div></div></div>`;
+      const botoes = `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button><button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button><button class="btn" onclick="document.getElementById('fechFiltroVend').value='';calcularFechamento()">👁 Ver todos</button></div>`;
+      document.getElementById('fechResultado').innerHTML = cabecalho + fnCard() + botoes;
+    } else {
+      document.getElementById('fechResultado').innerHTML = html;
+    }
+  } else {
+    document.getElementById('fechResultado').innerHTML = html;
+  }
 }
 
 async function salvarFechamento(){
@@ -4093,7 +4301,7 @@ function renderDash(){
   }
   const [ano,mes]=ms.value.split('-').map(Number);
   document.getElementById('dashPeriodo').textContent=ms.options[ms.selectedIndex]?.text||'';
-  const src=ordens.filter(c=>{if(!c.data)return false;const d=new Date(c.data+'T12:00:00');return d.getMonth()+1===mes&&d.getFullYear()===ano;});
+  const src=ordens.filter(c=>{if(!c.data)return false;if(c.col==='orcamento')return false;const d=new Date(c.data+'T12:00:00');return d.getMonth()+1===mes&&d.getFullYear()===ano;});
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const mg=tr-tc;
@@ -4351,7 +4559,7 @@ function carregarPgForn(){
   const fid=document.getElementById('pgfornSup').value;
   if(!fid){document.getElementById('pgfornContent').innerHTML='';return;}
   const f=forns.find(x=>x.id===fid);
-  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   if(!pend.length){document.getElementById('pgfornContent').innerHTML='<div style="color:var(--mut);text-align:center;padding:30px">✅ Nenhuma pendência com este fornecedor</div>';return;}
   const total=pend.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   document.getElementById('pgfornContent').innerHTML=`
@@ -4371,20 +4579,29 @@ function carregarPgForn(){
     </div>`).join('')}`;
 }
 async function pgfornPagarTodos(fid){
-  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0);
+  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento');
   if(!pend.length) return;
   const total=pend.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-  const ok=await showConfirm({ico:'💰',title:'Pagar todos',body:`Pagar <strong>${pend.length} ordens</strong> no total de <strong>R$ ${fmt(total)}</strong>?`,ok:'💰 Confirmar',okClass:'btn-acc'});
-  if(!ok) return;
-  const data=new Date().toISOString().slice(0,10);
-  for(const c of pend){
-    c.forn_pago=true;c.forn_pago_em=data+'T12:00:00';c.forn_pago_valor=c.cst;
-    try{await api('ordens?id=eq.'+c.id,'PATCH',{forn_pago:true,forn_pago_em:c.forn_pago_em,forn_pago_valor:c.cst},tok());addLog(c.id,'Fornecedor pago','R$ '+fmt(c.cst));}
-    catch(e){}
-  }
-  renderBoard();renderStats();renderFinanceiro();initPgForn();
-  toast('✅ Todos pagos!');
+  const f=forns.find(x=>x.id===fid);
+  const nomeForn=(f?.nome||'Forn').replace(/\s+/g,'').substring(0,10);
+  const hoje=new Date();
+  const ddmmaaaa=String(hoje.getDate()).padStart(2,'0')+String(hoje.getMonth()+1).padStart(2,'0')+hoje.getFullYear();
+  const etiquetaSugerida='Forn'+nomeForn+ddmmaaaa;
+  // Usar o modal de pagamento (reutilizar openPagarForn mas sem ordem específica)
+  // Abre o modal reutilizável de lote
+  _pgfornLoteFid = fid;
+  _pgfornLotePend = pend;
+  _pgfornLoteTotal = total;
+  document.getElementById('pf_val').value=total.toFixed(2);
+  document.getElementById('pf_data').value=hoje.toISOString().slice(0,10);
+  if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value=etiquetaSugerida;
+  if(document.getElementById('pf_obs_pg')) document.getElementById('pf_obs_pg').value='';
+  document.getElementById('pf_outras').innerHTML=`<div style="font-size:12px;color:var(--mut2);padding:8px;background:var(--card);border-radius:var(--rad3);margin-bottom:8px">📦 Pagamento em lote: <strong>${pend.length} ordens</strong> · Total <strong style="color:var(--acc)">R$ ${fmt(total)}</strong><br><span style="font-size:11px">A etiqueta será aplicada em todas as ordens do lote.</span></div>`;
+  _pagarFornCallback = false;
+  _pgfornModoLote = true;
+  openModal('pagarFornModal');
 }
+let _pgfornLoteFid=null, _pgfornLotePend=[], _pgfornLoteTotal=0, _pgfornModoLote=false;
 
 // ── RELATÓRIOS ──
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -5528,7 +5745,8 @@ function setOrcTab(tab){
 
 // ── Badge no sidebar ──
 function _atualizarOrcBadge(){
-  const pendentes = ordens.filter(o=>o.col==='orcamento');
+  const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const pendentes = ordens.filter(o=>o.col==='orcamento' && !lidos.includes(o.id));
   const badge = document.getElementById('orcBadge');
   if(badge){
     badge.textContent = pendentes.length;
@@ -5622,6 +5840,14 @@ function renderOrcPend(){
 // ── Sub-aba Gerador de PDF ──
 function abrirOrcGerador(id){
   _orcGeradorId = id;
+  // Marcar como lido no localStorage
+  if(id){
+    try{
+      const lidos = JSON.parse(localStorage.getItem('orc_lidos')||'[]');
+      if(!lidos.includes(id)){ lidos.push(id); localStorage.setItem('orc_lidos', JSON.stringify(lidos)); }
+      _atualizarOrcBadge();
+    }catch(e){}
+  }
   setOrcTab('gerador');
 }
 
@@ -5641,6 +5867,10 @@ function renderOrcGerador(id){
   const dataValPad = new Date(dataHoje.getTime()+3*24*60*60*1000).toISOString().split('T')[0];
 
   cont.innerHTML = `
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      <button class="btn btn-sm" onclick="setOrcTab('pend')" style="display:inline-flex;align-items:center;gap:5px">← Voltar à lista</button>
+      ${o?`<span style="font-size:11px;color:var(--mut2);font-family:var(--mono)">${o.crm_id} · ${o.nome||''}</span>`:''}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:700px">
       <!-- Painel esquerdo: campos -->
       <div style="display:flex;flex-direction:column;gap:12px">
