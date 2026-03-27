@@ -937,6 +937,7 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item"><span style="color:var(--mut2)">Receita</span><span id="dm_r" style="color:var(--acc);font-weight:600">—</span></div>
         <div class="fin-row-item"><span style="color:var(--mut2)">Custo</span><span id="dm_c" style="color:var(--r);font-weight:600">—</span></div>
         <div class="fin-row-item" id="dm_nf_wrap" style="display:none"><span style="color:var(--mut2)" id="dm_nf_label">Imposto NF</span><span id="dm_nf" style="color:#f97316;font-weight:600">—</span></div>
+        <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
       <div class="fi" style="max-width:240px">
@@ -2284,7 +2285,7 @@ function fillDetail(c){
     const cst=parseFloat(c.cst)||0;
     const taxa=c.nf_num?(parseFloat(c.nf_taxa)||_taxaNF):0;
     const imp=c.nf_num?rec*(taxa/100):0;
-    const mg=rec-cst-imp;
+    const mg=rec-cst-imp-_taxaAdmin;
     document.getElementById('dm_r').textContent=rec?'R$ '+fmt(rec):'-';
     document.getElementById('dm_c').textContent=cst?'R$ '+fmt(cst):'-';
     // Linha de imposto — só aparece se tiver NF
@@ -2294,6 +2295,12 @@ function fillDetail(c){
       document.getElementById('dm_nf_label').textContent=`Imposto NF ${taxa}%`;
       document.getElementById('dm_nf').textContent='- R$ '+fmt(imp);
     }else nfWrap.style.display='none';
+    // Linha taxa adm — sempre visível
+    const admWrap=document.getElementById('dm_adm_wrap');
+    if(admWrap){
+      admWrap.style.display='flex';
+      document.getElementById('dm_adm').textContent='- R$ '+fmt(_taxaAdmin);
+    }
     const mEl=document.getElementById('dm_m');
     mEl.textContent=(rec||cst)?'R$ '+fmt(mg):'-';
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
