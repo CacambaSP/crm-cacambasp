@@ -3060,7 +3060,7 @@ function renderCobrancaAuto(){
   const atencao   = pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
   const normais   = pendentes.filter(c => c.dias < COBR_DIAS_ALERTA);
 
-  const totalAberto = pendentes.reduce((s,c) => s + (parseFloat(c.rec)||0), 0);
+  const totalAberto = todos.reduce((s,c) => s + (parseFloat(c.rec)||0), 0); // todos = pendentes + cobrados hoje (ainda não pagos)
 
   el.innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
@@ -3115,7 +3115,7 @@ function _cobrarRow(c, tipo){
   const bg  = isOk?'rgba(34,197,94,.06)':tipo==='r'?'var(--r2)':tipo==='acc'?'var(--acc2)':'var(--card)';
   const bor = isOk?'rgba(34,197,94,.25)':tipo==='r'?'var(--r3)':tipo==='acc'?'var(--acc3)':'var(--bor)';
   const lblCobrado = labelCobradoEm(c);
-  return `<div style="background:${bg};border:1px solid ${bor};border-radius:var(--rad2);padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  return `<div style="background:${bg};border:1px solid ${bor};border-radius:var(--rad2);padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer" onclick="openDetail('${c.id}')">
     <div style="flex:1;min-width:0">
       <div style="font-weight:700;font-size:13px">${c.logradouro||c.nome||'-'}${c.bairro?' · <span style="color:var(--acc);font-size:11px">'+c.bairro+'</span>':''}</div>
       <div style="font-size:11px;color:var(--mut2);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
@@ -3129,8 +3129,8 @@ function _cobrarRow(c, tipo){
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</span>
       ${c.cel
-        ? `<button class="btn btn-sm ${isOk?'btn-b':'btn-wa'}" onclick="cobrarIndividual('${c.id}')">${isOk?'🔄 Recobrar':'📲 Cobrar'}</button>`
-        : `<button class="btn btn-sm" onclick="openDetail('${c.id}')">✏️ Add tel</button>`
+        ? `<button class="btn btn-sm ${isOk?'btn-b':'btn-wa'}" onclick="event.stopPropagation();cobrarIndividual('${c.id}')">${isOk?'🔄 Recobrar':'📲 Cobrar'}</button>`
+        : `<button class="btn btn-sm" onclick="event.stopPropagation();openDetail('${c.id}')">✏️ Add tel</button>`
       }
     </div>
   </div>`;
@@ -3163,6 +3163,7 @@ async function cobrarIndividual(id){
   const agora = nowISO();
   c.cobrado_em = agora;
   try{ await api('ordens?id=eq.'+id,'PATCH',{cobrado_em:agora},tok()); }catch(e){}
+  // Abre modal WA para escolha de template (cobrança ou inadimplente)
   enviarWA(id);
   renderCobrancaAuto();
   // Atualiza badge
