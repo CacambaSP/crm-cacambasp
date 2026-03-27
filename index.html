@@ -3663,6 +3663,8 @@ function calcularFechamento(){
     html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
   }
 
+  const todasOrdens = src; // para referência no escopo
+
   // DOUGLAS — resumo
   const linhasDouglas = _linha('Taxa adm (R$'+_taxaAdmin+' × '+todasOrdens.length+' ordens)',f.totalTaxaAdm,'var(--g)')
     + _linha('50% do fechamento da Claudia',f.claudia.totalDouglas||0,'var(--g)')
@@ -3674,8 +3676,6 @@ function calcularFechamento(){
     <button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button>
     <button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button>
   </div>`;
-
-  const todasOrdens = src; // para referência no escopo
 
   // Aplicar filtro de vendedor se selecionado
   const filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
