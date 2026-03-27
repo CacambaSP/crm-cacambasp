@@ -1705,7 +1705,7 @@ function renderInadBadge(){
   _atualizarCobrBadge();
 }
 function _atualizarCobrBadge(){
-  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA).length;
+  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
   const b=document.getElementById('cobrBadge');
   if(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';}
 }
@@ -3022,18 +3022,39 @@ function diasEmAberto(c){
   const d = new Date(ref+'T12:00:00');
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
+function foiCobradoHoje(c){
+  if(!c.cobrado_em) return false;
+  const d = new Date(c.cobrado_em);
+  const hoje = new Date();
+  return d.getFullYear()===hoje.getFullYear() && d.getMonth()===hoje.getMonth() && d.getDate()===hoje.getDate();
+}
+function labelCobradoEm(c){
+  if(!c.cobrado_em) return '';
+  const d = new Date(c.cobrado_em);
+  const hoje = new Date();
+  const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
+  const mesmoDia=(a,b)=>a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear();
+  const hora = d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(mesmoDia(d,hoje)) return 'hoje às '+hora;
+  if(mesmoDia(d,ontem)) return 'ontem às '+hora;
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+hora;
+}
 
 function renderCobrancaAuto(){
   const el = document.getElementById('cobrancaAutoConteudo');
   if(!el) return;
 
-  // Ordens ativas sem pagamento do cliente, fora de inadimp já tratados
-  const pendentes = ordens.filter(c =>
+  // Ordens ativas sem pagamento do cliente
+  const todos = ordens.filter(c =>
     !c.pago &&
     c.col !== 'concluido' &&
     c.rec > 0
   ).map(c => ({ ...c, dias: diasEmAberto(c) }))
     .sort((a,b) => b.dias - a.dias);
+
+  // Separa cobrados hoje (não entram nos contadores de alerta)
+  const cobradosHoje = todos.filter(c => foiCobradoHoje(c));
+  const pendentes = todos.filter(c => !foiCobradoHoje(c));
 
   const criticos  = pendentes.filter(c => c.dias >= COBR_DIAS_CRITICO);
   const atencao   = pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
@@ -3077,14 +3098,23 @@ function renderCobrancaAuto(){
     </div>
     ${normais.map(c => _cobrarRow(c,'')).join('')}` : ''}
 
-    ${!pendentes.length ? '<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum pagamento pendente!</div>' : ''}
+    ${cobradosHoje.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">
+      ✅ Cobrados hoje (${cobradosHoje.length})
+    </div>
+    ${cobradosHoje.map(c => _cobrarRow(c,'ok')).join('')}` : ''}
+
+    ${!todos.length ? '<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum pagamento pendente!</div>' : ''}
+    ${todos.length && !pendentes.length && cobradosHoje.length ? '<div style="text-align:center;padding:20px;color:var(--g);font-weight:600">✅ Todos já foram cobrados hoje!</div>' : ''}
   `;
 }
 
 function _cobrarRow(c, tipo){
-  const cor = tipo==='r'?'var(--r)':tipo==='acc'?'var(--acc)':'var(--mut2)';
-  const bg  = tipo==='r'?'var(--r2)':tipo==='acc'?'var(--acc2)':'var(--card)';
-  const bor = tipo==='r'?'var(--r3)':tipo==='acc'?'var(--acc3)':'var(--bor)';
+  const isOk = tipo==='ok';
+  const cor = isOk?'var(--g)':tipo==='r'?'var(--r)':tipo==='acc'?'var(--acc)':'var(--mut2)';
+  const bg  = isOk?'rgba(34,197,94,.06)':tipo==='r'?'var(--r2)':tipo==='acc'?'var(--acc2)':'var(--card)';
+  const bor = isOk?'rgba(34,197,94,.25)':tipo==='r'?'var(--r3)':tipo==='acc'?'var(--acc3)':'var(--bor)';
+  const lblCobrado = labelCobradoEm(c);
   return `<div style="background:${bg};border:1px solid ${bor};border-radius:var(--rad2);padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div style="flex:1;min-width:0">
       <div style="font-weight:700;font-size:13px">${c.logradouro||c.nome||'-'}${c.bairro?' · <span style="color:var(--acc);font-size:11px">'+c.bairro+'</span>':''}</div>
@@ -3093,12 +3123,13 @@ function _cobrarRow(c, tipo){
         <span>📅 ${dateF(c.data)}</span>
         <span style="color:${cor};font-weight:700">⏱️ ${c.dias}d em aberto</span>
         ${c.cel?'<span>📱 '+c.cel+'</span>':'<span style="color:var(--r)">⚠️ Sem telefone</span>'}
+        ${lblCobrado?`<span style="color:var(--g);font-weight:600">📤 Cobrado ${lblCobrado}</span>`:''}
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</span>
       ${c.cel
-        ? `<button class="btn btn-sm btn-wa" onclick="_detailId='${c.id}';enviarWA('${c.id}')">📲 Cobrar</button>`
+        ? `<button class="btn btn-sm ${isOk?'btn-b':'btn-wa'}" onclick="cobrarIndividual('${c.id}')">${isOk?'🔄 Recobrar':'📲 Cobrar'}</button>`
         : `<button class="btn btn-sm" onclick="openDetail('${c.id}')">✏️ Add tel</button>`
       }
     </div>
@@ -3124,6 +3155,19 @@ function cobrarLote(tipo){
   _cobrarLoteFila = Object.values(grupos);
   _cobrarLoteIdx = 0;
   _dispararProximaCobranca();
+}
+async function cobrarIndividual(id){
+  const c = ordens.find(x=>x.id===id); if(!c)return;
+  _detailId = id;
+  // Registra cobrado_em no banco e localmente
+  const agora = nowISO();
+  c.cobrado_em = agora;
+  try{ await api('ordens?id=eq.'+id,'PATCH',{cobrado_em:agora},tok()); }catch(e){}
+  enviarWA(id);
+  renderCobrancaAuto();
+  // Atualiza badge
+  const n = ordens.filter(x=>!x.pago&&x.col!=='concluido'&&x.rec>0&&diasEmAberto(x)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(x)).length;
+  const b=document.getElementById('cobrBadge');if(b){b.textContent=n;b.style.display=n?'flex':'none';}
 }
 function _dispararProximaCobranca(){
   if(_cobrarLoteIdx >= _cobrarLoteFila.length){
@@ -3154,6 +3198,9 @@ function _dispararProximaCobranca(){
     msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}\n\n💰 *Total: R$ ${fmt(total)}*${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg), '_blank');
+  // Registra cobrado_em em todas as ordens do grupo
+  const agora = nowISO();
+  ords.forEach(o=>{ o.cobrado_em=agora; api('ordens?id=eq.'+o.id,'PATCH',{cobrado_em:agora},tok()).catch(()=>{}); });
   if(_cobrarLoteIdx < _cobrarLoteFila.length){
     toast('📲 '+_cobrarLoteIdx+' de '+_cobrarLoteFila.length+' — próximo em 3s...');
     setTimeout(_dispararProximaCobranca, 3000);
