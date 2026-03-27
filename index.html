@@ -1425,10 +1425,16 @@ async function loadApp(){
         : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
-      api('config?chave=eq.nf_taxa',undefined,undefined,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico)',undefined,undefined,tok()).catch(()=>[]),
     ]);
     ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
-    if(dbConfig?.[0]?.valor) _taxaNF=parseFloat(dbConfig[0].valor)||11;
+    if(dbConfig?.length){
+      dbConfig.forEach(r=>{
+        if(r.chave==='nf_taxa')          _taxaNF=parseFloat(r.valor)||11;
+        if(r.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA=parseInt(r.valor)||3;
+        if(r.chave==='cobr_dias_critico')COBR_DIAS_CRITICO=parseInt(r.valor)||7;
+      });
+    }
     setLoadProg(90,'Inicializando...');
     initUI();
     setLoadProg(100,'');
@@ -2996,9 +3002,9 @@ function _renderBtnNotif(){
 }
 
 // ── COBRANÇA AUTOMÁTICA WHATSAPP ──
-// Configurações (dias sem pagamento para alertar)
-const COBR_DIAS_ALERTA = 3;   // amarelo — atenção
-const COBR_DIAS_CRITICO = 7;  // vermelho — crítico
+// Configurações (dias sem pagamento para alertar) — valores carregados do banco no login
+let COBR_DIAS_ALERTA = 3;   // amarelo — atenção
+let COBR_DIAS_CRITICO = 7;  // vermelho — crítico
 
 function diasEmAberto(c){
   const ref = c.data || c.criado_em;
@@ -3089,50 +3095,78 @@ function _cobrarRow(c, tipo){
   </div>`;
 }
 
-// Cobrar em lote — abre WhatsApp um por vez com intervalo
+// Cobrar em lote — agrupado por cliente (1 msg por celular)
 let _cobrarLoteIdx = 0, _cobrarLoteFila = [];
 function cobrarLote(tipo){
   const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.col !== 'orcamento' && c.rec > 0 && c.cel)
     .map(c => ({ ...c, dias: diasEmAberto(c) }));
-  _cobrarLoteFila = tipo==='critico'
+  const filtro = tipo==='critico'
     ? pendentes.filter(c => c.dias >= COBR_DIAS_CRITICO)
     : pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
-  if(!_cobrarLoteFila.length){ toast('Nenhuma ordem com telefone nesta categoria','warn'); return; }
+  if(!filtro.length){ toast('Nenhuma ordem com telefone nesta categoria','warn'); return; }
+  // Agrupa por celular — 1 msg por cliente
+  const grupos = {};
+  filtro.forEach(c => {
+    const chave = (c.cel||'').replace(/\D/g,'');
+    if(!grupos[chave]) grupos[chave] = [];
+    grupos[chave].push(c);
+  });
+  _cobrarLoteFila = Object.values(grupos);
   _cobrarLoteIdx = 0;
   _dispararProximaCobranca();
 }
 function _dispararProximaCobranca(){
   if(_cobrarLoteIdx >= _cobrarLoteFila.length){
-    toast('✅ '+_cobrarLoteFila.length+' cobranças disparadas!');
+    toast('✅ '+_cobrarLoteFila.length+' cliente'+((_cobrarLoteFila.length!==1)?'s':'')+' cobrado'+((_cobrarLoteFila.length!==1)?'s':'')+'!');
     return;
   }
-  const c = _cobrarLoteFila[_cobrarLoteIdx];
+  const ords = _cobrarLoteFila[_cobrarLoteIdx];
   _cobrarLoteIdx++;
-  // Usa template inadimp se muito atrasado, senão cobrança normal
-  const tpl = c.dias >= COBR_DIAS_CRITICO ? 'inadimp' : 'cobranca';
-  const msg = _waTpl[tpl](c, '');
-  window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg), '_blank');
-  // Próxima cobrança com pequeno delay para não bloquear popup
+  const c0 = ords[0];
+  const tel = (c0.cel||'').replace(/\D/g,'');
+  if(!tel){ setTimeout(_dispararProximaCobranca,300); return; }
+  let msg;
+  if(ords.length === 1){
+    const tpl = c0.dias >= COBR_DIAS_CRITICO ? 'inadimp' : 'cobranca';
+    msg = _waTpl[tpl](c0, '');
+  } else {
+    const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0), 0);
+    const linhas = ords.map((o,i) =>
+      `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`
+    ).join('\n');
+    const vend = usuarios.find(u=>u.id===c0.usuario_id)||{nome:'CaçambaSP'};
+    msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}\n\n💰 *Total: R$ ${fmt(total)}*\n\n⚡ Pague via Pix:\nChave: \`${PIX_KEY}\`\n\n_${vend.nome||'CaçambaSP'}_`;
+  }
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg), '_blank');
   if(_cobrarLoteIdx < _cobrarLoteFila.length){
-    toast('📲 '+_cobrarLoteIdx+' de '+_cobrarLoteFila.length+' — próxima em 3s...');
+    toast('📲 '+_cobrarLoteIdx+' de '+_cobrarLoteFila.length+' — próximo em 3s...');
     setTimeout(_dispararProximaCobranca, 3000);
   }
 }
 
 // Config dias de alerta
-function salvarConfigCobranca(){
+async function salvarConfigCobranca(){
   const d1 = parseInt(document.getElementById('cobr_dias_alerta')?.value)||3;
   const d2 = parseInt(document.getElementById('cobr_dias_critico')?.value)||7;
-  // Salva localmente
-  localStorage.setItem('cobr_config', JSON.stringify({alerta:d1,critico:d2}));
-  toast('✅ Configuração salva!');
+  COBR_DIAS_ALERTA  = d1;
+  COBR_DIAS_CRITICO = d2;
+  try{
+    setSyncDot('sync');
+    await Promise.all([
+      api('config?chave=eq.cobr_dias_alerta','PATCH',{valor:String(d1),atualizado_em:nowISO()},tok()),
+      api('config?chave=eq.cobr_dias_critico','PATCH',{valor:String(d2),atualizado_em:nowISO()},tok()),
+    ]);
+    setSyncDot('ok');
+    toast('✅ Configuração salva para todos os usuários!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao salvar configuração','err'); }
   renderCobrancaAuto();
 }
 
 function initCobrancaConfig(){
-  const saved = JSON.parse(localStorage.getItem('cobr_config')||'{}');
-  if(saved.alerta) { const el=document.getElementById('cobr_dias_alerta'); if(el)el.value=saved.alerta; }
-  if(saved.critico){ const el=document.getElementById('cobr_dias_critico'); if(el)el.value=saved.critico; }
+  const el1=document.getElementById('cobr_dias_alerta');
+  const el2=document.getElementById('cobr_dias_critico');
+  if(el1) el1.value=COBR_DIAS_ALERTA;
+  if(el2) el2.value=COBR_DIAS_CRITICO;
 }
 
 // ══════════════════════════════════════════

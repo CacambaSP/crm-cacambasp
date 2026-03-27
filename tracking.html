@@ -44,7 +44,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #qrcode-wrap canvas,#qrcode-wrap img{border-radius:10px;background:#fff;padding:10px;max-width:200px}
 .pix-copy-row{display:flex;gap:8px;align-items:stretch}
 #pix-codigo{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--bor);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mut);font-family:monospace;word-break:break-all;line-height:1.4}
-#btn-copiar-pix{background:rgba(34,197,94,.12);color:var(--g);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .2s}
+#btn-copiar-link{display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(99,102,241,.1);color:var(--acc);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .2s;margin-top:4px;width:100%;max-width:360px}
+#btn-copiar-link:active{background:rgba(99,102,241,.2)}
+
 #btn-copiar-pix:active{background:rgba(34,197,94,.22)}
 #pix-pago-ok{display:none;flex-direction:column;align-items:center;gap:8px;padding:16px 0;text-align:center}
 .ok-ico{font-size:40px}
@@ -76,6 +78,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <img id="brand-logo" src="" alt="Logo">
   <div id="brand-nome">CaçambaSP</div>
   <div id="brand-slogan">Rastreamento do pedido</div>
+  <button id="btn-copiar-link" onclick="copiarLink()">🔗 Copiar link de rastreamento</button>
 </div>
 <div id="loading"><div class="spinner"></div><span>Buscando seu pedido...</span></div>
 <div id="erro" style="display:none"><div id="erro-ico">🔍</div><div id="erro-txt">Pedido não encontrado.</div></div>
@@ -236,6 +239,14 @@ function copiarPix(){
   const ok=()=>{btn.textContent='✅ Copiado!';setTimeout(()=>{btn.textContent='Copiar';},2500);};
   navigator.clipboard?.writeText(_pixPayload).then(ok).catch(()=>{
     const el=document.createElement('textarea');el.value=_pixPayload;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);ok();
+  });
+}
+function copiarLink(){
+  const btn=document.getElementById('btn-copiar-link');
+  const url=window.location.href;
+  const ok=()=>{btn.innerHTML='✅ Link copiado!';setTimeout(()=>{btn.innerHTML='🔗 Copiar link de rastreamento';},2500);};
+  navigator.clipboard?.writeText(url).then(ok).catch(()=>{
+    const el=document.createElement('textarea');el.value=url;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);ok();
   });
 }
 async function carregar(){
