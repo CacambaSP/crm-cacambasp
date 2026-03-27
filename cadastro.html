@@ -536,7 +536,22 @@ async function enviarCadastro(){
       });
     }
 
-    // Monta mensagem WA
+    // Busca fornecedor e preco_cli para o bairro informado
+    let precoCliAuto = 0;
+    try{
+      const fornsRes = await fetch(SUPA_URL+'/rest/v1/fornecedores?select=nome,regioes,preco_cli_padrao', {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer '+SUPA_KEY }
+      });
+      const fornsData = await fornsRes.json();
+      const bairroNorm = bairro.trim().toLowerCase();
+      for(const forn of (fornsData||[])){
+        const regs = Array.isArray(forn.regioes) ? forn.regioes : [];
+        const reg = regs.find(r => (r.bairro||r.regiao||'').toLowerCase() === bairroNorm);
+        if(reg && reg.preco_cli > 0){ precoCliAuto = reg.preco_cli; break; }
+      }
+    }catch(e){ precoCliAuto = 0; }
+
+    // Monta mensagem WA para equipe (interna — com todos os dados)
     const dataFmt = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
     const tipoLabel = isOrcamento ? '📄 ORÇAMENTO' : '✅ PEDIDO CONFIRMADO';
     const msg =
@@ -549,6 +564,7 @@ async function enviarCadastro(){
       '🗑️ *Serviço:* '+qtd+'x '+tipo+'\n'+
       (_cadTemNF?'🧾 *Nota Fiscal:* SIM\n':'🚫 *Nota Fiscal:* Não\n')+
       (residuo?'♻️ *Resíduo:* '+residuo+'\n':'')+
+      (precoCliAuto>0?'💰 *Valor cliente (auto):* R$ '+precoCliAuto.toFixed(2).replace('.',',')+'\n':'')+
       (obs?'📝 *Obs:* '+obs+'\n':'')+
       '\n🔑 *Código'+(qtd>1?'s':'')+':* '+codigos.join(', ');
 
@@ -591,7 +607,17 @@ async function enviarCadastro(){
       successTitle.textContent = 'Orçamento solicitado!';
       successTitle.className = 'success-title orc';
       successCode.className = 'success-code orc';
-      successMsg.innerHTML = 'Recebemos sua solicitação de orçamento.<br>Nossa equipe entrará em contato pelo WhatsApp com os valores em breve.';
+      if(precoCliAuto > 0){
+        // Bairro tem fornecedor com preco_cli — dispara cotacao automatica para o cliente
+        const valorFmt = 'R$ '+precoCliAuto.toFixed(2).replace('.',',');
+        const nomeCliente = nome.split(' ')[0];
+        const msgCli = 'Olá '+nomeCliente+'! 👋\n\nRecebemos sua solicitação de caçamba em *'+bairro+'*.\n\n💰 *Valor: '+valorFmt+'* (caçamba 4m³)\n\nPara confirmar o agendamento, responda esta mensagem. 📅\n\n_'+_marca.nome+'_';
+        const celNum = cel.replace(/\D/g,'');
+        try{ window.open('https://wa.me/55'+celNum+'?text='+encodeURIComponent(msgCli),'_blank'); }catch(e){}
+        successMsg.innerHTML = 'Recebemos sua solicitação!<br><strong>Valor para '+bairro+': '+valorFmt+'</strong><br>Confirme pelo WhatsApp para agendar.';
+      } else {
+        successMsg.innerHTML = 'Recebemos sua solicitação de orçamento.<br>Em instantes entraremos em contato pelo WhatsApp com os valores. Aguarde! 👋';
+      }
     } else {
       successIcon.textContent = '🎉';
       successTitle.textContent = 'Pedido confirmado!';

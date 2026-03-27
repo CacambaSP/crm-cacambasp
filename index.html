@@ -1921,9 +1921,19 @@ function selCobrarAgrupado(){
     const c0=ords[0];
     const tel=(c0.cel||'').replace(/\D/g,'');
     if(!tel){toast('Ordem sem telefone — pulando','warn');setTimeout(abrirProximo,500);return;}
-    const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-    const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`).join('\n');
-    const msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n💰 *Total: R$ '+fmt(total)+'*\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\n_CaçambaSP_';
+    const vend=usuarios.find(u=>u.id===c0.usuario_id)||null;
+    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+    let msg;
+    if(ords.length===1){
+      const tpl=_waTpl[c0.col==='inadimp'?'inadimp':'cobranca'];
+      msg=tpl(c0,'',vend);
+    } else {
+      const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+      const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`).join('\n');
+      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
+      msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n💰 *Total: R$ '+fmt(total)+'*'+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
+    }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
     if(i<entries.length)setTimeout(abrirProximo,1200);
   }
@@ -3134,8 +3144,14 @@ function _dispararProximaCobranca(){
     const linhas = ords.map((o,i) =>
       `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`
     ).join('\n');
-    const vend = usuarios.find(u=>u.id===c0.usuario_id)||{nome:'CaçambaSP'};
-    msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}\n\n💰 *Total: R$ ${fmt(total)}*\n\n⚡ Pague via Pix:\nChave: \`${PIX_KEY}\`\n\n_${vend.nome||'CaçambaSP'}_`;
+    const vend = usuarios.find(u=>u.id===c0.usuario_id)||null;
+    const marcaNome = vend?.marca_nome||'CaçambaSP';
+    const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
+    // Usa o tracking da primeira ordem — mostra todas as ordens em aberto do celular
+    const trackLink = c0.crm_id
+      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id)
+      : '';
+    msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}\n\n💰 *Total: R$ ${fmt(total)}*${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg), '_blank');
   if(_cobrarLoteIdx < _cobrarLoteFila.length){
@@ -5021,11 +5037,14 @@ function renderForns(){
     const bairrosHtml=regioes.map((r,ri)=>{
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const temPreco=r.preco>0;
-      const precoLabel=temPreco?`<span style="color:var(--acc);font-weight:700;font-family:var(--mono);font-size:12px">R$ ${fmt(r.preco)}</span>`:`<span style="font-size:11px;color:var(--mut2);font-style:italic">padrão</span>`;
+      const precoFornLabel=temPreco?`<span style="color:var(--mut2);font-size:11px">Forn: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(r.preco)}</strong></span>`:`<span style="font-size:11px;color:var(--mut2);font-style:italic">forn: padrão</span>`;
+      const temPrecoCliLocal=r.preco_cli>0;
+      const precoCliLabel=temPrecoCliLocal?`<span style="color:var(--mut2);font-size:11px">Cliente: <strong style="color:var(--g);font-family:var(--mono)">R$ ${fmt(r.preco_cli)}</strong></span>`:`<span style="font-size:11px;color:var(--mut2);font-style:italic">cli: —</span>`;
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;background:var(--bg2);border-radius:6px;padding:5px 8px">
         <span style="flex:1;color:var(--txt)">${nomeBairro}</span>
-        ${precoLabel}
-        <button class="btn btn-xs btn-b" onclick="editarPrecoBairro('${f.id}',${ri})" title="Editar preço">✏️</button>
+        ${precoFornLabel}
+        ${precoCliLabel}
+        <button class="btn btn-xs btn-b" onclick="editarPrecoBairro('${f.id}',${ri})" title="Editar preços">✏️</button>
         <button class="btn btn-xs btn-r" onclick="removerRegiao('${f.id}',${ri})">✕</button>
       </div>`;
     }).join('');
@@ -5056,8 +5075,10 @@ function renderForns(){
           <div id="ac_${f.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
-          <label style="font-size:11px;color:var(--mut2);white-space:nowrap">Preço específico (opcional):</label>
-          <input type="number" id="np_${f.id}" placeholder="Ex: 350.00" step="0.01" style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+          <label style="font-size:11px;color:var(--mut2);white-space:nowrap">💰 Forn (R$):</label>
+          <input type="number" id="np_${f.id}" placeholder="Custo" step="0.01" style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+          <label style="font-size:11px;color:var(--mut2);white-space:nowrap">🏷️ Cliente (R$):</label>
+          <input type="number" id="npc_${f.id}" placeholder="Venda" step="0.01" style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
           <button class="btn btn-xs btn-acc" onclick="addBairroSelecionado('${f.id}')">+ Adicionar</button>
         </div>
         <div style="font-size:10px;color:var(--mut2);margin-top:4px">Sem preço específico → usa o preço padrão na hora de contratar</div>
@@ -5142,15 +5163,16 @@ async function addBairroSelecionado(fid){
   const ac=document.getElementById('ac_'+fid);
   const bairro=(_acBairroSelecionado[fid]||input?.value||'').trim();
   const p=parseFloat(document.getElementById('np_'+fid)?.value)||0;
+  const pCli=parseFloat(document.getElementById('npc_'+fid)?.value)||0;
   if(!bairro){toast('Selecione ou digite um bairro','warn');return;}
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   if(regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase()===bairro.toLowerCase())){toast('Bairro já cadastrado','warn');return;}
-  regioes.push({bairro,regiao:bairro,preco:p>0?p:0});
+  regioes.push({bairro,regiao:bairro,preco:p>0?p:0,preco_cli:pCli>0?pCli:0});
   f.regioes=regioes;
   if(input)input.value='';
   const npEl=document.getElementById('np_'+fid);if(npEl)npEl.value='';
-  _acBairroSelecionado[fid]=null;
+  const npcEl=document.getElementById('npc_'+fid);if(npcEl)npcEl.value='';
   if(ac)ac.style.display='none';
   renderForns();toggleSupBody('sup_'+fid);
   try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Bairro adicionado!');}catch(e){toast('Erro','err');}
@@ -5160,13 +5182,14 @@ async function editarPrecoBairro(fid,idx){
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   const r=regioes[idx];if(!r)return;
   const nomeBairro=r.bairro||r.regiao||r.nome||'';
-  const novoPreco=prompt(`Preço específico para "${nomeBairro}":
-(deixe 0 ou vazio para usar o preço padrão)`,r.preco||'');
-  if(novoPreco===null)return;
-  regioes[idx]={...r,preco:parseFloat(novoPreco)||0};
+  const novoPrecoForn=prompt(`💰 Preço FORNECEDOR para "${nomeBairro}" (custo):\n(0 = usar preço padrão)`,r.preco||'');
+  if(novoPrecoForn===null)return;
+  const novoPrecoCliStr=prompt(`🏷️ Preço CLIENTE para "${nomeBairro}" (o que cobra do cliente):\n(0 = sem cotação automática)`,r.preco_cli||'');
+  if(novoPrecoCliStr===null)return;
+  regioes[idx]={...r,preco:parseFloat(novoPrecoForn)||0,preco_cli:parseFloat(novoPrecoCliStr)||0};
   f.regioes=regioes;
   renderForns();toggleSupBody('sup_'+fid);
-  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Preço atualizado!');}catch(e){toast('Erro','err');}
+  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Preços atualizados!');}catch(e){toast('Erro','err');}
 }
 async function removerRegiao(fid,idx){
   const f=forns.find(x=>x.id===fid);if(!f)return;
