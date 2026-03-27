@@ -5104,6 +5104,7 @@ function renderForns(){
           <div style="font-size:11px;color:var(--mut2)">${f.tel?'📞 '+f.tel+' · ':''} ${regioes.length} bairro(s) · ${ords.length} ordem(ns) ativa(s)</div>
         </div>
         <div style="display:flex;gap:6px">
+          <button class="btn btn-xs" style="background:var(--g);color:#fff" onclick="event.stopPropagation();abrirLotePrecosCli('${f.id}')" title="Editar preços em lote">💰 Lote</button>
           <button class="btn btn-xs btn-b" onclick="event.stopPropagation();editarSup('${f.id}')">✏️</button>
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
@@ -5244,6 +5245,70 @@ async function removerRegiao(fid,idx){
   const regioes=[...(Array.isArray(f.regioes)?f.regioes:[])];regioes.splice(idx,1);f.regioes=regioes;
   renderForns();toggleSupBody('sup_'+fid);
   try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());}catch(e){}
+}
+
+// ── LOTE PREÇOS CLIENTE ──
+function abrirLotePrecosCli(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const regioes=Array.isArray(f.regioes)?f.regioes:[];
+  if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
+  const rows=regioes.map((r,i)=>{
+    const nome=r.bairro||r.regiao||r.nome||'';
+    const pForn=r.preco>0?r.preco:'';
+    const pCli=r.preco_cli>0?r.preco_cli:'';
+    const semCli=!(r.preco_cli>0);
+    return `<tr style="border-bottom:1px solid var(--brd)">
+      <td style="padding:6px 8px;font-size:12px;color:var(--txt)">${nome}</td>
+      <td style="padding:6px 8px;text-align:right">
+        <input type="number" id="lp_forn_${i}" value="${pForn}" min="0" step="1"
+          style="width:80px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 6px;font-size:12px;text-align:right">
+      </td>
+      <td style="padding:6px 8px;text-align:right">
+        <input type="number" id="lp_cli_${i}" value="${pCli}" min="0" step="1"
+          style="width:80px;background:${semCli?'var(--bg3,#1a2a1a)':'var(--bg2)'};border:1px solid ${semCli?'var(--g)':'var(--brd)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
+          placeholder="0">
+      </td>
+    </tr>`;
+  }).join('');
+
+  const html=`<div style="padding:16px 20px 20px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">💰 Preços em Lote — ${f.nome}</div>
+    <div style="font-size:12px;color:var(--mut2);margin-bottom:14px">Preencha o <strong style="color:var(--g)">Preço Cliente</strong> para ativar a cotação automática no cadastro. Deixe 0 para desativar.</div>
+    <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--bg3,var(--bg2));position:sticky;top:0;z-index:1">
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--mut2);font-weight:600">BAIRRO</th>
+            <th style="padding:8px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">PREÇO FORN (R$)</th>
+            <th style="padding:8px;text-align:right;font-size:11px;color:var(--g);font-weight:600">PREÇO CLIENTE (R$)</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('lotePrecoModal')">Cancelar</button>
+      <button class="btn btn-acc" onclick="salvarLotePrecosCli('${fid}')">💾 Salvar tudo</button>
+    </div>
+  </div>`;
+  openModal('lotePrecoModal',html);
+}
+async function salvarLotePrecosCli(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
+  regioes.forEach((r,i)=>{
+    const elForn=document.getElementById('lp_forn_'+i);
+    const elCli=document.getElementById('lp_cli_'+i);
+    if(!elForn||!elCli)return;
+    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0};
+  });
+  f.regioes=regioes;
+  closeModal('lotePrecoModal');
+  renderForns();toggleSupBody('sup_'+fid);
+  try{
+    await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());
+    toast('✅ Preços salvos!');
+  }catch(e){toast('Erro ao salvar','err');}
 }
 
 // ── CLIENTES ──
