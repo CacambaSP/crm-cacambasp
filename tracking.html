@@ -120,8 +120,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="pix-copy-row"><div id="pix-codigo"></div><button id="btn-copiar-pix" onclick="copiarPix()">Copiar</button></div>
     </div>
   </div>
-  <div class="card">
-    <div class="div-row"><div class="div-line"></div><div class="div-txt">Detalhes do pedido</div><div class="div-line"></div></div>
+  <div class="card" id="card-detalhes">
     <div class="info-row"><div class="info-ico">📦</div><div><div class="info-key">Pedido</div><div class="info-val" id="det-crm">—</div></div></div>
     <div class="info-row"><div class="info-ico">📍</div><div><div class="info-key">Endereço de entrega</div><div class="info-val" id="det-end">—</div></div></div>
     <div class="info-row" id="det-data-row"><div class="info-ico">📅</div><div><div class="info-key">Data</div><div class="info-val" id="det-data">—</div></div></div>
@@ -332,8 +331,10 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
   const pendentes=emAberto.filter(o=>!o.pago);
   const totalRec=pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const todasPagas=pendentes.length===0;
+  const cardDetalhes=document.getElementById('card-detalhes');
   if(emAberto.length>1){
-    // MODO AGRUPADO
+    // MODO AGRUPADO — oculta card de detalhes (as infos já estão na lista acima)
+    if(cardDetalhes)cardDetalhes.style.display='none';
     document.getElementById('card-lista-agrupada').style.display='block';
     document.getElementById('lista-titulo').textContent=pendentes.length+' caçamba(s) em aberto';
     document.getElementById('pix-card-title').textContent='Total em aberto';
@@ -353,7 +354,8 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
     }).join('');
     renderPix(totalRec,txidGrupo,todasPagas,ultimoPagoEm);
   }else{
-    // MODO SIMPLES
+    // MODO SIMPLES — mostra detalhes normalmente
+    if(cardDetalhes)cardDetalhes.style.display='block';
     document.getElementById('card-lista-agrupada').style.display='none';
     document.getElementById('pix-card-title').textContent='Pagamento via Pix';
     document.getElementById('pix-card-sub').textContent='Escaneie o QR Code ou copie o código';
