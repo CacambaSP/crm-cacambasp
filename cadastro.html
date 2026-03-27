@@ -607,23 +607,28 @@ async function enviarCadastro(){
       successTitle.textContent = 'Orçamento solicitado!';
       successTitle.className = 'success-title orc';
       successCode.className = 'success-code orc';
-      if(precoCliAuto > 0){
-        // Bairro tem fornecedor com preco_cli — dispara cotacao automatica para o cliente
-        const valorFmt = 'R$ '+precoCliAuto.toFixed(2).replace('.',',');
-        const nomeCliente = nome.split(' ')[0];
-        const msgCli = 'Olá '+nomeCliente+'! 👋\n\nRecebemos sua solicitação de caçamba em *'+bairro+'*.\n\n💰 *Valor: '+valorFmt+'* (caçamba 4m³)\n\nPara confirmar o agendamento, responda esta mensagem. 📅\n\n_'+_marca.nome+'_';
-        const celNum = cel.replace(/\D/g,'');
-        try{ window.open('https://wa.me/55'+celNum+'?text='+encodeURIComponent(msgCli),'_blank'); }catch(e){}
-        successMsg.innerHTML = 'Recebemos sua solicitação!<br><strong>Valor para '+bairro+': '+valorFmt+'</strong><br>Confirme pelo WhatsApp para agendar.';
-      } else {
-        successMsg.innerHTML = 'Recebemos sua solicitação de orçamento.<br>Em instantes entraremos em contato pelo WhatsApp com os valores. Aguarde! 👋';
-      }
+      // Mensagem simples para o cliente — sem valor, sem tracking
+      const nomeClienteOrc = nome.split(' ')[0];
+      const msgCliOrc = 'Olá '+nomeClienteOrc+'! 👋\n\nRecebemos sua solicitação de orçamento de caçamba em *'+bairro+'*.\n\nEm instantes entraremos em contato pelo WhatsApp com os valores e disponibilidade. 😊\n\n_'+_marca.nome+'_';
+      const celNumOrc = cel.replace(/\D/g,'');
+      try{ window.open('https://wa.me/55'+celNumOrc+'?text='+encodeURIComponent(msgCliOrc),'_blank'); }catch(e){}
+      successMsg.innerHTML = 'Recebemos sua solicitação de orçamento.<br>Em instantes entraremos em contato pelo WhatsApp com os valores. Aguarde! 👋';
     } else {
       successIcon.textContent = '🎉';
       successTitle.textContent = 'Pedido confirmado!';
       successTitle.className = 'success-title';
       successCode.className = 'success-code';
-      successMsg.innerHTML = 'Recebemos seu pedido com sucesso.<br>Nossa equipe entrará em contato pelo WhatsApp para confirmar o agendamento.';
+      if(precoCliAuto > 0){
+        const valorFmt = 'R$ '+precoCliAuto.toFixed(2).replace('.',',');
+        const nomeCliente = nome.split(' ')[0];
+        const trackLink = 'https://cacambasp-crm.vercel.app/tracking.html?id='+codigos[0];
+        const msgCli = 'Olá '+nomeCliente+'! 👋\n\nSeu pedido de caçamba em *'+bairro+'* foi confirmado.\n\n💰 *Valor: '+valorFmt+'* (caçamba 4m³)\n\nAcompanhe seu pedido e pague via Pix pelo link:\n🔗 '+trackLink+'\n\n_'+_marca.nome+'_';
+        const celNum = cel.replace(/\D/g,'');
+        try{ window.open('https://wa.me/55'+celNum+'?text='+encodeURIComponent(msgCli),'_blank'); }catch(e){}
+        successMsg.innerHTML = 'Pedido confirmado!<br><strong>Valor para '+bairro+': '+valorFmt+'</strong><br>Você receberá uma confirmação pelo WhatsApp.';
+      } else {
+        successMsg.innerHTML = 'Recebemos seu pedido com sucesso.<br>Nossa equipe entrará em contato pelo WhatsApp para confirmar o agendamento.';
+      }
     }
 
     const dataFmtOk = data ? new Date(data+'T12:00:00').toLocaleDateString('pt-BR') : '-';

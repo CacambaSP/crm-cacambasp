@@ -5252,6 +5252,7 @@ function abrirLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
+  const semCliCount=regioes.filter(r=>!(r.preco_cli>0)).length;
   const rows=regioes.map((r,i)=>{
     const nome=r.bairro||r.regiao||r.nome||'';
     const pForn=r.preco>0?r.preco:'';
@@ -5273,8 +5274,18 @@ function abrirLotePrecosCli(fid){
 
   const html=`<div style="padding:16px 20px 20px">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px">💰 Preços em Lote — ${f.nome}</div>
-    <div style="font-size:12px;color:var(--mut2);margin-bottom:14px">Preencha o <strong style="color:var(--g)">Preço Cliente</strong> para ativar a cotação automática no cadastro. Deixe 0 para desativar.</div>
-    <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
+    <div style="font-size:12px;color:var(--mut2);margin-bottom:12px">Preencha o <strong style="color:var(--g)">Preço Cliente</strong> para ativar a cotação automática. Bairros sem preço destacados em verde.</div>
+    <div style="background:var(--bg2);border:1px solid var(--g);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--g);font-weight:600">⚡ Aplicar preço padrão</span>
+      <span style="font-size:11px;color:var(--mut2)">${semCliCount} bairro(s) sem preço cliente</span>
+      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
+        <input type="number" id="lp_padrao" min="0" step="1" placeholder="Ex: 550"
+          style="width:90px;background:var(--bg);border:1px solid var(--g);border-radius:4px;color:var(--txt);padding:4px 8px;font-size:13px;text-align:right">
+        <button class="btn btn-xs" style="background:var(--g);color:#fff;white-space:nowrap" onclick="lpAplicarPadrao()">Aplicar nos vazios</button>
+        <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarTodos()">Aplicar em todos</button>
+      </div>
+    </div>
+    <div style="max-height:45vh;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
       <table style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="background:var(--bg3,var(--bg2));position:sticky;top:0;z-index:1">
@@ -5292,6 +5303,33 @@ function abrirLotePrecosCli(fid){
     </div>
   </div>`;
   openModal('lotePrecoModal',html);
+  window._loteFid=fid;
+  window._loteCount=regioes.length;
+}
+function lpAplicarPadrao(){
+  const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
+  if(!val){toast('Digite um valor primeiro','err');return;}
+  let aplicados=0;
+  for(let i=0;i<window._loteCount;i++){
+    const el=document.getElementById('lp_cli_'+i);
+    if(el&&!(parseFloat(el.value)>0)){
+      el.value=val;
+      el.style.background='var(--bg2)';
+      el.style.borderColor='var(--brd)';
+      el.style.color='var(--txt)';
+      aplicados++;
+    }
+  }
+  toast(`✅ ${aplicados} bairro(s) preenchidos`);
+}
+function lpAplicarTodos(){
+  const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
+  if(!val){toast('Digite um valor primeiro','err');return;}
+  for(let i=0;i<window._loteCount;i++){
+    const el=document.getElementById('lp_cli_'+i);
+    if(el){el.value=val;el.style.background='var(--bg2)';el.style.borderColor='var(--brd)';el.style.color='var(--txt)';}
+  }
+  toast(`✅ Todos os ${window._loteCount} bairros preenchidos`);
 }
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
