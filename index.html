@@ -1216,6 +1216,7 @@ const COLS = [
 // ── ESTADO ──
 let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
 let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco
+let _nfAcrescimo=40; // Acréscimo fixo R$ no valor ao cliente quando tem NF — carregado do banco
 let _detailId=null, _dragId=null, _pixCardId=null, _pixPayload='', _pixId='';
 let _finFiltro='todos', _finSel=new Set();
 let _histPage=1; const HIST_PER=50;
@@ -1426,12 +1427,13 @@ async function loadApp(){
         : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
-      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico)',undefined,undefined,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo)',undefined,undefined,tok()).catch(()=>[]),
     ]);
     ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
     if(dbConfig?.length){
       dbConfig.forEach(r=>{
         if(r.chave==='nf_taxa')          _taxaNF=parseFloat(r.valor)||11;
+        if(r.chave==='nf_acrescimo')     _nfAcrescimo=parseFloat(r.valor)||40;
         if(r.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA=parseInt(r.valor)||3;
         if(r.chave==='cobr_dias_critico')COBR_DIAS_CRITICO=parseInt(r.valor)||7;
       });

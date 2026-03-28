@@ -255,6 +255,7 @@ select option{background:#191c26;color:#e6e8f0}
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
 const EQUIPE_WA = '551142378757';
+let _nfAcrescimo = 40; // Acréscimo fixo R$ no valor ao cliente quando tem NF — carregado do banco
 
 // Pega uid do vendedor pela URL (?v=xxx)
 const params = new URLSearchParams(window.location.search);
@@ -303,6 +304,12 @@ async function carregarMarca(){
   }catch(e){
     console.warn('Erro ao carregar marca:', e);
   }
+  // Carregar nf_acrescimo do banco
+  try{
+    const rc = await fetch(SUPA_URL+'/rest/v1/config?chave=eq.nf_acrescimo&select=valor',{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+    const dc = await rc.json();
+    if(dc?.[0]?.valor) _nfAcrescimo = parseFloat(dc[0].valor)||40;
+  }catch(e){}
   aplicarMarca(_marca);
 }
 
@@ -549,6 +556,8 @@ async function enviarCadastro(){
         const reg = regs.find(r => (r.bairro||r.regiao||'').toLowerCase() === bairroNorm);
         if(reg && reg.preco_cli > 0){ precoCliAuto = reg.preco_cli; break; }
       }
+      // Acréscimo NF: soma R$ fixo ao valor do cliente quando tem NF
+      if(precoCliAuto > 0 && _cadTemNF) precoCliAuto += _nfAcrescimo;
     }catch(e){ precoCliAuto = 0; }
 
     // Monta mensagem WA para equipe (interna — com todos os dados)
