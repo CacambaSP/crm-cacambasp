@@ -250,10 +250,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .sb-btn.overdue{background:var(--r);color:#fff}
 
 /* ── DETAIL FINANCEIRO ── */
-.fin-detail{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:12px}
-.fin-detail-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mut2);margin-bottom:10px}
-.fin-row-item{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
-.fin-row-item.total{border-top:1px solid var(--bor);padding-top:6px;margin-top:4px;font-weight:700;font-size:13px}
+.fin-detail{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px 18px;margin-bottom:12px}
+.fin-detail-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mut2);margin-bottom:14px}
+.fin-row-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.fin-row-item:last-child{border-bottom:none}
+.fin-row-item.total{border-top:1px solid var(--bor);border-bottom:none;padding-top:10px;margin-top:6px;font-weight:700;font-size:15px}
 
 /* ── HIST INLINE ── */
 .hist-line{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor)}
@@ -936,6 +937,7 @@ input[type=checkbox]:checked::after{
         <div class="fin-detail-title">Resumo financeiro</div>
         <div class="fin-row-item"><span style="color:var(--mut2)">Receita</span><span id="dm_r" style="color:var(--acc);font-weight:600">—</span></div>
         <div class="fin-row-item"><span style="color:var(--mut2)">Custo</span><span id="dm_c" style="color:var(--r);font-weight:600">—</span></div>
+        <div class="fin-row-item" id="dm_acr_wrap" style="display:none"><span style="color:var(--mut2)" id="dm_acr_label">Acréscimo NF</span><span id="dm_acr" style="color:var(--g);font-weight:600">—</span></div>
         <div class="fin-row-item" id="dm_nf_wrap" style="display:none"><span style="color:var(--mut2)" id="dm_nf_label">Imposto NF</span><span id="dm_nf" style="color:#f97316;font-weight:600">—</span></div>
         <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
@@ -2284,12 +2286,20 @@ function fillDetail(c){
   _fillStatusBlocks(c);
   if(isAdmin()){
     const rec=parseFloat(c.rec)||0;
+    const acr=c.nf_num?_nfAcrescimo:0;
+    const recCliente=rec+acr;
     const cst=parseFloat(c.cst)||0;
     const taxa=c.nf_num?(parseFloat(c.nf_taxa)||_taxaNF):0;
     const imp=c.nf_num?rec*(taxa/100):0;
-    const mg=rec-cst-imp-_taxaAdmin;
-    document.getElementById('dm_r').textContent=rec?'R$ '+fmt(rec):'-';
+    const mg=recCliente-cst-imp-_taxaAdmin;
+    document.getElementById('dm_r').textContent=recCliente?'R$ '+fmt(recCliente):'-';
     document.getElementById('dm_c').textContent=cst?'R$ '+fmt(cst):'-';
+    // Linha acréscimo NF
+    const acrWrap=document.getElementById('dm_acr_wrap');
+    if(acrWrap){
+      if(c.nf_num&&acr>0){acrWrap.style.display='flex';document.getElementById('dm_acr_label').textContent='Acréscimo NF';document.getElementById('dm_acr').textContent='+ R$ '+fmt(acr);}
+      else acrWrap.style.display='none';
+    }
     // Linha de imposto — só aparece se tiver NF
     const nfWrap=document.getElementById('dm_nf_wrap');
     if(c.nf_num&&imp>0){
