@@ -4947,8 +4947,8 @@ function _relRecebimento(src,nm){
   </tbody></table></div>`;
 }
 function _relInadimp(src,nm){
-  // Inadimplentes = sem pagamento do cliente, ainda ativas
-  const inad=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  // Inadimplentes = coluna inadimp OU ordens em pagar/faltapg/baixar com X dias sem pagamento
+  const inad=ordens.filter(c=>!c.pago&&(c.col==='inadimp'||((['pagar','faltapg','baixar'].includes(c.col))&&diasEmAberto(c)>=COBR_DIAS_CRITICO))).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const total=inad.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   if(!inad.length)return`<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum inadimplente no momento!</div>`;
   return `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
