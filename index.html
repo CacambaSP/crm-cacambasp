@@ -2199,13 +2199,15 @@ async function salvarOrdem(){
     // EDITAR
     const c=ordens.find(x=>x.id===_ordemEditId);if(!c)return;
     const oldFornId=c.forn_id;
+    const nfNumNova=document.getElementById('o_nf').value.trim();
+    const recEdit=(nfNumNova&&!c.nf_num&&rec>0)?rec+_nfAcrescimo:rec;
     Object.assign(c,{
       nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
       logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
       cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
       tipo:document.getElementById('o_tipo').value,data:document.getElementById('o_data').value,
-      obs:document.getElementById('o_obs').value.trim(),rec,cst,forn_id:fornId,
-      nf_num:document.getElementById('o_nf').value.trim()
+      obs:document.getElementById('o_obs').value.trim(),rec:recEdit,cst,forn_id:fornId,
+      nf_num:nfNumNova
     });
     if(fornId&&fornId!==oldFornId&&c.col==='contratar') c.col='entrega';
     renderBoard(); closeModal('ordemModal');
@@ -2229,7 +2231,7 @@ async function salvarOrdem(){
       cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
       tipo:document.getElementById('o_tipo').value,data:document.getElementById('o_data').value,
       obs:document.getElementById('o_obs').value.trim(),
-      rec,cst,forn_id:fornId,
+      rec:_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec,cst,forn_id:fornId,
       pago:false,pago_em:null,pago_valor:null,pago_obs:null,
       forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
       nf_num:_ordemTemNF?document.getElementById('o_nf').value.trim():'',
@@ -2286,20 +2288,15 @@ function fillDetail(c){
   _fillStatusBlocks(c);
   if(isAdmin()){
     const rec=parseFloat(c.rec)||0;
-    const acr=c.nf_num?_nfAcrescimo:0;
-    const recCliente=rec+acr;
     const cst=parseFloat(c.cst)||0;
     const taxa=c.nf_num?(parseFloat(c.nf_taxa)||_taxaNF):0;
     const imp=c.nf_num?rec*(taxa/100):0;
-    const mg=recCliente-cst-imp-_taxaAdmin;
-    document.getElementById('dm_r').textContent=recCliente?'R$ '+fmt(recCliente):'-';
+    const mg=rec-cst-imp-_taxaAdmin;
+    document.getElementById('dm_r').textContent=rec?'R$ '+fmt(rec):'-';
     document.getElementById('dm_c').textContent=cst?'R$ '+fmt(cst):'-';
-    // Linha acréscimo NF
+    // Linha acréscimo NF — oculta (rec já inclui o acréscimo)
     const acrWrap=document.getElementById('dm_acr_wrap');
-    if(acrWrap){
-      if(c.nf_num&&acr>0){acrWrap.style.display='flex';document.getElementById('dm_acr_label').textContent='Acréscimo NF';document.getElementById('dm_acr').textContent='+ R$ '+fmt(acr);}
-      else acrWrap.style.display='none';
-    }
+    if(acrWrap) acrWrap.style.display='none';
     // Linha de imposto — só aparece se tiver NF
     const nfWrap=document.getElementById('dm_nf_wrap');
     if(c.nf_num&&imp>0){
@@ -2739,7 +2736,7 @@ async function openPixDoDetail(){
   _pixCardId=c.id; _pixId=pixId;
   document.getElementById('pix_id').textContent=pixId;
   document.getElementById('pix_sub').textContent=(c.nome||'Cliente')+(c.logradouro?' · '+c.logradouro:'');
-  const _recPix=(parseFloat(c.rec||0))+(c.nf_num?_nfAcrescimo:0);
+  const _recPix=parseFloat(c.rec||0);
   document.getElementById('pix_valor_edit').value=_recPix.toFixed(2);
   // Botão compartilhar só aparece se Web Share API disponível (mobile)
   document.getElementById('pixShareBtn').style.display=navigator.share?'':'none';
@@ -4180,9 +4177,19 @@ function salvarNFDebounce(){
   _nfTimer=setTimeout(async()=>{
     const c=ordens.find(x=>x.id===_detailId);if(!c)return;
     const val=document.getElementById('d_nf').value.trim();
+    // Se NF foi preenchida agora (antes estava vazia): somar acréscimo ao rec
+    const eraVazia=!c.nf_num;
+    const patch={nf_num:val};
+    if(val&&eraVazia&&_nfAcrescimo>0&&(parseFloat(c.rec)||0)>0){
+      const novoRec=(parseFloat(c.rec)||0)+_nfAcrescimo;
+      c.rec=novoRec;
+      patch.rec=novoRec;
+      openDetail(_detailId);
+      toast('🧾 NF registrada — rec atualizado para R$ '+fmt(novoRec),'ok');
+    }
     c.nf_num=val;
     try{
-      await api('ordens?id=eq.'+c.id,'PATCH',{nf_num:val},tok());
+      await api('ordens?id=eq.'+c.id,'PATCH',patch,tok());
       const saved=document.getElementById('d_nf_saved');
       if(saved){saved.style.display='block';setTimeout(()=>saved.style.display='none',2000);}
     }catch(e){}
