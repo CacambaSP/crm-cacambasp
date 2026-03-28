@@ -2729,10 +2729,11 @@ async function openPixDoDetail(){
   _pixCardId=c.id; _pixId=pixId;
   document.getElementById('pix_id').textContent=pixId;
   document.getElementById('pix_sub').textContent=(c.nome||'Cliente')+(c.logradouro?' · '+c.logradouro:'');
-  document.getElementById('pix_valor_edit').value=parseFloat(c.rec||0).toFixed(2);
+  const _recPix=(parseFloat(c.rec||0))+(c.nf_num?_nfAcrescimo:0);
+  document.getElementById('pix_valor_edit').value=_recPix.toFixed(2);
   // Botão compartilhar só aparece se Web Share API disponível (mobile)
   document.getElementById('pixShareBtn').style.display=navigator.share?'':'none';
-  _gerarQRPix(parseFloat(c.rec),pixId,c);
+  _gerarQRPix(_recPix,pixId,c);
   openModal('pixModal');
 }
 function _gerarQRPix(valor,pixId,c){
