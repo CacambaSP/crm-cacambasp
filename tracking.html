@@ -248,13 +248,16 @@ function copiarLink(){
     const el=document.createElement('textarea');el.value=url;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);ok();
   });
 }
+let _nfAcrescimo=40;
 async function carregar(){
   const params=new URLSearchParams(window.location.search);
   const crmId=params.get('id');
   if(!crmId){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
   try{
-    // Buscar ordem pelo crm_id — incluindo cel para busca agrupada
-    const ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago&limit=1');
+    // Carregar acréscimo NF do banco
+    try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
+    // Buscar ordem pelo crm_id — incluindo cel para busca agrupada e nf_num para acréscimo NF
+    const ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,nf_num&limit=1');
     if(!ordens||!ordens.length){mostrarErro('Pedido <strong>'+crmId+'</strong> não encontrado.<br>Verifique o link recebido.');return;}
     const ord=ordens[0];
     // Buscar vendedor
@@ -329,7 +332,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
   }
   // PIX agrupado ou simples
   const pendentes=emAberto.filter(o=>!o.pago);
-  const totalRec=pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const totalRec=pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
   const todasPagas=pendentes.length===0;
   const cardDetalhes=document.getElementById('card-detalhes');
   if(emAberto.length>1){
@@ -359,7 +362,8 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
     document.getElementById('card-lista-agrupada').style.display='none';
     document.getElementById('pix-card-title').textContent='Pagamento via Pix';
     document.getElementById('pix-card-sub').textContent='Escaneie o QR Code ou copie o código';
-    renderPix(parseFloat(ord.rec||0),ord.crm_id,ord.pago,ultimoPagoEm);
+    const recSimples=(parseFloat(ord.rec||0))+(ord.nf_num?_nfAcrescimo:0);
+    renderPix(recSimples,ord.crm_id,ord.pago,ultimoPagoEm);
   }
   const cont=document.getElementById('conteudo');
   cont.style.display='flex';cont.style.flexDirection='column';cont.style.alignItems='center';
