@@ -45,6 +45,7 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── LOGIN ── */
 #loginPage{display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;padding:24px;z-index:100}
+#loginPage.show{display:flex}
 .login-card{background:var(--sur);border:1px solid var(--bor);border-radius:24px;padding:36px 28px;width:100%;max-width:380px}
 .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:36px;justify-content:center}
 .login-ico{width:54px;height:54px;background:var(--acc);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px}
@@ -511,7 +512,7 @@ async function doLogin() {
   const errEl = document.getElementById('loginErr');
   errEl.style.display = 'none';
   if(!email||!pass){errEl.textContent='Preencha e-mail e senha.';errEl.style.display='block';return;}
-  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('loginPage').classList.remove('show');
   document.getElementById('loadScreen').style.display = 'flex';
   document.getElementById('loadScreen').classList.remove('out');
   setLoad(30,'Autenticando...');
@@ -519,7 +520,7 @@ async function doLogin() {
     const res = await authApi('token?grant_type=password',{email,password:pass});
     if(!res?.access_token){
       document.getElementById('loadScreen').style.display='none';
-      document.getElementById('loginPage').style.display='flex';
+      document.getElementById('loginPage').classList.add('show');
       errEl.textContent = res?.error_description||'Credenciais inválidas.';
       errEl.style.display = 'block';
       return;
@@ -529,7 +530,7 @@ async function doLogin() {
     await loadApp();
   } catch(e) {
     document.getElementById('loadScreen').style.display='none';
-    document.getElementById('loginPage').style.display='flex';
+    document.getElementById('loginPage').classList.add('show');
     errEl.textContent = 'Erro de conexão.';
     errEl.style.display = 'block';
   }
@@ -552,8 +553,7 @@ async function restoreSession() {
 
 function showLogin() {
   document.getElementById('loadScreen').style.display='none';
-  const lp=document.getElementById('loginPage');
-  lp.style.display='flex';
+  document.getElementById('loginPage').classList.add('show');
 }
 
 function doLogout() {
@@ -561,7 +561,7 @@ function doLogout() {
   clearInterval(_autoId);
   _user=null;_perfil=null;_ordens=[];_forns=[];_usuarios=[];
   document.getElementById('appPage').classList.remove('show');
-  showLogin();
+  document.getElementById('loginPage').classList.add('show');
 }
 
 // ── LOAD APP ──
@@ -605,6 +605,9 @@ async function loadApp() {
 }
 
 function initApp() {
+  // Esconde login, mostra app
+  document.getElementById('loginPage').classList.remove('show');
+  document.getElementById('appPage').classList.add('show');
   // Avatar
   const nome = _perfil?.nome||'?';
   const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
