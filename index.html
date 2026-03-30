@@ -152,6 +152,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .card-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--rad2) 0 0 var(--rad2)}
 .card-addr{font-weight:700;font-size:12px;color:var(--txt);padding-left:9px;padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card:hover .card-addr{white-space:normal;overflow:visible}
+.card-details{display:block}
+.cards-compact .card-details{display:none!important}
+.cards-compact .card-addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-bairro{font-size:10px;color:var(--acc);font-weight:600;padding-left:9px;margin-bottom:4px}
 .card-tipo{font-size:10px;color:var(--mut2);padding-left:9px;margin-bottom:6px}
 .card-chips{display:flex;flex-wrap:wrap;gap:3px;padding-left:7px}
@@ -515,6 +518,7 @@ input[type=checkbox]:checked::after{
           <input type="date" id="filterDe" onchange="doFilter()" title="Data início">
           <input type="date" id="filterAte" onchange="doFilter()" title="Data fim">
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
+          <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" style="color:var(--mut2)" title="Alternar visão simples/detalhada">👁 Simples</button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
         </div>
         <div class="stats-bar" id="statsBar"></div>
@@ -1833,6 +1837,19 @@ function doFilter(){
   }) : null;
   renderBoard(); renderStats();
 }
+let _cardsCompact=false;
+function toggleDetalhesCards(){
+  _cardsCompact=!_cardsCompact;
+  const board=document.getElementById('board');
+  const btn=document.getElementById('btnToggleDetalhes');
+  if(_cardsCompact){
+    board.classList.add('cards-compact');
+    if(btn){btn.textContent='👁 Detalhes';btn.style.color='var(--acc)';}
+  }else{
+    board.classList.remove('cards-compact');
+    if(btn){btn.textContent='👁 Simples';btn.style.color='var(--mut2)';}
+  }
+}
 function clearFilter(){
   ['searchInput','filterForn','filterVend','filterPago','filterDe','filterAte'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
@@ -1934,9 +1951,10 @@ function cardHTML(c,color){
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
     ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
-    ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
-    <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
-    <div class="card-chips">
+    <div class="card-details">
+      ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
+      <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
+      <div class="card-chips">
       ${c.nome?`<span class="chip">👤 ${c.nome.split(' ')[0]}</span>`:''}
       ${isAdmin()&&c.rec?`<span class="chip acc">↑ R$${fmts(c.rec)}</span>`:''}
       ${isAdmin()&&c.cst?`<span class="chip r">↓ R$${fmts(c.cst)}</span>`:''}
@@ -1946,6 +1964,7 @@ function cardHTML(c,color){
       ${f?`<span class="chip">🚛 ${f.nome.split(' ')[0]}</span>`:''}
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
+    </div>
     </div>
     ${precisaConfirmar&&!badgeExpirou?`
     <div style="padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)">
