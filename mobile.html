@@ -611,14 +611,17 @@ async function loadApp() {
     // garantir que user.id nunca seja string vazia
     if(!_user.user.id && _user.sub) _user.user.id = _user.sub;
     setLoad(50,'Carregando dados...');
-    const [perfis,dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
-      api('perfis?id=eq.'+uid(),'GET',null,tok()),
-      api('ordens?order=criado_em.desc','GET',null,tok()),
+    // Buscar perfil primeiro para saber isAdmin() antes das ordens
+    const perfis = await api('perfis?id=eq.'+uid(),'GET',null,tok());
+    _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
+    const [dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
+      isAdmin()
+        ? api('ordens?order=criado_em.desc','GET',null,tok())
+        : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc','GET',null,tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
       api('config?chave=eq.nf_acrescimo','GET',null,tok()).catch(()=>[]),
     ]);
-    _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
     _usuarios = dbUsrs||[];
@@ -834,7 +837,7 @@ function renderInicio() {
   setTopbar('CaçambaSP', _perfil?.nome||'');
   const myId = uid();
   const minhas = myId
-    ? _ordens.filter(o => o.user_id===myId && o.col!=='concluido' && o.col!=='orcamento')
+    ? _ordens.filter(o => o.usuario_id===myId && o.col!=='concluido' && o.col!=='orcamento')
     : _ordens.filter(o => o.col!=='concluido' && o.col!=='orcamento');
   const urgentes = minhas.filter(o=>!o.pago && diasAberto(o)>=5);
   const abertos  = minhas.filter(o=>!o.pago && diasAberto(o)<5);
@@ -855,7 +858,7 @@ function renderInicio() {
 function renderInicioAdmin() {
   if(_switcherMode==='mine') {
     setTopbar('CaçambaSP', _perfil?.nome||'');
-    const minhas = _ordens.filter(o=>o.user_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
+    const minhas = _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
     const urgentes = minhas.filter(o=>!o.pago&&diasAberto(o)>=5);
     const abertos  = minhas.filter(o=>!o.pago&&diasAberto(o)<5);
     const pagos    = minhas.filter(o=>o.pago);
@@ -880,7 +883,7 @@ function renderInicioAdmin() {
     </div>`;
     const vendsMap = {};
     _usuarios.forEach(u=>{vendsMap[u.id]={nome:u.nome,ordens:[]};});
-    ativas.forEach(o=>{if(vendsMap[o.user_id]) vendsMap[o.user_id].ordens.push(o);});
+    ativas.forEach(o=>{if(vendsMap[o.usuario_id]) vendsMap[o.usuario_id].ordens.push(o);});
     const maxRec = Math.max(...Object.values(vendsMap).map(v=>v.ordens.reduce((s,o)=>s+parseFloat(o.rec||0),0)),1);
     h += `<div class="sec-lbl">Por vendedor</div>`;
     Object.entries(vendsMap).forEach(([id,v])=>{
@@ -915,7 +918,7 @@ function renderEquipe() {
   const ativas = _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento');
   const vendsMap = {};
   _usuarios.forEach(u=>{vendsMap[u.id]={nome:u.nome,ordens:[]};});
-  ativas.forEach(o=>{if(vendsMap[o.user_id]) vendsMap[o.user_id].ordens.push(o);});
+  ativas.forEach(o=>{if(vendsMap[o.usuario_id]) vendsMap[o.usuario_id].ordens.push(o);});
   let h='';
   const colors=['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
   const maxRec = Math.max(...Object.values(vendsMap).map(v=>v.ordens.reduce((s,o)=>s+parseFloat(o.rec||0),0)),1);
@@ -946,7 +949,7 @@ function renderEquipe() {
 // ── RENDER FINANCEIRO ──
 function renderFinanceiro() {
   setTopbar('Financeiro','');
-  const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.user_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
+  const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
   const rec  = ativas.reduce((s,o)=>s+parseFloat(o.rec||0),0);
   const custo= ativas.reduce((s,o)=>s+parseFloat(o.custo_forn||0),0);
   const pago = ativas.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
@@ -979,7 +982,7 @@ function renderFinanceiro() {
 function renderAlertas() {
   setTopbar('Alertas','');
   const hoje = new Date().toDateString();
-  const ordens = isAdmin() ? _ordens : _ordens.filter(o=>o.user_id===uid());
+  const ordens = isAdmin() ? _ordens : _ordens.filter(o=>o.usuario_id===uid());
   const pendentes = ordens.filter(o=>{
     if(o.pago||o.col==='concluido') return false;
     const cobrado = o.cobrado_em ? new Date(o.cobrado_em).toDateString():null;
@@ -1027,7 +1030,7 @@ function renderAlertas() {
 // ── CARD HTML ──
 function cardHTML(o, tipo='neutral', showMine=false) {
   const d = diasAberto(o);
-  const mine = o.user_id===uid();
+  const mine = o.usuario_id===uid();
   const chips = [];
   if(o.pago) chips.push(`<span class="chip g">✅ Pago</span>`);
   else if(d>=5) chips.push(`<span class="chip r">🔴 ${d}d</span>`);
@@ -1172,7 +1175,7 @@ async function salvarNovaOrdem() {
     if(_novaTemNF) recVal += _nfAcrescimo;
     const body = {
       id: uidGen(), crm_id,
-      user_id: uid2, nome_cli: nome,
+      usuario_id: uid2, nome_cli: nome,
       tel: wh.replace(/\D/g,''),
       cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
       rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
@@ -1207,7 +1210,7 @@ function renderDetalhe(id) {
   if(!o) { setView('inicio'); return; }
   setTopbar(o.crm_id||'Ordem', o.nome_cli||'');
   const forn = _forns.find(f=>f.id===o.forn_id);
-  const resp = _usuarios.find(u=>u.id===o.user_id);
+  const resp = _usuarios.find(u=>u.id===o.usuario_id);
   const d = diasAberto(o);
   let statusClass = o.pago?'pago':(d>=5?'urg':'pend');
   let statusTxt = o.pago?'✅ Pago':(d>=5?`🔴 Atrasado ${d}d`:`⏳ Em aberto ${d}d`);
