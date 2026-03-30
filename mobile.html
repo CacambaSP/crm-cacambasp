@@ -618,8 +618,8 @@ async function loadApp() {
 
     // 2) Buscar ordens: admin pega tudo, operador filtra pelo próprio user_id
     const ordensQuery = _perfil.nivel==='admin'
-      ? 'ordens?order=criado_em.desc'
-      : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc';
+      ? 'ordens?order=criado_em.desc&limit=1000'
+      : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc&limit=1000';
 
     const [dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
       api(ordensQuery,'GET',null,tok()),
@@ -640,7 +640,7 @@ async function loadApp() {
     },300);
     _autoId = setInterval(async()=>{
       try{
-        const refreshQuery = _perfil?.nivel==='admin' ? 'ordens?order=criado_em.desc' : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc';
+        const refreshQuery = _perfil?.nivel==='admin' ? 'ordens?order=criado_em.desc&limit=1000' : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc&limit=1000';
         const novo = await api(refreshQuery,'GET',null,tok());
         if(novo && JSON.stringify(novo.map(o=>o.id+o.pago+o.col)) !== JSON.stringify(_ordens.map(o=>o.id+o.pago+o.col))){
           _ordens = novo;
