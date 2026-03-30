@@ -15,6 +15,7 @@
 <style>
 :root {
   --bg:#0c0e14;--sur:#13151e;--card:#191c26;--bor:rgba(255,255,255,.07);--bor2:rgba(255,255,255,.14);
+  --bg2:#191c26;--bg3:#13151e;--brd:rgba(255,255,255,.1);--fg:#e6e8f0;
   --txt:#e6e8f0;--mut:#4a5068;--mut2:#7c84a0;
   --acc:#f5a623;--acc2:rgba(245,166,35,.1);--acc3:rgba(245,166,35,.2);
   --g:#22c55e;--g2:rgba(34,197,94,.1);--g3:rgba(34,197,94,.2);
@@ -655,13 +656,12 @@ input[type=checkbox]:checked::after{
             <button class="btn btn-sm" id="fornTab_cobertura" onclick="setFornTab('cobertura')">📍 Cobertura por bairro</button>
           </div>
           <!-- Filtros -->
-          <div id="fornFiltros" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
             <input type="text" id="fornFiltroNome" placeholder="🔍 Fornecedor..." oninput="renderForns()"
-              style="flex:1;min-width:140px;max-width:220px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+              style="flex:1;min-width:130px;max-width:200px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
             <input type="text" id="fornFiltroBairro" placeholder="📍 Bairro..." oninput="renderForns()"
-              style="flex:1;min-width:140px;max-width:220px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
-            <button id="fornFiltroAtivos" onclick="toggleFornFiltroAtivos()" class="btn btn-sm"
-              style="white-space:nowrap">● Só com negócios</button>
+              style="flex:1;min-width:130px;max-width:200px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+            <button id="fornFiltroAtivos" data-ativo="0" onclick="toggleFornFiltroAtivos()" class="btn btn-sm" style="white-space:nowrap">● Só com negócios</button>
           </div>
           <!-- Lista de fornecedores -->
           <div id="supLista"></div>
@@ -5513,14 +5513,21 @@ function renderForns(){
   const qBairro=(document.getElementById('fornFiltroBairro')?.value||'').toLowerCase().trim();
   const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
+  // Filtrar fornecedores
   const fornsFiltrados=fornsOrdenados.filter(f=>{
     if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
     if(soAtivos){
       const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');
       if(!ords.length) return false;
     }
+    if(qBairro){
+      const regioes=Array.isArray(f.regioes)?f.regioes:[];
+      const temBairro=regioes.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro));
+      if(!temBairro) return false;
+    }
     return true;
   });
+  const expandirTodos=qBairro.length>0; // expande automaticamente quando filtrando bairro
   el.innerHTML=fornsFiltrados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
@@ -5530,10 +5537,9 @@ function renderForns(){
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
-    const bairrosHtml=regioesSorted.filter(r=>{
-      if(!qBairro) return true;
-      return (r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro);
-    }).map((r,_idx)=>{
+    // Filtrar bairros se qBairro preenchido
+    const regioesFiltradas=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
+    const bairrosHtml=regioesFiltradas.map((r,_idx)=>{
       const ri=r._ri;
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
@@ -5567,7 +5573,7 @@ function renderForns(){
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
       </div>
-      <div class="sup-body" id="sup_${f.id}">
+      <div class="sup-body" id="sup_${f.id}" style="display:${expandirTodos?'block':'none'}">
         ${f.pix?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
         ${f.obs?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">${f.obs}</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
@@ -5817,22 +5823,26 @@ function lpAplicarTodos(){
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  regioes.forEach((r,i)=>{
+  // Lê TODOS os valores do DOM ANTES de fechar o modal
+  const dadosLidos=regioes.map((r,i)=>{
     const elForn=document.getElementById('lp_forn_'+i);
     const elCli=document.getElementById('lp_cli_'+i);
     const elLim=document.getElementById('lp_limite_'+i);
-    if(!elForn||!elCli)return;
+    const elTurno=document.getElementById('lp_turno_'+i);
+    if(!elForn||!elCli) return null;
     const limVal=elLim?.value?.trim()||'';
-    const turnoVal=document.getElementById('lp_turno_'+i)?.value||'diurno';
-    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
+    const turnoVal=elTurno?.value||r.turno||'diurno';
+    return {...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
   });
+  dadosLidos.forEach((d,i)=>{ if(d) regioes[i]=d; });
   f.regioes=regioes;
   closeModal('lotePrecoModal');
-  renderForns();toggleSupBody('sup_'+fid);
+  renderForns();
+  toggleSupBody('sup_'+fid);
   try{
     await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());
-    toast('✅ Preços salvos!');
-  }catch(e){toast('Erro ao salvar','err');}
+    toast('✅ Preços e turnos salvos!');
+  }catch(e){toast('Erro ao salvar: '+e.message,'err');console.error(e);}
 }
 
 // ── CLIENTES ──
