@@ -1996,7 +1996,7 @@ function cardHTML(c,color){
     </div>
     </div>
     ${precisaConfirmar&&!badgeExpirou?`
-    <div class="card-confirm-actions">
+    <div class="card-confirm-actions" style="display:block">
       <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">⚠️ Confirmar entrega?</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
