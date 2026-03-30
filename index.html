@@ -3178,11 +3178,12 @@ async function initOneSignal(){
           // Aguarda um momento para o OneSignal finalizar o registro
           await new Promise(r=>setTimeout(r,2000));
           const subId = OneSignal.User.PushSubscription.id;
-          if(subId && uid && (!_perfil?.onesignal_id || _perfil.onesignal_id !== subId)){
-            await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},tok());
+          const token = tok();
+          if(subId && uid && token && (!_perfil?.onesignal_id || _perfil.onesignal_id !== subId)){
+            await api('perfis?id=eq.'+uid,'PATCH',{onesignal_id: subId},token);
             if(_perfil) _perfil.onesignal_id = subId;
             console.log('OneSignal subId salvo:', subId);
-          }
+          } else if(!token){ console.warn('OneSignal: token ausente, subId não salvo'); }
         }catch(e){ console.warn('Erro ao salvar onesignal_id:',e); }
       } else {
         _renderBtnNotif();
