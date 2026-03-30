@@ -90,6 +90,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .sync-dot{width:6px;height:6px;border-radius:50%;margin-left:auto;flex-shrink:0;transition:background .3s}
 .sync-dot.ok{background:var(--g)}.sync-dot.err{background:var(--r)}.sync-dot.sync{background:var(--acc);animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 4px rgba(239,68,68,0)}}
 .sb-nav{flex:1;overflow-y:auto;padding:10px 10px}
 .sb-section{font-size:9px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:1px;padding:12px 8px 6px}
 .nb{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:var(--rad3);border:none;background:none;color:var(--mut2);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:.15s;position:relative}
@@ -616,6 +617,7 @@ input[type=checkbox]:checked::after{
             <button class="rel-tab" onclick="setRelTab('fornecedor')" data-tab="fornecedor">🚛 Fornecedor</button>
             <button class="rel-tab" onclick="setRelTab('recebimento')" data-tab="recebimento">💰 Recebimentos</button>
             <button class="rel-tab" onclick="setRelTab('inadimp')" data-tab="inadimp">🚨 Inadimplência</button>
+            <button class="rel-tab" onclick="setRelTab('cancelados')" data-tab="cancelados">❌ Cancelados</button>
           </div>
           <div id="relConteudo"></div>
         </div>
@@ -1207,18 +1209,160 @@ const PIX_NAME = 'Luciana Cristina Testa';
 const PIX_CITY = 'SAO PAULO';
 
 const COLS = [
-  {id:'contratar', label:'Contratar Fornecedor', color:'#f5a623'},
-  {id:'entrega',   label:'Entrega OK?',           color:'#22c55e'},
-  {id:'pagar',     label:'Pagar Fornecedor',       color:'#6366f1'},
-  {id:'faltapg',   label:'Falta Pag. Cliente',     color:'#a78bfa'},
-  {id:'baixar',    label:'Baixar',                 color:'#f472b6'},
-  {id:'inadimp',   label:'Inadimplentes',          color:'#ef4444'},
+  {id:'contratar',  label:'Contratar Fornecedor', color:'#f5a623'},
+  {id:'ag_entrega', label:'Aguardando Entrega',   color:'#0ea5e9'},
+  {id:'entrega',    label:'Entrega OK?',           color:'#22c55e'},
+  {id:'pagar',      label:'Pagar Fornecedor',      color:'#6366f1'},
+  {id:'faltapg',    label:'Falta Pag. Cliente',    color:'#a78bfa'},
+  {id:'baixar',     label:'Baixar',                color:'#f472b6'},
+  {id:'inadimp',    label:'Inadimplentes',         color:'#ef4444'},
 ];
 
 // ── ESTADO ──
 let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
 let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco
 let _nfAcrescimo=40; // Acréscimo fixo R$ no valor ao cliente quando tem NF — carregado do banco
+let _limiteDiurno='09:00';   // Hora limite para contratar fornecedor diurno (padrão global)
+let _limiteNoturno='16:00';  // Hora limite para contratar fornecedor noturno (padrão global)
+
+// ── FLUXO AUTOMÁTICO DE COLUNAS ──
+
+function getTurnoOrdem(c){
+  if(!c.forn_id||!c.bairro) return 'diurno';
+  const f=forns.find(x=>x.id===c.forn_id);
+  if(!f||!Array.isArray(f.regioes)) return 'diurno';
+  const bl=(c.bairro||'').toLowerCase().trim();
+  const reg=f.regioes.find(r=>(r.bairro||r.regiao||'').toLowerCase().trim()===bl);
+  return (reg?.turno||'diurno').toLowerCase().includes('not')?'noturno':'diurno';
+}
+
+// Retorna limite de horário por bairro (ou padrão global)
+function getLimiteBairro(c){
+  // Tenta pegar limite específico do bairro no fornecedor
+  if(c.forn_id&&c.bairro){
+    const f=forns.find(x=>x.id===c.forn_id);
+    if(f&&Array.isArray(f.regioes)){
+      const bl=(c.bairro||'').toLowerCase().trim();
+      const reg=f.regioes.find(r=>(r.bairro||r.regiao||'').toLowerCase().trim()===bl);
+      if(reg?.limite) return reg.limite; // ex: "08:00"
+    }
+  }
+  const turno=getTurnoOrdem(c);
+  return turno==='noturno'?_limiteNoturno:_limiteDiurno;
+}
+
+// Retorna Date com o prazo limite para contratar o fornecedor
+function getPrazoContratar(c){
+  if(!c.data) return null;
+  const turno=getTurnoOrdem(c);
+  const limite=getLimiteBairro(c); // ex: "16:00"
+  const [lh,lm]=(limite||'09:00').split(':').map(Number);
+  const dataEntrega=new Date(c.data+'T12:00:00');
+
+  if(turno==='noturno'){
+    // Noturno: entrega na noite da data
+    // Se cadastrou antes das 18h → entrega essa noite → limite é hoje
+    // Se cadastrou após as 18h → entrega noite seguinte → limite é amanhã
+    const criado=c.criado_em?new Date(c.criado_em):new Date();
+    const horasCriado=criado.getHours()+(criado.getMinutes()/60);
+    const prazo=new Date(dataEntrega);
+    // Se a data de entrega é hoje e cadastrou antes das 18h → limite hoje
+    const hoje=new Date();
+    const dataEntregaStr=dataEntrega.toDateString();
+    const hojeStr=hoje.toDateString();
+    if(dataEntregaStr===hojeStr&&horasCriado<18){
+      prazo.setHours(lh,lm,0,0); // limite hoje
+    } else {
+      prazo.setHours(lh,lm,0,0); // limite no dia da entrega
+    }
+    return prazo;
+  } else {
+    // Diurno: limite é às Xh do dia da entrega
+    const prazo=new Date(dataEntrega);
+    prazo.setHours(lh,lm,0,0);
+    return prazo;
+  }
+}
+
+// Retorna nível de urgência para contratar fornecedor (0=ok, 1=amarelo, 2=laranja, 3=vermelho, 4=atrasado)
+function urgenciaContratar(c){
+  if(c.col!=='contratar'||c.forn_id) return 0;
+  const prazo=getPrazoContratar(c);
+  if(!prazo) return 0;
+  const agora=new Date();
+  const diffH=(prazo-agora)/(1000*60*60);
+  if(diffH<0)   return 4; // passou do limite
+  if(diffH<2)   return 3; // menos de 2h — vermelho
+  if(diffH<6)   return 2; // menos de 6h — laranja
+  if(diffH<12)  return 1; // menos de 12h — amarelo
+  return 0; // folgado
+}
+
+function getHoraEntrega(c){
+  if(!c.data) return null;
+  const base=new Date(c.data+'T12:00:00');
+  if(getTurnoOrdem(c)==='noturno'){base.setDate(base.getDate()+1);base.setHours(7,0,0,0);}
+  else{base.setHours(18,0,0,0);}
+  return base;
+}
+
+function deveConfirmarEntrega(c){
+  if(c.col!=='ag_entrega'||c.entrega_confirmada) return false;
+  const hr=getHoraEntrega(c); return hr&&new Date()>=hr;
+}
+
+function badgeEntregaExpirado(c){
+  const hr=getHoraEntrega(c); if(!hr) return false;
+  return new Date()>=new Date(hr.getTime()+24*60*60*1000);
+}
+
+function autoColFornNomeado(c){
+  if(c.col==='contratar') c.col='ag_entrega';
+}
+
+function autoColPagamento(c){
+  if(c.col==='concluido'||c.col==='orcamento') return;
+  const cli=!!c.pago, forn=!!c.forn_pago;
+  if(cli&&forn){c.col='baixar';}
+  else if(cli&&!forn){c.col='pagar';}
+  else if(!cli&&forn){c.col='faltapg';}
+  else if(!cli&&!forn&&['entrega','ag_entrega','contratar'].includes(c.col)){c.col='faltapg';}
+}
+
+async function confirmarEntrega(id){
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  c.col='entrega';c.entrega_confirmada=true;
+  renderBoard();renderStats();
+  try{await api('ordens?id=eq.'+id,'PATCH',{col:'entrega',entrega_confirmada:true},tok());addLog(id,'Entrega confirmada','');toast('✅ Entrega confirmada!');}
+  catch(e){toast('Erro','err');}
+}
+
+async function trocarFornecedor(id){
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  c.col='contratar';c.forn_id=null;c.entrega_confirmada=false;
+  renderBoard();renderStats();
+  try{await api('ordens?id=eq.'+id,'PATCH',{col:'contratar',forn_id:null,entrega_confirmada:false},tok());addLog(id,'Fornecedor removido','Voltou para Contratar');toast('🔄 Fornecedor removido');}
+  catch(e){toast('Erro','err');}
+}
+
+async function remarcarEntrega(id){
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  const nd=prompt('📅 Nova data de entrega (AAAA-MM-DD):',c.data||'');
+  if(!nd)return;
+  c.data=nd;c.entrega_confirmada=false;renderBoard();
+  try{await api('ordens?id=eq.'+id,'PATCH',{data:nd,entrega_confirmada:false},tok());addLog(id,'Remarcado','Nova data: '+nd);toast('📅 Remarcado para '+dateF(nd));}
+  catch(e){toast('Erro','err');}
+}
+
+async function cancelarOrdem(id){
+  const motivo=prompt('Motivo do cancelamento:','');
+  if(motivo===null)return;
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  c.col='concluido';c.concluido_em=nowISO();c.cancel_motivo=motivo||'Cancelado';
+  renderBoard();renderStats();
+  try{await api('ordens?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em,cancel_motivo:c.cancel_motivo},tok());addLog(id,'Cancelado',motivo||'');toast('🗑️ Ordem cancelada e arquivada');}
+  catch(e){toast('Erro ao cancelar','err');}
+}
 let _detailId=null, _dragId=null, _pixCardId=null, _pixPayload='', _pixId='';
 let _finFiltro='todos', _finSel=new Set();
 let _histPage=1; const HIST_PER=50;
@@ -1429,7 +1573,7 @@ async function loadApp(){
         : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
-      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo)',undefined,undefined,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
     ]);
     ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
     if(dbConfig?.length){
@@ -1438,6 +1582,8 @@ async function loadApp(){
         if(r.chave==='nf_acrescimo')     _nfAcrescimo=parseFloat(r.valor)||40;
         if(r.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA=parseInt(r.valor)||3;
         if(r.chave==='cobr_dias_critico')COBR_DIAS_CRITICO=parseInt(r.valor)||7;
+        if(r.chave==='limite_diurno')    _limiteDiurno=r.valor||'09:00';
+        if(r.chave==='limite_noturno')   _limiteNoturno=r.valor||'16:00';
       });
     }
     setLoadProg(90,'Inicializando...');
@@ -1744,15 +1890,37 @@ function renderBoard(){
 function cardHTML(c,color){
   const f=forns.find(s=>s.id===c.forn_id);
   const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
-  return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true"
+
+  // Urgência para contratar fornecedor (0=ok, 1=amarelo, 2=laranja, 3=vermelho, 4=atrasado)
+  const urg=urgenciaContratar(c);
+  const urgCores=['','rgba(234,179,8,.08)','rgba(249,115,22,.1)','rgba(239,68,68,.1)','rgba(239,68,68,.15)'];
+  const urgBordas=['','#eab308','#f97316','#ef4444','#ef4444'];
+  const urgAnims=['','','','pulse-border 1.5s infinite','pulse-border .8s infinite'];
+  const urgLabels=['','⏰','⚡','🚨','🔴'];
+  const urgTextos=['','Atenção: contratar em breve','Urgente: contratar logo','Crítico: prazo quase vencendo','Atrasado: prazo vencido'];
+  const prazo=urg>0?getPrazoContratar(c):null;
+  const prazoStr=prazo?prazo.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' de '+prazo.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+  const maskAnim=urgAnims[urg]?'animation:'+urgAnims[urg]+';':'';
+  const maskStyle=urg>0
+    ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid ${urgBordas[urg]};background:${urgCores[urg]};pointer-events:none;${maskAnim}z-index:1`
+    :'display:none';
+
+  // Badge de confirmação de entrega
+  const precisaConfirmar=deveConfirmarEntrega(c);
+  const badgeExpirou=badgeEntregaExpirado(c);
+  const turnoLabel=getTurnoOrdem(c)==='noturno'?'🌙 Noturno':'☀️ Diurno';
+
+  return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true" style="position:relative"
     ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault();event.stopPropagation();this.closest('.col-cards')?.classList.add('drag-over')" ondrop="event.stopPropagation();oDrop(event,this.closest('.col-cards')?.id.replace('col_',''))" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
+    <div style="${maskStyle}"></div>
     <div class="card-bar" style="background:${color}"></div>
     ${isAdmin()?`<div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>`:''}
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
+    ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;padding:2px 9px;margin-bottom:1px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
-      ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
+    ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
     ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
     <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
@@ -1764,9 +1932,21 @@ function cardHTML(c,color){
       ${c.pago?`<span class="chip g">✅ Pago</span>`:''}
       ${c.forn_pago?`<span class="chip b">💰 F.Pago</span>`:''}
       ${f?`<span class="chip">🚛 ${f.nome.split(' ')[0]}</span>`:''}
+      ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
-    ${!c.pago&&['faltapg','pagar','entrega'].includes(c.col)?`<div style="padding:6px 9px 8px;border-top:1px solid var(--bor)"><button class="btn btn-g btn-sm" style="width:100%;font-size:11px" onclick="event.stopPropagation();quickPagarCard('${c.id}')">✅ Marcar como pago</button></div>`:''}
+    ${precisaConfirmar&&!badgeExpirou?`
+    <div style="padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)">
+      <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">⚠️ Confirmar entrega?</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
+        <button class="btn btn-xs" style="background:var(--acc2);color:var(--acc)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Trocar</button>
+        <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
+        <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
+      </div>
+    </div>`:''
+    }
+    ${!precisaConfirmar&&!c.pago&&['faltapg','pagar','entrega','ag_entrega'].includes(c.col)?`<div style="padding:6px 9px 8px;border-top:1px solid var(--bor)"><button class="btn btn-g btn-sm" style="width:100%;font-size:11px" onclick="event.stopPropagation();quickPagarCard('${c.id}')">✅ Marcar como pago</button></div>`:''}
   </div>`;
 }
 
@@ -1888,7 +2068,8 @@ function updateSelBar(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select class="btn btn-sm" style="cursor:pointer" onchange="selMoverColuna(this.value);this.value=''">
           <option value="">📦 Mover para...</option>
-          ${COLS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+          ${_colsInteligentes([..._selCards]).map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+          ${isAdmin()?`<optgroup label="── Todas ──">${COLS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}</optgroup>`:''}
         </select>
         <button class="btn btn-sm btn-wa" onclick="selCobrarAgrupado()">📲 Cobrar agrupado</button>
         <button class="btn btn-sm btn-acc" onclick="selArquivarLote()">🏆 Arquivar</button>
@@ -1899,6 +2080,26 @@ function updateSelBar(){
     bar.innerHTML='';
   }
 }
+// Retorna colunas relevantes para o conjunto de ordens selecionadas
+function _colsInteligentes(ids){
+  const sels=ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
+  if(!sels.length) return COLS;
+  const cols=new Set();
+  sels.forEach(c=>{
+    // Sempre pode mover para inadimp manualmente
+    cols.add('inadimp');
+    // Tem fornecedor → pode confirmar entrega ou ir para entrega
+    if(c.forn_id){cols.add('ag_entrega');cols.add('entrega');}
+    // Sem fornecedor → contratar
+    else{cols.add('contratar');}
+    // Pagamentos
+    if(!c.pago) cols.add('faltapg');
+    if(!c.forn_pago) cols.add('pagar');
+    if(c.pago&&c.forn_pago) cols.add('baixar');
+  });
+  return COLS.filter(c=>cols.has(c.id));
+}
+
 async function selMoverColuna(colId){
   if(!colId||!_selCards.size)return;
   const ids=[..._selCards];
@@ -2209,7 +2410,7 @@ async function salvarOrdem(){
       obs:document.getElementById('o_obs').value.trim(),rec:recEdit,cst,forn_id:fornId,
       nf_num:nfNumNova
     });
-    if(fornId&&fornId!==oldFornId&&c.col==='contratar') c.col='entrega';
+    if(fornId&&fornId!==oldFornId) autoColFornNomeado(c);
     renderBoard(); closeModal('ordemModal');
     try{
       setSyncDot('sync');
@@ -2649,8 +2850,8 @@ async function salvarPagoCli(){
     c.pago_obs=(obs||'Parcial')+' · Acumulado R$ '+fmt(novoAcum)+' · Falta R$ '+fmt(falta);
     if(falta<=0.01){
       c.pago=true;c.pago_em=data+'T12:00:00';c.pago_valor=parseFloat(c.rec);
-      if(c.col==='faltapg'||c.col==='contratar'||c.col==='entrega')c.col='baixar';
-      toast('✅ Pagamento quitado!');
+      autoColPagamento(c);
+      toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento quitado!');
     }else{c.col='faltapg';toast('⏳ Entrada R$ '+fmt(val)+' registrada. Falta R$ '+fmt(falta)+(dataRest?' para '+new Date(dataRest+'T12:00:00').toLocaleDateString('pt-BR'):''));}
     renderBoard();renderStats();if(_pagarCliCallback)renderFinanceiro();
     closeModal('pagarCliModal');fillDetail(c);
@@ -2661,13 +2862,13 @@ async function salvarPagoCli(){
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     c.pago=true;c.pago_em=data+'T12:00:00';c.pago_valor=val;c.pago_obs=obs;
-    if(c.col==='faltapg'||c.col==='contratar'||c.col==='entrega')c.col='baixar';
+    autoColPagamento(c);
     renderBoard();renderStats();if(_pagarCliCallback)renderFinanceiro();
     closeModal('pagarCliModal');fillDetail(c);
     try{
       setSyncDot('sync');
       await api('ordens?id=eq.'+c.id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:val,pago_obs:obs,col:c.col},tok());
-      setSyncDot('ok');toast('✅ Pagamento confirmado!');
+      setSyncDot('ok');toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento confirmado!');
       addLog(c.id,'Pago','R$ '+fmt(val)+(obs?' – '+obs:''));
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }
@@ -2712,16 +2913,18 @@ async function salvarPagoForn(){
     const ord=ordens.find(x=>x.id===id);if(!ord)continue;
     const valOrd = idsLote ? (parseFloat(ord.cst)||0) : val;
     ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;
+    autoColPagamento(ord);
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef},tok());
+      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef,col:ord.col},tok());
       setSyncDot('ok'); ok++;
       addLog(id,'Fornecedor pago','R$ '+fmt(valOrd)+(ref?' · '+ref:''));
     }catch(e){setSyncDot('err');}
   }
   renderBoard(); renderStats(); renderFinanceiro(); initPgForn();
   if(_detailId) fillDetail(ordens.find(x=>x.id===_detailId));
-  toast(`✅ ${ok} ordem${ok!==1?'ns':''} marcada${ok!==1?'s':''} como paga${ok!==1?'s':''} ao fornecedor!`);
+  const algumBaixou=todos.some(id=>{const o=ordens.find(x=>x.id===id);return o?.col==='baixar';});
+  toast(algumBaixou?`✅ ${ok} ordem${ok!==1?'ns':''} — tudo pago, arquivado! 🎉`:`✅ ${ok} ordem${ok!==1?'ns':''} marcada${ok!==1?'s':''} como paga${ok!==1?'s':''} ao fornecedor!`);
 }
 
 // ── PIX ──
@@ -4510,6 +4713,25 @@ function renderDash(){
             <div style="font-size:11px;color:var(--mut2);margin-top:6px">⚠️ Só afeta ordens criadas após a alteração. Ordens antigas mantêm a taxa original.</div>
           </div>
         </div>
+        <div style="border-top:1px solid var(--bor);margin-top:16px;padding-top:16px">
+          <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⏰ Limites para Contratar Fornecedor</div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:12px">Horário máximo para contratar o fornecedor antes da entrega. Pode ser sobrescrito por bairro no modal 💰 Lote.</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">☀️ Diurno (padrão)</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="time" id="cfgLimiteDiurno" value="${_limiteDiurno}" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
+                <button class="btn btn-acc btn-sm" onclick="salvarLimiteContratar()">Salvar</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">🌙 Noturno (padrão)</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="time" id="cfgLimiteNoturno" value="${_limiteNoturno}" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
+              </div>
+            </div>
+          </div>
+        </div>
       </div>`;
   }
 }
@@ -4524,6 +4746,21 @@ async function salvarTaxaNF(){
     toast('✅ Taxa NF atualizada para '+nova+'%');
     renderDash();
   }catch(e){toast('Erro ao salvar taxa','err');}
+}
+async function salvarLimiteContratar(){
+  const d=document.getElementById('cfgLimiteDiurno')?.value||'09:00';
+  const n=document.getElementById('cfgLimiteNoturno')?.value||'16:00';
+  try{
+    const existeD=await api('config?chave=eq.limite_diurno',undefined,undefined,tok());
+    if(existeD?.length) await api('config?chave=eq.limite_diurno','PATCH',{valor:d},tok());
+    else await api('config','POST',{chave:'limite_diurno',valor:d},tok());
+    const existeN=await api('config?chave=eq.limite_noturno',undefined,undefined,tok());
+    if(existeN?.length) await api('config?chave=eq.limite_noturno','PATCH',{valor:n},tok());
+    else await api('config','POST',{chave:'limite_noturno',valor:n},tok());
+    _limiteDiurno=d; _limiteNoturno=n;
+    toast('✅ Limites salvos — Diurno '+d+' / Noturno '+n);
+    renderBoard();
+  }catch(e){toast('Erro ao salvar limites','err');}
 }
 let _concTab='manual';
 function setConcTab(t){
@@ -4707,25 +4944,30 @@ function renderConcManual(){
 }
 async function quickPagar(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
-  c.pago=true;c.pago_em=nowISO();c.pago_valor=c.rec;c.pago_obs='Marcado manualmente';c.col='baixar';
+  const vp=(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0);
+  c.pago=true;c.pago_em=nowISO();c.pago_valor=vp;c.pago_obs='Marcado manualmente';
+  autoColPagamento(c);
   renderConcManual();renderBoard();renderStats();
-  try{await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:c.pago_valor,pago_obs:c.pago_obs,col:'baixar'},tok());toast('✅ Marcado como pago!');}
+  try{await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:vp,pago_obs:c.pago_obs,col:c.col},tok());toast(c.col==='baixar'?'✅ Tudo pago — arquivado! 🎉':'✅ Marcado como pago!');}
   catch(e){toast('Erro','err');}
 }
 async function quickPagarCard(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
   const nome=c.nome?.split(' ')[0]||'cliente';
-  const val=c.rec?'R$ '+fmt(c.rec):'valor não definido';
-  const ok=await showConfirm({ico:'✅',title:'Marcar como pago?',body:`${nome} — ${val}\n\nA ordem vai para a coluna Baixar.`,ok:'✅ Confirmar',okClass:'btn-g',cancel:'Cancelar'});
+  const vp=(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0);
+  const val=vp?'R$ '+fmt(vp):'valor não definido';
+  const destino=c.forn_pago?'Baixar':'Pagar Fornecedor';
+  const ok=await showConfirm({ico:'✅',title:'Marcar como pago?',body:`${nome} — ${val}\n\nA ordem vai para: ${destino}.`,ok:'✅ Confirmar',okClass:'btn-g',cancel:'Cancelar'});
   if(!ok)return;
-  c.pago=true;c.pago_em=nowISO();c.pago_valor=parseFloat(c.rec)||0;c.pago_obs='Marcado pelo card';c.col='baixar';
+  c.pago=true;c.pago_em=nowISO();c.pago_valor=vp;c.pago_obs='Marcado pelo card';
+  autoColPagamento(c);
   renderBoard();renderStats();renderFinanceiro();
   try{
     setSyncDot('sync');
-    await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:c.pago_valor,pago_obs:c.pago_obs,col:'baixar'},tok());
-    addLog(id,'Pago','R$ '+fmt(c.pago_valor)+' — via card');
+    await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:vp,pago_obs:c.pago_obs,col:c.col},tok());
+    addLog(id,'Pago','R$ '+fmt(vp)+' — via card');
     setSyncDot('ok');
-    toast('✅ '+nome+' marcado como pago!');
+    toast(c.col==='baixar'?'✅ Tudo pago — arquivado! 🎉':'✅ '+nome+' marcado como pago!');
   }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
 }
 function renderConcHist(){
@@ -4839,6 +5081,7 @@ function renderRel(){
   else if(_relTab==='fornecedor') el.innerHTML=_relFornecedor(src,nomeMes);
   else if(_relTab==='recebimento') el.innerHTML=_relRecebimento(src,nomeMes);
   else if(_relTab==='inadimp') el.innerHTML=_relInadimp(src,nomeMes);
+  else if(_relTab==='cancelados') el.innerHTML=_relCancelados(nomeMes);
 }
 function _kpi(label,val,color,sub){return `<div class="rel-kpi"><div class="rel-kpi-label">${label}</div><div class="rel-kpi-val" style="color:${color}">${val}</div>${sub?`<div class="rel-kpi-sub">${sub}</div>`:''}</div>`;}
 function _relResumo(src,nm){
@@ -4976,6 +5219,21 @@ function _relInadimp(src,nm){
   </tr>`).join('')}
   <tfoot><tr><td colspan="2" style="font-weight:700">Total</td><td class="r" style="color:var(--r)">R$ ${fmt(total)}</td><td colspan="2"></td></tr></tfoot>
   </tbody></table></div>`;
+}
+function _relCancelados(nm){
+  const cancelados=ordens.filter(c=>c.col==='concluido'&&c.cancel_motivo).sort((a,b)=>(b.concluido_em||'').localeCompare(a.concluido_em||''));
+  if(!cancelados.length) return `<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem cancelada registrada.</div>`;
+  return `<div style="margin-bottom:12px;font-size:12px;color:var(--mut2)">${cancelados.length} ordem(ns) cancelada(s) — todos os períodos</div>
+  <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
+    <th>ID</th><th>Cliente</th><th>Endereço</th><th>Data</th><th>Motivo</th><th>Cancelado em</th>
+  </tr></thead><tbody>${cancelados.map(c=>`<tr>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--acc)">${c.crm_id||'-'}</td>
+    <td style="font-weight:600">${c.nome||'-'}</td>
+    <td style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'}${c.bairro?', '+c.bairro:''}</td>
+    <td style="color:var(--mut2);font-family:var(--mono)">${dateF(c.data)}</td>
+    <td style="color:var(--r)">${c.cancel_motivo||'-'}</td>
+    <td style="color:var(--mut2);font-family:var(--mono);font-size:11px">${c.concluido_em?new Date(c.concluido_em).toLocaleString('pt-BR'):'-'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
 }
 function _relEvolucao(){
   // Últimos 6 meses de receita, custo e margem
@@ -5306,6 +5564,11 @@ function abrirLotePrecosCli(fid){
           style="width:80px;background:${semCli?'var(--bg3,#1a2a1a)':'var(--bg2)'};border:1px solid ${semCli?'var(--g)':'var(--brd)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
           placeholder="0">
       </td>
+      <td style="padding:6px 8px;text-align:center">
+        <input type="time" id="lp_limite_${i}" value="${r.limite||''}"
+          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px"
+          placeholder="${r.turno==='noturno'?_limiteNoturno:_limiteDiurno}">
+      </td>
     </tr>`;
   }).join('');
 
@@ -5329,6 +5592,7 @@ function abrirLotePrecosCli(fid){
             <th style="padding:8px;text-align:left;font-size:11px;color:var(--mut2);font-weight:600">BAIRRO</th>
             <th style="padding:8px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">PREÇO FORN (R$)</th>
             <th style="padding:8px;text-align:right;font-size:11px;color:var(--g);font-weight:600">PREÇO CLIENTE (R$)</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:#0ea5e9;font-weight:600">LIMITE CONTRATAR</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -5374,8 +5638,10 @@ async function salvarLotePrecosCli(fid){
   regioes.forEach((r,i)=>{
     const elForn=document.getElementById('lp_forn_'+i);
     const elCli=document.getElementById('lp_cli_'+i);
+    const elLim=document.getElementById('lp_limite_'+i);
     if(!elForn||!elCli)return;
-    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0};
+    const limVal=elLim?.value?.trim()||'';
+    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,...(limVal?{limite:limVal}:{limite:undefined})};
   });
   f.regioes=regioes;
   closeModal('lotePrecoModal');
