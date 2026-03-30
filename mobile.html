@@ -110,6 +110,9 @@ input,select,textarea,button{font-family:var(--font)}
 .cb-wa{background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b)}
 .cb-pix{background:var(--pix);color:var(--pix-c);border:1px solid var(--pix-b)}
 .cb-ghost{background:var(--card);border:1px solid var(--bor);color:var(--txt)}
+.card-check{width:28px;height:28px;border-radius:8px;border:2px solid var(--bor2);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.card-check.checked{background:var(--g);border-color:var(--g)}
+.card-check.checked::after{content:'✓';color:#000;font-size:16px;font-weight:900;line-height:1}
 .cb-acc{background:var(--acc2);color:var(--acc);border:1px solid var(--acc3)}
 
 /* ── KPI CARDS ── */
@@ -1035,20 +1038,21 @@ function cardHTML(o, tipo='neutral', showMine=false) {
   if(o.pago) chips.push(`<span class="chip g">✅ Pago</span>`);
   else if(d>=5) chips.push(`<span class="chip r">🔴 ${d}d</span>`);
   else if(d>=3) chips.push(`<span class="chip acc">⚠️ ${d}d</span>`);
-  if(o.col) chips.push(`<span class="chip">${o.col}</span>`);
+  const COLS_LABEL = {contratar:'📋 Contratar',entrega:'🚛 Entrega',pagar:'💳 A pagar',faltapg:'⚠️ Falta pg',baixar:'📦 Baixar',inadimp:'🚨 Inadimp'};
+  if(o.col && o.col!=='concluido') chips.push(`<span class="chip" style="color:var(--mut);font-size:10px">${COLS_LABEL[o.col]||o.col}</span>`);
   if(o.nf_num) chips.push(`<span class="chip b">🧾 NF</span>`);
   if(showMine&&mine) chips.push(`<span class="chip mine">minha</span>`);
   const fornNome = _forns.find(f=>f.id===o.forn_id)?.nome||'';
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
     <div class="card-bar" style="background:${tipo==='urg'?'var(--r)':tipo==='ok'?'var(--g)':tipo==='warn'?'var(--acc)':'var(--b)'}"></div>
     <div class="card-header">
-      <div class="card-name">${o.nome||'—'}</div>
+      <div onclick="event.stopPropagation();if(!${o.pago})quickPagarCard('${o.id}')" class="card-check ${o.pago?'checked':''}"></div>
+      <div class="card-name" style="flex:1;margin-left:8px">${o.nome||'—'}</div>
       <div class="card-val">R$ ${fmt(o.rec)}</div>
     </div>
     <div class="card-addr">${o.logradouro||''} · ${o.bairro||''}</div>
     <div class="card-chips">${chips.join('')}</div>
     <div class="card-actions">
-      ${!o.pago?`<button class="card-btn cb-g" onclick="event.stopPropagation();quickPagarCard('${o.id}')">✅ Pago</button>`:''}
       <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
       <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
     </div>
