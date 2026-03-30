@@ -1317,7 +1317,14 @@ function getHoraEntrega(c){
 
 function deveConfirmarEntrega(c){
   if(c.col!=='ag_entrega'||c.entrega_confirmada) return false;
-  const hr=getHoraEntrega(c); return hr&&new Date()>=hr;
+  if(!c.forn_id) return false; // exige fornecedor atribuído
+  const hr=getHoraEntrega(c);
+  if(!hr) return false;
+  // Mostrar botões a partir do início do dia da entrega (não só na hora exata)
+  const agora=new Date();
+  const inicioDia=new Date(hr);
+  inicioDia.setHours(0,0,0,0);
+  return agora>=inicioDia;
 }
 
 function badgeEntregaExpirado(c){
@@ -5482,7 +5489,8 @@ function filtrarCobertura(){
 function renderForns(){
   const el=document.getElementById('supLista');
   if(!forns.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor cadastrado</div>';return;}
-  el.innerHTML=forns.map((f,i)=>{
+  const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
+  el.innerHTML=fornsOrdenados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
     const cor=f.color||cores[i%cores.length];
@@ -5490,7 +5498,9 @@ function renderForns(){
     const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
-    const bairrosHtml=regioes.map((r,ri)=>{
+    const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
+    const bairrosHtml=regioesSorted.map((r,_idx)=>{
+      const ri=r._ri;
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
       const temOrdem=ordsNoBairro.length>0;
@@ -5773,22 +5783,34 @@ function lpAplicarTodos(){
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  regioes.forEach((r,i)=>{
+  // Lê TODOS os valores do DOM antes de qualquer closeModal/renderForns
+  const dadosLidos=regioes.map((r,i)=>{
     const elForn=document.getElementById('lp_forn_'+i);
     const elCli=document.getElementById('lp_cli_'+i);
     const elLim=document.getElementById('lp_limite_'+i);
-    if(!elForn||!elCli)return;
+    const elTurno=document.getElementById('lp_turno_'+i);
+    if(!elForn||!elCli) return null; // elemento não encontrado — mantém original
     const limVal=elLim?.value?.trim()||'';
-    const turnoVal=document.getElementById('lp_turno_'+i)?.value||'diurno';
-    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
+    const turnoVal=elTurno?.value||r.turno||'diurno';
+    return {
+      ...r,
+      preco:parseFloat(elForn.value)||0,
+      preco_cli:parseFloat(elCli.value)||0,
+      turno:turnoVal,
+      ...(limVal?{limite:limVal}:{limite:undefined})
+    };
   });
+  // Aplica só os que foram lidos com sucesso
+  dadosLidos.forEach((d,i)=>{ if(d) regioes[i]=d; });
   f.regioes=regioes;
+  // Só fecha e re-renderiza DEPOIS de ter todos os dados em memória
   closeModal('lotePrecoModal');
-  renderForns();toggleSupBody('sup_'+fid);
+  renderForns();
+  toggleSupBody('sup_'+fid);
   try{
     await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());
-    toast('✅ Preços salvos!');
-  }catch(e){toast('Erro ao salvar','err');}
+    toast('✅ Preços e turnos salvos!');
+  }catch(e){toast('Erro ao salvar: '+e.message,'err');console.error(e);}
 }
 
 // ── CLIENTES ──
