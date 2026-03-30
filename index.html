@@ -1414,10 +1414,11 @@ const dateF=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
 const nowISO=()=>new Date().toISOString();
 
 // ── API ──
-const api=async(path,method='GET',body=null,token=null)=>{
+const api=async(path,method='GET',body=null,token=null,prefer=null)=>{
   const h={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY)};
-  if(method==='POST') h['Prefer']='return=representation';
-  if(method==='PATCH'||method==='DELETE') h['Prefer']='return=minimal';
+  if(prefer) h['Prefer']=prefer;
+  else if(method==='POST') h['Prefer']='return=representation';
+  else if(method==='PATCH'||method==='DELETE') h['Prefer']='return=minimal';
   const r=await fetch(SUPA_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):null});
   if(!r.ok){const e=await r.text();throw new Error(e);}
   const t=await r.text(); return t?JSON.parse(t):null;
@@ -4848,16 +4849,12 @@ async function cfgSalvarLimites(){
   const d=document.getElementById('cfg_limite_diurno')?.value||'09:00';
   const n=document.getElementById('cfg_limite_noturno')?.value||'16:00';
   try{
-    const existeD=await api('config?chave=eq.limite_diurno',undefined,undefined,tok());
-    if(existeD?.length) await api('config?chave=eq.limite_diurno','PATCH',{valor:d},tok());
-    else await api('config','POST',{chave:'limite_diurno',valor:d},tok());
-    const existeN=await api('config?chave=eq.limite_noturno',undefined,undefined,tok());
-    if(existeN?.length) await api('config?chave=eq.limite_noturno','PATCH',{valor:n},tok());
-    else await api('config','POST',{chave:'limite_noturno',valor:n},tok());
+    // upsert ambos de uma vez (on conflict chave → update valor)
+    await api('config?on_conflict=chave','POST',[{chave:'limite_diurno',valor:d},{chave:'limite_noturno',valor:n}],tok(),'resolution=merge-duplicates,return=minimal');
     _limiteDiurno=d; _limiteNoturno=n;
-    toast('✅ Limites — Diurno '+d+' · Noturno '+n);
+    toast('\u2705 Limites — Diurno '+d+' · Noturno '+n);
     renderBoard();
-  }catch(e){toast('Erro ao salvar limites','err');}
+  }catch(e){toast('Erro ao salvar limites','err');console.error(e);}
 }
 
 async function cfgSalvarTudo(){
