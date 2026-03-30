@@ -475,6 +475,7 @@ input[type=checkbox]:checked::after{
         <button class="nb" id="nav-forn" onclick="setViewMob('forn')"><span class="nb-ico">🚛</span> Fornecedores</button>
         <button class="nb" id="nav-cli" onclick="setViewMob('cli')"><span class="nb-ico">👥</span> Clientes</button>
         <button class="nb admin-only" id="nav-usr" onclick="setViewMob('usr')"><span class="nb-ico">👤</span> Usuários</button>
+        <button class="nb admin-only" id="nav-config" onclick="setViewMob('config')"><span class="nb-ico">⚙️</span> Configurações</button>
         <button class="nb admin-only" id="nav-comissao" onclick="setViewMob('comissao')"><span class="nb-ico">💸</span> Comissões</button>
       </div>
       <div class="sb-bot">
@@ -628,6 +629,14 @@ input[type=checkbox]:checked::after{
         <div class="pw">
           <div class="ph"><div class="ph-title">Notas Fiscais</div></div>
           <div id="nfLista" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES -->
+      <div class="view" id="view-config">
+        <div class="pw" style="max-width:700px">
+          <div class="ph"><div class="ph-title">⚙️ Configurações</div></div>
+          <div id="configConteudo"></div>
         </div>
       </div>
 
@@ -1710,7 +1719,7 @@ const viewTitles={
   funil:'Funil de Ordens',financeiro:'Central Financeira',dash:'Dashboard',
   hist:'Histórico',conc:'Conciliação',pgforn:'Pagar Fornecedor',
   rel:'Relatórios',nf:'Notas Fiscais',forn:'Fornecedores',cobr:'Cobrança Auto',comissao:'Comissões',
-  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos'
+  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos',config:'⚙️ Configurações'
 };
 function setView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('act'));
@@ -1730,6 +1739,7 @@ function setView(v){
   if(v==='pgforn') initPgForn();
   if(v==='rel') renderRel();
   if(v==='nf') renderNF();
+  if(v==='config') renderConfig();
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='comissao') renderComissaoView();
@@ -3440,8 +3450,8 @@ function _dispararProximaCobranca(){
 
 // Config dias de alerta
 async function salvarConfigCobranca(){
-  const d1 = parseInt(document.getElementById('cobr_dias_alerta')?.value)||3;
-  const d2 = parseInt(document.getElementById('cobr_dias_critico')?.value)||7;
+  const d1 = parseInt(document.getElementById('cobr_dias_alerta')?.value||document.getElementById('cfg_cobr_alerta')?.value)||3;
+  const d2 = parseInt(document.getElementById('cobr_dias_critico')?.value||document.getElementById('cfg_cobr_critico')?.value)||7;
   COBR_DIAS_ALERTA  = d1;
   COBR_DIAS_CRITICO = d2;
   try{
@@ -4694,62 +4704,148 @@ function renderDash(){
     <div class="dash-card"><div class="dash-card-label">Inadimplência</div><div class="dash-card-val" style="color:var(--r)">${inad}</div><div class="dash-card-sub">ordens inadimplentes</div></div>
   `;
   document.querySelectorAll('#dashGrid .admin-only').forEach(el=>el.style.display=isAdmin()?'block':'none');
-  // Painel de configuração de taxa (só admin)
-  if(isAdmin()){
-    document.getElementById('dashCharts').innerHTML=`
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:18px 20px;margin-top:8px">
-        <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">⚙️ Configuração de Taxa NF</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">Taxa atual aplicada a novas ordens</div>
-            <div style="font-size:28px;font-weight:800;color:#f97316;font-family:var(--mono)">${_taxaNF}%</div>
-          </div>
-          <div style="flex:1;min-width:200px">
-            <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Alterar taxa (%)</div>
-            <div style="display:flex;gap:8px">
-              <input type="number" id="novaTaxa" value="${_taxaNF}" step="0.5" min="0" max="30" style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
-              <button class="btn btn-acc btn-sm" onclick="salvarTaxaNF()">Salvar</button>
-            </div>
-            <div style="font-size:11px;color:var(--mut2);margin-top:6px">⚠️ Só afeta ordens criadas após a alteração. Ordens antigas mantêm a taxa original.</div>
-          </div>
-        </div>
-        <div style="border-top:1px solid var(--bor);margin-top:16px;padding-top:16px">
-          <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⏰ Limites para Contratar Fornecedor</div>
-          <div style="font-size:11px;color:var(--mut2);margin-bottom:12px">Horário máximo para contratar o fornecedor antes da entrega. Pode ser sobrescrito por bairro no modal 💰 Lote.</div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">☀️ Diurno (padrão)</div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="time" id="cfgLimiteDiurno" value="${_limiteDiurno}" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
-                <button class="btn btn-acc btn-sm" onclick="salvarLimiteContratar()">Salvar</button>
-              </div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">🌙 Noturno (padrão)</div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="time" id="cfgLimiteNoturno" value="${_limiteNoturno}" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
-  }
+  if(isAdmin()) document.getElementById('dashCharts').innerHTML=`<div style="text-align:center;padding:20px;color:var(--mut2);font-size:12px">⚙️ Configurações disponíveis em <a href="#" onclick="setViewMob('config')" style="color:var(--acc)">Configurações</a></div>`;
 }
 
-// ── CONCILIAÇÃO ──
-async function salvarTaxaNF(){
-  const nova=parseFloat(document.getElementById('novaTaxa')?.value);
-  if(!nova||nova<0||nova>30){toast('Taxa inválida (0-30%)','warn');return;}
-  try{
-    await api('config?chave=eq.nf_taxa','PATCH',{valor:String(nova),atualizado_em:nowISO()},tok());
-    _taxaNF=nova;
-    toast('✅ Taxa NF atualizada para '+nova+'%');
-    renderDash();
-  }catch(e){toast('Erro ao salvar taxa','err');}
+// ── CONFIGURAÇÕES ──
+function renderConfig(){
+  if(!isAdmin()){document.getElementById('configConteudo').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Acesso restrito a administradores.</div>';return;}
+  document.getElementById('configConteudo').innerHTML=`
+
+    <!-- BLOCO: COMISSÕES -->
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">💸 Comissões</div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Taxa Administrativa Douglas (R$ por ordem — descontado antes das comissões)</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="cfg_taxa_admin" value="${_taxaAdmin.toFixed(2)}" min="0" step="0.50"
+            style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--acc);text-align:center;outline:none">
+          <button class="btn btn-acc btn-sm" onclick="cfgSalvarTaxaAdmin()">Salvar</button>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;font-size:12px;color:var(--mut2);line-height:1.8">
+        <strong style="color:var(--txt)">Modelos de comissão:</strong><br>
+        👤 <strong>Luciana</strong> — 100% do lucro líquido<br>
+        👤 <strong>Ricardo</strong> — R$ 15,00 fixo por ordem<br>
+        👤 <strong>Claudia</strong> — R$ 1.000 fixo + 50% do restante<br>
+        👤 <strong>Sandra</strong> — R$ 300 fixo + 40% do restante<br>
+        👤 <strong>Douglas</strong> — R$ ${_taxaAdmin}/ordem + splits Claudia/Sandra<br>
+        <div style="margin-top:8px"><a href="#" onclick="setViewMob('comissao')" style="color:var(--acc);font-size:11px">→ Ver fechamento de comissões</a></div>
+      </div>
+    </div>
+
+    <!-- BLOCO: NOTA FISCAL -->
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">🧾 Nota Fiscal</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Taxa de imposto (%)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="cfg_nf_taxa" value="${_taxaNF}" step="0.5" min="0" max="30"
+              style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:#f97316;text-align:center;outline:none">
+            <button class="btn btn-sm btn-acc" onclick="cfgSalvarNF()">Salvar</button>
+          </div>
+          <div style="font-size:10px;color:var(--mut2);margin-top:4px">⚠️ Só afeta ordens novas</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Acréscimo ao cliente (R$)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="cfg_nf_acrescimo" value="${_nfAcrescimo}" step="1" min="0"
+              style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--g);text-align:center;outline:none">
+          </div>
+          <div style="font-size:10px;color:var(--mut2);margin-top:4px">Somado ao valor cobrado do cliente</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOCO: COBRANÇA -->
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">📲 Cobrança Automática</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">⚠️ Alerta após (dias)</div>
+          <input type="number" id="cfg_cobr_alerta" value="${COBR_DIAS_ALERTA}" min="1" max="30"
+            style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--acc);text-align:center;outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">🚨 Crítico após (dias)</div>
+          <input type="number" id="cfg_cobr_critico" value="${COBR_DIAS_CRITICO}" min="1" max="90"
+            style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--r);text-align:center;outline:none">
+        </div>
+        <button class="btn btn-acc btn-sm" onclick="cfgSalvarCobranca()">Salvar</button>
+      </div>
+    </div>
+
+    <!-- BLOCO: LIMITES CONTRATAR -->
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⏰ Limites para Contratar Fornecedor</div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:16px">Horário máximo global para contratar. Pode ser sobrescrito por bairro no modal 💰 Lote do fornecedor.</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">☀️ Diurno</div>
+          <input type="time" id="cfg_limite_diurno" value="${_limiteDiurno}"
+            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">🌙 Noturno</div>
+          <input type="time" id="cfg_limite_noturno" value="${_limiteNoturno}"
+            style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:14px;color:var(--txt);outline:none">
+        </div>
+        <button class="btn btn-acc btn-sm" onclick="cfgSalvarLimites()">Salvar</button>
+      </div>
+    </div>
+
+    <!-- BLOCO: SALVAR TUDO -->
+    <div style="margin-top:8px;margin-bottom:32px">
+      <button class="btn btn-g" style="width:100%;padding:14px;font-size:15px;font-weight:700" onclick="cfgSalvarTudo()">💾 Salvar todas as configurações</button>
+    </div>
+  `;
 }
-async function salvarLimiteContratar(){
-  const d=document.getElementById('cfgLimiteDiurno')?.value||'09:00';
-  const n=document.getElementById('cfgLimiteNoturno')?.value||'16:00';
+
+async function cfgSalvarTaxaAdmin(){
+  const v=parseFloat(document.getElementById('cfg_taxa_admin')?.value);
+  if(isNaN(v)||v<0){toast('Valor inválido','warn');return;}
+  _taxaAdmin=v;localStorage.setItem('crm_taxa_admin',String(v));
+  try{
+    const val=JSON.stringify({perfis:_perfisComissao,taxa_admin:_taxaAdmin});
+    const existe=await api('config?chave=eq.crm_comissoes',undefined,undefined,tok());
+    if(existe?.length) await api('config?chave=eq.crm_comissoes','PATCH',{valor:val},tok());
+    else await api('config','POST',{chave:'crm_comissoes',valor:val},tok());
+    toast('✅ Taxa administrativa salva — R$ '+fmt(v)+'/ordem');
+  }catch(e){toast('Erro ao salvar','err');}
+}
+
+async function cfgSalvarNF(){
+  const taxa=parseFloat(document.getElementById('cfg_nf_taxa')?.value);
+  const acr=parseFloat(document.getElementById('cfg_nf_acrescimo')?.value);
+  if(isNaN(taxa)||taxa<0||taxa>30){toast('Taxa NF inválida (0-30%)','warn');return;}
+  if(isNaN(acr)||acr<0){toast('Acréscimo inválido','warn');return;}
+  try{
+    await api('config?chave=eq.nf_taxa','PATCH',{valor:String(taxa)},tok());
+    const existeAcr=await api('config?chave=eq.nf_acrescimo',undefined,undefined,tok());
+    if(existeAcr?.length) await api('config?chave=eq.nf_acrescimo','PATCH',{valor:String(acr)},tok());
+    else await api('config','POST',{chave:'nf_acrescimo',valor:String(acr)},tok());
+    _taxaNF=taxa; _nfAcrescimo=acr;
+    toast('✅ NF — Taxa '+taxa+'% · Acréscimo R$ '+fmt(acr));
+  }catch(e){toast('Erro ao salvar NF','err');}
+}
+
+async function cfgSalvarCobranca(){
+  const d1=parseInt(document.getElementById('cfg_cobr_alerta')?.value)||3;
+  const d2=parseInt(document.getElementById('cfg_cobr_critico')?.value)||7;
+  try{
+    await Promise.all([
+      api('config?chave=eq.cobr_dias_alerta','PATCH',{valor:String(d1)},tok()),
+      api('config?chave=eq.cobr_dias_critico','PATCH',{valor:String(d2)},tok()),
+    ]);
+    COBR_DIAS_ALERTA=d1; COBR_DIAS_CRITICO=d2;
+    toast('✅ Cobrança — alerta '+d1+'d · crítico '+d2+'d');
+  }catch(e){toast('Erro ao salvar cobrança','err');}
+}
+
+async function cfgSalvarLimites(){
+  const d=document.getElementById('cfg_limite_diurno')?.value||'09:00';
+  const n=document.getElementById('cfg_limite_noturno')?.value||'16:00';
   try{
     const existeD=await api('config?chave=eq.limite_diurno',undefined,undefined,tok());
     if(existeD?.length) await api('config?chave=eq.limite_diurno','PATCH',{valor:d},tok());
@@ -4758,10 +4854,22 @@ async function salvarLimiteContratar(){
     if(existeN?.length) await api('config?chave=eq.limite_noturno','PATCH',{valor:n},tok());
     else await api('config','POST',{chave:'limite_noturno',valor:n},tok());
     _limiteDiurno=d; _limiteNoturno=n;
-    toast('✅ Limites salvos — Diurno '+d+' / Noturno '+n);
+    toast('✅ Limites — Diurno '+d+' · Noturno '+n);
     renderBoard();
   }catch(e){toast('Erro ao salvar limites','err');}
 }
+
+async function cfgSalvarTudo(){
+  await cfgSalvarTaxaAdmin();
+  await cfgSalvarNF();
+  await cfgSalvarCobranca();
+  await cfgSalvarLimites();
+  toast('✅ Todas as configurações salvas!','ok');
+}
+
+// ── CONCILIAÇÃO ──
+async function salvarTaxaNF(){ setViewMob('config'); toast('Use a tela ⚙️ Configurações','warn'); }
+async function salvarLimiteContratar(){ setViewMob('config'); toast('Use a tela ⚙️ Configurações','warn'); }
 let _concTab='manual';
 function setConcTab(t){
   _concTab=t;
