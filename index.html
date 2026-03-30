@@ -3300,7 +3300,7 @@ function renderCobrancaAuto(){
   const atencao   = pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
   const normais   = pendentes.filter(c => c.dias < COBR_DIAS_ALERTA);
 
-  const totalAberto = todos.reduce((s,c) => s + (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0), 0); // todos = pendentes + cobrados hoje (ainda não pagos)
+  const totalAberto = todos.reduce((s,c) => s + (parseFloat(c.rec)||0), 0); // todos = pendentes + cobrados hoje (ainda não pagos)
 
   el.innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
@@ -3560,7 +3560,7 @@ function salvarTaxaAdmin(){
 
 // ── Lucro líquido de uma ordem (base para cálculo) ──
 function calcLucroLiquido(c){
-  const rec  = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
+  const rec  = parseFloat(c.rec)||0;
   const cst  = parseFloat(c.cst)||0;
   const taxa = c.nf_num ? (parseFloat(c.nf_taxa)||_taxaNF)/100 : 0;
   const imp  = rec * taxa;
@@ -5193,9 +5193,9 @@ function renderRel(){
 }
 function _kpi(label,val,color,sub){return `<div class="rel-kpi"><div class="rel-kpi-label">${label}</div><div class="rel-kpi-val" style="color:${color}">${val}</div>${sub?`<div class="rel-kpi-sub">${sub}</div>`:''}</div>`;}
 function _relResumo(src,nm){
-  const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);
+  const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
+  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
   const mg=tr-tc; const mgR=mg-imp;
   const pagos=src.filter(c=>c.pago).length;
   const inad=src.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento');
