@@ -1934,8 +1934,8 @@ function selCobrarAgrupado(){
       const tpl=_waTpl[c0.col==='inadimp'?'inadimp':'cobranca'];
       msg=tpl(c0,'',vend);
     } else {
-      const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-      const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`).join('\n');
+      const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);
+      const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt((parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0))}`).join('\n');
       const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
       msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n💰 *Total: R$ '+fmt(total)+'*'+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
@@ -2291,12 +2291,22 @@ function fillDetail(c){
     const cst=parseFloat(c.cst)||0;
     const taxa=c.nf_num?(parseFloat(c.nf_taxa)||_taxaNF):0;
     const imp=c.nf_num?rec*(taxa/100):0;
-    const mg=rec-cst-imp-_taxaAdmin;
-    document.getElementById('dm_r').textContent=rec?'R$ '+fmt(rec):'-';
+    const acr=c.nf_num?_nfAcrescimo:0;
+    const recCliente=rec+acr;
+    const mg=recCliente-cst-imp-_taxaAdmin;
+    document.getElementById('dm_r').textContent=recCliente?'R$ '+fmt(recCliente):'-';
     document.getElementById('dm_c').textContent=cst?'R$ '+fmt(cst):'-';
-    // Linha acréscimo NF — oculta (rec já inclui o acréscimo)
+    // Linha acréscimo NF — visível quando tem NF
     const acrWrap=document.getElementById('dm_acr_wrap');
-    if(acrWrap) acrWrap.style.display='none';
+    if(acrWrap){
+      if(c.nf_num&&acr>0){
+        acrWrap.style.display='flex';
+        document.getElementById('dm_acr_label').textContent='Acréscimo NF';
+        document.getElementById('dm_acr').textContent='+ R$ '+fmt(acr);
+      } else {
+        acrWrap.style.display='none';
+      }
+    }
     // Linha de imposto — só aparece se tiver NF
     const nfWrap=document.getElementById('dm_nf_wrap');
     if(c.nf_num&&imp>0){
@@ -2736,7 +2746,7 @@ async function openPixDoDetail(){
   _pixCardId=c.id; _pixId=pixId;
   document.getElementById('pix_id').textContent=pixId;
   document.getElementById('pix_sub').textContent=(c.nome||'Cliente')+(c.logradouro?' · '+c.logradouro:'');
-  const _recPix=parseFloat(c.rec||0);
+  const _recPix=parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0);
   document.getElementById('pix_valor_edit').value=_recPix.toFixed(2);
   // Botão compartilhar só aparece se Web Share API disponível (mobile)
   document.getElementById('pixShareBtn').style.display=navigator.share?'':'none';
@@ -2863,7 +2873,7 @@ const _waTpl={
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+'\n💰 Valor: *R$ '+fmt(c.rec)+'*'+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
+    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+'\n💰 Valor: *R$ '+fmt(parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0))+'*'+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
   },
   pix:(c,pixPayload)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
@@ -2880,7 +2890,7 @@ const _waTpl={
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n💰 Valor em aberto: *R$ '+fmt(c.rec)+'*\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
+    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n💰 Valor em aberto: *R$ '+fmt(parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0))+'*\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
   },
   recebido:(c)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
@@ -3202,9 +3212,9 @@ function _dispararProximaCobranca(){
     const tpl = c0.dias >= COBR_DIAS_CRITICO ? 'inadimp' : 'cobranca';
     msg = _waTpl[tpl](c0, '');
   } else {
-    const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0), 0);
+    const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0), 0);
     const linhas = ords.map((o,i) =>
-      `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`
+      `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt((parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0))}`
     ).join('\n');
     const vend = usuarios.find(u=>u.id===c0.usuario_id)||null;
     const marcaNome = vend?.marca_nome||'CaçambaSP';
