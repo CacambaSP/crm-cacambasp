@@ -611,22 +611,14 @@ async function loadApp() {
     // garantir que user.id nunca seja string vazia
     if(!_user.user.id && _user.sub) _user.user.id = _user.sub;
     setLoad(50,'Carregando dados...');
-
-    // 1) Buscar perfil primeiro para saber o nível (admin ou operador)
-    const perfis = await api('perfis?id=eq.'+uid(),'GET',null,tok());
-    _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
-
-    // 2) Buscar ordens: admin pega tudo, operador filtra pelo próprio user_id
-    const ordensQuery = _perfil.nivel==='admin'
-      ? 'ordens?order=criado_em.desc&limit=1000'
-      : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc&limit=1000';
-
-    const [dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
-      api(ordensQuery,'GET',null,tok()),
+    const [perfis,dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
+      api('perfis?id=eq.'+uid(),'GET',null,tok()),
+      api('ordens?order=criado_em.desc','GET',null,tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
       api('config?chave=eq.nf_acrescimo','GET',null,tok()).catch(()=>[]),
     ]);
+    _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
     _usuarios = dbUsrs||[];
@@ -640,8 +632,7 @@ async function loadApp() {
     },300);
     _autoId = setInterval(async()=>{
       try{
-        const refreshQuery = _perfil?.nivel==='admin' ? 'ordens?order=criado_em.desc&limit=1000' : 'ordens?user_id=eq.'+uid()+'&order=criado_em.desc&limit=1000';
-        const novo = await api(refreshQuery,'GET',null,tok());
+        const novo = await api('ordens?order=criado_em.desc','GET',null,tok());
         if(novo && JSON.stringify(novo.map(o=>o.id+o.pago+o.col)) !== JSON.stringify(_ordens.map(o=>o.id+o.pago+o.col))){
           _ordens = novo;
           renderCurrentView();
