@@ -150,19 +150,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .card.selected{border-color:var(--acc)!important;box-shadow:0 0 0 2px var(--acc3)!important}
 .card.pago{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.02)}
 .card-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--rad2) 0 0 var(--rad2)}
-.card-addr{font-weight:700;font-size:12px;color:var(--txt);padding-left:9px;padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-addr{font-weight:700;font-size:14px;color:var(--txt);padding-left:9px;padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card:hover .card-addr{white-space:normal;overflow:visible}
 .card-details{display:block}
 .cards-compact .card-details{display:none!important}
 .cards-compact .card-addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-bairro{font-size:10px;color:var(--acc);font-weight:600;padding-left:9px;margin-bottom:4px}
-.card-tipo{font-size:10px;color:var(--mut2);padding-left:9px;margin-bottom:6px}
+.card-bairro{font-size:12px;color:var(--acc);font-weight:600;padding-left:9px;margin-bottom:4px}
+.card-tipo{font-size:12px;color:var(--mut2);padding-left:9px;margin-bottom:6px}
 .card-chips{display:flex;flex-wrap:wrap;gap:3px;padding-left:7px}
-.chip{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--sur);border:1px solid var(--bor);color:var(--mut2);display:inline-flex;align-items:center;gap:2px;pointer-events:none}
+.chip{font-size:12px;padding:2px 6px;border-radius:4px;background:var(--sur);border:1px solid var(--bor);color:var(--mut2);display:inline-flex;align-items:center;gap:2px;pointer-events:none}
 .chip.g{color:var(--g);border-color:var(--g3);background:var(--g2)}
 .chip.r{color:var(--r);border-color:var(--r3);background:var(--r2)}
 .chip.b{color:var(--b);border-color:var(--b3);background:var(--b2)}
 .chip.acc{color:var(--acc);border-color:var(--acc3);background:var(--acc2);font-weight:700}
+.card-confirm-actions{display:none;padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)}
+.card:hover .card-confirm-actions{display:block}
 /* card actions */
 .card-del{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:5px;border:1px solid var(--r3);background:var(--r2);color:var(--r);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;z-index:5;pointer-events:auto}
 .card:hover .card-del{display:flex}
@@ -652,9 +654,15 @@ input[type=checkbox]:checked::after{
             <button class="btn btn-acc btn-sm" onclick="openSupModal()">+ Novo Fornecedor</button>
           </div>
           <!-- Tabs -->
-          <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--bor);padding-bottom:12px">
+          <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--bor);padding-bottom:12px">
             <button class="btn btn-sm btn-acc" id="fornTab_lista" onclick="setFornTab('lista')">🚛 Fornecedores</button>
             <button class="btn btn-sm" id="fornTab_cobertura" onclick="setFornTab('cobertura')">📍 Cobertura por bairro</button>
+          </div>
+          <!-- Filtros -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+            <input type="text" id="fornFiltroNome" placeholder="🔍 Nome do fornecedor" oninput="renderForns()" style="flex:1;min-width:160px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
+            <input type="text" id="fornFiltroBairro" placeholder="📍 Filtrar bairro" oninput="renderForns()" style="flex:1;min-width:140px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
+            <button class="btn btn-sm" id="fornFiltroAtivos" data-ativo="0" onclick="toggleFornFiltroAtivos()" style="color:var(--mut2)">⚡ Só ativos</button>
           </div>
           <!-- Lista de fornecedores -->
           <div id="supLista"></div>
@@ -1826,7 +1834,13 @@ function doFilter(){
   document.getElementById('filterInd').style.display=hasFilter?'inline':'none';
   _filteredOrdens=hasFilter ? ordens.filter(c=>{
     if(c.col==='concluido') return false;
-    if(q&&![c.nome,c.logradouro,c.cidade,c.cel,c.crm_id,c.tipo].some(f=>(f||'').toLowerCase().includes(q))) return false;
+    if(q){
+      const qLimpo=q.replace(/\D/g,'');
+      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro].some(f=>(f||'').toLowerCase().includes(q));
+      const celLimpo=(c.cel||'').replace(/\D/g,'');
+      const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
+      if(!match&&!matchCel) return false;
+    }
     if(forn&&c.forn_id!==forn) return false;
     if(vend&&c.usuario_id!==vend) return false;
     if(pago==='pago'&&!c.pago) return false;
@@ -1916,6 +1930,21 @@ function renderBoard(){
   });
 }
 
+function cardBtnsPagamento(c,precisaConfirmar){
+  var temCliPend=!c.pago&&['faltapg','pagar','entrega','ag_entrega','baixar'].includes(c.col);
+  var temFornPend=!!(c.forn_id&&!c.forn_pago);
+  var ambosOk=!!(c.pago&&c.forn_pago);
+  if(precisaConfirmar||ambosOk) return '';
+  if(!temCliPend&&!c.pago&&!temFornPend&&!c.forn_pago) return '';
+  var btns='';
+  if(temCliPend) btns+='<button class="btn btn-r btn-sm" style="flex:1;font-size:11px" onclick="event.stopPropagation();quickPagarCard(\''+c.id+'\')">⚠️ Cliente</button>';
+  else if(c.pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:var(--g);font-weight:700">✅ Cliente</span>';
+  if(temFornPend) btns+='<button class="btn btn-r btn-sm" style="flex:1;font-size:11px;background:var(--r2);color:var(--r);border:1px solid var(--r3)" onclick="event.stopPropagation();_detailId=\''+c.id+'\';openPagarForn()">⚠️ Forn</button>';
+  else if(c.forn_pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:var(--b);font-weight:700">✅ Forn</span>';
+  if(!btns) return '';
+  return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px">'+btns+'</div>';
+}
+
 function cardHTML(c,color){
   const f=forns.find(s=>s.id===c.forn_id);
   const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
@@ -1967,7 +1996,7 @@ function cardHTML(c,color){
     </div>
     </div>
     ${precisaConfirmar&&!badgeExpirou?`
-    <div style="padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)">
+    <div class="card-confirm-actions">
       <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">⚠️ Confirmar entrega?</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
@@ -1977,7 +2006,7 @@ function cardHTML(c,color){
       </div>
     </div>`:''
     }
-    ${!precisaConfirmar&&!c.pago&&['faltapg','pagar','entrega','ag_entrega'].includes(c.col)?`<div style="padding:6px 9px 8px;border-top:1px solid var(--bor)"><button class="btn btn-g btn-sm" style="width:100%;font-size:11px" onclick="event.stopPropagation();quickPagarCard('${c.id}')">✅ Marcar como pago</button></div>`:''}
+    ${cardBtnsPagamento(c,precisaConfirmar)}
   </div>`;
 }
 
@@ -5543,11 +5572,28 @@ function filtrarCobertura(){
     el.style.display=!q||el.dataset.bairro.includes(q)?'':'none';
   });
 }
+function toggleFornFiltroAtivos(){
+  const btn=document.getElementById('fornFiltroAtivos');
+  const ativo=btn.dataset.ativo==='1'?'0':'1';
+  btn.dataset.ativo=ativo;
+  btn.style.color=ativo==='1'?'var(--acc)':'var(--mut2)';
+  btn.style.fontWeight=ativo==='1'?'700':'400';
+  renderForns();
+}
 function renderForns(){
   const el=document.getElementById('supLista');
   if(!forns.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor cadastrado</div>';return;}
+  const qNome=(document.getElementById('fornFiltroNome')?.value||'').toLowerCase().trim();
+  const qBairro=(document.getElementById('fornFiltroBairro')?.value||'').toLowerCase().trim();
+  const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
-  el.innerHTML=fornsOrdenados.map((f,i)=>{
+  const fornsFiltrados=fornsOrdenados.filter(f=>{
+    if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
+    if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length) return false;}
+    return true;
+  });
+  if(!fornsFiltrados.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor encontrado</div>';return;}
+  el.innerHTML=fornsFiltrados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
     const cor=f.color||cores[i%cores.length];
@@ -5556,7 +5602,9 @@ function renderForns(){
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
-    const bairrosHtml=regioesSorted.map((r,_idx)=>{
+    const bairrosFiltrados=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
+    const supAberto=qBairro&&bairrosFiltrados.length>0;
+    const bairrosHtml=bairrosFiltrados.map((r,_idx)=>{
       const ri=r._ri;
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
@@ -5590,7 +5638,7 @@ function renderForns(){
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
       </div>
-      <div class="sup-body" id="sup_${f.id}">
+      <div class="sup-body" id="sup_${f.id}" style="display:${supAberto?'block':'none'}">
         ${f.pix?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
         ${f.obs?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">${f.obs}</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
@@ -5712,82 +5760,145 @@ async function editarPrecoBairro(fid,idx){
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   const r=regioes[idx];if(!r)return;
   const nomeBairro=r.bairro||r.regiao||r.nome||'';
-  const novoPrecoForn=prompt(`💰 Preço FORNECEDOR para "${nomeBairro}" (custo):\n(0 = usar preço padrão)`,r.preco||'');
-  if(novoPrecoForn===null)return;
-  const novoPrecoCliStr=prompt(`🏷️ Preço CLIENTE para "${nomeBairro}" (o que cobra do cliente):\n(0 = sem cotação automática)`,r.preco_cli||'');
-  if(novoPrecoCliStr===null)return;
-  regioes[idx]={...r,preco:parseFloat(novoPrecoForn)||0,preco_cli:parseFloat(novoPrecoCliStr)||0};
-  f.regioes=regioes;
-  renderForns();toggleSupBody('sup_'+fid);
-  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Preços atualizados!');}catch(e){toast('Erro','err');}
+  // Mini-modal com 4 campos
+  let modalEl=document.getElementById('editBairroModal');
+  if(!modalEl){
+    modalEl=document.createElement('div');
+    modalEl.id='editBairroModal';
+    modalEl.className='mbg';
+    modalEl.addEventListener('click',e=>{if(e.target===modalEl)closeModal('editBairroModal');});
+    document.body.appendChild(modalEl);
+  }
+  modalEl.innerHTML=`<div class="mbox" style="max-width:360px">
+    <div class="mh"><div class="mh-ico">✏️</div><div class="mh-txt"><div class="mh-title">Editar Bairro</div><div class="mh-sub">${nomeBairro}</div></div><button class="mx" onclick="closeModal('editBairroModal')">✕</button></div>
+    <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px">
+      <div class="fi"><label>Preço Fornecedor (R$)</label><input type="number" id="eb_forn" value="${r.preco||''}" min="0" step="1" placeholder="0 = usar padrão"></div>
+      <div class="fi"><label>Preço Cliente (R$)</label><input type="number" id="eb_cli" value="${r.preco_cli||''}" min="0" step="1" placeholder="0 = sem cotação"></div>
+      <div class="fi"><label>Turno</label>
+        <select id="eb_turno" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:13px;color:var(--txt);outline:none;font-family:var(--font)">
+          <option value="diurno" ${(r.turno||'diurno')==='diurno'?'selected':''}>☀️ Diurno</option>
+          <option value="noturno" ${r.turno==='noturno'?'selected':''}>🌙 Noturno</option>
+        </select>
+      </div>
+      <div class="fi"><label>Hora máxima de contratar</label><input type="time" id="eb_limite" value="${r.limite||''}" placeholder="ex: 16:00"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn" onclick="closeModal('editBairroModal')">Cancelar</button>
+        <button class="btn btn-acc" onclick="salvarEditBairro('${fid}',${idx})">💾 Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  openModal('editBairroModal');
 }
-async function removerRegiao(fid,idx){
+async function salvarEditBairro(fid,idx){
   const f=forns.find(x=>x.id===fid);if(!f)return;
-  const regioes=[...(Array.isArray(f.regioes)?f.regioes:[])];regioes.splice(idx,1);f.regioes=regioes;
+  const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
+  const r=regioes[idx];if(!r)return;
+  const limVal=(document.getElementById('eb_limite')?.value||'').trim();
+  const turnoVal=document.getElementById('eb_turno')?.value||'diurno';
+  regioes[idx]={...r,
+    preco:parseFloat(document.getElementById('eb_forn')?.value)||0,
+    preco_cli:parseFloat(document.getElementById('eb_cli')?.value)||0,
+    turno:turnoVal,
+    ...(limVal?{limite:limVal}:{limite:undefined})
+  };
+  f.regioes=regioes;
+  closeModal('editBairroModal');
   renderForns();toggleSupBody('sup_'+fid);
-  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());}catch(e){}
+  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Bairro atualizado!');}
+  catch(e){toast('Erro ao salvar','err');}
 }
-
 // ── LOTE PREÇOS CLIENTE ──
 function abrirLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
-  const semCliCount=regioes.filter(r=>!(r.preco_cli>0)).length;
-  const rows=regioes.map((r,i)=>{
+  const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
+  const semCliCount=regioesSorted.filter(r=>!(r.preco_cli>0)).length;
+  const rows=regioesSorted.map(r=>{
+    const ri=r._ri;
     const nome=r.bairro||r.regiao||r.nome||'';
     const pForn=r.preco>0?r.preco:'';
     const pCli=r.preco_cli>0?r.preco_cli:'';
     const semCli=!(r.preco_cli>0);
     const turnoVal=r.turno||'diurno';
-    return `<tr style="border-bottom:1px solid var(--brd)">
+    return `<tr data-ri="${ri}" style="border-bottom:1px solid var(--bor)">
       <td style="padding:6px 8px;font-size:12px;color:var(--txt)">${nome}</td>
       <td style="padding:6px 8px;text-align:right">
-        <input type="number" id="lp_forn_${i}" value="${pForn}" min="0" step="1"
-          style="width:80px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 6px;font-size:12px;text-align:right">
+        <input type="number" class="lp_forn" value="${pForn}" min="0" step="1"
+          style="width:80px;background:var(--bg2,var(--sur));border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 6px;font-size:12px;text-align:right">
       </td>
       <td style="padding:6px 8px;text-align:right">
-        <input type="number" id="lp_cli_${i}" value="${pCli}" min="0" step="1"
-          style="width:80px;background:${semCli?'var(--bg3,#1a2a1a)':'var(--bg2)'};border:1px solid ${semCli?'var(--g)':'var(--brd)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
+        <input type="number" class="lp_cli" value="${pCli}" min="0" step="1"
+          style="width:80px;background:${semCli?'rgba(34,197,94,.1)':'var(--sur)'};border:1px solid ${semCli?'var(--g)':'var(--bor)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
           placeholder="0">
       </td>
       <td style="padding:6px 8px;text-align:center">
-        <select id="lp_turno_${i}"
-          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
+        <select class="lp_turno"
+          style="width:88px;background:var(--sur);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
           <option value="diurno" ${turnoVal==='diurno'?'selected':''}>☀️ Diurno</option>
           <option value="noturno" ${turnoVal==='noturno'?'selected':''}>🌙 Noturno</option>
         </select>
       </td>
       <td style="padding:6px 8px;text-align:center">
-        <input type="time" id="lp_limite_${i}" value="${r.limite||''}"
-          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px"
-          placeholder="${turnoVal==='noturno'?_limiteNoturno:_limiteDiurno}">
+        <input type="time" class="lp_limite" value="${r.limite||''}"
+          style="width:88px;background:var(--sur);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
       </td>
     </tr>`;
   }).join('');
 
   const html=`<div style="padding:16px 20px 20px">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px">💰 Preços em Lote — ${f.nome}</div>
-    <div style="font-size:12px;color:var(--mut2);margin-bottom:12px">Preencha o <strong style="color:var(--g)">Preço Cliente</strong> para ativar a cotação automática. Bairros sem preço destacados em verde.</div>
-    <div style="background:var(--bg2);border:1px solid var(--g);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--g);font-weight:600">⚡ Aplicar preço padrão</span>
-      <span style="font-size:11px;color:var(--mut2)">${semCliCount} bairro(s) sem preço cliente</span>
-      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
-        <input type="number" id="lp_padrao" min="0" step="1" placeholder="Ex: 550"
-          style="width:90px;background:var(--bg);border:1px solid var(--g);border-radius:4px;color:var(--txt);padding:4px 8px;font-size:13px;text-align:right">
-        <button class="btn btn-xs" style="background:var(--g);color:#fff;white-space:nowrap" onclick="lpAplicarPadrao()">Aplicar nos vazios</button>
-        <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarTodos()">Aplicar em todos</button>
+    <div style="font-size:12px;color:var(--mut2);margin-bottom:12px">${semCliCount} bairro(s) sem preço cliente destacados em verde.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <!-- Bloco Preço Forn -->
+      <div style="flex:1;min-width:200px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;color:var(--acc);font-weight:700;margin-bottom:6px">💰 Preço Fornecedor</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input type="number" id="lp_padrao_forn" min="0" step="1" placeholder="R$"
+            style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px">
+          <button class="btn btn-xs" style="background:var(--g);color:#fff;white-space:nowrap" onclick="lpAplicarFornVazios()">Vazios</button>
+          <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarFornTodos()">Todos</button>
+        </div>
+      </div>
+      <!-- Bloco Preço Cliente -->
+      <div style="flex:1;min-width:200px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;color:var(--g);font-weight:700;margin-bottom:6px">🏷️ Preço Cliente</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input type="number" id="lp_padrao_cli" min="0" step="1" placeholder="R$"
+            style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px">
+          <button class="btn btn-xs" style="background:var(--g);color:#fff;white-space:nowrap" onclick="lpAplicarCliVazios()">Vazios</button>
+          <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarCliTodos()">Todos</button>
+        </div>
+      </div>
+      <!-- Bloco Turno -->
+      <div style="flex:1;min-width:180px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;color:#a78bfa;font-weight:700;margin-bottom:6px">🌙 Turno</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <select id="lp_padrao_turno" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px">
+            <option value="diurno">☀️ Diurno</option>
+            <option value="noturno">🌙 Noturno</option>
+          </select>
+          <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarTurnoTodos()">Todos</button>
+        </div>
+      </div>
+      <!-- Bloco Hora Máxima -->
+      <div style="flex:1;min-width:180px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:6px">⏰ Hora Máxima</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input type="time" id="lp_padrao_limite" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px">
+          <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarLimiteTodos()">Todos</button>
+        </div>
       </div>
     </div>
-    <div style="max-height:45vh;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
-      <table style="width:100%;border-collapse:collapse">
+    <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--bor);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse" id="lotePrecoTabela">
         <thead>
-          <tr style="background:var(--bg3,var(--bg2));position:sticky;top:0;z-index:1">
+          <tr style="background:var(--sur);position:sticky;top:0;z-index:1">
             <th style="padding:8px;text-align:left;font-size:11px;color:var(--mut2);font-weight:600">BAIRRO</th>
-            <th style="padding:8px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">PREÇO FORN (R$)</th>
-            <th style="padding:8px;text-align:right;font-size:11px;color:var(--g);font-weight:600">PREÇO CLIENTE (R$)</th>
+            <th style="padding:8px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">FORN (R$)</th>
+            <th style="padding:8px;text-align:right;font-size:11px;color:var(--g);font-weight:600">CLIENTE (R$)</th>
             <th style="padding:8px;text-align:center;font-size:11px;color:#a78bfa;font-weight:600">TURNO</th>
-            <th style="padding:8px;text-align:center;font-size:11px;color:#0ea5e9;font-weight:600">LIMITE CONTRATAR</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:#0ea5e9;font-weight:600">LIMITE</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -5798,56 +5909,72 @@ function abrirLotePrecosCli(fid){
       <button class="btn btn-acc" onclick="salvarLotePrecosCli('${fid}')">💾 Salvar tudo</button>
     </div>
   </div>`;
-  // Injeta ou reutiliza o modal no DOM
-  let modalEl = document.getElementById('lotePrecoModal');
+  let modalEl=document.getElementById('lotePrecoModal');
   if(!modalEl){
-    modalEl = document.createElement('div');
-    modalEl.id = 'lotePrecoModal';
-    modalEl.className = 'modal';
-    modalEl.addEventListener('click', e=>{ if(e.target===modalEl) closeModal('lotePrecoModal'); });
+    modalEl=document.createElement('div');
+    modalEl.id='lotePrecoModal';
+    modalEl.className='mbg';
+    modalEl.addEventListener('click',e=>{if(e.target===modalEl)closeModal('lotePrecoModal');});
     document.body.appendChild(modalEl);
   }
-  modalEl.innerHTML = '<div class="modal-box" style="max-width:680px;width:95vw;max-height:90vh;overflow-y:auto;padding:0">'+html+'</div>';
+  modalEl.innerHTML='<div class="mbox" style="max-width:760px;width:96vw;max-height:92vh;overflow-y:auto;padding:0">'+html+'</div>';
   openModal('lotePrecoModal');
   window._loteFid=fid;
-  window._loteCount=regioes.length;
 }
-function lpAplicarPadrao(){
-  const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
-  if(!val){toast('Digite um valor primeiro','err');return;}
-  let aplicados=0;
-  for(let i=0;i<window._loteCount;i++){
-    const el=document.getElementById('lp_cli_'+i);
-    if(el&&!(parseFloat(el.value)>0)){
-      el.value=val;
-      el.style.background='var(--bg2)';
-      el.style.borderColor='var(--brd)';
-      el.style.color='var(--txt)';
-      aplicados++;
-    }
-  }
-  toast(`✅ ${aplicados} bairro(s) preenchidos`);
+function lpAplicarFornVazios(){
+  const val=parseFloat(document.getElementById('lp_padrao_forn')?.value)||0;
+  if(!val){toast('Digite um valor','err');return;}
+  let n=0;
+  document.querySelectorAll('#lotePrecoTabela .lp_forn').forEach(el=>{if(!(parseFloat(el.value)>0)){el.value=val;n++;}});
+  toast('✅ '+n+' bairro(s) preenchidos');
 }
-function lpAplicarTodos(){
-  const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
-  if(!val){toast('Digite um valor primeiro','err');return;}
-  for(let i=0;i<window._loteCount;i++){
-    const el=document.getElementById('lp_cli_'+i);
-    if(el){el.value=val;el.style.background='var(--bg2)';el.style.borderColor='var(--brd)';el.style.color='var(--txt)';}
-  }
-  toast(`✅ Todos os ${window._loteCount} bairros preenchidos`);
+function lpAplicarFornTodos(){
+  const val=parseFloat(document.getElementById('lp_padrao_forn')?.value)||0;
+  if(!val){toast('Digite um valor','err');return;}
+  document.querySelectorAll('#lotePrecoTabela .lp_forn').forEach(el=>{el.value=val;});
+  toast('✅ Todos preenchidos');
+}
+function lpAplicarCliVazios(){
+  const val=parseFloat(document.getElementById('lp_padrao_cli')?.value)||0;
+  if(!val){toast('Digite um valor','err');return;}
+  let n=0;
+  document.querySelectorAll('#lotePrecoTabela .lp_cli').forEach(el=>{if(!(parseFloat(el.value)>0)){el.value=val;n++;}});
+  toast('✅ '+n+' bairro(s) preenchidos');
+}
+function lpAplicarCliTodos(){
+  const val=parseFloat(document.getElementById('lp_padrao_cli')?.value)||0;
+  if(!val){toast('Digite um valor','err');return;}
+  document.querySelectorAll('#lotePrecoTabela .lp_cli').forEach(el=>{el.value=val;});
+  toast('✅ Todos preenchidos');
+}
+function lpAplicarTurnoTodos(){
+  const val=document.getElementById('lp_padrao_turno')?.value||'diurno';
+  document.querySelectorAll('#lotePrecoTabela .lp_turno').forEach(el=>{el.value=val;});
+  toast('✅ Turno aplicado em todos');
+}
+function lpAplicarLimiteTodos(){
+  const val=document.getElementById('lp_padrao_limite')?.value||'';
+  if(!val){toast('Digite uma hora','err');return;}
+  document.querySelectorAll('#lotePrecoTabela .lp_limite').forEach(el=>{el.value=val;});
+  toast('✅ Hora máxima aplicada em todos');
 }
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  regioes.forEach((r,i)=>{
-    const elForn=document.getElementById('lp_forn_'+i);
-    const elCli=document.getElementById('lp_cli_'+i);
-    const elLim=document.getElementById('lp_limite_'+i);
-    if(!elForn||!elCli)return;
-    const limVal=elLim?.value?.trim()||'';
-    const turnoVal=document.getElementById('lp_turno_'+i)?.value||'diurno';
-    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
+  document.querySelectorAll('#lotePrecoTabela tbody tr[data-ri]').forEach(tr=>{
+    const ri=parseInt(tr.dataset.ri);
+    if(isNaN(ri)||!regioes[ri])return;
+    const elForn=tr.querySelector('.lp_forn');
+    const elCli=tr.querySelector('.lp_cli');
+    const elTurno=tr.querySelector('.lp_turno');
+    const elLim=tr.querySelector('.lp_limite');
+    const limVal=(elLim?.value||'').trim();
+    regioes[ri]={...regioes[ri],
+      preco:parseFloat(elForn?.value)||0,
+      preco_cli:parseFloat(elCli?.value)||0,
+      turno:elTurno?.value||'diurno',
+      ...(limVal?{limite:limVal}:{limite:undefined})
+    };
   });
   f.regioes=regioes;
   closeModal('lotePrecoModal');
