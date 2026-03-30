@@ -5492,12 +5492,18 @@ function renderForns(){
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const bairrosHtml=regioes.map((r,ri)=>{
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
+      const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
+      const temOrdem=ordsNoBairro.length>0;
       const temPreco=r.preco>0;
       const precoFornLabel=temPreco?`<span style="color:var(--mut2);font-size:11px">Forn: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(r.preco)}</strong></span>`:`<span style="font-size:11px;color:var(--mut2);font-style:italic">forn: padrão</span>`;
       const temPrecoCliLocal=r.preco_cli>0;
       const precoCliLabel=temPrecoCliLocal?`<span style="color:var(--mut2);font-size:11px">Cliente: <strong style="color:var(--g);font-family:var(--mono)">R$ ${fmt(r.preco_cli)}</strong></span>`:`<span style="font-size:11px;color:var(--mut2);font-style:italic">cli: —</span>`;
-      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;background:var(--bg2);border-radius:6px;padding:5px 8px">
-        <span style="flex:1;color:var(--txt)">${nomeBairro}</span>
+      const turnoChip=r.turno==='noturno'?`<span style="font-size:9px;background:rgba(99,102,241,.15);color:#818cf8;border-radius:4px;padding:1px 5px">🌙</span>`:`<span style="font-size:9px;background:rgba(234,179,8,.12);color:#eab308;border-radius:4px;padding:1px 5px">☀️</span>`;
+      const ordemBadge=temOrdem?`<span style="font-size:9px;background:rgba(34,197,94,.15);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700">● ${ordsNoBairro.length} ativa${ordsNoBairro.length>1?'s':''}</span>`:'';
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;background:${temOrdem?'rgba(34,197,94,.07)':'var(--bg2)'};border:1px solid ${temOrdem?'rgba(34,197,94,.25)':'transparent'};border-radius:6px;padding:5px 8px">
+        ${turnoChip}
+        <span style="flex:1;color:var(--txt);font-weight:${temOrdem?'700':'400'}">${nomeBairro}</span>
+        ${ordemBadge}
         ${precoFornLabel}
         ${precoCliLabel}
         <button class="btn btn-xs btn-b" onclick="editarPrecoBairro('${f.id}',${ri})" title="Editar preços">✏️</button>
@@ -5725,7 +5731,17 @@ function abrirLotePrecosCli(fid){
       <button class="btn btn-acc" onclick="salvarLotePrecosCli('${fid}')">💾 Salvar tudo</button>
     </div>
   </div>`;
-  openModal('lotePrecoModal',html);
+  // Injeta ou reutiliza o modal no DOM
+  let modalEl = document.getElementById('lotePrecoModal');
+  if(!modalEl){
+    modalEl = document.createElement('div');
+    modalEl.id = 'lotePrecoModal';
+    modalEl.className = 'modal';
+    modalEl.addEventListener('click', e=>{ if(e.target===modalEl) closeModal('lotePrecoModal'); });
+    document.body.appendChild(modalEl);
+  }
+  modalEl.innerHTML = '<div class="modal-box" style="max-width:680px;width:95vw;max-height:90vh;overflow-y:auto;padding:0">'+html+'</div>';
+  openModal('lotePrecoModal');
   window._loteFid=fid;
   window._loteCount=regioes.length;
 }
