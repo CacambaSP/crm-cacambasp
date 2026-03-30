@@ -167,7 +167,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .card-confirm-actions{display:none;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2);padding:8px 9px}
 .card:hover .card-confirm-actions{display:block}
 .card-details{transition:max-height .2s,opacity .2s;overflow:hidden}
-.cards-compact .card-bairro,.cards-compact .card-tipo,.cards-compact .card-chips{display:none}
+.cards-compact .card-details{display:none}
 .card-trophy{position:absolute;bottom:7px;right:7px;width:26px;height:26px;border-radius:6px;border:1px solid var(--acc3);background:var(--acc2);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:5;pointer-events:auto;transition:.15s}
 .card:hover .card-trophy,.card-trophy.vis{display:flex}
 .card-cb{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:5;pointer-events:auto;transition:.1s}
@@ -658,7 +658,6 @@ input[type=checkbox]:checked::after{
             <button class="btn btn-sm btn-acc" id="fornTab_lista" onclick="setFornTab('lista')">🚛 Fornecedores</button>
             <button class="btn btn-sm" id="fornTab_cobertura" onclick="setFornTab('cobertura')">📍 Cobertura por bairro</button>
           </div>
-          <!-- Filtros -->
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
             <input type="text" id="fornFiltroNome" placeholder="🔍 Fornecedor..." oninput="renderForns()"
               style="flex:1;min-width:130px;max-width:200px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
@@ -5510,13 +5509,10 @@ function toggleDetalhesCards(){
   if(btn){btn.textContent=_detalhesVisiveis?'👁 Detalhes':'👁 Simples';btn.style.background=_detalhesVisiveis?'':'var(--acc2)';btn.style.color=_detalhesVisiveis?'':'var(--acc)';}
 }
 function toggleFornFiltroAtivos(){
-  const btn=document.getElementById('fornFiltroAtivos');
-  if(!btn) return;
+  const btn=document.getElementById('fornFiltroAtivos');if(!btn)return;
   const on=btn.dataset.ativo==='1';
   btn.dataset.ativo=on?'0':'1';
-  btn.style.background=on?'':'var(--g2)';
-  btn.style.color=on?'':'var(--g)';
-  btn.style.borderColor=on?'':'var(--g3)';
+  btn.style.background=on?'':'var(--g2)';btn.style.color=on?'':'var(--g)';btn.style.borderColor=on?'':'var(--g3)';
   renderForns();
 }
 function renderForns(){
@@ -5527,7 +5523,7 @@ function renderForns(){
   const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
   const fornsFiltrados=fornsOrdenados.filter(f=>{
-    if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
+    if(qNome&&!(f.nome||'').toLowerCase().includes(qNome))return false;
     if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length)return false;}
     if(qBairro){const regs=Array.isArray(f.regioes)?f.regioes:[];if(!regs.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)))return false;}
     return true;
@@ -5699,16 +5695,14 @@ async function editarPrecoBairro(fid,idx){
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   const r=regioes[idx];if(!r)return;
   const nomeBairro=r.bairro||r.regiao||r.nome||'';
-  // Mini-modal inline com todos os campos do bairro
   let mEl=document.getElementById('editBairroModal');
   if(!mEl){mEl=document.createElement('div');mEl.id='editBairroModal';mEl.className='mbg';mEl.addEventListener('click',e=>{if(e.target===mEl)closeModal('editBairroModal');});document.body.appendChild(mEl);}
   const turnoAtual=r.turno||'diurno';
-  const limiteAtual=r.limite||'';
   mEl.innerHTML=`<div class="mbox" style="max-width:400px;width:95vw;padding:0">
     <div class="mh"><div class="mh-ico">📍</div><div class="mh-txt"><div class="mh-title">${nomeBairro}</div><div class="mh-sub">${f.nome}</div></div><button class="mx" onclick="closeModal('editBairroModal')">✕</button></div>
     <div class="mb" style="display:flex;flex-direction:column;gap:12px">
-      <div class="fi"><label>💰 Preço Fornecedor (R$)</label><input type="number" id="eb_forn" value="${r.preco||''}" min="0" step="1" placeholder="0 = usa padrão"></div>
-      <div class="fi"><label>🏷️ Preço Cliente (R$)</label><input type="number" id="eb_cli" value="${r.preco_cli||''}" min="0" step="1" placeholder="0 = sem cotação automática"></div>
+      <div class="fi"><label>💰 Preço Fornecedor (R$) <span style="color:var(--mut);font-weight:400">(0 = padrão)</span></label><input type="number" id="eb_forn" value="${r.preco||''}" min="0" step="1" placeholder="0"></div>
+      <div class="fi"><label>🏷️ Preço Cliente (R$) <span style="color:var(--mut);font-weight:400">(0 = sem cotação)</span></label><input type="number" id="eb_cli" value="${r.preco_cli||''}" min="0" step="1" placeholder="0"></div>
       <div class="fi-row">
         <div class="fi"><label>🕐 Turno</label>
           <select id="eb_turno">
@@ -5716,7 +5710,7 @@ async function editarPrecoBairro(fid,idx){
             <option value="noturno" ${turnoAtual==='noturno'?'selected':''}>🌙 Noturno</option>
           </select>
         </div>
-        <div class="fi"><label>⏰ Limite contratar</label><input type="time" id="eb_limite" value="${limiteAtual}" placeholder="${turnoAtual==='noturno'?_limiteNoturno:_limiteDiurno}"></div>
+        <div class="fi"><label>⏰ Hora máxima contratar</label><input type="time" id="eb_limite" value="${r.limite||''}"></div>
       </div>
       <div class="mfooter">
         <button class="btn" onclick="closeModal('editBairroModal')">Cancelar</button>
@@ -5753,7 +5747,7 @@ function abrirLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
-  // Ordenar alfabeticamente preservando índice real (_ri) para save correto
+  // Ordenar alfabeticamente preservando índice real (_ri)
   const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
   const semCliCount=regioes.filter(r=>!(r.preco_cli>0)).length;
   const rows=regioesSorted.map((r,i)=>{
@@ -5762,7 +5756,7 @@ function abrirLotePrecosCli(fid){
     const pCli=r.preco_cli>0?r.preco_cli:'';
     const semCli=!(r.preco_cli>0);
     const turnoVal=r.turno||'diurno';
-    return `<tr style="border-bottom:1px solid var(--brd)" data-ri="${r._ri}">
+    return `<tr style="border-bottom:1px solid var(--bor)" data-ri="${r._ri}">
       <td style="padding:6px 8px;font-size:12px;color:var(--txt);font-weight:500">${nome}</td>
       <td style="padding:6px 8px;text-align:right">
         <input type="number" id="lp_forn_${i}" value="${pForn}" min="0" step="1"
@@ -5791,14 +5785,46 @@ function abrirLotePrecosCli(fid){
   const html=`<div style="padding:16px 20px 20px">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px">💰 Preços em Lote — ${f.nome}</div>
     <div style="font-size:12px;color:var(--mut2);margin-bottom:12px">Preencha o <strong style="color:var(--g)">Preço Cliente</strong> para ativar a cotação automática. Bairros sem preço destacados em verde.</div>
-    <div style="background:var(--bg2);border:1px solid var(--g);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--g);font-weight:600">⚡ Aplicar preço padrão</span>
-      <span style="font-size:11px;color:var(--mut2)">${semCliCount} bairro(s) sem preço cliente</span>
-      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
-        <input type="number" id="lp_padrao" min="0" step="1" placeholder="Ex: 550"
-          style="width:90px;background:var(--bg);border:1px solid var(--g);border-radius:4px;color:var(--txt);padding:4px 8px;font-size:13px;text-align:right">
-        <button class="btn btn-xs" style="background:var(--g);color:#fff;white-space:nowrap" onclick="lpAplicarPadrao()">Aplicar nos vazios</button>
-        <button class="btn btn-xs" style="background:var(--mut2);color:#fff;white-space:nowrap" onclick="lpAplicarTodos()">Aplicar em todos</button>
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">⚡ Aplicar em lote</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:5px">💰 PREÇO FORN (R$)</div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="number" id="lp_padrao_forn" min="0" step="1" placeholder="Ex: 410"
+              style="flex:1;background:var(--bg);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px;text-align:right;min-width:0">
+            <button class="btn btn-xs" style="background:var(--acc2);color:var(--acc);white-space:nowrap" onclick="lpAplicarFornVazios()">Vazios</button>
+            <button class="btn btn-xs" style="background:var(--acc);color:#000;white-space:nowrap" onclick="lpAplicarFornTodos()">Todos</button>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--g);font-weight:700;margin-bottom:5px">🏷️ PREÇO CLIENTE (R$) <span style="color:var(--mut2);font-weight:400">${semCliCount} sem preço</span></div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="number" id="lp_padrao" min="0" step="1" placeholder="Ex: 550"
+              style="flex:1;background:var(--bg);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px;text-align:right;min-width:0">
+            <button class="btn btn-xs" style="background:var(--g2);color:var(--g);white-space:nowrap" onclick="lpAplicarPadrao()">Vazios</button>
+            <button class="btn btn-xs" style="background:var(--g);color:#000;white-space:nowrap" onclick="lpAplicarTodos()">Todos</button>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:#a78bfa;font-weight:700;margin-bottom:5px">🕐 TURNO</div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <select id="lp_padrao_turno"
+              style="flex:1;background:var(--bg);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px;min-width:0">
+              <option value="diurno">☀️ Diurno</option>
+              <option value="noturno">🌙 Noturno</option>
+            </select>
+            <button class="btn btn-xs" style="background:rgba(167,139,250,.15);color:#a78bfa;white-space:nowrap" onclick="lpAplicarTurnoTodos()">Todos</button>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:#0ea5e9;font-weight:700;margin-bottom:5px">⏰ HORA MÁXIMA</div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="time" id="lp_padrao_limite"
+              style="flex:1;background:var(--bg);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:4px 7px;font-size:12px;min-width:0">
+            <button class="btn btn-xs" style="background:rgba(14,165,233,.15);color:#0ea5e9;white-space:nowrap" onclick="lpAplicarLimiteTodos()">Todos</button>
+          </div>
+        </div>
       </div>
     </div>
     <div style="max-height:45vh;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
@@ -5829,7 +5855,7 @@ function abrirLotePrecosCli(fid){
     modalEl.addEventListener('click', e=>{ if(e.target===modalEl) closeModal('lotePrecoModal'); });
     document.body.appendChild(modalEl);
   }
-  modalEl.innerHTML = '<div class="mbox" style="max-width:700px;width:95vw;max-height:90vh;overflow-y:auto;padding:0">'+html+'</div>';
+  modalEl.innerHTML = '<div class="mbox" style="max-width:720px;width:95vw;max-height:92vh;overflow-y:auto;padding:0">'+html+'</div>';
   openModal('lotePrecoModal');
   window._loteFid=fid;
   window._loteCount=regioes.length;
@@ -5837,32 +5863,44 @@ function abrirLotePrecosCli(fid){
 function lpAplicarPadrao(){
   const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
   if(!val){toast('Digite um valor primeiro','err');return;}
-  let aplicados=0;
-  for(let i=0;i<window._loteCount;i++){
-    const el=document.getElementById('lp_cli_'+i);
-    if(el&&!(parseFloat(el.value)>0)){
-      el.value=val;
-      el.style.background='var(--bg2)';
-      el.style.borderColor='var(--brd)';
-      el.style.color='var(--txt)';
-      aplicados++;
-    }
-  }
-  toast(`✅ ${aplicados} bairro(s) preenchidos`);
+  let n=0;
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_cli_'+i);if(el&&!(parseFloat(el.value)>0)){el.value=val;el.style.borderColor='var(--g)';n++;}}
+  toast(`✅ ${n} bairro(s) sem preço preenchidos`);
 }
 function lpAplicarTodos(){
   const val=parseFloat(document.getElementById('lp_padrao')?.value)||0;
   if(!val){toast('Digite um valor primeiro','err');return;}
-  for(let i=0;i<window._loteCount;i++){
-    const el=document.getElementById('lp_cli_'+i);
-    if(el){el.value=val;el.style.background='var(--bg2)';el.style.borderColor='var(--brd)';el.style.color='var(--txt)';}
-  }
-  toast(`✅ Todos os ${window._loteCount} bairros preenchidos`);
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_cli_'+i);if(el)el.value=val;}
+  toast(`✅ Preço cliente aplicado em todos (${window._loteCount})`);
+}
+function lpAplicarFornVazios(){
+  const val=parseFloat(document.getElementById('lp_padrao_forn')?.value)||0;
+  if(!val){toast('Digite um valor primeiro','err');return;}
+  let n=0;
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_forn_'+i);if(el&&!(parseFloat(el.value)>0)){el.value=val;n++;}}
+  toast(`✅ ${n} bairro(s) sem preço forn preenchidos`);
+}
+function lpAplicarFornTodos(){
+  const val=parseFloat(document.getElementById('lp_padrao_forn')?.value)||0;
+  if(!val){toast('Digite um valor primeiro','err');return;}
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_forn_'+i);if(el)el.value=val;}
+  toast(`✅ Preço forn aplicado em todos (${window._loteCount})`);
+}
+function lpAplicarTurnoTodos(){
+  const val=document.getElementById('lp_padrao_turno')?.value||'diurno';
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_turno_'+i);if(el)el.value=val;}
+  toast(`✅ Turno ${val==='noturno'?'🌙 Noturno':'☀️ Diurno'} aplicado em todos`);
+}
+function lpAplicarLimiteTodos(){
+  const val=document.getElementById('lp_padrao_limite')?.value||'';
+  if(!val){toast('Digite um horário primeiro','err');return;}
+  for(let i=0;i<window._loteCount;i++){const el=document.getElementById('lp_limite_'+i);if(el)el.value=val;}
+  toast(`✅ Hora máxima ${val} aplicada em todos`);
 }
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  // Lê valores do DOM ANTES de fechar, usando data-ri p/ índice real
+  // Lê DOM antes de fechar — usa data-ri para índice real correto
   const tabela=document.querySelector('#lotePrecoModal table tbody');
   if(tabela){
     tabela.querySelectorAll('tr[data-ri]').forEach((tr,i)=>{
