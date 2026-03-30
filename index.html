@@ -5513,7 +5513,6 @@ function renderForns(){
   const qBairro=(document.getElementById('fornFiltroBairro')?.value||'').toLowerCase().trim();
   const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
-  // Filtrar fornecedores
   const fornsFiltrados=fornsOrdenados.filter(f=>{
     if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
     if(soAtivos){
@@ -5521,13 +5520,11 @@ function renderForns(){
       if(!ords.length) return false;
     }
     if(qBairro){
-      const regioes=Array.isArray(f.regioes)?f.regioes:[];
-      const temBairro=regioes.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro));
-      if(!temBairro) return false;
+      const regs=Array.isArray(f.regioes)?f.regioes:[];
+      if(!regs.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro))) return false;
     }
     return true;
   });
-  const expandirTodos=qBairro.length>0; // expande automaticamente quando filtrando bairro
   el.innerHTML=fornsFiltrados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
@@ -5537,9 +5534,9 @@ function renderForns(){
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
-    // Filtrar bairros se qBairro preenchido
-    const regioesFiltradas=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
-    const bairrosHtml=regioesFiltradas.map((r,_idx)=>{
+    const bairrosFiltrados=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
+    const supAberto=!!qBairro;
+    const bairrosHtml=bairrosFiltrados.map((r,_idx)=>{
       const ri=r._ri;
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
@@ -5573,7 +5570,7 @@ function renderForns(){
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
       </div>
-      <div class="sup-body" id="sup_${f.id}" style="display:${expandirTodos?'block':'none'}">
+      <div class="sup-body" id="sup_${f.id}" style="display:${supAberto?'block':'none'}">
         ${f.pix?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
         ${f.obs?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">${f.obs}</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
@@ -5716,14 +5713,17 @@ function abrirLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
+  // Ordenar alfabeticamente mas guardar índice real (_ri) para save correto
+  const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
   const semCliCount=regioes.filter(r=>!(r.preco_cli>0)).length;
-  const rows=regioes.map((r,i)=>{
+  const rows=regioesSorted.map((r,i)=>{
     const nome=r.bairro||r.regiao||r.nome||'';
     const pForn=r.preco>0?r.preco:'';
     const pCli=r.preco_cli>0?r.preco_cli:'';
     const semCli=!(r.preco_cli>0);
     const turnoVal=r.turno||'diurno';
-    return `<tr style="border-bottom:1px solid var(--brd)">
+    // data-ri guarda o índice real no array original
+    return `<tr style="border-bottom:1px solid var(--brd)" data-ri="${r._ri}">
       <td style="padding:6px 8px;font-size:12px;color:var(--txt)">${nome}</td>
       <td style="padding:6px 8px;text-align:right">
         <input type="number" id="lp_forn_${i}" value="${pForn}" min="0" step="1"
@@ -5790,7 +5790,7 @@ function abrirLotePrecosCli(fid){
     modalEl.addEventListener('click', e=>{ if(e.target===modalEl) closeModal('lotePrecoModal'); });
     document.body.appendChild(modalEl);
   }
-  modalEl.innerHTML = '<div class="mbox" style="max-width:680px;width:95vw;max-height:90vh;overflow-y:auto;padding:0">'+html+'</div>';
+  modalEl.innerHTML = '<div class="mbox" style="max-width:700px;width:95vw;max-height:90vh;overflow-y:auto;padding:0">'+html+'</div>';
   openModal('lotePrecoModal');
   window._loteFid=fid;
   window._loteCount=regioes.length;
@@ -5823,22 +5823,26 @@ function lpAplicarTodos(){
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  // Lê TODOS os valores do DOM ANTES de fechar o modal
-  const dadosLidos=regioes.map((r,i)=>{
-    const elForn=document.getElementById('lp_forn_'+i);
-    const elCli=document.getElementById('lp_cli_'+i);
-    const elLim=document.getElementById('lp_limite_'+i);
-    const elTurno=document.getElementById('lp_turno_'+i);
-    if(!elForn||!elCli) return null;
-    const limVal=elLim?.value?.trim()||'';
-    const turnoVal=elTurno?.value||r.turno||'diurno';
-    return {...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
-  });
-  dadosLidos.forEach((d,i)=>{ if(d) regioes[i]=d; });
+  // Lê os dados ANTES de fechar o modal, usando data-ri para achar índice real
+  const tabela=document.querySelector('#lotePrecoModal table tbody');
+  if(tabela){
+    const linhas=tabela.querySelectorAll('tr[data-ri]');
+    linhas.forEach((tr,i)=>{
+      const ri=parseInt(tr.dataset.ri);
+      if(isNaN(ri)||!regioes[ri])return;
+      const elForn=document.getElementById('lp_forn_'+i);
+      const elCli=document.getElementById('lp_cli_'+i);
+      const elLim=document.getElementById('lp_limite_'+i);
+      const elTurno=document.getElementById('lp_turno_'+i);
+      if(!elForn||!elCli)return;
+      const limVal=elLim?.value?.trim()||'';
+      const turnoVal=elTurno?.value||regioes[ri].turno||'diurno';
+      regioes[ri]={...regioes[ri],preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
+    });
+  }
   f.regioes=regioes;
   closeModal('lotePrecoModal');
-  renderForns();
-  toggleSupBody('sup_'+fid);
+  renderForns();toggleSupBody('sup_'+fid);
   try{
     await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());
     toast('✅ Preços e turnos salvos!');
