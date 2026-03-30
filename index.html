@@ -4849,12 +4849,18 @@ async function cfgSalvarLimites(){
   const d=document.getElementById('cfg_limite_diurno')?.value||'09:00';
   const n=document.getElementById('cfg_limite_noturno')?.value||'16:00';
   try{
-    // upsert ambos de uma vez (on conflict chave → update valor)
-    await api('config?on_conflict=chave','POST',[{chave:'limite_diurno',valor:d},{chave:'limite_noturno',valor:n}],tok(),'resolution=merge-duplicates,return=minimal');
+    // limite_diurno
+    const exD=await api('config?chave=eq.limite_diurno',undefined,undefined,tok());
+    if(exD?.length) await api('config?chave=eq.limite_diurno','PATCH',{valor:d},tok());
+    else await api('config','POST',{chave:'limite_diurno',valor:d},tok());
+    // limite_noturno
+    const exN=await api('config?chave=eq.limite_noturno',undefined,undefined,tok());
+    if(exN?.length) await api('config?chave=eq.limite_noturno','PATCH',{valor:n},tok());
+    else await api('config','POST',{chave:'limite_noturno',valor:n},tok());
     _limiteDiurno=d; _limiteNoturno=n;
-    toast('\u2705 Limites — Diurno '+d+' · Noturno '+n);
+    toast('✅ Limites — Diurno '+d+' · Noturno '+n);
     renderBoard();
-  }catch(e){toast('Erro ao salvar limites','err');console.error(e);}
+  }catch(e){toast('Erro ao salvar limites: '+e.message,'err');console.error(e);}
 }
 
 async function cfgSalvarTudo(){
