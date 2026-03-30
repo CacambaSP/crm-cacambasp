@@ -1318,8 +1318,12 @@ async function desarquivarOrdem(id) {
 
 async function quickPagarCard(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const nome = o.nome?.split(' ')[0]||'cliente';
+  const val = o.rec ? 'R$ '+fmt(o.rec) : 'valor não definido';
+  const ok = await showConfirm({ico:'✅',title:'Marcar como pago?',body:nome+' — '+val+'\n\nA ordem vai para a coluna Baixar.',ok:'✅ Confirmar',okClass:'acc',cancel:'Cancelar'});
+  if(!ok) return;
   try {
-    const upd={pago:true,pago_em:nowISO(),pago_valor:o.rec,col:'baixar'};
+    const upd={pago:true,pago_em:nowISO(),pago_valor:o.rec,pago_obs:'Marcado pelo card',col:'baixar'};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o,upd);
     renderCurrentView();
@@ -1397,15 +1401,16 @@ function enviarPixWA() {
 function enviarWA(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const tel = (o.cel||'').replace(/\D/g,'');
+  if(!tel){toast('Celular não cadastrado','warn');return;}
   const d = diasAberto(o);
-  const url = `cacambasp-crm.vercel.app/tracking.html?t=${tel}`;
+  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
   let msg;
   if(o.col==='inadimp') {
-    msg = `⚠️ ${o.nome||''}, identificamos uma pendência na sua conta. Entre em contato para regularizar.\nLink: ${url}`;
+    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
   } else if(d>=5) {
-    msg = `Olá ${o.nome||''}, temos um valor em aberto há ${d} dias. Poderia regularizar? Pix: ${url}`;
+    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
   } else {
-    msg = `Olá ${o.nome||''}, segue o link para acompanhar sua ordem e realizar o pagamento: ${url}`;
+    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
@@ -1422,8 +1427,10 @@ function enviarWAForn(id) {
 function enviarTracking(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const tel = (o.cel||'').replace(/\D/g,'');
-  const url = `cacambasp-crm.vercel.app/tracking.html?t=${tel}`;
-  const msg = `Olá ${o.nome||''}, acompanhe sua ordem aqui: ${url}`;
+  if(!tel){toast('Celular não cadastrado','warn');return;}
+  if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
+  const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
+  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n_CaçambaSP_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
