@@ -163,6 +163,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 /* card actions */
 .card-del{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:5px;border:1px solid var(--r3);background:var(--r2);color:var(--r);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;z-index:5;pointer-events:auto}
 .card:hover .card-del{display:flex}
+.card-confirm-actions{display:none;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2);padding:8px 9px}
+.card:hover .card-confirm-actions{display:block}
+.card-details{overflow:hidden}
+.cards-compact .card-details{display:none}
+.cards-compact .card-addr{white-space:normal;overflow:visible}
 .card-trophy{position:absolute;bottom:7px;right:7px;width:26px;height:26px;border-radius:6px;border:1px solid var(--acc3);background:var(--acc2);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:5;pointer-events:auto;transition:.15s}
 .card:hover .card-trophy,.card-trophy.vis{display:flex}
 .card-cb{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:5;pointer-events:auto;transition:.1s}
@@ -515,6 +520,7 @@ input[type=checkbox]:checked::after{
           <input type="date" id="filterDe" onchange="doFilter()" title="Data início">
           <input type="date" id="filterAte" onchange="doFilter()" title="Data fim">
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
+          <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" title="Mostrar/ocultar detalhes">👁 Detalhes</button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
         </div>
         <div class="stats-bar" id="statsBar"></div>
@@ -651,6 +657,13 @@ input[type=checkbox]:checked::after{
           <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--bor);padding-bottom:12px">
             <button class="btn btn-sm btn-acc" id="fornTab_lista" onclick="setFornTab('lista')">🚛 Fornecedores</button>
             <button class="btn btn-sm" id="fornTab_cobertura" onclick="setFornTab('cobertura')">📍 Cobertura por bairro</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="fornFiltroNome" placeholder="🔍 Fornecedor..." oninput="renderForns()"
+              style="flex:1;min-width:130px;max-width:200px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+            <input type="text" id="fornFiltroBairro" placeholder="📍 Bairro..." oninput="renderForns()"
+              style="flex:1;min-width:130px;max-width:200px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+            <button id="fornFiltroAtivos" data-ativo="0" onclick="toggleFornFiltroAtivos()" class="btn btn-sm" style="white-space:nowrap">● Só com negócios</button>
           </div>
           <!-- Lista de fornecedores -->
           <div id="supLista"></div>
@@ -1821,7 +1834,7 @@ function doFilter(){
   document.getElementById('filterInd').style.display=hasFilter?'inline':'none';
   _filteredOrdens=hasFilter ? ordens.filter(c=>{
     if(c.col==='concluido') return false;
-    if(q&&![c.nome,c.logradouro,c.cidade,c.cel,c.crm_id,c.tipo].some(f=>(f||'').toLowerCase().includes(q))) return false;
+    if(q){const celLimpo=(c.cel||'').replace(/\D/g,'');const qLimpo=q.replace(/\D/g,'');const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);if(!matchCel&&![c.nome,c.logradouro,c.bairro,c.cidade,c.cel,c.crm_id,c.tipo].some(f=>(f||'').toLowerCase().includes(q)))return false;}
     if(forn&&c.forn_id!==forn) return false;
     if(vend&&c.usuario_id!==vend) return false;
     if(pago==='pago'&&!c.pago) return false;
@@ -1933,6 +1946,7 @@ function cardHTML(c,color){
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
     ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
+    <div class="card-details">
     ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
     <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
     <div class="card-chips">
@@ -1946,8 +1960,9 @@ function cardHTML(c,color){
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
+    </div>
     ${precisaConfirmar&&!badgeExpirou?`
-    <div style="padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)">
+    <div class="card-confirm-actions">
       <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">⚠️ Confirmar entrega?</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
@@ -1957,7 +1972,12 @@ function cardHTML(c,color){
       </div>
     </div>`:''
     }
-    ${!precisaConfirmar&&!c.pago&&['faltapg','pagar','entrega','ag_entrega'].includes(c.col)?`<div style="padding:5px 9px 7px;border-top:1px solid var(--bor);display:flex;justify-content:flex-end"><button onclick="event.stopPropagation();quickPagarCard('${c.id}')" style="background:rgba(239,68,68,.1);color:var(--r);border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);letter-spacing:.3px;transition:.15s" onmouseover="this.style.background='rgba(239,68,68,.2)'" onmouseout="this.style.background='rgba(239,68,68,.1)'">⚠️ Pendente</button></div>`:''}
+    ${!precisaConfirmar&&['faltapg','pagar','entrega','ag_entrega'].includes(c.col)&&(!c.pago||!c.forn_pago)?`
+    <div style="padding:5px 9px 7px;border-top:1px solid var(--bor);display:flex;gap:5px;justify-content:flex-end">
+      ${!c.pago?`<button onclick="event.stopPropagation();quickPagarCard('${c.id}')" style="background:rgba(239,68,68,.1);color:var(--r);border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)" onmouseover="this.style.background='rgba(239,68,68,.2)'" onmouseout="this.style.background='rgba(239,68,68,.1)'">⚠️ Cliente</button>`:`<span style="background:rgba(34,197,94,.1);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Cliente</span>`}
+      ${c.forn_id&&!c.forn_pago?`<button onclick="event.stopPropagation();_detailId='${c.id}';openPagarForn(true)" style="background:rgba(239,68,68,.1);color:var(--r);border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)" onmouseover="this.style.background='rgba(239,68,68,.2)'" onmouseout="this.style.background='rgba(239,68,68,.1)'">⚠️ Forn</button>`:c.forn_id?`<span style="background:rgba(99,102,241,.1);color:var(--b);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Forn</span>`:''}
+    </div>`:''
+    }
   </div>`;
 }
 
@@ -5479,11 +5499,35 @@ function filtrarCobertura(){
     el.style.display=!q||el.dataset.bairro.includes(q)?'':'none';
   });
 }
+let _detalhesVisiveis=true;
+function toggleDetalhesCards(){
+  _detalhesVisiveis=!_detalhesVisiveis;
+  const board=document.getElementById('board');
+  const btn=document.getElementById('btnToggleDetalhes');
+  if(board) board.classList.toggle('cards-compact',!_detalhesVisiveis);
+  if(btn){btn.textContent=_detalhesVisiveis?'👁 Detalhes':'👁 Simples';btn.style.background=_detalhesVisiveis?'':'var(--acc2)';btn.style.color=_detalhesVisiveis?'':'var(--acc)';}
+}
+function toggleFornFiltroAtivos(){
+  const btn=document.getElementById('fornFiltroAtivos');if(!btn)return;
+  const on=btn.dataset.ativo==='1';
+  btn.dataset.ativo=on?'0':'1';
+  btn.style.background=on?'':'var(--g2)';btn.style.color=on?'':'var(--g)';btn.style.borderColor=on?'':'var(--g3)';
+  renderForns();
+}
 function renderForns(){
   const el=document.getElementById('supLista');
   if(!forns.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor cadastrado</div>';return;}
+  const qNome=(document.getElementById('fornFiltroNome')?.value||'').toLowerCase().trim();
+  const qBairro=(document.getElementById('fornFiltroBairro')?.value||'').toLowerCase().trim();
+  const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
-  el.innerHTML=fornsOrdenados.map((f,i)=>{
+  const fornsFiltrados=fornsOrdenados.filter(f=>{
+    if(qNome&&!(f.nome||'').toLowerCase().includes(qNome))return false;
+    if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length)return false;}
+    if(qBairro){const regs=Array.isArray(f.regioes)?f.regioes:[];if(!regs.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)))return false;}
+    return true;
+  });
+  el.innerHTML=fornsFiltrados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
     const cor=f.color||cores[i%cores.length];
@@ -5492,7 +5536,9 @@ function renderForns(){
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
-    const bairrosHtml=regioesSorted.map((r,_idx)=>{
+    const bairrosFiltrados=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
+    const supAberto=!!qBairro;
+    const bairrosHtml=bairrosFiltrados.map((r,_idx)=>{
       const ri=r._ri;
       const nomeBairro=r.bairro||r.regiao||r.nome||'';
       const ordsNoBairro=ords.filter(c=>(c.bairro||'').toLowerCase().trim()===(nomeBairro).toLowerCase().trim());
@@ -5526,7 +5572,7 @@ function renderForns(){
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
       </div>
-      <div class="sup-body" id="sup_${f.id}">
+      <div class="sup-body" id="sup_${f.id}" style="display:${supAberto?'block':'none'}">
         ${f.pix?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
         ${f.obs?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">${f.obs}</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
