@@ -166,6 +166,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .card:hover .card-del{display:flex}
 .card-confirm-actions{display:none;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2);padding:8px 9px}
 .card:hover .card-confirm-actions{display:block}
+.card-details{transition:max-height .2s,opacity .2s;overflow:hidden}
+.cards-compact .card-bairro,.cards-compact .card-tipo,.cards-compact .card-chips{display:none}
 .card-trophy{position:absolute;bottom:7px;right:7px;width:26px;height:26px;border-radius:6px;border:1px solid var(--acc3);background:var(--acc2);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:5;pointer-events:auto;transition:.15s}
 .card:hover .card-trophy,.card-trophy.vis{display:flex}
 .card-cb{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--bor);background:var(--card);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:5;pointer-events:auto;transition:.1s}
@@ -518,6 +520,7 @@ input[type=checkbox]:checked::after{
           <input type="date" id="filterDe" onchange="doFilter()" title="Data início">
           <input type="date" id="filterAte" onchange="doFilter()" title="Data fim">
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
+          <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" title="Mostrar/ocultar detalhes dos cards">👁 Detalhes</button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
         </div>
         <div class="stats-bar" id="statsBar"></div>
@@ -1950,6 +1953,7 @@ function cardHTML(c,color){
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
     ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
+    <div class="card-details">
     ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
     <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
     <div class="card-chips">
@@ -1962,6 +1966,7 @@ function cardHTML(c,color){
       ${f?`<span class="chip">🚛 ${f.nome.split(' ')[0]}</span>`:''}
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
+    </div>
     </div>
     ${precisaConfirmar&&!badgeExpirou?`
     <div class="card-confirm-actions">
@@ -5496,6 +5501,14 @@ function filtrarCobertura(){
     el.style.display=!q||el.dataset.bairro.includes(q)?'':'none';
   });
 }
+let _detalhesVisiveis=true;
+function toggleDetalhesCards(){
+  _detalhesVisiveis=!_detalhesVisiveis;
+  const board=document.getElementById('board');
+  const btn=document.getElementById('btnToggleDetalhes');
+  if(board) board.classList.toggle('cards-compact',!_detalhesVisiveis);
+  if(btn){btn.textContent=_detalhesVisiveis?'👁 Detalhes':'👁 Simples';btn.style.background=_detalhesVisiveis?'':'var(--acc2)';btn.style.color=_detalhesVisiveis?'':'var(--acc)';}
+}
 function toggleFornFiltroAtivos(){
   const btn=document.getElementById('fornFiltroAtivos');
   if(!btn) return;
@@ -5515,14 +5528,8 @@ function renderForns(){
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
   const fornsFiltrados=fornsOrdenados.filter(f=>{
     if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
-    if(soAtivos){
-      const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');
-      if(!ords.length) return false;
-    }
-    if(qBairro){
-      const regs=Array.isArray(f.regioes)?f.regioes:[];
-      if(!regs.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro))) return false;
-    }
+    if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length)return false;}
+    if(qBairro){const regs=Array.isArray(f.regioes)?f.regioes:[];if(!regs.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)))return false;}
     return true;
   });
   el.innerHTML=fornsFiltrados.map((f,i)=>{
@@ -5692,14 +5699,47 @@ async function editarPrecoBairro(fid,idx){
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   const r=regioes[idx];if(!r)return;
   const nomeBairro=r.bairro||r.regiao||r.nome||'';
-  const novoPrecoForn=prompt(`💰 Preço FORNECEDOR para "${nomeBairro}" (custo):\n(0 = usar preço padrão)`,r.preco||'');
-  if(novoPrecoForn===null)return;
-  const novoPrecoCliStr=prompt(`🏷️ Preço CLIENTE para "${nomeBairro}" (o que cobra do cliente):\n(0 = sem cotação automática)`,r.preco_cli||'');
-  if(novoPrecoCliStr===null)return;
-  regioes[idx]={...r,preco:parseFloat(novoPrecoForn)||0,preco_cli:parseFloat(novoPrecoCliStr)||0};
+  // Mini-modal inline com todos os campos do bairro
+  let mEl=document.getElementById('editBairroModal');
+  if(!mEl){mEl=document.createElement('div');mEl.id='editBairroModal';mEl.className='mbg';mEl.addEventListener('click',e=>{if(e.target===mEl)closeModal('editBairroModal');});document.body.appendChild(mEl);}
+  const turnoAtual=r.turno||'diurno';
+  const limiteAtual=r.limite||'';
+  mEl.innerHTML=`<div class="mbox" style="max-width:400px;width:95vw;padding:0">
+    <div class="mh"><div class="mh-ico">📍</div><div class="mh-txt"><div class="mh-title">${nomeBairro}</div><div class="mh-sub">${f.nome}</div></div><button class="mx" onclick="closeModal('editBairroModal')">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div class="fi"><label>💰 Preço Fornecedor (R$)</label><input type="number" id="eb_forn" value="${r.preco||''}" min="0" step="1" placeholder="0 = usa padrão"></div>
+      <div class="fi"><label>🏷️ Preço Cliente (R$)</label><input type="number" id="eb_cli" value="${r.preco_cli||''}" min="0" step="1" placeholder="0 = sem cotação automática"></div>
+      <div class="fi-row">
+        <div class="fi"><label>🕐 Turno</label>
+          <select id="eb_turno">
+            <option value="diurno" ${turnoAtual==='diurno'?'selected':''}>☀️ Diurno</option>
+            <option value="noturno" ${turnoAtual==='noturno'?'selected':''}>🌙 Noturno</option>
+          </select>
+        </div>
+        <div class="fi"><label>⏰ Limite contratar</label><input type="time" id="eb_limite" value="${limiteAtual}" placeholder="${turnoAtual==='noturno'?_limiteNoturno:_limiteDiurno}"></div>
+      </div>
+      <div class="mfooter">
+        <button class="btn" onclick="closeModal('editBairroModal')">Cancelar</button>
+        <button class="btn btn-acc" onclick="salvarEditBairro('${fid}',${idx})">💾 Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  openModal('editBairroModal');
+  setTimeout(()=>document.getElementById('eb_forn')?.focus(),100);
+}
+async function salvarEditBairro(fid,idx){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
+  const r=regioes[idx];if(!r)return;
+  const preco=parseFloat(document.getElementById('eb_forn')?.value)||0;
+  const preco_cli=parseFloat(document.getElementById('eb_cli')?.value)||0;
+  const turno=document.getElementById('eb_turno')?.value||'diurno';
+  const limVal=document.getElementById('eb_limite')?.value?.trim()||'';
+  regioes[idx]={...r,preco,preco_cli,turno,...(limVal?{limite:limVal}:{limite:undefined})};
   f.regioes=regioes;
+  closeModal('editBairroModal');
   renderForns();toggleSupBody('sup_'+fid);
-  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Preços atualizados!');}catch(e){toast('Erro','err');}
+  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Bairro atualizado!');}catch(e){toast('Erro: '+e.message,'err');}
 }
 async function removerRegiao(fid,idx){
   const f=forns.find(x=>x.id===fid);if(!f)return;
@@ -5713,7 +5753,7 @@ function abrirLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?f.regioes:[];
   if(!regioes.length){toast('Nenhum bairro cadastrado','err');return;}
-  // Ordenar alfabeticamente mas guardar índice real (_ri) para save correto
+  // Ordenar alfabeticamente preservando índice real (_ri) para save correto
   const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
   const semCliCount=regioes.filter(r=>!(r.preco_cli>0)).length;
   const rows=regioesSorted.map((r,i)=>{
@@ -5722,28 +5762,27 @@ function abrirLotePrecosCli(fid){
     const pCli=r.preco_cli>0?r.preco_cli:'';
     const semCli=!(r.preco_cli>0);
     const turnoVal=r.turno||'diurno';
-    // data-ri guarda o índice real no array original
     return `<tr style="border-bottom:1px solid var(--brd)" data-ri="${r._ri}">
-      <td style="padding:6px 8px;font-size:12px;color:var(--txt)">${nome}</td>
+      <td style="padding:6px 8px;font-size:12px;color:var(--txt);font-weight:500">${nome}</td>
       <td style="padding:6px 8px;text-align:right">
         <input type="number" id="lp_forn_${i}" value="${pForn}" min="0" step="1"
-          style="width:80px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 6px;font-size:12px;text-align:right">
+          style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 6px;font-size:12px;text-align:right">
       </td>
       <td style="padding:6px 8px;text-align:right">
         <input type="number" id="lp_cli_${i}" value="${pCli}" min="0" step="1"
-          style="width:80px;background:${semCli?'var(--bg3,#1a2a1a)':'var(--bg2)'};border:1px solid ${semCli?'var(--g)':'var(--brd)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
+          style="width:80px;background:${semCli?'rgba(34,197,94,.08)':'var(--card)'};border:1px solid ${semCli?'var(--g)':'var(--bor)'};border-radius:4px;color:${semCli?'var(--g)':'var(--txt)'};padding:3px 6px;font-size:12px;text-align:right"
           placeholder="0">
       </td>
       <td style="padding:6px 8px;text-align:center">
         <select id="lp_turno_${i}"
-          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
+          style="width:92px;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
           <option value="diurno" ${turnoVal==='diurno'?'selected':''}>☀️ Diurno</option>
           <option value="noturno" ${turnoVal==='noturno'?'selected':''}>🌙 Noturno</option>
         </select>
       </td>
       <td style="padding:6px 8px;text-align:center">
         <input type="time" id="lp_limite_${i}" value="${r.limite||''}"
-          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px"
+          style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px"
           placeholder="${turnoVal==='noturno'?_limiteNoturno:_limiteDiurno}">
       </td>
     </tr>`;
@@ -5823,11 +5862,10 @@ function lpAplicarTodos(){
 async function salvarLotePrecosCli(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
-  // Lê os dados ANTES de fechar o modal, usando data-ri para achar índice real
+  // Lê valores do DOM ANTES de fechar, usando data-ri p/ índice real
   const tabela=document.querySelector('#lotePrecoModal table tbody');
   if(tabela){
-    const linhas=tabela.querySelectorAll('tr[data-ri]');
-    linhas.forEach((tr,i)=>{
+    tabela.querySelectorAll('tr[data-ri]').forEach((tr,i)=>{
       const ri=parseInt(tr.dataset.ri);
       if(isNaN(ri)||!regioes[ri])return;
       const elForn=document.getElementById('lp_forn_'+i);
@@ -5837,7 +5875,12 @@ async function salvarLotePrecosCli(fid){
       if(!elForn||!elCli)return;
       const limVal=elLim?.value?.trim()||'';
       const turnoVal=elTurno?.value||regioes[ri].turno||'diurno';
-      regioes[ri]={...regioes[ri],preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
+      regioes[ri]={...regioes[ri],
+        preco:parseFloat(elForn.value)||0,
+        preco_cli:parseFloat(elCli.value)||0,
+        turno:turnoVal,
+        ...(limVal?{limite:limVal}:{limite:undefined})
+      };
     });
   }
   f.regioes=regioes;
@@ -5845,7 +5888,7 @@ async function salvarLotePrecosCli(fid){
   renderForns();toggleSupBody('sup_'+fid);
   try{
     await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());
-    toast('✅ Preços e turnos salvos!');
+    toast('✅ Preços salvos em todos os bairros!');
   }catch(e){toast('Erro ao salvar: '+e.message,'err');console.error(e);}
 }
 
