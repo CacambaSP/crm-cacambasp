@@ -951,7 +951,7 @@ function renderFinanceiro() {
   setTopbar('Financeiro','');
   const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
   const rec  = ativas.reduce((s,o)=>s+parseFloat(o.rec||0),0);
-  const custo= ativas.reduce((s,o)=>s+parseFloat(o.custo_forn||0),0);
+  const custo= ativas.reduce((s,o)=>s+parseFloat(o.cst||0),0);
   const pago = ativas.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
   const pend = rec-pago;
   let h=`<div class="kpi-grid">
@@ -967,7 +967,7 @@ function renderFinanceiro() {
       const d=diasAberto(o);
       h+=`<div class="fin-row" onclick="abrirDetalhe('${o.id}')">
         <div class="fin-row-info">
-          <div class="fin-row-name">${o.nome_cli||'—'}</div>
+          <div class="fin-row-name">${o.nome||'—'}</div>
           <div class="fin-row-desc">${o.bairro||''} · ${d}d em aberto</div>
         </div>
         <div class="fin-row-val">R$ ${fmt(o.rec)}</div>
@@ -999,7 +999,7 @@ function renderAlertas() {
       h+=`<div class="alert-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
         <div class="alert-dot" style="background:${tipo==='urg'?'var(--r)':'var(--acc)'}"></div>
         <div class="alert-body">
-          <div class="alert-name">${o.nome_cli||'—'}</div>
+          <div class="alert-name">${o.nome||'—'}</div>
           <div class="alert-desc">${o.bairro||''} · ${d} dias sem pagar</div>
         </div>
         <div class="alert-right">
@@ -1015,7 +1015,7 @@ function renderAlertas() {
       h+=`<div class="alert-card" onclick="abrirDetalhe('${o.id}')">
         <div class="alert-dot" style="background:var(--b)"></div>
         <div class="alert-body">
-          <div class="alert-name">${o.nome_cli||'—'}</div>
+          <div class="alert-name">${o.nome||'—'}</div>
           <div class="alert-desc">${o.bairro||''}</div>
         </div>
         <div class="alert-right"><div class="alert-val">R$ ${fmt(o.rec)}</div></div>
@@ -1042,10 +1042,10 @@ function cardHTML(o, tipo='neutral', showMine=false) {
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
     <div class="card-bar" style="background:${tipo==='urg'?'var(--r)':tipo==='ok'?'var(--g)':tipo==='warn'?'var(--acc)':'var(--b)'}"></div>
     <div class="card-header">
-      <div class="card-name">${o.nome_cli||'—'}</div>
+      <div class="card-name">${o.nome||'—'}</div>
       <div class="card-val">R$ ${fmt(o.rec)}</div>
     </div>
-    <div class="card-addr">${o.rua||''} · ${o.bairro||''}</div>
+    <div class="card-addr">${o.logradouro||''} · ${o.bairro||''}</div>
     <div class="card-chips">${chips.join('')}</div>
     <div class="card-actions">
       ${!o.pago?`<button class="card-btn cb-g" onclick="event.stopPropagation();quickPagarCard('${o.id}')">✅ Pago</button>`:''}
@@ -1081,7 +1081,7 @@ function renderNova() {
       <div class="form-field"><label>Tipo</label><select id="nv_tipo"><option>Locação</option><option>Troca</option><option>Retirada</option></select></div>
       <div class="form-field"><label>Data entrega</label><input type="date" id="nv_data"></div>
       <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="nv_rec" placeholder="0,00" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="nv_custo" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="nv_cst" placeholder="0,00" step="0.01" inputmode="decimal"></div>
     </div>
     <div class="form-group">
       <div class="form-group-title">Nota Fiscal *</div>
@@ -1144,7 +1144,7 @@ function buscarFornSugestao(bairro) {
 function aplicarFornSug() {
   if(!_novaFornSug) return;
   document.getElementById('nv_forn').value = _novaFornSug.forn.id;
-  if(_novaFornSug.preco) document.getElementById('nv_custo').value = _novaFornSug.preco.toFixed(2);
+  if(_novaFornSug.preco) document.getElementById('nv_cst').value = _novaFornSug.preco.toFixed(2);
   if(_novaFornSug.preco_cli) document.getElementById('nv_rec').value = _novaFornSug.preco_cli.toFixed(2);
   toast('Fornecedor aplicado!','ok');
 }
@@ -1175,18 +1175,19 @@ async function salvarNovaOrdem() {
     if(_novaTemNF) recVal += _nfAcrescimo;
     const body = {
       id: uidGen(), crm_id,
-      usuario_id: uid2, nome_cli: nome,
-      tel: wh.replace(/\D/g,''),
+      usuario_id: uid2, nome,
+      cel: wh.replace(/\D/g,''),
       cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
-      rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
+      logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
       tipo: document.getElementById('nv_tipo')?.value||'Locação',
       data: document.getElementById('nv_data')?.value||null,
       rec: recVal,
-      custo_forn: parseFloat(document.getElementById('nv_custo')?.value||0),
+      cst: parseFloat(document.getElementById('nv_cst')?.value||0),
       forn_id: document.getElementById('nv_forn')?.value||null,
       obs: document.getElementById('nv_obs')?.value?.trim()||null,
+      nf_num: _novaTemNF ? '1' : '',
+      nf_taxa: _novaTemNF ? 0 : 0,
       col: 'contratar', pago: false,
-      tem_nf: _novaTemNF,
       criado_em: nowISO()
     };
     const res = await api('ordens','POST',body,tok());
@@ -1208,7 +1209,7 @@ function abrirDetalhe(id) {
 function renderDetalhe(id) {
   const o = _ordens.find(x=>x.id===id);
   if(!o) { setView('inicio'); return; }
-  setTopbar(o.crm_id||'Ordem', o.nome_cli||'');
+  setTopbar(o.crm_id||'Ordem', o.nome||'');
   const forn = _forns.find(f=>f.id===o.forn_id);
   const resp = _usuarios.find(u=>u.id===o.usuario_id);
   const d = diasAberto(o);
@@ -1217,7 +1218,7 @@ function renderDetalhe(id) {
   let h = `<div class="status-block ${statusClass}">
     <div class="sb-label">Status de pagamento</div>
     <div class="sb-status">${statusTxt}</div>
-    <div class="sb-info">Valor: R$ ${fmt(o.rec)}${o.tem_nf?' + NF':''}</div>
+    <div class="sb-info">Valor: R$ ${fmt(o.rec)}${o.nf_num?' + NF':''}</div>
     ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">✅ Registrar recebimento</button>`:''}
   </div>
   <div class="detail-actions">
@@ -1228,13 +1229,13 @@ function renderDetalhe(id) {
   </div>
   <div class="detail-section">
     <div class="detail-section-title">Cliente</div>
-    <div class="detail-row"><div class="detail-key">Nome</div><div class="detail-val">${o.nome_cli||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${o.tel||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Nome</div><div class="detail-val">${o.nome||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${o.cel||'—'}</div></div>
     ${o.cpf?`<div class="detail-row"><div class="detail-key">CPF/CNPJ</div><div class="detail-val">${o.cpf}</div></div>`:''}
   </div>
   <div class="detail-section">
     <div class="detail-section-title">Serviço</div>
-    <div class="detail-row"><div class="detail-key">Endereço</div><div class="detail-val">${o.rua||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Endereço</div><div class="detail-val">${o.logradouro||'—'}</div></div>
     <div class="detail-row"><div class="detail-key">Bairro</div><div class="detail-val">${o.bairro||'—'}</div></div>
     <div class="detail-row"><div class="detail-key">Tipo</div><div class="detail-val">${o.tipo||'—'}</div></div>
     <div class="detail-row"><div class="detail-key">Data</div><div class="detail-val">${dateF(o.data)}</div></div>
@@ -1246,8 +1247,8 @@ function renderDetalhe(id) {
     h+=`<div class="detail-section">
       <div class="detail-section-title">Financeiro</div>
       <div class="detail-row"><div class="detail-key">Receita</div><div class="detail-val acc">R$ ${fmt(o.rec)}</div></div>
-      <div class="detail-row"><div class="detail-key">Custo forn.</div><div class="detail-val">R$ ${fmt(o.custo_forn)}</div></div>
-      <div class="detail-row"><div class="detail-key">Margem</div><div class="detail-val" style="color:var(--g)">R$ ${fmt(parseFloat(o.rec||0)-parseFloat(o.custo_forn||0))}</div></div>
+      <div class="detail-row"><div class="detail-key">Custo forn.</div><div class="detail-val">R$ ${fmt(o.cst)}</div></div>
+      <div class="detail-row"><div class="detail-key">Margem</div><div class="detail-val" style="color:var(--g)">R$ ${fmt(parseFloat(o.rec||0)-parseFloat(o.cst||0))}</div></div>
       <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pg?'✅ Sim':'❌ Não'}</div></div>
     </div>`;
   }
@@ -1283,7 +1284,7 @@ async function duplicarOrdem(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const crm_id = await nextCrmId();
-    const body = {...o, id:uidGen(), crm_id, pago:false, pago_em:null, pago_val:null, pago_obs:null, col:'contratar', criado_em:nowISO(), tipo:'Troca'};
+    const body = {...o, id:uidGen(), crm_id, pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'contratar', criado_em:nowISO(), tipo:'Troca'};
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
     toast(`Ordem ${crm_id} criada!`,'ok');
@@ -1314,7 +1315,7 @@ async function desarquivarOrdem(id) {
 async function quickPagarCard(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
-    const upd={pago:true,pago_em:nowISO(),pago_val:o.rec,col:'baixar'};
+    const upd={pago:true,pago_em:nowISO(),pago_valor:o.rec,col:'baixar'};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o,upd);
     renderCurrentView();
@@ -1342,7 +1343,7 @@ async function confirmarPagoCli() {
   try {
     const o = _ordens.find(x=>x.id===id);
     const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg')?'baixar':(o?.col||'baixar');
-    const upd = {pago:true,pago_em:data?data+'T12:00:00.000Z':nowISO(),pago_val:val,pago_obs:obs||null,col:novaCol};
+    const upd = {pago:true,pago_em:data?data+'T12:00:00.000Z':nowISO(),pago_valor:val,pago_obs:obs||null,col:novaCol};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     if(o) Object.assign(o,upd);
     closeModal('pagarCliModal');
@@ -1365,8 +1366,8 @@ function buildPixPayload(valor, txid, nome, cidade, chave) {
 function abrirPix(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _pixOrdemId = id;
-  const valor = parseFloat(o.rec||0)+(o.tem_nf&&!o.pago?_nfAcrescimo:0);
-  const txid = 'CACAMBA'+( o.tel||'00000000').replace(/\D/g,'').slice(-8);
+  const valor = parseFloat(o.rec||0)+(o.nf_num&&!o.pago?_nfAcrescimo:0);
+  const txid = 'CACAMBA'+( o.cel||'00000000').replace(/\D/g,'').slice(-8);
   _pixPayload = buildPixPayload(valor, txid, PIX_NAME, PIX_CITY, PIX_KEY);
   document.getElementById('pix_valor_txt').textContent = 'R$ '+fmt(valor);
   document.getElementById('pix_code').textContent = _pixPayload;
@@ -1383,24 +1384,24 @@ async function copiarPix() {
 function enviarPixWA() {
   const o = _ordens.find(x=>x.id===_pixOrdemId);
   if(!o) return;
-  const tel = (o.tel||'').replace(/\D/g,'');
-  const msg = `Olá ${o.nome_cli||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
 // ── WHATSAPP ──
 function enviarWA(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.tel||'').replace(/\D/g,'');
+  const tel = (o.cel||'').replace(/\D/g,'');
   const d = diasAberto(o);
   const url = `cacambasp-crm.vercel.app/tracking.html?t=${tel}`;
   let msg;
   if(o.col==='inadimp') {
-    msg = `⚠️ ${o.nome_cli||''}, identificamos uma pendência na sua conta. Entre em contato para regularizar.\nLink: ${url}`;
+    msg = `⚠️ ${o.nome||''}, identificamos uma pendência na sua conta. Entre em contato para regularizar.\nLink: ${url}`;
   } else if(d>=5) {
-    msg = `Olá ${o.nome_cli||''}, temos um valor em aberto há ${d} dias. Poderia regularizar? Pix: ${url}`;
+    msg = `Olá ${o.nome||''}, temos um valor em aberto há ${d} dias. Poderia regularizar? Pix: ${url}`;
   } else {
-    msg = `Olá ${o.nome_cli||''}, segue o link para acompanhar sua ordem e realizar o pagamento: ${url}`;
+    msg = `Olá ${o.nome||''}, segue o link para acompanhar sua ordem e realizar o pagamento: ${url}`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
@@ -1410,15 +1411,15 @@ function enviarWAForn(id) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   if(!forn?.tel) { toast('Fornecedor sem telefone','warn'); return; }
   const tel = forn.tel.replace(/\D/g,'');
-  const msg = `OS ${o.crm_id||''} — ${o.nome_cli||''}\nEndereço: ${o.rua||''}, ${o.bairro||''}\nTipo: ${o.tipo||''}\nData: ${dateF(o.data)}`;
+  const msg = `OS ${o.crm_id||''} — ${o.nome||''}\nEndereço: ${o.logradouro||''}, ${o.bairro||''}\nTipo: ${o.tipo||''}\nData: ${dateF(o.data)}`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
 function enviarTracking(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.tel||'').replace(/\D/g,'');
+  const tel = (o.cel||'').replace(/\D/g,'');
   const url = `cacambasp-crm.vercel.app/tracking.html?t=${tel}`;
-  const msg = `Olá ${o.nome_cli||''}, acompanhe sua ordem aqui: ${url}`;
+  const msg = `Olá ${o.nome||''}, acompanhe sua ordem aqui: ${url}`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
