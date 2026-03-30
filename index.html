@@ -5666,6 +5666,7 @@ function abrirLotePrecosCli(fid){
     const pForn=r.preco>0?r.preco:'';
     const pCli=r.preco_cli>0?r.preco_cli:'';
     const semCli=!(r.preco_cli>0);
+    const turnoVal=r.turno||'diurno';
     return `<tr style="border-bottom:1px solid var(--brd)">
       <td style="padding:6px 8px;font-size:12px;color:var(--txt)">${nome}</td>
       <td style="padding:6px 8px;text-align:right">
@@ -5678,9 +5679,16 @@ function abrirLotePrecosCli(fid){
           placeholder="0">
       </td>
       <td style="padding:6px 8px;text-align:center">
+        <select id="lp_turno_${i}"
+          style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px">
+          <option value="diurno" ${turnoVal==='diurno'?'selected':''}>☀️ Diurno</option>
+          <option value="noturno" ${turnoVal==='noturno'?'selected':''}>🌙 Noturno</option>
+        </select>
+      </td>
+      <td style="padding:6px 8px;text-align:center">
         <input type="time" id="lp_limite_${i}" value="${r.limite||''}"
           style="width:88px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:3px 5px;font-size:11px"
-          placeholder="${r.turno==='noturno'?_limiteNoturno:_limiteDiurno}">
+          placeholder="${turnoVal==='noturno'?_limiteNoturno:_limiteDiurno}">
       </td>
     </tr>`;
   }).join('');
@@ -5705,6 +5713,7 @@ function abrirLotePrecosCli(fid){
             <th style="padding:8px;text-align:left;font-size:11px;color:var(--mut2);font-weight:600">BAIRRO</th>
             <th style="padding:8px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">PREÇO FORN (R$)</th>
             <th style="padding:8px;text-align:right;font-size:11px;color:var(--g);font-weight:600">PREÇO CLIENTE (R$)</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:#a78bfa;font-weight:600">TURNO</th>
             <th style="padding:8px;text-align:center;font-size:11px;color:#0ea5e9;font-weight:600">LIMITE CONTRATAR</th>
           </tr>
         </thead>
@@ -5754,7 +5763,8 @@ async function salvarLotePrecosCli(fid){
     const elLim=document.getElementById('lp_limite_'+i);
     if(!elForn||!elCli)return;
     const limVal=elLim?.value?.trim()||'';
-    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,...(limVal?{limite:limVal}:{limite:undefined})};
+    const turnoVal=document.getElementById('lp_turno_'+i)?.value||'diurno';
+    regioes[i]={...r,preco:parseFloat(elForn.value)||0,preco_cli:parseFloat(elCli.value)||0,turno:turnoVal,...(limVal?{limite:limVal}:{limite:undefined})};
   });
   f.regioes=regioes;
   closeModal('lotePrecoModal');
