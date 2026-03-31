@@ -1725,7 +1725,10 @@ function setTopbar(title, sub='') {
 function diasAberto(o) {
   const ref = o.data || o.criado_em;
   if(!ref) return 0;
-  return Math.floor((Date.now() - new Date(ref+'T12:00:00').getTime()) / 86400000);
+  // criado_em já tem timezone, data é só YYYY-MM-DD
+  const dt = o.data ? new Date(o.data+'T12:00:00') : new Date(o.criado_em);
+  if(isNaN(dt.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - dt.getTime()) / 86400000));
 }
 
 function atualizarAlertBadge() {
@@ -2750,6 +2753,25 @@ function abrirDetalhe(id) {
 }
 
 // ── RENDER DETALHE ──
+async function voltarOrcamento(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Voltar para Orçamento?',
+    body:`${o.crm_id||''} — ${o.nome||''}\nO card voltará para a aba de Orçamentos. O número LC é mantido.`,
+    ok:'↩️ Confirmar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'orcamento', orc_convertido_em:null},tok());
+    o.col='orcamento'; o.orc_convertido_em=null;
+    toast('↩️ Voltou para Orçamentos','ok');
+    goBack();
+  } catch(e){ toast('Erro ao mover para orçamento','err'); }
+}
+
 function renderDetalhe(id) {
   const o = _ordens.find(x=>x.id===id);
   if(!o) { setView('inicio'); return; }
@@ -2822,6 +2844,9 @@ function renderDetalhe(id) {
     <button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="abrirEditar('${o.id}')">✏️ Editar</button>
     ${o.col==='concluido'?`<button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="desarquivarOrdem('${o.id}')">↩️ Reabrir</button>`:`<button class="card-btn" style="flex:1;justify-content:center;background:var(--r2);color:var(--r);border-color:var(--r3)" onclick="arquivarOrdem('${o.id}')">📦 Arquivar</button>`}
   </div>
+  ${o.col!=='concluido'&&o.col!=='orcamento'?`<div style="padding:0 0 8px">
+    <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
+  </div>`:''}
   ${o.col!=='concluido'?`<div style="padding:0 0 16px">
     <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
   </div>`:''}`;
