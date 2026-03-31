@@ -2131,22 +2131,29 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
 // ── CARD HTML (Ver tudo) ──
 function cardHTML(o, tipo='neutral') {
   const d = diasAberto(o);
+  const forn = _forns.find(f=>f.id===o.forn_id);
+  const mg = (parseFloat(o.rec||0)-parseFloat(o.cst||0));
   const chips = [];
+  if(o.nome) chips.push(`<span class="chip">👤 ${o.nome.split(' ')[0]}</span>`);
+  if(isAdmin()&&o.rec) chips.push(`<span class="chip acc" style="font-size:10px">↑ R$${fmts(o.rec)}</span>`);
+  if(isAdmin()&&o.cst) chips.push(`<span class="chip r" style="font-size:10px">↓ R$${fmts(o.cst)}</span>`);
   if(o.pago) chips.push(`<span class="chip g">✅ Pago</span>`);
   else if(d>=5) chips.push(`<span class="chip r">🔴 ${d}d</span>`);
   else if(d>=3) chips.push(`<span class="chip acc">⚠️ ${d}d</span>`);
-  const COLS_LABEL = {contratar:'📋 Contratar',ag_entrega:'📦 Ag. Entrega',entrega:'🚛 Entrega',pagar:'💳 A pagar',faltapg:'⚠️ Falta pg',baixar:'📦 Baixar',inadimp:'🚨 Inadimp'};
-  if(o.col && o.col!=='concluido') chips.push(`<span class="chip" style="font-size:10px">${COLS_LABEL[o.col]||o.col}</span>`);
+  if(o.forn_pago) chips.push(`<span class="chip b">💰 F.Pago</span>`);
+  if(forn) chips.push(`<span class="chip">🚛 ${forn.nome.split(' ')[0]}</span>`);
   if(o.nf_num) chips.push(`<span class="chip b">🧾 NF</span>`);
+  if(o.crm_id) chips.push(`<span class="chip acc" style="font-size:9px;font-family:var(--mono)">${o.crm_id}</span>`);
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
     <div class="card-bar" style="background:${tipo==='urg'?'var(--r)':tipo==='ok'?'var(--g)':tipo==='warn'?'var(--acc)':'var(--b)'}"></div>
     <div class="card-header">
       <div onclick="event.stopPropagation();if(!${o.pago})quickPagarCard('${o.id}')" class="card-check ${o.pago?'checked':''}"></div>
-      <div class="card-name" style="flex:1;margin-left:8px">${o.nome||'—'}</div>
+      <div class="card-name" style="flex:1;margin-left:8px;font-size:14px;font-weight:700">${o.logradouro||'Sem endereço'}</div>
       <div class="card-val">R$ ${fmt(o.rec)}</div>
     </div>
-    <div class="card-addr">${o.logradouro||''} · ${o.bairro||''}</div>
-    <div class="card-chips">${chips.join('')}</div>
+    ${o.bairro?`<div class="card-addr" style="color:var(--acc);font-weight:600;font-size:12px;padding-left:28px;margin-bottom:2px">${o.bairro}</div>`:''}
+    <div class="card-addr" style="padding-left:28px;font-size:12px;color:var(--mut)">${o.tipo||''}${o.data?' · '+dateF(o.data):''}</div>
+    <div class="card-chips" style="padding-left:28px">${chips.join('')}</div>
     <div class="card-actions">
       <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
       <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
