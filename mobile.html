@@ -609,16 +609,32 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-ico" style="background:var(--cyan2)">💰</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="modal-title">Pagar fornecedor</div>
         <div style="font-size:12px;color:var(--mut)" id="pf_forn_label">—</div>
       </div>
       <div class="modal-close" onclick="closeModal('pagarFornModal')">✕</div>
     </div>
     <div class="modal-body">
-      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;margin-bottom:16px">
-        <div style="font-size:12px;color:var(--mut);margin-bottom:4px">Custo previsto</div>
-        <div style="font-size:24px;font-weight:800;color:var(--cyan);font-family:var(--mono)" id="pf_cst_display">R$ 0,00</div>
+      <!-- Ordens pendentes com este fornecedor -->
+      <div id="pf_ordens_wrap" style="margin-bottom:14px;display:none">
+        <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Ordens pendentes — selecione as que serão pagas</div>
+        <div id="pf_ordens_lista"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="pfSelecionarTodas(true)"  style="flex:1;padding:8px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px;font-weight:700;cursor:pointer">Todas</button>
+          <button onclick="pfSelecionarTodas(false)" style="flex:1;padding:8px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:12px;font-weight:700;cursor:pointer">Nenhuma</button>
+        </div>
+      </div>
+      <!-- Totais -->
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--mut);margin-bottom:4px">Total selecionado</div>
+          <div style="font-size:24px;font-weight:800;color:var(--cyan);font-family:var(--mono)" id="pf_cst_display">R$ 0,00</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--mut2)">Ordens</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt)" id="pf_crm_id">—</div>
+        </div>
       </div>
       <div class="mfi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01" inputmode="decimal" placeholder="0,00"></div>
       <div class="mfi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
@@ -916,41 +932,120 @@ async function trocarFornecedor(id) {
 }
 
 // ── PAGAR FORNECEDOR ──
+let _pf_ordens = []; // ordens pendentes do fornecedor
+
 function abrirPagarForn(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _detalheId = id;
-  const forn = _forns.find(f=>f.id===o.forn_id);
-  document.getElementById('pf_forn_label').textContent = forn?.nome || 'Fornecedor não identificado';
-  document.getElementById('pf_cst_display').textContent = 'R$ '+fmt(o.cst);
-  document.getElementById('pf_val').value = o.cst||'';
+  const fornId = o.forn_id;
+  const forn = _forns.find(f=>f.id===fornId);
+
+  // Buscar todas as ordens pendentes com este fornecedor
+  _pf_ordens = _ordens.filter(x =>
+    x.forn_id === fornId &&
+    !x.forn_pago &&
+    x.col !== 'concluido' &&
+    x.col !== 'orcamento'
+  );
+
+  document.getElementById('pf_forn_label').textContent = forn?.nome || '—';
   document.getElementById('pf_data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pf_ref').value = '';
+  document.getElementById('pf_ref').value = o.crm_id ? 'OS '+o.crm_id : '';
+
+  const wrap = document.getElementById('pf_ordens_wrap');
+  const lista = document.getElementById('pf_ordens_lista');
+
+  if(_pf_ordens.length > 1) {
+    wrap.style.display = 'block';
+    lista.innerHTML = _pf_ordens.map(ord => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" value="${ord.id}" ${ord.id===id?'checked':''} onchange="pfAtualizarTotal()"
+          style="width:18px;height:18px;accent-color:var(--cyan);flex-shrink:0;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--txt)">${ord.crm_id||'—'} · ${ord.nome||'—'}</div>
+          <div style="font-size:11px;color:var(--mut)">${ord.bairro||''}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--cyan);font-family:var(--mono);flex-shrink:0">R$ ${fmt(ord.cst)}</div>
+      </label>`).join('');
+  } else {
+    wrap.style.display = 'none';
+  }
+
+  pfAtualizarTotal();
   openModal('pagarFornModal');
 }
 
+function pfAtualizarTotal() {
+  const selecionadas = pfGetSelecionadas();
+  const total = selecionadas.reduce((s, id) => {
+    const ord = _ordens.find(x=>x.id===id);
+    return s + parseFloat(ord?.cst||0);
+  }, 0);
+  document.getElementById('pf_cst_display').textContent = 'R$ '+fmt(total);
+  document.getElementById('pf_val').value = total > 0 ? total.toFixed(2) : '';
+  const ids = selecionadas.map(id => _ordens.find(x=>x.id===id)?.crm_id).filter(Boolean);
+  document.getElementById('pf_crm_id').textContent = ids.length <= 2 ? ids.join(', ') : ids.length+' ordens';
+}
+
+function pfGetSelecionadas() {
+  if(_pf_ordens.length <= 1) return [_detalheId];
+  const checks = document.querySelectorAll('#pf_ordens_lista input[type=checkbox]:checked');
+  return Array.from(checks).map(c=>c.value);
+}
+
+function pfSelecionarTodas(val) {
+  document.querySelectorAll('#pf_ordens_lista input[type=checkbox]').forEach(c=>c.checked=val);
+  pfAtualizarTotal();
+}
+
 async function confirmarPagoForn() {
-  const id = _detalheId;
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ids = pfGetSelecionadas();
+  if(!ids.length){ toast('Selecione ao menos uma ordem','err'); return; }
   const val = parseFloat(document.getElementById('pf_val').value||0);
   const data = document.getElementById('pf_data').value;
   const forma = document.getElementById('pf_forma').value;
   const ref = document.getElementById('pf_ref').value.trim();
   if(!val){ toast('Informe o valor','err'); return; }
   const pgRef = [forma, ref].filter(Boolean).join(' | ');
-  // autoColPagamento
-  const cli = !!o.pago, forn = true;
-  let novaCol = o.col;
-  if(cli && forn) novaCol='baixar';
-  else if(!cli && forn) novaCol='faltapg';
-  const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:val, forn_pg_ref:pgRef, col:novaCol};
+
+  closeModal('pagarFornModal');
+  let ok = 0;
+  for(const id of ids) {
+    const ord = _ordens.find(x=>x.id===id); if(!ord) continue;
+    const valOrd = ids.length > 1 ? parseFloat(ord.cst||0) : val;
+    const cli = !!ord.pago;
+    const novaCol = cli ? 'baixar' : 'faltapg';
+    const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
+    try {
+      await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+      Object.assign(ord, upd);
+      ok++;
+    } catch(e){ toast('Erro em '+ord.crm_id,'err'); }
+  }
+  const algumBaixou = ids.some(id => _ordens.find(x=>x.id===id)?.col==='baixar');
+  toast(ok > 1 ? `💰 ${ok} ordens pagas ao fornecedor!` : algumBaixou ? '🎉 Tudo pago — ordem arquivada!' : '💰 Fornecedor marcado como pago','ok');
+  renderCurrentView();
+  if(_currentView==='detalhe') renderDetalhe(_detalheId);
+}
+
+// ── CONFIRMAR ENTREGA ──
+async function confirmarEntrega(id) {
+  const ok = await showConfirm({
+    ico:'✅',
+    title:'Confirmar entrega?',
+    body:'Marca a caçamba como entregue.',
+    ok:'✅ Confirmar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    Object.assign(o, upd);
-    closeModal('pagarFornModal');
-    toast(novaCol==='baixar'?'🎉 Tudo pago — ordem arquivada!':'💰 Fornecedor marcado como pago','ok');
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'entrega', entrega_confirmada:true},tok());
+    o.col='entrega'; o.entrega_confirmada=true;
+    toast('✅ Entrega confirmada!','ok');
     renderCurrentView();
-    if(_currentView==='detalhe') renderDetalhe(id);
-  } catch(e){ toast('Erro: '+e.message,'err'); }
+  } catch(e){ toast('Erro','err'); }
 }
 
 // ── CANCELAR ORDEM ──
@@ -975,9 +1070,9 @@ async function confirmarCancelar() {
   const id = _detalheId;
   const sel = document.getElementById('cancelar_motivo_sel').value;
   const txt = document.getElementById('cancelar_motivo_txt').value.trim();
-  const motivo = sel === 'outro' ? (txt || 'Cancelado') : (sel || 'Cancelado');
   if(!sel){ toast('Selecione um motivo','err'); return; }
   if(sel === 'outro' && !txt){ toast('Descreva o motivo','err'); return; }
+  const motivo = sel === 'outro' ? txt : sel;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
@@ -985,8 +1080,8 @@ async function confirmarCancelar() {
     Object.assign(o, upd);
     closeModal('cancelarModal');
     toast('🗑️ Ordem cancelada','ok');
-    goBack();
-  } catch(e){ toast('Erro ao cancelar','err'); }
+    setView('inicio');
+  } catch(e){ toast('Erro ao cancelar: '+e.message,'err'); }
 }
 
 // ── EDITAR ORDEM ──
@@ -1681,8 +1776,18 @@ function actionCardHTML(o, tipoAcao) {
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
   } else if(tipoAcao === 'entregar') {
+    // Calcular turno se fornecedor tiver info
+    const turno = forn ? (()=>{
+      let regioes = forn.regioes;
+      if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+      if(!Array.isArray(regioes)) regioes=[];
+      const bairro=(o.bairro||'').toLowerCase().trim();
+      const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
+      return reg?.turno || null;
+    })() : null;
+    const turnoLabel = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':'';
     acoes = `
-      <button class="ac-btn ac-btn-b" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">📦 Ver detalhes</button>
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();confirmarEntrega('${o.id}')">✅ Confirmar entrega</button>
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>
       ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>`;
@@ -1705,8 +1810,8 @@ function actionCardHTML(o, tipoAcao) {
       <div class="ac-main">
         <div class="ac-name">${urgBadge}${o.nome||'—'}</div>
         <div class="ac-addr">${o.logradouro||''} · ${o.bairro||''}</div>
-        ${forn?`<div style="font-size:11px;color:var(--mut);margin-top:2px">🚛 ${forn.nome}</div>`:''}
-        ${o.data?`<div style="font-size:11px;color:var(--mut);margin-top:2px">📅 ${dateF(o.data)}</div>`:''}
+        ${forn?`<div style="font-size:11px;color:var(--mut);margin-top:2px">🚛 ${forn.nome}${tipoAcao==='entregar'&&turnoLabel?' · '+turnoLabel:''}</div>`:''}
+        ${o.data?`<div style="font-size:12px;color:${tipoAcao==='entregar'?'var(--b)':'var(--mut)'};font-weight:${tipoAcao==='entregar'?'700':'400'};margin-top:2px">📅 ${dateF(o.data)}</div>`:''}
       </div>
       <div class="ac-val">R$ ${fmt(o.rec)}</div>
     </div>
