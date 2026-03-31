@@ -106,9 +106,9 @@ input,select,textarea,button{font-family:var(--font)}
 .ag-lote-btn{background:transparent;border:1px solid var(--bor);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;margin-left:auto}
 .ag-lote-btn.on{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
 
-/* ── FORN CARD (pagar fornecedor condensado) ── */
+/* ── FORN CARD CONDENSADO ── */
 .forn-pay-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;overflow:hidden}
-.forn-pay-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.forn-pay-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
 .forn-pay-av{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
 .forn-pay-info{flex:1;min-width:0}
 .forn-pay-nome{font-size:14px;font-weight:800;color:var(--txt)}
@@ -121,18 +121,24 @@ input,select,textarea,button{font-family:var(--font)}
 .fp-periodo{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--bor);flex-wrap:wrap}
 .fp-periodo label{font-size:11px;font-weight:700;color:var(--mut);white-space:nowrap}
 .fp-periodo input[type=date]{background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--txt);outline:none;flex:1;min-width:100px}
-.fp-periodo input[type=date]:focus{border-color:var(--cyan)}
 .fp-pagar-btn{background:var(--cyan);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
-.fp-ordem-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bor)}
+.fp-ordem-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bor);cursor:pointer}
 .fp-ordem-row:last-child{border-bottom:none}
-.fp-ordem-check{width:20px;height:20px;border-radius:5px;border:2px solid var(--bor2);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+.fp-ordem-check{width:20px;height:20px;border-radius:5px;border:2px solid var(--bor2);background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
 .fp-ordem-check.on{background:var(--cyan);border-color:var(--cyan)}
 .fp-ordem-check.on::after{content:'✓';font-size:11px;font-weight:800;color:#000}
 .fp-ordem-info{flex:1;min-width:0}
 .fp-ordem-nome{font-size:12px;font-weight:700;color:var(--txt)}
 .fp-ordem-sub{font-size:11px;color:var(--mut);margin-top:1px}
 .fp-ordem-cst{font-size:13px;font-weight:800;color:var(--cyan);flex-shrink:0}
-
+/* ── ABA PAGAMENTOS ── */
+.pg-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;padding:14px}
+.pg-card:nth-child(even){background:var(--card)}
+.pg-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pg-forn{font-size:14px;font-weight:800;color:var(--txt);flex:1}
+.pg-val{font-size:16px;font-weight:800;color:var(--cyan)}
+.pg-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--mut)}
+.pg-tag{background:var(--b2);color:var(--b);border-radius:4px;padding:2px 7px;font-weight:700;font-family:var(--mono);font-size:11px}
 /* ── RELATÓRIO EQUIPE ── */
 .eq-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:8px 14px;padding:16px;transition:.15s}
 .eq-card:nth-child(even){background:var(--card)}
@@ -485,6 +491,11 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="scroll-area" id="equipeContent"></div>
   </div>
 
+  <!-- VIEW: PAGAMENTOS FORNECEDOR (admin) -->
+  <div class="view" id="view-pagamentos">
+    <div class="scroll-area" id="pagamentosContent"></div>
+  </div>
+
   <!-- VIEW: NOVA ORDEM -->
   <div class="view" id="view-nova">
     <div class="form-scroll" id="novaForm"></div>
@@ -726,6 +737,65 @@ input,select,textarea,button{font-family:var(--font)}
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
         <button class="btn acc" onclick="confirmarPagoForn()" style="background:var(--cyan);color:#000;border-color:transparent">💰 Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DADOS PAGAMENTO FORNECEDOR -->
+<div class="modal-overlay" id="fpDadosModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--cyan2)">💰</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-title">Pagar fornecedor</div>
+        <div style="font-size:12px;color:var(--mut)" id="fpd_label">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('fpDadosModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--mut);margin-bottom:2px">Total a pagar</div>
+          <div style="font-size:22px;font-weight:800;color:var(--cyan);font-family:var(--mono)" id="fpd_total">R$ 0,00</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--mut2)">Ordens</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt)" id="fpd_qtd">—</div>
+        </div>
+      </div>
+      <div class="mfi">
+        <label>Valor pago (R$)</label>
+        <input type="number" id="fpd_val" step="0.01" inputmode="decimal" placeholder="0,00">
+      </div>
+      <div class="mfi">
+        <label>Data do pagamento</label>
+        <input type="date" id="fpd_data">
+      </div>
+      <div class="mfi">
+        <label>Forma de pagamento</label>
+        <select id="fpd_forma" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
+          <option>Pix</option>
+          <option>Transferência</option>
+          <option>Dinheiro</option>
+          <option>Boleto</option>
+        </select>
+      </div>
+      <div class="mfi">
+        <label>Etiqueta / Referência</label>
+        <input type="text" id="fpd_ref" placeholder="Ex: FornJuliana25032026" style="font-family:var(--mono);font-size:13px">
+      </div>
+      <div class="mfi">
+        <label>Observação (opcional)</label>
+        <input type="text" id="fpd_obs" placeholder="Ex: Pagamento antecipado, desconto combinado...">
+      </div>
+      <div style="font-size:11px;color:var(--mut);background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px;margin-bottom:16px">
+        💡 Use a mesma etiqueta para todas as ordens do lote. Ex: <span style="font-family:var(--mono);color:var(--acc)" id="fpd_sugestao">FornNome</span>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('fpDadosModal')">Cancelar</button>
+        <button class="btn acc" onclick="fpConfirmarDados()" style="background:var(--cyan);color:#000;border-color:transparent">💰 Confirmar pagamento</button>
       </div>
     </div>
   </div>
@@ -1466,6 +1536,9 @@ function buildBottomNav() {
       <button class="bnb" id="bnb-financeiro" onclick="setView('financeiro')">
         <div class="bnb-ico">💰</div><div class="bnb-lbl">Financeiro</div>
       </button>
+      <button class="bnb" id="bnb-pagamentos" onclick="setView('pagamentos')">
+        <div class="bnb-ico">🧾</div><div class="bnb-lbl">Pgtos Forn</div>
+      </button>
       <button class="bnb" id="bnb-alertas" onclick="setView('alertas')">
         <div class="bnb-ico">🔔</div><div class="bnb-lbl">Alertas</div>
         <div class="bnb-badge" id="badge-alert"></div>
@@ -1505,7 +1578,7 @@ function setView(v, pushStack=true) {
   const fab = document.getElementById('fabNova');
   fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
@@ -1541,6 +1614,7 @@ function renderCurrentView() {
     case 'equipe':    renderEquipe(); break;
     case 'financeiro': renderFinanceiro(); break;
     case 'alertas':   renderAlertas(); break;
+    case 'pagamentos': renderPagamentos(); break;
     case 'nova':      renderNova(); break;
     case 'editar':    renderEditar(); break;
     case 'detalhe':   if(_detalheId) renderDetalhe(_detalheId); break;
@@ -1697,18 +1771,12 @@ function getOrdensComAcao(ordens) {
   const grupos = { contratar:[], entregar:[], cobrar:[], pagar_forn:[] };
   ordens.forEach(o => {
     if(o.col==='concluido'||o.col==='orcamento') return;
-    // contratar
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
-    // entregar
     if(o.col==='ag_entrega') grupos.entregar.push(o);
-    // cobrar cliente — independente de pagar forn
     if(!o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
-    // pagar fornecedor — independente de cobrar cliente
     if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='ag_entrega')) grupos.pagar_forn.push(o);
   });
-  Object.keys(grupos).forEach(k => {
-    grupos[k].sort((a,b) => diasAberto(b) - diasAberto(a));
-  });
+  Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
   return grupos;
 }
 
@@ -1832,7 +1900,7 @@ function renderFilaAcoes(ordens) {
       if(isCobrar) {
         h += actionCardHTML(o, g.key, true);
       } else if(g.key === 'pagar_forn') {
-        // será renderizado condensado por fornecedor abaixo
+        // renderizado condensado abaixo
       } else {
         h += actionCardHTML(o, g.key);
       }
@@ -1855,129 +1923,6 @@ function renderFilaAcoes(ordens) {
   atualizarAlertBadge();
 }
 
-// ── PAGAR FORNECEDOR CONDENSADO ──
-let _fpStates = {};    // { fornId: { collapsed, dtIni, dtFim, selected } }
-
-function fornPayCards(ordens) {
-  // Agrupar por fornecedor
-  const map = {};
-  ordens.forEach(o => {
-    const fid = o.forn_id || '__sem_forn__';
-    if(!map[fid]) map[fid] = [];
-    map[fid].push(o);
-  });
-  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
-  let h = '';
-  Object.entries(map).forEach(([fid, list]) => {
-    const forn = _forns.find(f=>f.id===fid);
-    const nome = forn?.nome || 'Sem fornecedor';
-    const cor = colors[nome.charCodeAt(0)%colors.length];
-    if(!_fpStates[fid]) {
-      // período padrão: semana atual (seg–dom)
-      const hoje = new Date();
-      const dow = hoje.getDay();
-      const seg = new Date(hoje); seg.setDate(hoje.getDate() - (dow===0?6:dow-1)); seg.setHours(0,0,0,0);
-      const dom = new Date(seg); dom.setDate(seg.getDate()+6);
-      const toISO = d => d.toISOString().slice(0,10);
-      _fpStates[fid] = { collapsed:true, dtIni:toISO(seg), dtFim:toISO(dom), selected:new Set(list.map(o=>o.id)) };
-    }
-    const st = _fpStates[fid];
-    // filtrar pelo período
-    const filtradas = list.filter(o => {
-      if(!o.data) return true;
-      return o.data >= st.dtIni && o.data <= st.dtFim;
-    });
-    const totalCst = filtradas.filter(o=>st.selected.has(o.id)).reduce((s,o)=>s+parseFloat(o.cst||0),0);
-    const qtdSel = filtradas.filter(o=>st.selected.has(o.id)).length;
-
-    h += `<div class="forn-pay-card">
-      <div class="forn-pay-header" onclick="toggleFornPay('${fid}')">
-        <div class="forn-pay-av" style="background:${cor}22;color:${cor}">${nome[0]?.toUpperCase()}</div>
-        <div class="forn-pay-info">
-          <div class="forn-pay-nome">${nome}</div>
-          <div class="forn-pay-sub">${list.length} ordem${list.length!==1?'s':''} pendente${list.length!==1?'s':''}</div>
-        </div>
-        <div class="forn-pay-val">
-          <div class="forn-pay-total">R$ ${fmt(totalCst)}</div>
-          <div class="forn-pay-qtd">${qtdSel} selecionada${qtdSel!==1?'s':''}</div>
-        </div>
-        <span style="font-size:11px;color:var(--mut);margin-left:6px">${st.collapsed?'▶':'▼'}</span>
-      </div>
-      <div class="forn-pay-body${st.collapsed?' collapsed':''}">
-        <div class="fp-periodo">
-          <label>De</label>
-          <input type="date" value="${st.dtIni}" onchange="fpSetPeriodo('${fid}','ini',this.value)" onclick="event.stopPropagation()">
-          <label>até</label>
-          <input type="date" value="${st.dtFim}" onchange="fpSetPeriodo('${fid}','fim',this.value)" onclick="event.stopPropagation()">
-          <button class="fp-pagar-btn" onclick="event.stopPropagation();fpPagarLote('${fid}')">💰 Pagar selecionadas</button>
-        </div>
-        ${filtradas.map(o => {
-          const sel = st.selected.has(o.id);
-          return `<div class="fp-ordem-row" onclick="fpToggleOrdem('${fid}','${o.id}')">
-            <div class="fp-ordem-check${sel?' on':''}"></div>
-            <div class="fp-ordem-info">
-              <div class="fp-ordem-nome">${o.nome||'—'} · ${o.crm_id||''}</div>
-              <div class="fp-ordem-sub">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
-            </div>
-            <div class="fp-ordem-cst">R$ ${fmt(o.cst)}</div>
-          </div>`;
-        }).join('')}
-        ${filtradas.length===0?`<div style="padding:14px;text-align:center;font-size:12px;color:var(--mut)">Nenhuma ordem neste período</div>`:''}
-      </div>
-    </div>`;
-  });
-  return h;
-}
-
-function toggleFornPay(fid) {
-  if(!_fpStates[fid]) return;
-  _fpStates[fid].collapsed = !_fpStates[fid].collapsed;
-  renderCurrentView();
-}
-
-function fpSetPeriodo(fid, tipo, val) {
-  if(!_fpStates[fid]) return;
-  if(tipo==='ini') _fpStates[fid].dtIni = val;
-  else _fpStates[fid].dtFim = val;
-  renderCurrentView();
-}
-
-function fpToggleOrdem(fid, oid) {
-  if(!_fpStates[fid]) return;
-  const s = _fpStates[fid].selected;
-  if(s.has(oid)) s.delete(oid); else s.add(oid);
-  renderCurrentView();
-}
-
-async function fpPagarLote(fid) {
-  const st = _fpStates[fid];
-  if(!st) return;
-  const forn = _forns.find(f=>f.id===fid);
-  const ids = [...st.selected];
-  if(!ids.length) { toast('Nenhuma ordem selecionada','warn'); return; }
-  const ordens = _ordens.filter(o=>ids.includes(o.id));
-  const total = ordens.reduce((s,o)=>s+parseFloat(o.cst||0),0);
-  const ok = await showConfirm({
-    ico:'💰',
-    title:`Pagar ${forn?.nome||'fornecedor'}?`,
-    body:`${ids.length} ordem${ids.length!==1?'s':''} · Total R$ ${fmt(total)}`,
-    ok:'💰 Confirmar',
-    okClass:'acc',
-    cancel:'Cancelar'
-  });
-  if(!ok) return;
-  const hoje = new Date().toISOString().slice(0,10);
-  try {
-    for(const o of ordens) {
-      await api(`ordens?id=eq.${o.id}`,'PATCH',{forn_pago:true, forn_pago_em:hoje+'T12:00:00.000Z', forn_pago_valor:parseFloat(o.cst||0)},tok());
-      o.forn_pago=true; o.forn_pago_em=hoje+'T12:00:00.000Z';
-    }
-    delete _fpStates[fid];
-    toast(`✅ ${ids.length} pagamento${ids.length!==1?'s':''} registrado${ids.length!==1?'s':''}!`,'ok');
-    renderCurrentView();
-  } catch(e){ toast('Erro ao registrar pagamento','err'); }
-}
-
 function renderVerTudo(ordens) {
   if(!ordens.length) {
     const h = _searchQuery
@@ -1987,29 +1932,24 @@ function renderVerTudo(ordens) {
     atualizarAlertBadge();
     return;
   }
-
-  // Agrupar por etapa — TODAS as ordens, não só as com ação pendente
   const ETAPAS = [
-    { key:'vt-contratar', label:'📋 Contratar fornecedor', cls:'ag-contratar', filter: o => o.col==='contratar' },
-    { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  filter: o => o.col==='ag_entrega'||o.col==='entrega' },
-    { key:'vt-cobrar',    label:'💳 Cobrar cliente',        cls:'ag-cobrar',    filter: o => !o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3) },
-    { key:'vt-pforn',     label:'💰 Pagar fornecedor',      cls:'ag-pagar',     filter: o => o.forn_id && !o.forn_pago },
-    { key:'vt-ok',        label:'✅ Sem pendência',          cls:'',             filter: o => o.pago && o.forn_pago },
-    { key:'vt-outros',    label:'📁 Outros',                cls:'',             filter: o => true }, // catch-all
+    { key:'vt-contratar', label:'📋 Contratar fornecedor', cls:'ag-contratar', fn: o => o.col==='contratar' },
+    { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  fn: o => o.col==='ag_entrega'||o.col==='entrega' },
+    { key:'vt-cobrar',    label:'💳 Cobrar cliente',        cls:'ag-cobrar',    fn: o => !o.pago&&(o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3) },
+    { key:'vt-pforn',     label:'💰 Pagar fornecedor',      cls:'ag-pagar',     fn: o => o.forn_id&&!o.forn_pago },
+    { key:'vt-ok',        label:'✅ Sem pendência',          cls:'',             fn: o => o.pago&&(!o.forn_id||o.forn_pago) },
+    { key:'vt-outros',    label:'📁 Outros',                cls:'',             fn: o => true },
   ];
-
-  // distribuir sem duplicar — cada ordem vai para o primeiro grupo que encaixa
   const usados = new Set();
   const grupos = ETAPAS.map(e => {
-    const lista = ordens.filter(o => !usados.has(o.id) && e.filter(o));
+    const lista = ordens.filter(o => !usados.has(o.id) && e.fn(o));
     lista.forEach(o => usados.add(o.id));
     return { ...e, lista };
   });
-
   let h = '';
   grupos.forEach(g => {
     if(!g.lista.length) return;
-    if(_groupStates[g.key] === undefined) _groupStates[g.key] = true; // fechado por padrão
+    if(_groupStates[g.key] === undefined) _groupStates[g.key] = true;
     const collapsed = _groupStates[g.key];
     h += `<div class="action-group ${g.cls}" style="margin-bottom:4px">
       <div class="ag-header${collapsed?' collapsed':''}" id="ag-header-${g.key}" onclick="toggleGrupo('${g.key}')">
@@ -2021,7 +1961,6 @@ function renderVerTudo(ordens) {
     g.lista.forEach(o => h += cardHTML(o, diasAberto(o)>=5?'urg':!o.pago?'warn':'ok'));
     h += `</div></div>`;
   });
-
   document.getElementById('inicioContent').innerHTML = h;
   atualizarAlertBadge();
 }
@@ -2058,7 +1997,7 @@ function selecionarTodosLote(grupo) {
   });
   const ordens = getOrdensComAcao(base)[grupo]||[];
   if(!ordens.length) return;
-  const todos = ordens.length > 0 && ordens.every(o=>_loteSelected.has(o.id));
+  const todos = ordens.every(o=>_loteSelected.has(o.id));
   if(todos) ordens.forEach(o=>_loteSelected.delete(o.id));
   else ordens.forEach(o=>_loteSelected.add(o.id));
   renderCurrentView();
@@ -2216,6 +2155,216 @@ function cardHTML(o, tipo='neutral') {
 }
 
 // ── RENDER EQUIPE ──
+// ── PAGAR FORNECEDOR CONDENSADO ──
+let _fpStates = {}; // { fornId: { collapsed, dtIni, dtFim, selected } }
+let _fpPendingFid = null; // fornId aguardando confirmação de dados
+
+function _fpSemanaAtual() {
+  const hoje = new Date();
+  const dow = hoje.getDay();
+  const seg = new Date(hoje); seg.setDate(hoje.getDate()-(dow===0?6:dow-1)); seg.setHours(0,0,0,0);
+  const dom = new Date(seg); dom.setDate(seg.getDate()+6);
+  return { ini: seg.toISOString().slice(0,10), fim: dom.toISOString().slice(0,10) };
+}
+
+function fornPayCards(ordens) {
+  const map = {};
+  ordens.forEach(o => {
+    const fid = o.forn_id||'__sem__';
+    if(!map[fid]) map[fid] = [];
+    map[fid].push(o);
+  });
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  let h = '';
+  Object.entries(map).forEach(([fid, list]) => {
+    const forn = _forns.find(f=>f.id===fid);
+    const nome = forn?.nome||'Sem fornecedor';
+    const cor = colors[nome.charCodeAt(0)%colors.length];
+    if(!_fpStates[fid]) {
+      const p = _fpSemanaAtual();
+      _fpStates[fid] = { collapsed:true, dtIni:p.ini, dtFim:p.fim, selected:new Set(list.map(o=>o.id)) };
+    }
+    const st = _fpStates[fid];
+    const filtradas = list.filter(o => !o.data || (o.data>=st.dtIni && o.data<=st.dtFim));
+    const selList = filtradas.filter(o=>st.selected.has(o.id));
+    const totalCst = selList.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+    h += `<div class="forn-pay-card">
+      <div class="forn-pay-header" onclick="fpToggleCard('${fid}')">
+        <div class="forn-pay-av" style="background:${cor}22;color:${cor}">${nome[0]?.toUpperCase()||'?'}</div>
+        <div class="forn-pay-info">
+          <div class="forn-pay-nome">${nome}</div>
+          <div class="forn-pay-sub">${list.length} ordem${list.length!==1?'s':''} pendente${list.length!==1?'s':''}</div>
+        </div>
+        <div class="forn-pay-val">
+          <div class="forn-pay-total">R$ ${fmt(totalCst)}</div>
+          <div class="forn-pay-qtd">${selList.length} selecionada${selList.length!==1?'s':''}</div>
+        </div>
+        <span style="font-size:11px;color:var(--mut);margin-left:6px">${st.collapsed?'▶':'▼'}</span>
+      </div>
+      <div class="forn-pay-body${st.collapsed?' collapsed':''}">
+        <div class="fp-periodo">
+          <label>De</label>
+          <input type="date" value="${st.dtIni}" onchange="fpSetPer('${fid}','ini',this.value)" onclick="event.stopPropagation()">
+          <label>até</label>
+          <input type="date" value="${st.dtFim}" onchange="fpSetPer('${fid}','fim',this.value)" onclick="event.stopPropagation()">
+          <button class="fp-pagar-btn" onclick="event.stopPropagation();fpAbrirDados('${fid}')">💰 Pagar selecionadas</button>
+        </div>
+        ${filtradas.length===0
+          ? `<div style="padding:14px;text-align:center;font-size:12px;color:var(--mut)">Nenhuma ordem neste período</div>`
+          : filtradas.map(o=>{
+              const sel=st.selected.has(o.id);
+              return `<div class="fp-ordem-row" onclick="fpToggleOrdem('${fid}','${o.id}')">
+                <div class="fp-ordem-check${sel?' on':''}"></div>
+                <div class="fp-ordem-info">
+                  <div class="fp-ordem-nome">${o.nome||'—'} · <span style="font-family:var(--mono);font-size:11px">${o.crm_id||''}</span></div>
+                  <div class="fp-ordem-sub">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+                </div>
+                <div class="fp-ordem-cst">R$ ${fmt(o.cst)}</div>
+              </div>`;
+            }).join('')
+        }
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function fpToggleCard(fid) {
+  if(!_fpStates[fid]) return;
+  _fpStates[fid].collapsed = !_fpStates[fid].collapsed;
+  renderCurrentView();
+}
+
+function fpSetPer(fid, tipo, val) {
+  if(!_fpStates[fid]) return;
+  if(tipo==='ini') _fpStates[fid].dtIni=val;
+  else _fpStates[fid].dtFim=val;
+  renderCurrentView();
+}
+
+function fpToggleOrdem(fid, oid) {
+  if(!_fpStates[fid]) return;
+  const s = _fpStates[fid].selected;
+  if(s.has(oid)) s.delete(oid); else s.add(oid);
+  renderCurrentView();
+}
+
+function fpAbrirDados(fid) {
+  const st = _fpStates[fid];
+  if(!st) return;
+  const forn = _forns.find(f=>f.id===fid);
+  const nome = forn?.nome||'Fornecedor';
+  const ids = [...st.selected];
+  const ordens = _ordens.filter(o=>ids.includes(o.id));
+  if(!ordens.length) { toast('Nenhuma ordem selecionada','warn'); return; }
+  const total = ordens.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  _fpPendingFid = fid;
+  // Preencher modal
+  document.getElementById('fpd_label').textContent = `${nome} · ${ordens.length} ordem${ordens.length!==1?'s':''}`;
+  document.getElementById('fpd_total').textContent = 'R$ '+fmt(total);
+  document.getElementById('fpd_qtd').textContent = ordens.length+' ordem'+(ordens.length!==1?'s':'');
+  document.getElementById('fpd_val').value = total.toFixed(2);
+  document.getElementById('fpd_data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fpd_forma').value = 'Pix';
+  document.getElementById('fpd_ref').value = '';
+  document.getElementById('fpd_obs').value = '';
+  // Sugestão de etiqueta: FornNome + data
+  const hoje = new Date();
+  const tag = (nome.split(' ')[0]+hoje.getDate().toString().padStart(2,'0')+(hoje.getMonth()+1).toString().padStart(2,'0')+hoje.getFullYear()).replace(/[^A-Za-z0-9]/g,'');
+  document.getElementById('fpd_sugestao').textContent = tag;
+  document.getElementById('fpd_ref').placeholder = `Ex: ${tag}`;
+  openModal('fpDadosModal');
+}
+
+async function fpConfirmarDados() {
+  const fid = _fpPendingFid;
+  if(!fid || !_fpStates[fid]) return;
+  const val   = parseFloat(document.getElementById('fpd_val').value)||0;
+  const data  = document.getElementById('fpd_data').value;
+  const forma = document.getElementById('fpd_forma').value;
+  const ref   = document.getElementById('fpd_ref').value.trim();
+  const obs   = document.getElementById('fpd_obs').value.trim();
+  const pgRef = [forma, ref, obs].filter(Boolean).join(' | ');
+  if(!data) { toast('Informe a data do pagamento','warn'); return; }
+  const ids = [..._fpStates[fid].selected];
+  const ordens = _ordens.filter(o=>ids.includes(o.id));
+  closeModal('fpDadosModal');
+  try {
+    for(const o of ordens) {
+      const valOrd = parseFloat(o.cst||0);
+      await api(`ordens?id=eq.${o.id}`,'PATCH',{
+        forn_pago:true,
+        forn_pago_em:data+'T12:00:00.000Z',
+        forn_pago_valor:valOrd,
+        forn_pg_ref:pgRef
+      },tok());
+      o.forn_pago=true; o.forn_pago_em=data+'T12:00:00.000Z';
+      o.forn_pago_valor=valOrd; o.forn_pg_ref=pgRef;
+    }
+    delete _fpStates[fid];
+    _fpPendingFid = null;
+    toast(`✅ ${ordens.length} pagamento${ordens.length!==1?'s':''} registrado${ordens.length!==1?'s':''}!`,'ok');
+    renderCurrentView();
+  } catch(e) { toast('Erro ao registrar pagamento','err'); }
+}
+
+// ── ABA PAGAMENTOS FORNECEDOR ──
+function renderPagamentos() {
+  setTopbar('Pagamentos Fornecedor','');
+  const pagas = _ordens.filter(o=>o.forn_pago && o.forn_pago_em).sort((a,b)=>new Date(b.forn_pago_em)-new Date(a.forn_pago_em));
+  if(!pagas.length) {
+    document.getElementById('pagamentosContent').innerHTML = `<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum pagamento</div><div class="empty-desc">Os pagamentos a fornecedores aparecerão aqui.</div></div>`;
+    return;
+  }
+  // Agrupar por etiqueta/referência (forn_pg_ref) para mostrar lotes
+  const lotes = {};
+  pagas.forEach(o => {
+    const key = o.forn_pg_ref||'__sem_ref__';
+    if(!lotes[key]) lotes[key] = [];
+    lotes[key].push(o);
+  });
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  let h = `<div style="padding:10px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">${pagas.length} pagamento${pagas.length!==1?'s':''} registrado${pagas.length!==1?'s':''}</div>`;
+  Object.entries(lotes).forEach(([ref, list]) => {
+    const forn = _forns.find(f=>f.id===list[0].forn_id);
+    const nome = forn?.nome||'Fornecedor';
+    const cor = colors[nome.charCodeAt(0)%colors.length];
+    const total = list.reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
+    const data = list[0].forn_pago_em ? new Date(list[0].forn_pago_em).toLocaleDateString('pt-BR') : '—';
+    const partes = ref.split(' | ');
+    const forma = partes[0]||'—';
+    const tag = partes[1]||'';
+    const obs = partes[2]||'';
+    const collapsed = _groupStates['pg-'+ref] !== false;
+    h += `<div class="pg-card">
+      <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${btoa(ref).replace(/[^a-zA-Z0-9]/g,'')}')">
+        <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
+        <div style="flex:1;min-width:0">
+          <div class="pg-forn">${nome}</div>
+          <div class="pg-meta">
+            <span>📅 ${data}</span>
+            <span>💳 ${forma}</span>
+            <span>${list.length} ordem${list.length!==1?'s':''}</span>
+            ${tag?`<span class="pg-tag">${tag}</span>`:''}
+          </div>
+          ${obs?`<div style="font-size:11px;color:var(--mut);margin-top:3px">💬 ${obs}</div>`:''}
+        </div>
+        <div class="pg-val">R$ ${fmt(total)}</div>
+      </div>
+      <div id="ag-body-pg-${btoa(ref).replace(/[^a-zA-Z0-9]/g,'')}" class="ag-body${collapsed?' collapsed':''}">
+        ${list.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--bor)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.nome||'—'} · <span style="font-family:var(--mono);font-size:10px;color:var(--mut)">${o.crm_id||''}</span></div>
+            <div style="font-size:11px;color:var(--mut);margin-top:1px">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--cyan)">R$ ${fmt(o.forn_pago_valor||o.cst)}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  });
+  document.getElementById('pagamentosContent').innerHTML = h;
+}
+
 function renderEquipe() {
   setTopbar('Equipe — Performance','');
   const mes = new Date().getMonth();
