@@ -1009,8 +1009,8 @@ async function confirmarEntrega(id) {
   if(!ok) return;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'entrega', entrega_confirmada:true},tok());
-    o.col='entrega'; o.entrega_confirmada=true;
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'pagar', entrega_confirmada:true},tok());
+    o.col='pagar'; o.entrega_confirmada=true;
     toast('✅ Entrega confirmada!','ok');
     renderCurrentView();
   } catch(e){ toast('Erro','err'); }
@@ -1603,12 +1603,12 @@ function getAcaoPendente(o) {
   if(o.col==='concluido' || o.col==='orcamento') return null;
   // Precisa contratar fornecedor
   if(!o.forn_id && o.col==='contratar') return 'contratar';
-  // Entrega hoje / ag_entrega com fornecedor nomeado
-  if(o.col==='ag_entrega' || o.col==='entrega') return 'entregar';
+  // Aguardando entrega (só ag_entrega — entrega confirmada já moveu para pagar)
+  if(o.col==='ag_entrega') return 'entregar';
   // Precisa cobrar cliente
   if(!o.pago && (o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
-  // Precisa pagar fornecedor
-  if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar')) return 'pagar_forn';
+  // Precisa pagar fornecedor (cliente já pagou, mas forn ainda não)
+  if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega')) return 'pagar_forn';
   // Ordem sem ação — not in queue
   return null;
 }
@@ -1635,8 +1635,8 @@ function toggleGrupo(key) {
   if(!body) return;
   const collapsed = _groupStates[key];
   body.classList.toggle('collapsed', collapsed);
-  chevron.classList.toggle('open', !collapsed);
-  header.classList.toggle('collapsed', collapsed);
+  chevron?.classList.toggle('open', !collapsed);
+  header?.classList.toggle('collapsed', collapsed);
 }
 
 // ── RENDER INÍCIO ──
@@ -1733,7 +1733,6 @@ function actionCardHTML(o, tipoAcao) {
   const d = diasAberto(o);
   const tel = (o.cel||'').replace(/\D/g,'');
   const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
-  let turnoLabel = '';
   let acoes = '';
 
   if(tipoAcao === 'contratar') {
@@ -1847,11 +1846,16 @@ function renderEquipe() {
     const total=v.ordens.reduce((s,o)=>s+parseFloat(o.rec||0),0);
     const pct=Math.round(total/maxRec*100);
     const cor=colors[v.nome.charCodeAt(0)%colors.length];
-    h+=`<div class="vend-card">
+    const eqKey='eq-'+id;
+    const collapsed = _groupStates[eqKey] !== false; // fechado por padrão
+    h+=`<div class="vend-card" style="cursor:pointer" onclick="toggleGrupo('${eqKey}')">
       <div class="vend-header">
         <div class="vend-av" style="background:${cor}22;color:${cor}">${v.nome[0]?.toUpperCase()||'?'}</div>
         <div class="vend-name">${v.nome}${mine?' <span class="chip" style="color:var(--acc);font-size:10px">minha</span>':''}</div>
-        <div class="vend-val">R$ ${fmt(total)}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="vend-val">R$ ${fmt(total)}</div>
+          <span id="ag-chevron-${eqKey}" class="ag-chevron${collapsed?'':' open'}" style="font-size:12px;color:var(--mut)">▼</span>
+        </div>
       </div>
       <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${cor}"></div></div>
       <div class="vend-stats">
@@ -1859,9 +1863,10 @@ function renderEquipe() {
         <div class="vend-stat"><span>${v.ordens.filter(o=>o.pago).length}</span> pagas</div>
         <div class="vend-stat"><span>${v.ordens.filter(o=>!o.pago).length}</span> pendentes</div>
       </div>
-    </div>`;
-    v.ordens.slice(0,3).forEach(o=>h+=cardHTML(o,'neutral'));
-    if(v.ordens.length>3) h+=`<div class="sec-lbl" style="padding-top:4px;padding-bottom:10px">+${v.ordens.length-3} ordens...</div>`;
+    </div>
+    <div id="ag-body-${eqKey}" class="ag-body${collapsed?' collapsed':''}">`;
+    v.ordens.forEach(o=>h+=cardHTML(o,'neutral'));
+    h+=`</div>`;
   });
   document.getElementById('equipeContent').innerHTML = h||`<div class="empty-state"><div class="empty-ico">👥</div><div class="empty-title">Sem ordens</div></div>`;
 }
