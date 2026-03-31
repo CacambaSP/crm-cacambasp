@@ -1603,11 +1603,11 @@ function getAcaoPendente(o) {
   if(o.col==='concluido' || o.col==='orcamento') return null;
   // Precisa contratar fornecedor
   if(!o.forn_id && o.col==='contratar') return 'contratar';
-  // Aguardando entrega (só ag_entrega — entrega confirmada já moveu para pagar)
+  // Aguardando entrega (só ag_entrega)
   if(o.col==='ag_entrega') return 'entregar';
   // Precisa cobrar cliente
   if(!o.pago && (o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
-  // Precisa pagar fornecedor (cliente já pagou, mas forn ainda não)
+  // Precisa pagar fornecedor
   if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega')) return 'pagar_forn';
   // Ordem sem ação — not in queue
   return null;
@@ -1636,7 +1636,7 @@ function toggleGrupo(key) {
   const collapsed = _groupStates[key];
   body.classList.toggle('collapsed', collapsed);
   chevron?.classList.toggle('open', !collapsed);
-  header?.classList.toggle('collapsed', collapsed);
+  if(header) header.classList.toggle('collapsed', collapsed);
 }
 
 // ── RENDER INÍCIO ──
@@ -1733,6 +1733,7 @@ function actionCardHTML(o, tipoAcao) {
   const d = diasAberto(o);
   const tel = (o.cel||'').replace(/\D/g,'');
   const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
+  let turnoLabel = '';
   let acoes = '';
 
   if(tipoAcao === 'contratar') {
@@ -1847,7 +1848,7 @@ function renderEquipe() {
     const pct=Math.round(total/maxRec*100);
     const cor=colors[v.nome.charCodeAt(0)%colors.length];
     const eqKey='eq-'+id;
-    const collapsed = _groupStates[eqKey] !== false; // fechado por padrão
+    const collapsed = _groupStates[eqKey] !== false;
     h+=`<div class="vend-card" style="cursor:pointer" onclick="toggleGrupo('${eqKey}')">
       <div class="vend-header">
         <div class="vend-av" style="background:${cor}22;color:${cor}">${v.nome[0]?.toUpperCase()||'?'}</div>
