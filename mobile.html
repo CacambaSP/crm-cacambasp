@@ -226,7 +226,7 @@ input,select,textarea,button{font-family:var(--font)}
 .detail-val.acc{color:var(--acc);font-family:var(--mono)}
 .detail-val.g{color:var(--g)}
 .detail-val.r{color:var(--r)}
-.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px}
+.detail-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 16px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px}
 .detail-action{padding:14px 10px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:64px;justify-content:center;transition:.1s;color:var(--txt)}
 .detail-action:active{transform:scale(.96)}
 .detail-action .da-ico{font-size:22px;line-height:1}
@@ -311,6 +311,28 @@ input,select,textarea,button{font-family:var(--font)}
 .confirm-btns .btn.acc{background:var(--acc);color:#000;border:none}
 .confirm-btns .btn.r{background:var(--r);color:#fff;border:none}
 
+/* ── EDIT TABS ── */
+.edit-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--card);border-radius:var(--rad3);padding:4px}
+.edit-tab{flex:1;padding:9px 4px;border-radius:6px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--mut);transition:.15s;text-align:center}
+.edit-tab.on{background:var(--acc);color:#000}
+.edit-panel{display:none}
+.edit-panel.on{display:block}
+
+/* ── FORNECEDOR LISTA ── */
+.forn-lista{display:flex;flex-direction:column;gap:8px}
+.forn-item{display:flex;align-items:center;gap:12px;padding:14px 15px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);cursor:pointer;transition:border-color .15s,background .15s}
+.forn-item:active{background:var(--sur)}
+.forn-item.compativel{border-color:var(--g3);background:var(--g2)}
+.forn-item.ativo{border-color:var(--acc3);background:var(--acc2)}
+.forn-av{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.forn-info{flex:1;min-width:0}
+.forn-nome{font-size:14px;font-weight:700;color:var(--txt)}
+.forn-badge{font-size:11px;padding:2px 7px;border-radius:10px;display:inline-flex;align-items:center;margin-top:3px}
+.forn-badge.compat{background:var(--g2);color:var(--g)}
+.forn-badge.geral{background:var(--card);color:var(--mut)}
+.forn-preco{font-size:15px;font-weight:800;color:var(--acc);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+.forn-section-label{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;padding:8px 2px 4px}
+
 /* ── EMPTY STATE ── */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 30px;text-align:center;gap:12px}
 .empty-ico{font-size:52px;opacity:.4}
@@ -318,8 +340,11 @@ input,select,textarea,button{font-family:var(--font)}
 .empty-desc{font-size:14px;color:var(--mut)}
 .empty-btn{margin-top:8px;padding:12px 24px;background:var(--acc);color:#000;border:none;border-radius:var(--rad3);font-size:14px;font-weight:700;cursor:pointer}
 
-/* ── LIGAR ── */
+/* ── PHONE LINK ── */
 .phone-link{color:inherit;text-decoration:none}
+
+/* ── EDIT FORM (reutiliza form-group do nova ordem) ── */
+.edit-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 100px}
 </style>
 </head>
 <body>
@@ -408,6 +433,14 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="detail-scroll" id="detalheContent"></div>
   </div>
 
+  <!-- VIEW: EDITAR ORDEM -->
+  <div class="view" id="view-editar">
+    <div class="edit-scroll" id="editarForm"></div>
+    <div class="submit-wrap">
+      <button class="submit-btn" id="submitEditarBtn" onclick="salvarEdicao()">💾 Salvar alterações</button>
+    </div>
+  </div>
+
   <!-- BOTTOM NAV -->
   <div class="bottom-nav" id="bottomNav"></div>
 
@@ -457,6 +490,200 @@ input,select,textarea,button{font-family:var(--font)}
       <div class="pix-btns">
         <button class="btn btn-copy" onclick="copiarPix()">📋 Copiar</button>
         <button class="btn btn-wa" onclick="enviarPixWA()">📲 Enviar WA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CANCELAR ORDEM -->
+<div class="modal-overlay" id="cancelarModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--r2)">❌</div>
+      <div class="modal-title">Cancelar ordem</div>
+      <div class="modal-close" onclick="closeModal('cancelarModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad3);padding:12px 15px;margin-bottom:16px;font-size:13px;color:var(--r)" id="cancelar_nome_label">—</div>
+      <div class="mfi">
+        <label>Motivo do cancelamento</label>
+        <select id="cancelar_motivo_sel" onchange="onCancelarMotivoChange()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none;margin-bottom:10px">
+          <option value="">— Selecione —</option>
+          <option>Cliente desistiu</option>
+          <option>Erro de cadastro</option>
+          <option>Sem fornecedor disponível</option>
+          <option>Problema no pagamento</option>
+          <option>Duplicada</option>
+          <option value="outro">Outro motivo...</option>
+        </select>
+        <input type="text" id="cancelar_motivo_txt" placeholder="Descreva o motivo..." style="display:none;width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('cancelarModal')">Voltar</button>
+        <button class="btn r" onclick="confirmarCancelar()" style="background:var(--r);color:#fff;border-color:transparent">❌ Cancelar ordem</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR ORDEM -->
+<div class="modal-overlay" id="editarModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--b2)">✏️</div>
+      <div>
+        <div class="modal-title">Editar ordem</div>
+        <div style="font-size:12px;color:var(--mut)" id="editar_crm_label">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('editarModal')">✕</div>
+    </div>
+    <div class="modal-body" style="padding-bottom:0">
+      <div class="edit-tabs">
+        <button class="edit-tab on" id="etab-cliente" onclick="setEditTab('cliente')">👤 Cliente</button>
+        <button class="edit-tab" id="etab-servico" onclick="setEditTab('servico')">🗑️ Serviço</button>
+        <button class="edit-tab" id="etab-valores" onclick="setEditTab('valores')">💰 Valores</button>
+      </div>
+      <!-- Tab cliente -->
+      <div class="edit-panel on" id="epanel-cliente">
+        <div class="mfi"><label>Nome *</label><input type="text" id="ed_nome" placeholder="Nome completo" autocomplete="off"></div>
+        <div class="mfi"><label>WhatsApp *</label><input type="tel" id="ed_cel" placeholder="(11) 99999-9999" inputmode="tel"></div>
+        <div class="mfi"><label>CPF / CNPJ</label><input type="text" id="ed_cpf" placeholder="000.000.000-00" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
+      </div>
+      <!-- Tab serviço -->
+      <div class="edit-panel" id="epanel-servico">
+        <div class="mfi"><label>Rua e número *</label><input type="text" id="ed_rua" placeholder="Ex: Rua das Flores, 123"></div>
+        <div class="mfi"><label>Bairro *</label><input type="text" id="ed_bairro" placeholder="Bairro"></div>
+        <div class="mfi"><label>Cidade</label><input type="text" id="ed_cidade" placeholder="São Paulo"></div>
+        <div class="mfi"><label>Tipo</label>
+          <select id="ed_tipo" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
+            <option>Locação</option><option>Troca</option><option>Retirada</option>
+          </select>
+        </div>
+        <div class="mfi"><label>Data de entrega</label><input type="date" id="ed_data"></div>
+        <div class="mfi"><label>Observação</label><input type="text" id="ed_obs" placeholder="Observações..."></div>
+      </div>
+      <!-- Tab valores -->
+      <div class="edit-panel" id="epanel-valores">
+        <div class="mfi"><label>Valor cliente (R$)</label><input type="number" id="ed_rec" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+        <div class="mfi"><label>Custo fornecedor (R$)</label><input type="number" id="ed_cst" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+        <div class="mfi"><label>Fornecedor</label>
+          <select id="ed_forn" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none"></select>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top:16px">
+        <button class="btn" onclick="closeModal('editarModal')">Cancelar</button>
+        <button class="btn acc" onclick="salvarEdicao()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ATRIBUIR FORNECEDOR -->
+<div class="modal-overlay" id="atribuirFornModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--r2);font-size:20px">🚛</div>
+      <div>
+        <div class="modal-title">Contratar fornecedor</div>
+        <div style="font-size:12px;color:var(--mut)" id="af_bairro_label">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('atribuirFornModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="af_lista" class="forn-lista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PAGAR FORNECEDOR -->
+<div class="modal-overlay" id="pagarFornModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--cyan2)">💰</div>
+      <div>
+        <div class="modal-title">Pagar fornecedor</div>
+        <div style="font-size:12px;color:var(--mut)" id="pf_forn_label">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('pagarFornModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:4px">Custo previsto</div>
+        <div style="font-size:24px;font-weight:800;color:var(--cyan);font-family:var(--mono)" id="pf_cst_display">R$ 0,00</div>
+      </div>
+      <div class="mfi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+      <div class="mfi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
+      <div class="mfi">
+        <label>Forma de pagamento</label>
+        <select id="pf_forma" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
+          <option>Pix</option>
+          <option>TED</option>
+          <option>Dinheiro</option>
+          <option>Boleto</option>
+        </select>
+      </div>
+      <div class="mfi"><label>Referência / comprovante</label><input type="text" id="pf_ref" placeholder="Ex: Pix 14:32 confirmado"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
+        <button class="btn acc" onclick="confirmarPagoForn()" style="background:var(--cyan);color:#000;border-color:transparent">💰 Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REMARCAR ENTREGA -->
+<div class="modal-overlay" id="remarcarModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--b2)">📅</div>
+      <div class="modal-title">Remarcar entrega</div>
+      <div class="modal-close" onclick="closeModal('remarcarModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--mut)" id="rem_data_atual">Data atual: —</div>
+      <div class="mfi"><label>Nova data de entrega</label><input type="date" id="rem_data"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('remarcarModal')">Cancelar</button>
+        <button class="btn acc" onclick="confirmarRemarcar()">📅 Remarcar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CANCELAR ORDEM -->
+<div class="modal-overlay" id="cancelarModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--r2)">❌</div>
+      <div>
+        <div class="modal-title">Cancelar ordem</div>
+        <div style="font-size:12px;color:var(--mut)" id="cancel_ordem_label">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('cancelarModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="mfi">
+        <label>Motivo do cancelamento</label>
+        <select id="cancel_motivo_sel" onchange="onCancelMotivoSel(this.value)" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none;margin-bottom:10px">
+          <option value="">— Selecionar motivo —</option>
+          <option value="Cliente desistiu">Cliente desistiu</option>
+          <option value="Preço alto">Preço alto</option>
+          <option value="Erro de cadastro">Erro de cadastro</option>
+          <option value="Duplicada">Duplicada</option>
+          <option value="Sem fornecedor disponível">Sem fornecedor disponível</option>
+          <option value="outro">Outro (digitar)</option>
+        </select>
+        <input type="text" id="cancel_motivo_txt" placeholder="Descreva o motivo..." style="display:none;width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('cancelarModal')">Voltar</button>
+        <button class="btn" style="background:var(--r);color:#fff;border-color:transparent" onclick="confirmarCancelar()">❌ Cancelar ordem</button>
       </div>
     </div>
   </div>
@@ -572,6 +799,387 @@ function resolveConfirm(v) {
 // ── MODAIS ──
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── ATRIBUIR FORNECEDOR ──
+function abrirAtribuirForn(id) {
+  _detalheId = id;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const bairro = (o.bairro||'').toLowerCase().trim();
+  document.getElementById('af_bairro_label').textContent = o.bairro ? 'Bairro: '+o.bairro : 'Bairro não informado';
+
+  const compativeis = [];
+  const gerais = [];
+  _forns.forEach(f => {
+    const regioes = Array.isArray(f.regioes) ? f.regioes : (typeof f.regioes==='string' ? JSON.parse(f.regioes||'[]') : []);
+    if(!regioes.length){ gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
+    if(!bairro){ gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
+    const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
+    if(reg) compativeis.push({f, preco:parseFloat(reg.preco||0), preco_cli:parseFloat(reg.preco_cli||0), tipo:'compativel'});
+    else gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
+  });
+
+  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+  let h = '';
+  if(compativeis.length) {
+    h += `<div class="forn-section-label">✓ Atendem ${o.bairro||'este bairro'} (${compativeis.length})</div>`;
+    compativeis.forEach(s => { h += fornItemHTML(s, o.forn_id, cores); });
+  }
+  if(gerais.length) {
+    h += `<div class="forn-section-label">Disponíveis (${gerais.length})</div>`;
+    gerais.forEach(s => { h += fornItemHTML(s, o.forn_id, cores); });
+  }
+  if(!compativeis.length && !gerais.length) {
+    h = `<div class="empty-state" style="padding:40px 20px"><div class="empty-ico">🚛</div><div class="empty-title">Sem fornecedores</div></div>`;
+  }
+
+  document.getElementById('af_lista').innerHTML = h;
+  openModal('atribuirFornModal');
+}
+
+function fornItemHTML(s, fornAtualId, cores) {
+  const f = s.f;
+  const idx = _forns.indexOf(f);
+  const cor = cores[idx % cores.length];
+  const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const ativo = f.id === fornAtualId;
+  const preco = s.preco_cli > 0 ? s.preco_cli : s.preco;
+  return `<div class="forn-item ${s.tipo==='compativel'?'compativel':''} ${ativo?'ativo':''}" onclick="selecionarFornecedor('${f.id}')">
+    <div class="forn-av" style="background:${cor}22;color:${cor}">${ini}</div>
+    <div class="forn-info">
+      <div class="forn-nome">${f.nome}${ativo?' ✓':''}</div>
+      <span class="forn-badge ${s.tipo==='compativel'?'compat':'geral'}">${s.tipo==='compativel'?'✓ atende bairro':'geral'}</span>
+    </div>
+    <div class="forn-preco">${preco>0?'R$ '+fmt(preco):'—'}</div>
+  </div>`;
+}
+
+async function selecionarFornecedor(fornId) {
+  const o = _ordens.find(x=>x.id===_detalheId); if(!o) return;
+  const f = _forns.find(x=>x.id===fornId); if(!f) return;
+  closeModal('atribuirFornModal');
+  // autoColFornNomeado: se estava em contratar, vai para ag_entrega
+  if(o.col==='contratar') o.col='ag_entrega';
+  o.forn_id = fornId;
+  try {
+    await api(`ordens?id=eq.${o.id}`,'PATCH',{forn_id:fornId, col:o.col},tok());
+    toast('🚛 '+f.nome+' atribuído!','ok');
+    renderCurrentView();
+    if(_currentView==='detalhe') renderDetalhe(o.id);
+  } catch(e){ toast('Erro ao salvar','err'); }
+}
+
+// ── TROCAR FORNECEDOR ──
+async function trocarFornecedor(id) {
+  const ok = await showConfirm({ico:'🔄',title:'Trocar fornecedor?',body:'Remove o fornecedor atual e volta a ordem para Contratar.',ok:'Trocar',okClass:'acc',cancel:'Cancelar'});
+  if(!ok) return;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'contratar',forn_id:null,entrega_confirmada:false},tok());
+    o.col='contratar'; o.forn_id=null; o.entrega_confirmada=false;
+    toast('🔄 Fornecedor removido','ok');
+    renderDetalhe(id);
+  } catch(e){ toast('Erro','err'); }
+}
+
+// ── PAGAR FORNECEDOR ──
+function abrirPagarForn(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _detalheId = id;
+  const forn = _forns.find(f=>f.id===o.forn_id);
+  document.getElementById('pf_forn_label').textContent = forn?.nome || 'Fornecedor não identificado';
+  document.getElementById('pf_cst_display').textContent = 'R$ '+fmt(o.cst);
+  document.getElementById('pf_val').value = o.cst||'';
+  document.getElementById('pf_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pf_ref').value = '';
+  openModal('pagarFornModal');
+}
+
+async function confirmarPagoForn() {
+  const id = _detalheId;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const val = parseFloat(document.getElementById('pf_val').value||0);
+  const data = document.getElementById('pf_data').value;
+  const forma = document.getElementById('pf_forma').value;
+  const ref = document.getElementById('pf_ref').value.trim();
+  if(!val){ toast('Informe o valor','err'); return; }
+  const pgRef = [forma, ref].filter(Boolean).join(' | ');
+  // autoColPagamento
+  const cli = !!o.pago, forn = true;
+  let novaCol = o.col;
+  if(cli && forn) novaCol='baixar';
+  else if(!cli && forn) novaCol='faltapg';
+  const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:val, forn_pg_ref:pgRef, col:novaCol};
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o, upd);
+    closeModal('pagarFornModal');
+    toast(novaCol==='baixar'?'🎉 Tudo pago — ordem arquivada!':'💰 Fornecedor marcado como pago','ok');
+    renderCurrentView();
+    if(_currentView==='detalhe') renderDetalhe(id);
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ── CANCELAR ORDEM ──
+function abrirCancelar(id) {
+  _detalheId = id;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  document.getElementById('cancelar_nome_label').textContent = `${o.crm_id||''} — ${o.nome||'—'}`;
+  document.getElementById('cancelar_motivo_sel').value = '';
+  document.getElementById('cancelar_motivo_txt').value = '';
+  document.getElementById('cancelar_motivo_txt').style.display = 'none';
+  openModal('cancelarModal');
+}
+
+function onCancelarMotivoChange() {
+  const sel = document.getElementById('cancelar_motivo_sel').value;
+  const txt = document.getElementById('cancelar_motivo_txt');
+  txt.style.display = sel === 'outro' ? 'block' : 'none';
+  if(sel === 'outro') setTimeout(()=>txt.focus(), 100);
+}
+
+async function confirmarCancelar() {
+  const id = _detalheId;
+  const sel = document.getElementById('cancelar_motivo_sel').value;
+  const txt = document.getElementById('cancelar_motivo_txt').value.trim();
+  const motivo = sel === 'outro' ? (txt || 'Cancelado') : (sel || 'Cancelado');
+  if(!sel){ toast('Selecione um motivo','err'); return; }
+  if(sel === 'outro' && !txt){ toast('Descreva o motivo','err'); return; }
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  try {
+    const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o, upd);
+    closeModal('cancelarModal');
+    toast('🗑️ Ordem cancelada','ok');
+    goBack();
+  } catch(e){ toast('Erro ao cancelar','err'); }
+}
+
+// ── EDITAR ORDEM ──
+let _editTab = 'cliente';
+
+function setEditTab(tab) {
+  _editTab = tab;
+  document.querySelectorAll('.edit-tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.edit-panel').forEach(p => p.classList.remove('on'));
+  document.getElementById('etab-'+tab).classList.add('on');
+  document.getElementById('epanel-'+tab).classList.add('on');
+}
+
+function abrirEditar(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _detalheId = id;
+  document.getElementById('editar_crm_label').textContent = o.crm_id || '';
+  // Preencher campos
+  document.getElementById('ed_nome').value = o.nome||'';
+  document.getElementById('ed_cel').value = o.cel||'';
+  document.getElementById('ed_cpf').value = o.cpf||'';
+  document.getElementById('ed_rua').value = o.logradouro||'';
+  document.getElementById('ed_bairro').value = o.bairro||'';
+  document.getElementById('ed_cidade').value = o.cidade||'São Paulo';
+  document.getElementById('ed_tipo').value = o.tipo||'Locação';
+  document.getElementById('ed_data').value = o.data||'';
+  document.getElementById('ed_obs').value = o.obs||'';
+  document.getElementById('ed_rec').value = o.rec||'';
+  document.getElementById('ed_cst').value = o.cst||'';
+  // Preencher select de fornecedores
+  const fSel = document.getElementById('ed_forn');
+  fSel.innerHTML = '<option value="">— Sem fornecedor —</option>' +
+    _forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('');
+  setEditTab('cliente');
+  openModal('editarModal');
+}
+
+async function salvarEdicao() {
+  const id = _detalheId;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const nome = document.getElementById('ed_nome').value.trim();
+  const cel  = document.getElementById('ed_cel').value.trim();
+  if(!nome){ toast('Nome obrigatório','err'); setEditTab('cliente'); return; }
+  if(!cel){  toast('Celular obrigatório','err'); setEditTab('cliente'); return; }
+  const fornId = document.getElementById('ed_forn').value||null;
+  const upd = {
+    nome, cel: cel.replace(/\D/g,''),
+    cpf:       document.getElementById('ed_cpf').value.trim()||null,
+    logradouro:document.getElementById('ed_rua').value.trim(),
+    bairro:    document.getElementById('ed_bairro').value.trim(),
+    cidade:    document.getElementById('ed_cidade').value.trim()||'São Paulo',
+    tipo:      document.getElementById('ed_tipo').value,
+    data:      document.getElementById('ed_data').value||null,
+    obs:       document.getElementById('ed_obs').value.trim()||null,
+    rec:       parseFloat(document.getElementById('ed_rec').value)||0,
+    cst:       parseFloat(document.getElementById('ed_cst').value)||0,
+    forn_id:   fornId,
+  };
+  // Se atribuiu fornecedor novo e estava em contratar, avança coluna
+  if(fornId && fornId !== o.forn_id && o.col==='contratar') upd.col = 'ag_entrega';
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o, upd);
+    closeModal('editarModal');
+    toast('✅ Ordem atualizada!','ok');
+    renderCurrentView();
+    renderDetalhe(id);
+  } catch(e){ toast('Erro ao salvar: '+e.message,'err'); }
+}
+
+// ── CANCELAR ORDEM ──
+function abrirCancelar(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _detalheId = id;
+  document.getElementById('cancel_ordem_label').textContent = (o.crm_id||'Ordem')+' · '+( o.nome||'');
+  document.getElementById('cancel_motivo_sel').value = '';
+  document.getElementById('cancel_motivo_txt').style.display = 'none';
+  document.getElementById('cancel_motivo_txt').value = '';
+  openModal('cancelarModal');
+}
+
+function onCancelMotivoSel(val) {
+  const txt = document.getElementById('cancel_motivo_txt');
+  txt.style.display = val === 'outro' ? 'block' : 'none';
+  if(val !== 'outro') txt.value = '';
+}
+
+async function confirmarCancelar() {
+  const id = _detalheId;
+  const sel = document.getElementById('cancel_motivo_sel').value;
+  const txt = document.getElementById('cancel_motivo_txt').value.trim();
+  const motivo = sel === 'outro' ? txt : sel;
+  if(!motivo){ toast('Selecione ou informe o motivo','err'); return; }
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'❌',
+    title:'Cancelar esta ordem?',
+    body:`<strong>${o.nome||''}</strong><br>${o.bairro||''}<br><br>Motivo: ${motivo}`,
+    ok:'Cancelar ordem',
+    okClass:'r',
+    cancel:'Voltar'
+  });
+  if(!ok) return;
+  try {
+    const now = nowISO();
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'concluido',concluido_em:now,cancel_motivo:motivo},tok());
+    o.col='concluido'; o.concluido_em=now; o.cancel_motivo=motivo;
+    closeModal('cancelarModal');
+    toast('Ordem cancelada','ok');
+    setView('inicio');
+  } catch(e){ toast('Erro ao cancelar','err'); }
+}
+
+// ── EDITAR ORDEM ──
+let _editarId = null;
+
+function abrirEditar(id) {
+  _editarId = id;
+  setView('editar');
+}
+
+function renderEditar() {
+  const o = _ordens.find(x=>x.id===_editarId);
+  if(!o){ setView('inicio'); return; }
+  setTopbar('Editar ordem', o.crm_id||'');
+  const vendedores = isAdmin() ? _usuarios.map(u=>`<option value="${u.id}"${u.id===o.usuario_id?' selected':''}>${u.nome}</option>`).join('') : '';
+  document.getElementById('editarForm').innerHTML = `
+    ${isAdmin()?`<div class="form-group"><div class="form-group-title">Responsável</div><div class="form-field"><label>Vendedor</label><select id="ed_user">${vendedores}</select></div></div>`:''}
+    <div class="form-group">
+      <div class="form-group-title">Cliente</div>
+      <div class="form-field"><label>Nome *</label><input type="text" id="ed_nome" value="${o.nome||''}" autocomplete="off"></div>
+      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="ed_wh" value="${o.cel||''}" inputmode="tel"></div>
+      <div class="form-field"><label>CPF / CNPJ</label><input type="text" id="ed_cpf" value="${o.cpf||''}" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Endereço</div>
+      <div class="form-field"><label>Rua e número *</label><input type="text" id="ed_rua" value="${o.logradouro||''}"></div>
+      <div class="form-field"><label>Bairro *</label><input type="text" id="ed_bairro" value="${o.bairro||''}"></div>
+      <div class="form-field"><label>Cidade</label><input type="text" id="ed_cidade" value="${o.cidade||'São Paulo'}"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Serviço</div>
+      <div class="form-field"><label>Tipo</label>
+        <select id="ed_tipo">
+          <option${o.tipo==='Locação'?' selected':''}>Locação</option>
+          <option${o.tipo==='Troca'?' selected':''}>Troca</option>
+          <option${o.tipo==='Retirada'?' selected':''}>Retirada</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Data entrega</label><input type="date" id="ed_data" value="${o.data||''}"></div>
+      <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="ed_rec" value="${o.rec||''}" step="0.01" inputmode="decimal"></div>
+      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="ed_cst" value="${o.cst||''}" step="0.01" inputmode="decimal"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Fornecedor</div>
+      <div class="form-field"><label>Fornecedor</label>
+        <select id="ed_forn">
+          <option value="">— Nenhum —</option>
+          ${_forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field"><label>Observação</label><textarea id="ed_obs" style="min-height:80px;font-size:14px">${o.obs||''}</textarea></div>
+    </div>`;
+}
+
+async function salvarEdicao() {
+  const id = _editarId;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const nome  = document.getElementById('ed_nome')?.value?.trim();
+  const wh    = document.getElementById('ed_wh')?.value?.trim();
+  const rua   = document.getElementById('ed_rua')?.value?.trim();
+  const bairro= document.getElementById('ed_bairro')?.value?.trim();
+  if(!nome||!wh||!rua||!bairro){ toast('Preencha os campos obrigatórios','err'); return; }
+  const btn = document.getElementById('submitEditarBtn');
+  btn.disabled=true; btn.textContent='Salvando...';
+  try {
+    const patch = {
+      nome,
+      cel: wh.replace(/\D/g,''),
+      cpf: document.getElementById('ed_cpf')?.value?.trim()||null,
+      logradouro: rua,
+      bairro,
+      cidade: document.getElementById('ed_cidade')?.value?.trim()||'São Paulo',
+      tipo: document.getElementById('ed_tipo')?.value||o.tipo,
+      data: document.getElementById('ed_data')?.value||null,
+      rec: parseFloat(document.getElementById('ed_rec')?.value||o.rec||0),
+      cst: parseFloat(document.getElementById('ed_cst')?.value||o.cst||0),
+      forn_id: document.getElementById('ed_forn')?.value||null,
+      obs: document.getElementById('ed_obs')?.value?.trim()||null,
+    };
+    if(isAdmin()) patch.usuario_id = document.getElementById('ed_user')?.value||o.usuario_id;
+    await api(`ordens?id=eq.${id}`,'PATCH',patch,tok());
+    Object.assign(o, patch);
+    toast('Alterações salvas!','ok');
+    _viewStack = [];
+    _detalheId = id;
+    setView('detalhe');
+  } catch(e){
+    toast('Erro ao salvar: '+e.message,'err');
+  } finally { btn.disabled=false; btn.textContent='💾 Salvar alterações'; }
+}
+
+// ── REMARCAR DA FILA (alias — já abre o mesmo modal) ──
+
+function abrirRemarcar(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _detalheId = id;
+  document.getElementById('rem_data_atual').textContent = 'Data atual: '+(o.data ? dateF(o.data) : 'não definida');
+  document.getElementById('rem_data').value = o.data || new Date().toISOString().split('T')[0];
+  openModal('remarcarModal');
+}
+
+async function confirmarRemarcar() {
+  const id = _detalheId;
+  const nd = document.getElementById('rem_data').value;
+  if(!nd){ toast('Selecione uma data','err'); return; }
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',{data:nd, entrega_confirmada:false},tok());
+    o.data=nd; o.entrega_confirmada=false;
+    closeModal('remarcarModal');
+    toast('📅 Remarcado para '+dateF(nd),'ok');
+    renderCurrentView();
+    if(_currentView==='detalhe') renderDetalhe(id);
+  } catch(e){ toast('Erro','err'); }
+}
+
 
 // ── SWIPE DOWN PARA FECHAR MODAL ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -727,9 +1335,10 @@ async function loadApp() {
     _autoId = setInterval(async()=>{
       try{
         setSyncDot('loading');
-        const novo = isAdmin()
-          ? await api('ordens?order=criado_em.desc','GET',null,tok())
-          : await api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc','GET',null,tok());
+        const path = isAdmin()
+          ? 'ordens?order=criado_em.desc'
+          : 'ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc';
+        const novo = await api(path,'GET',null,tok());
         if(novo && JSON.stringify(novo.map(o=>o.id+o.pago+o.col)) !== JSON.stringify(_ordens.map(o=>o.id+o.pago+o.col))){
           _ordens = novo;
           renderCurrentView();
@@ -817,19 +1426,27 @@ function setView(v, pushStack=true) {
   document.getElementById('toggleBar').style.display = (v==='inicio' && isAdmin()) ? 'flex' : 'none';
   // FAB oculto na tela nova e detalhe
   const fab = document.getElementById('fabNova');
-  fab.style.display = (v==='nova'||v==='detalhe') ? 'none' : 'flex';
+  fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='novo') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
 
 async function goBack() {
-  if(_currentView === 'nova') {
-    const nome = document.getElementById('nv_nome')?.value?.trim();
-    const wh   = document.getElementById('nv_wh')?.value?.trim();
-    if(nome || wh) {
-      const ok = await showConfirm({ico:'⚠️',title:'Descartar ordem?',body:'Os dados preenchidos serão perdidos.',ok:'Descartar',okClass:'r',cancel:'Continuar editando'});
+  if(_currentView === 'nova' || _currentView === 'editar') {
+    const formDirty = _currentView === 'nova'
+      ? (document.getElementById('nv_nome')?.value?.trim() || document.getElementById('nv_wh')?.value?.trim())
+      : true; // editar sempre pergunta
+    if(formDirty) {
+      const ok = await showConfirm({
+        ico:'⚠️',
+        title: _currentView === 'nova' ? 'Descartar ordem?' : 'Descartar alterações?',
+        body: _currentView === 'nova' ? 'Os dados preenchidos serão perdidos.' : 'As alterações não salvas serão perdidas.',
+        ok:'Descartar',
+        okClass:'r',
+        cancel:'Continuar editando'
+      });
       if(!ok) return;
     }
   }
@@ -848,6 +1465,7 @@ function renderCurrentView() {
     case 'financeiro': renderFinanceiro(); break;
     case 'alertas':   renderAlertas(); break;
     case 'nova':      renderNova(); break;
+    case 'editar':    renderEditar(); break;
     case 'detalhe':   if(_detalheId) renderDetalhe(_detalheId); break;
   }
 }
@@ -1025,12 +1643,13 @@ function actionCardHTML(o, tipoAcao) {
 
   if(tipoAcao === 'contratar') {
     acoes = `
-      <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">🚛 Contratar fornecedor</button>
+      <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
   } else if(tipoAcao === 'entregar') {
     acoes = `
-      <button class="ac-btn ac-btn-b" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">📦 Ver ordem</button>
+      <button class="ac-btn ac-btn-b" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">📦 Ver detalhes</button>
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>
       ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>`;
   } else if(tipoAcao === 'cobrar') {
@@ -1040,8 +1659,9 @@ function actionCardHTML(o, tipoAcao) {
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
   } else if(tipoAcao === 'pagar_forn') {
     acoes = `
-      <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">💰 Pagar fornecedor</button>
-      ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}`;
+      <button class="ac-btn ac-btn-primary" style="background:var(--cyan);color:#000" onclick="event.stopPropagation();abrirPagarForn('${o.id}')">💰 Registrar pagamento</button>
+      ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
+      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWAForn('${o.id}')">📲 WA forn.</button>`;
   }
 
   const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
@@ -1387,7 +2007,14 @@ function renderDetalhe(id) {
     <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico">📲</div>WA Cliente</button>
     <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico">⚡</div>Gerar Pix</button>
     ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico">📞</div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico">📞</div>Ligar</button>`}
+    <button class="detail-action da-wa" onclick="enviarWAForn('${o.id}')"><div class="da-ico">🚛</div>WA Forn.</button>
     <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico">🔗</div>Tracking</button>
+  </div>
+  ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Trocar fornecedor</button>`}
+    <button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">📅 Remarcar</button>
+    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" style="background:var(--cyan2);color:var(--cyan);border:1px solid rgba(6,182,212,.3)" onclick="abrirPagarForn('${o.id}')">💰 Pagar forn.</button>`:''}
+  </div>`:''}
   </div>
   <div class="detail-section">
     <div class="detail-section-title">Cliente</div>
@@ -1427,10 +2054,14 @@ function renderDetalhe(id) {
       </div>
     </div>`;
   }
-  h+=`<div style="display:flex;gap:10px;padding:4px 0 16px">
+  h+=`<div style="display:flex;gap:10px;padding:4px 0 4px">
     <button class="card-btn cb-ghost" style="flex:1;justify-content:center" onclick="duplicarOrdem('${o.id}')">🔁 Duplicar</button>
+    <button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="abrirEditar('${o.id}')">✏️ Editar</button>
     ${o.col==='concluido'?`<button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="desarquivarOrdem('${o.id}')">↩️ Reabrir</button>`:`<button class="card-btn" style="flex:1;justify-content:center;background:var(--r2);color:var(--r);border-color:var(--r3)" onclick="arquivarOrdem('${o.id}')">📦 Arquivar</button>`}
-  </div>`;
+  </div>
+  ${o.col!=='concluido'?`<div style="padding:0 0 16px">
+    <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
+  </div>`:''}`;
   document.getElementById('detalheContent').innerHTML = h;
 }
 
