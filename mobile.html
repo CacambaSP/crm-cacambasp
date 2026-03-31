@@ -1733,6 +1733,7 @@ function actionCardHTML(o, tipoAcao) {
   const d = diasAberto(o);
   const tel = (o.cel||'').replace(/\D/g,'');
   const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
+  let turnoLabel = '';
   let acoes = '';
 
   if(tipoAcao === 'contratar') {
