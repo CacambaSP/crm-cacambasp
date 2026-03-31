@@ -106,8 +106,36 @@ input,select,textarea,button{font-family:var(--font)}
 .ag-lote-btn{background:transparent;border:1px solid var(--bor);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;margin-left:auto}
 .ag-lote-btn.on{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
 
+/* ── FORN CARD (pagar fornecedor condensado) ── */
+.forn-pay-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;overflow:hidden}
+.forn-pay-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.forn-pay-av{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
+.forn-pay-info{flex:1;min-width:0}
+.forn-pay-nome{font-size:14px;font-weight:800;color:var(--txt)}
+.forn-pay-sub{font-size:11px;color:var(--mut);margin-top:1px}
+.forn-pay-val{text-align:right;flex-shrink:0}
+.forn-pay-total{font-size:16px;font-weight:800;color:var(--cyan)}
+.forn-pay-qtd{font-size:10px;color:var(--mut);margin-top:1px}
+.forn-pay-body{border-top:1px solid var(--bor)}
+.forn-pay-body.collapsed{display:none}
+.fp-periodo{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--bor);flex-wrap:wrap}
+.fp-periodo label{font-size:11px;font-weight:700;color:var(--mut);white-space:nowrap}
+.fp-periodo input[type=date]{background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--txt);outline:none;flex:1;min-width:100px}
+.fp-periodo input[type=date]:focus{border-color:var(--cyan)}
+.fp-pagar-btn{background:var(--cyan);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.fp-ordem-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bor)}
+.fp-ordem-row:last-child{border-bottom:none}
+.fp-ordem-check{width:20px;height:20px;border-radius:5px;border:2px solid var(--bor2);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+.fp-ordem-check.on{background:var(--cyan);border-color:var(--cyan)}
+.fp-ordem-check.on::after{content:'✓';font-size:11px;font-weight:800;color:#000}
+.fp-ordem-info{flex:1;min-width:0}
+.fp-ordem-nome{font-size:12px;font-weight:700;color:var(--txt)}
+.fp-ordem-sub{font-size:11px;color:var(--mut);margin-top:1px}
+.fp-ordem-cst{font-size:13px;font-weight:800;color:var(--cyan);flex-shrink:0}
+
 /* ── RELATÓRIO EQUIPE ── */
 .eq-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:8px 14px;padding:16px;transition:.15s}
+.eq-card:nth-child(even){background:var(--card)}
 .eq-card:active{opacity:.85}
 .eq-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .eq-av{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0}
@@ -1477,7 +1505,7 @@ function setView(v, pushStack=true) {
   const fab = document.getElementById('fabNova');
   fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
@@ -1668,10 +1696,16 @@ function getAcaoPendente(o) {
 function getOrdensComAcao(ordens) {
   const grupos = { contratar:[], entregar:[], cobrar:[], pagar_forn:[] };
   ordens.forEach(o => {
-    const acao = getAcaoPendente(o);
-    if(acao && grupos[acao]) grupos[acao].push(o);
+    if(o.col==='concluido'||o.col==='orcamento') return;
+    // contratar
+    if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
+    // entregar
+    if(o.col==='ag_entrega') grupos.entregar.push(o);
+    // cobrar cliente — independente de pagar forn
+    if(!o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
+    // pagar fornecedor — independente de cobrar cliente
+    if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='ag_entrega')) grupos.pagar_forn.push(o);
   });
-  // Ordenar por urgência dentro de cada grupo
   Object.keys(grupos).forEach(k => {
     grupos[k].sort((a,b) => diasAberto(b) - diasAberto(a));
   });
@@ -1796,11 +1830,14 @@ function renderFilaAcoes(ordens) {
 
     lista.forEach(o => {
       if(isCobrar) {
-        h += actionCardHTML(o, g.key, true); // true = modo lote
+        h += actionCardHTML(o, g.key, true);
+      } else if(g.key === 'pagar_forn') {
+        // será renderizado condensado por fornecedor abaixo
       } else {
         h += actionCardHTML(o, g.key);
       }
     });
+    if(g.key === 'pagar_forn') h += fornPayCards(lista);
     h += `</div></div>`;
   });
 
@@ -1818,20 +1855,173 @@ function renderFilaAcoes(ordens) {
   atualizarAlertBadge();
 }
 
-function renderVerTudo(ordens) {
-  const urgentes = ordens.filter(o=>!o.pago && diasAberto(o)>=5);
-  const abertos  = ordens.filter(o=>!o.pago && diasAberto(o)<5);
-  const pagos    = ordens.filter(o=>o.pago);
+// ── PAGAR FORNECEDOR CONDENSADO ──
+let _fpStates = {};    // { fornId: { collapsed, dtIni, dtFim, selected } }
+
+function fornPayCards(ordens) {
+  // Agrupar por fornecedor
+  const map = {};
+  ordens.forEach(o => {
+    const fid = o.forn_id || '__sem_forn__';
+    if(!map[fid]) map[fid] = [];
+    map[fid].push(o);
+  });
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
   let h = '';
+  Object.entries(map).forEach(([fid, list]) => {
+    const forn = _forns.find(f=>f.id===fid);
+    const nome = forn?.nome || 'Sem fornecedor';
+    const cor = colors[nome.charCodeAt(0)%colors.length];
+    if(!_fpStates[fid]) {
+      // período padrão: semana atual (seg–dom)
+      const hoje = new Date();
+      const dow = hoje.getDay();
+      const seg = new Date(hoje); seg.setDate(hoje.getDate() - (dow===0?6:dow-1)); seg.setHours(0,0,0,0);
+      const dom = new Date(seg); dom.setDate(seg.getDate()+6);
+      const toISO = d => d.toISOString().slice(0,10);
+      _fpStates[fid] = { collapsed:true, dtIni:toISO(seg), dtFim:toISO(dom), selected:new Set(list.map(o=>o.id)) };
+    }
+    const st = _fpStates[fid];
+    // filtrar pelo período
+    const filtradas = list.filter(o => {
+      if(!o.data) return true;
+      return o.data >= st.dtIni && o.data <= st.dtFim;
+    });
+    const totalCst = filtradas.filter(o=>st.selected.has(o.id)).reduce((s,o)=>s+parseFloat(o.cst||0),0);
+    const qtdSel = filtradas.filter(o=>st.selected.has(o.id)).length;
+
+    h += `<div class="forn-pay-card">
+      <div class="forn-pay-header" onclick="toggleFornPay('${fid}')">
+        <div class="forn-pay-av" style="background:${cor}22;color:${cor}">${nome[0]?.toUpperCase()}</div>
+        <div class="forn-pay-info">
+          <div class="forn-pay-nome">${nome}</div>
+          <div class="forn-pay-sub">${list.length} ordem${list.length!==1?'s':''} pendente${list.length!==1?'s':''}</div>
+        </div>
+        <div class="forn-pay-val">
+          <div class="forn-pay-total">R$ ${fmt(totalCst)}</div>
+          <div class="forn-pay-qtd">${qtdSel} selecionada${qtdSel!==1?'s':''}</div>
+        </div>
+        <span style="font-size:11px;color:var(--mut);margin-left:6px">${st.collapsed?'▶':'▼'}</span>
+      </div>
+      <div class="forn-pay-body${st.collapsed?' collapsed':''}">
+        <div class="fp-periodo">
+          <label>De</label>
+          <input type="date" value="${st.dtIni}" onchange="fpSetPeriodo('${fid}','ini',this.value)" onclick="event.stopPropagation()">
+          <label>até</label>
+          <input type="date" value="${st.dtFim}" onchange="fpSetPeriodo('${fid}','fim',this.value)" onclick="event.stopPropagation()">
+          <button class="fp-pagar-btn" onclick="event.stopPropagation();fpPagarLote('${fid}')">💰 Pagar selecionadas</button>
+        </div>
+        ${filtradas.map(o => {
+          const sel = st.selected.has(o.id);
+          return `<div class="fp-ordem-row" onclick="fpToggleOrdem('${fid}','${o.id}')">
+            <div class="fp-ordem-check${sel?' on':''}"></div>
+            <div class="fp-ordem-info">
+              <div class="fp-ordem-nome">${o.nome||'—'} · ${o.crm_id||''}</div>
+              <div class="fp-ordem-sub">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+            </div>
+            <div class="fp-ordem-cst">R$ ${fmt(o.cst)}</div>
+          </div>`;
+        }).join('')}
+        ${filtradas.length===0?`<div style="padding:14px;text-align:center;font-size:12px;color:var(--mut)">Nenhuma ordem neste período</div>`:''}
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function toggleFornPay(fid) {
+  if(!_fpStates[fid]) return;
+  _fpStates[fid].collapsed = !_fpStates[fid].collapsed;
+  renderCurrentView();
+}
+
+function fpSetPeriodo(fid, tipo, val) {
+  if(!_fpStates[fid]) return;
+  if(tipo==='ini') _fpStates[fid].dtIni = val;
+  else _fpStates[fid].dtFim = val;
+  renderCurrentView();
+}
+
+function fpToggleOrdem(fid, oid) {
+  if(!_fpStates[fid]) return;
+  const s = _fpStates[fid].selected;
+  if(s.has(oid)) s.delete(oid); else s.add(oid);
+  renderCurrentView();
+}
+
+async function fpPagarLote(fid) {
+  const st = _fpStates[fid];
+  if(!st) return;
+  const forn = _forns.find(f=>f.id===fid);
+  const ids = [...st.selected];
+  if(!ids.length) { toast('Nenhuma ordem selecionada','warn'); return; }
+  const ordens = _ordens.filter(o=>ids.includes(o.id));
+  const total = ordens.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  const ok = await showConfirm({
+    ico:'💰',
+    title:`Pagar ${forn?.nome||'fornecedor'}?`,
+    body:`${ids.length} ordem${ids.length!==1?'s':''} · Total R$ ${fmt(total)}`,
+    ok:'💰 Confirmar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  try {
+    for(const o of ordens) {
+      await api(`ordens?id=eq.${o.id}`,'PATCH',{forn_pago:true, forn_pago_em:hoje+'T12:00:00.000Z', forn_pago_valor:parseFloat(o.cst||0)},tok());
+      o.forn_pago=true; o.forn_pago_em=hoje+'T12:00:00.000Z';
+    }
+    delete _fpStates[fid];
+    toast(`✅ ${ids.length} pagamento${ids.length!==1?'s':''} registrado${ids.length!==1?'s':''}!`,'ok');
+    renderCurrentView();
+  } catch(e){ toast('Erro ao registrar pagamento','err'); }
+}
+
+function renderVerTudo(ordens) {
   if(!ordens.length) {
-    h = _searchQuery
+    const h = _searchQuery
       ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro termo.</div></div>`
       : `<div class="empty-state"><div class="empty-ico">📦</div><div class="empty-title">Nenhuma ordem</div><div class="empty-desc">Toque em + para criar</div></div>`;
-  } else {
-    if(urgentes.length) { h += `<div class="sec-lbl">🔴 Urgentes (${urgentes.length})</div>`; urgentes.forEach(o=>h+=cardHTML(o,'urg')); }
-    if(abertos.length)  { h += `<div class="sec-lbl">Em aberto (${abertos.length})</div>`; abertos.forEach(o=>h+=cardHTML(o,'warn')); }
-    if(pagos.length)    { h += `<div class="sec-lbl">✅ Pagas (${pagos.length})</div>`; pagos.forEach(o=>h+=cardHTML(o,'ok')); }
+    document.getElementById('inicioContent').innerHTML = h;
+    atualizarAlertBadge();
+    return;
   }
+
+  // Agrupar por etapa — TODAS as ordens, não só as com ação pendente
+  const ETAPAS = [
+    { key:'vt-contratar', label:'📋 Contratar fornecedor', cls:'ag-contratar', filter: o => o.col==='contratar' },
+    { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  filter: o => o.col==='ag_entrega'||o.col==='entrega' },
+    { key:'vt-cobrar',    label:'💳 Cobrar cliente',        cls:'ag-cobrar',    filter: o => !o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3) },
+    { key:'vt-pforn',     label:'💰 Pagar fornecedor',      cls:'ag-pagar',     filter: o => o.forn_id && !o.forn_pago },
+    { key:'vt-ok',        label:'✅ Sem pendência',          cls:'',             filter: o => o.pago && o.forn_pago },
+    { key:'vt-outros',    label:'📁 Outros',                cls:'',             filter: o => true }, // catch-all
+  ];
+
+  // distribuir sem duplicar — cada ordem vai para o primeiro grupo que encaixa
+  const usados = new Set();
+  const grupos = ETAPAS.map(e => {
+    const lista = ordens.filter(o => !usados.has(o.id) && e.filter(o));
+    lista.forEach(o => usados.add(o.id));
+    return { ...e, lista };
+  });
+
+  let h = '';
+  grupos.forEach(g => {
+    if(!g.lista.length) return;
+    if(_groupStates[g.key] === undefined) _groupStates[g.key] = true; // fechado por padrão
+    const collapsed = _groupStates[g.key];
+    h += `<div class="action-group ${g.cls}" style="margin-bottom:4px">
+      <div class="ag-header${collapsed?' collapsed':''}" id="ag-header-${g.key}" onclick="toggleGrupo('${g.key}')">
+        <span class="ag-title">${g.label}</span>
+        <span class="ag-count">${g.lista.length}</span>
+        <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${g.key}">▼</span>
+      </div>
+      <div class="ag-body${collapsed?' collapsed':''}" id="ag-body-${g.key}">`;
+    g.lista.forEach(o => h += cardHTML(o, diasAberto(o)>=5?'urg':!o.pago?'warn':'ok'));
+    h += `</div></div>`;
+  });
+
   document.getElementById('inicioContent').innerHTML = h;
   atualizarAlertBadge();
 }
@@ -1860,13 +2050,15 @@ function toggleLote(id) {
 }
 
 function selecionarTodosLote(grupo) {
-  const ordens = getOrdensComAcao(_ordens.filter(o=>{
+  const base = _ordens.filter(o=>{
     if(o.col==='concluido'||o.col==='orcamento') return false;
     if(!isAdmin()) return o.usuario_id===uid();
     if(_filtroVendedores.length===0) return true;
     return _filtroVendedores.includes(o.usuario_id);
-  }))[grupo]||[];
-  const todos = ordens.every(o=>_loteSelected.has(o.id));
+  });
+  const ordens = getOrdensComAcao(base)[grupo]||[];
+  if(!ordens.length) return;
+  const todos = ordens.length > 0 && ordens.every(o=>_loteSelected.has(o.id));
   if(todos) ordens.forEach(o=>_loteSelected.delete(o.id));
   else ordens.forEach(o=>_loteSelected.add(o.id));
   renderCurrentView();
