@@ -216,7 +216,7 @@ input,select,textarea,button{font-family:var(--font)}
 .submit-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* ── DETALHE DA ORDEM ── */
-.detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 20px}
+.detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px calc(var(--nav-h) + var(--safe-b) + 16px)}
 .detail-section{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);overflow:hidden;margin-bottom:12px}
 .detail-section-title{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;padding:12px 15px;border-bottom:1px solid var(--bor);background:var(--card)}
 .detail-row{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid var(--bor)}
@@ -586,11 +586,16 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-ico" style="background:var(--r2);font-size:20px">🚛</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="modal-title">Contratar fornecedor</div>
         <div style="font-size:12px;color:var(--mut)" id="af_bairro_label">—</div>
       </div>
       <div class="modal-close" onclick="closeModal('atribuirFornModal')">✕</div>
+    </div>
+    <div style="padding:10px 20px 0">
+      <input type="text" id="af_busca" placeholder="Filtrar por nome do fornecedor..." 
+        oninput="filtrarListaForn(this.value)"
+        style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
     </div>
     <div class="modal-body">
       <div id="af_lista" class="forn-lista"></div>
@@ -801,39 +806,68 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 // ── ATRIBUIR FORNECEDOR ──
+let _af_compativeis = [];
+let _af_gerais = [];
+let _af_cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+
 function abrirAtribuirForn(id) {
   _detalheId = id;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const bairro = (o.bairro||'').toLowerCase().trim();
-  document.getElementById('af_bairro_label').textContent = o.bairro ? 'Bairro: '+o.bairro : 'Bairro não informado';
 
-  const compativeis = [];
-  const gerais = [];
+  // Label com bairro e endereço
+  const infoLabel = [o.bairro, o.logradouro].filter(Boolean).join(' · ');
+  document.getElementById('af_bairro_label').textContent = infoLabel || 'Bairro não informado';
+  document.getElementById('af_busca').value = '';
+
+  // Classificar fornecedores
+  _af_compativeis = [];
+  _af_gerais = [];
   _forns.forEach(f => {
-    const regioes = Array.isArray(f.regioes) ? f.regioes : (typeof f.regioes==='string' ? JSON.parse(f.regioes||'[]') : []);
-    if(!regioes.length){ gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
-    if(!bairro){ gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
-    const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
-    if(reg) compativeis.push({f, preco:parseFloat(reg.preco||0), preco_cli:parseFloat(reg.preco_cli||0), tipo:'compativel'});
-    else gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
+    let regioes = f.regioes;
+    if(typeof regioes === 'string') { try { regioes = JSON.parse(regioes); } catch(e) { regioes = []; } }
+    if(!Array.isArray(regioes)) regioes = [];
+
+    if(!regioes.length) { _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
+    if(!bairro)         { _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
+
+    const reg = regioes.find(r => {
+      const b = (r.bairro||r.regiao||r.nome||'').toLowerCase().trim();
+      return b && (b.includes(bairro) || bairro.includes(b));
+    });
+    if(reg) _af_compativeis.push({f, preco:parseFloat(reg.preco||0), preco_cli:parseFloat(reg.preco_cli||0), tipo:'compativel'});
+    else    _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
   });
 
-  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
-  let h = '';
-  if(compativeis.length) {
-    h += `<div class="forn-section-label">✓ Atendem ${o.bairro||'este bairro'} (${compativeis.length})</div>`;
-    compativeis.forEach(s => { h += fornItemHTML(s, o.forn_id, cores); });
-  }
-  if(gerais.length) {
-    h += `<div class="forn-section-label">Disponíveis (${gerais.length})</div>`;
-    gerais.forEach(s => { h += fornItemHTML(s, o.forn_id, cores); });
-  }
-  if(!compativeis.length && !gerais.length) {
-    h = `<div class="empty-state" style="padding:40px 20px"><div class="empty-ico">🚛</div><div class="empty-title">Sem fornecedores</div></div>`;
-  }
-
-  document.getElementById('af_lista').innerHTML = h;
+  renderListaForn('', o.forn_id);
   openModal('atribuirFornModal');
+}
+
+function renderListaForn(filtro, fornAtualId) {
+  const q = (filtro||'').toLowerCase().trim();
+  const filtra = s => !q || s.f.nome.toLowerCase().includes(q);
+  const comp = _af_compativeis.filter(filtra);
+  const ger  = _af_gerais.filter(filtra);
+  const cores = _af_cores;
+
+  let h = '';
+  if(comp.length) {
+    h += `<div class="forn-section-label">✓ Atendem este bairro (${comp.length})</div>`;
+    comp.forEach(s => { h += fornItemHTML(s, fornAtualId, cores); });
+  }
+  if(ger.length) {
+    h += `<div class="forn-section-label">${comp.length?'Outros disponíveis':'Todos os fornecedores'} (${ger.length})</div>`;
+    ger.forEach(s => { h += fornItemHTML(s, fornAtualId, cores); });
+  }
+  if(!comp.length && !ger.length) {
+    h = `<div class="empty-state" style="padding:30px 20px"><div class="empty-ico">🔍</div><div class="empty-title">${q?'Nenhum resultado':'Sem fornecedores'}</div></div>`;
+  }
+  document.getElementById('af_lista').innerHTML = h;
+}
+
+function filtrarListaForn(val) {
+  const o = _ordens.find(x=>x.id===_detalheId);
+  renderListaForn(val, o?.forn_id);
 }
 
 function fornItemHTML(s, fornAtualId, cores) {
