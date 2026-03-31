@@ -743,6 +743,8 @@ let _pixPayload = '';
 let _pixOrdemId = null;
 let _confirmResolve = null;
 let _nfAcrescimo = 40;
+let _limiteDiurno = '09:00';
+let _limiteNoturno = '16:00';
 let _autoId = null;
 let _novaTemNF = null;
 let _novaFornSug = null;
@@ -1152,137 +1154,6 @@ async function salvarEdicao() {
   } catch(e){ toast('Erro ao salvar: '+e.message,'err'); }
 }
 
-// ── CANCELAR ORDEM ──
-function abrirCancelar(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  _detalheId = id;
-  document.getElementById('cancel_ordem_label').textContent = (o.crm_id||'Ordem')+' · '+( o.nome||'');
-  document.getElementById('cancel_motivo_sel').value = '';
-  document.getElementById('cancel_motivo_txt').style.display = 'none';
-  document.getElementById('cancel_motivo_txt').value = '';
-  openModal('cancelarModal');
-}
-
-function onCancelMotivoSel(val) {
-  const txt = document.getElementById('cancel_motivo_txt');
-  txt.style.display = val === 'outro' ? 'block' : 'none';
-  if(val !== 'outro') txt.value = '';
-}
-
-async function confirmarCancelar() {
-  const id = _detalheId;
-  const sel = document.getElementById('cancel_motivo_sel').value;
-  const txt = document.getElementById('cancel_motivo_txt').value.trim();
-  const motivo = sel === 'outro' ? txt : sel;
-  if(!motivo){ toast('Selecione ou informe o motivo','err'); return; }
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const ok = await showConfirm({
-    ico:'❌',
-    title:'Cancelar esta ordem?',
-    body:`<strong>${o.nome||''}</strong><br>${o.bairro||''}<br><br>Motivo: ${motivo}`,
-    ok:'Cancelar ordem',
-    okClass:'r',
-    cancel:'Voltar'
-  });
-  if(!ok) return;
-  try {
-    const now = nowISO();
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'concluido',concluido_em:now,cancel_motivo:motivo},tok());
-    o.col='concluido'; o.concluido_em=now; o.cancel_motivo=motivo;
-    closeModal('cancelarModal');
-    toast('Ordem cancelada','ok');
-    setView('inicio');
-  } catch(e){ toast('Erro ao cancelar','err'); }
-}
-
-// ── EDITAR ORDEM ──
-let _editarId = null;
-
-function abrirEditar(id) {
-  _editarId = id;
-  setView('editar');
-}
-
-function renderEditar() {
-  const o = _ordens.find(x=>x.id===_editarId);
-  if(!o){ setView('inicio'); return; }
-  setTopbar('Editar ordem', o.crm_id||'');
-  const vendedores = isAdmin() ? _usuarios.map(u=>`<option value="${u.id}"${u.id===o.usuario_id?' selected':''}>${u.nome}</option>`).join('') : '';
-  document.getElementById('editarForm').innerHTML = `
-    ${isAdmin()?`<div class="form-group"><div class="form-group-title">Responsável</div><div class="form-field"><label>Vendedor</label><select id="ed_user">${vendedores}</select></div></div>`:''}
-    <div class="form-group">
-      <div class="form-group-title">Cliente</div>
-      <div class="form-field"><label>Nome *</label><input type="text" id="ed_nome" value="${o.nome||''}" autocomplete="off"></div>
-      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="ed_wh" value="${o.cel||''}" inputmode="tel"></div>
-      <div class="form-field"><label>CPF / CNPJ</label><input type="text" id="ed_cpf" value="${o.cpf||''}" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Endereço</div>
-      <div class="form-field"><label>Rua e número *</label><input type="text" id="ed_rua" value="${o.logradouro||''}"></div>
-      <div class="form-field"><label>Bairro *</label><input type="text" id="ed_bairro" value="${o.bairro||''}"></div>
-      <div class="form-field"><label>Cidade</label><input type="text" id="ed_cidade" value="${o.cidade||'São Paulo'}"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Serviço</div>
-      <div class="form-field"><label>Tipo</label>
-        <select id="ed_tipo">
-          <option${o.tipo==='Locação'?' selected':''}>Locação</option>
-          <option${o.tipo==='Troca'?' selected':''}>Troca</option>
-          <option${o.tipo==='Retirada'?' selected':''}>Retirada</option>
-        </select>
-      </div>
-      <div class="form-field"><label>Data entrega</label><input type="date" id="ed_data" value="${o.data||''}"></div>
-      <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="ed_rec" value="${o.rec||''}" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="ed_cst" value="${o.cst||''}" step="0.01" inputmode="decimal"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Fornecedor</div>
-      <div class="form-field"><label>Fornecedor</label>
-        <select id="ed_forn">
-          <option value="">— Nenhum —</option>
-          ${_forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field"><label>Observação</label><textarea id="ed_obs" style="min-height:80px;font-size:14px">${o.obs||''}</textarea></div>
-    </div>`;
-}
-
-async function salvarEdicao() {
-  const id = _editarId;
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const nome  = document.getElementById('ed_nome')?.value?.trim();
-  const wh    = document.getElementById('ed_wh')?.value?.trim();
-  const rua   = document.getElementById('ed_rua')?.value?.trim();
-  const bairro= document.getElementById('ed_bairro')?.value?.trim();
-  if(!nome||!wh||!rua||!bairro){ toast('Preencha os campos obrigatórios','err'); return; }
-  const btn = document.getElementById('submitEditarBtn');
-  btn.disabled=true; btn.textContent='Salvando...';
-  try {
-    const patch = {
-      nome,
-      cel: wh.replace(/\D/g,''),
-      cpf: document.getElementById('ed_cpf')?.value?.trim()||null,
-      logradouro: rua,
-      bairro,
-      cidade: document.getElementById('ed_cidade')?.value?.trim()||'São Paulo',
-      tipo: document.getElementById('ed_tipo')?.value||o.tipo,
-      data: document.getElementById('ed_data')?.value||null,
-      rec: parseFloat(document.getElementById('ed_rec')?.value||o.rec||0),
-      cst: parseFloat(document.getElementById('ed_cst')?.value||o.cst||0),
-      forn_id: document.getElementById('ed_forn')?.value||null,
-      obs: document.getElementById('ed_obs')?.value?.trim()||null,
-    };
-    if(isAdmin()) patch.usuario_id = document.getElementById('ed_user')?.value||o.usuario_id;
-    await api(`ordens?id=eq.${id}`,'PATCH',patch,tok());
-    Object.assign(o, patch);
-    toast('Alterações salvas!','ok');
-    _viewStack = [];
-    _detalheId = id;
-    setView('detalhe');
-  } catch(e){
-    toast('Erro ao salvar: '+e.message,'err');
-  } finally { btn.disabled=false; btn.textContent='💾 Salvar alterações'; }
-}
 
 // ── REMARCAR DA FILA (alias — já abre o mesmo modal) ──
 
@@ -1447,12 +1318,18 @@ async function loadApp() {
         : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc','GET',null,tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
-      api('config?chave=eq.nf_acrescimo','GET',null,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno)','GET',null,tok()).catch(()=>[]),
     ]);
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
     _usuarios = dbUsrs||[];
-    if(dbCfg?.[0]?.valor) _nfAcrescimo = parseFloat(dbCfg[0].valor)||40;
+    if(dbCfg?.length) {
+      dbCfg.forEach(row => {
+        if(row.chave==='nf_acrescimo')   _nfAcrescimo   = parseFloat(row.valor)||40;
+        if(row.chave==='limite_diurno')  _limiteDiurno  = row.valor||'09:00';
+        if(row.chave==='limite_noturno') _limiteNoturno = row.valor||'16:00';
+      });
+    }
     setLoad(90,'Iniciando...');
     initApp();
     setLoad(100,'');
@@ -1472,6 +1349,7 @@ async function loadApp() {
           _ordens = novo;
           renderCurrentView();
         }
+        await verificarAutoEntregas();
         setSyncDot('ok');
       }catch(e){setSyncDot('err');}
     },15000);
@@ -1598,6 +1476,102 @@ function renderCurrentView() {
     case 'detalhe':   if(_detalheId) renderDetalhe(_detalheId); break;
   }
 }
+
+// ── FUNÇÕES DE TURNO E PRAZO ──
+function getTurnoOrdem(o) {
+  if(!o.forn_id || !o.bairro) return 'diurno';
+  const f = _forns.find(x=>x.id===o.forn_id);
+  if(!f) return 'diurno';
+  let regioes = f.regioes;
+  if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+  if(!Array.isArray(regioes)) return 'diurno';
+  const bl = (o.bairro||'').toLowerCase().trim();
+  const reg = regioes.find(r=>(r.bairro||r.regiao||'').toLowerCase().trim()===bl);
+  return (reg?.turno||'diurno').toLowerCase().includes('not') ? 'noturno' : 'diurno';
+}
+
+function getLimiteBairro(o) {
+  if(o.forn_id && o.bairro) {
+    const f = _forns.find(x=>x.id===o.forn_id);
+    if(f) {
+      let regioes = f.regioes;
+      if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+      if(Array.isArray(regioes)) {
+        const bl = (o.bairro||'').toLowerCase().trim();
+        const reg = regioes.find(r=>(r.bairro||r.regiao||'').toLowerCase().trim()===bl);
+        if(reg?.limite) return reg.limite;
+      }
+    }
+  }
+  return getTurnoOrdem(o)==='noturno' ? _limiteNoturno : _limiteDiurno;
+}
+
+function getPrazoContratar(o) {
+  if(!o.data) return null;
+  const turno = getTurnoOrdem(o);
+  const limite = getLimiteBairro(o);
+  const [lh,lm] = (limite||'09:00').split(':').map(Number);
+  const dataEntrega = new Date(o.data+'T12:00:00');
+  if(turno==='noturno') {
+    const criado = o.criado_em ? new Date(o.criado_em) : new Date();
+    const horasCriado = criado.getHours()+(criado.getMinutes()/60);
+    const prazo = new Date(dataEntrega);
+    const hoje = new Date();
+    if(dataEntrega.toDateString()===hoje.toDateString() && horasCriado<18) {
+      prazo.setHours(lh,lm,0,0);
+    } else {
+      prazo.setHours(lh,lm,0,0);
+    }
+    return prazo;
+  } else {
+    const prazo = new Date(dataEntrega);
+    prazo.setHours(lh,lm,0,0);
+    return prazo;
+  }
+}
+
+function urgenciaContratar(o) {
+  if(o.col!=='contratar' || o.forn_id) return 0;
+  const prazo = getPrazoContratar(o);
+  if(!prazo) return 0;
+  const diffH = (prazo - new Date()) / (1000*60*60);
+  if(diffH < 0)  return 4; // passou do limite
+  if(diffH < 2)  return 3; // menos de 2h
+  if(diffH < 6)  return 2; // menos de 6h
+  if(diffH < 12) return 1; // menos de 12h
+  return 0;
+}
+
+function getHoraEntrega(o) {
+  if(!o.data) return null;
+  const base = new Date(o.data+'T12:00:00');
+  if(getTurnoOrdem(o)==='noturno') { base.setDate(base.getDate()+1); base.setHours(7,0,0,0); }
+  else { base.setHours(18,0,0,0); }
+  return base;
+}
+
+function deveAutoMoverEntrega(o) {
+  if(o.col!=='ag_entrega' || o.entrega_confirmada) return false;
+  const hr = getHoraEntrega(o);
+  return hr && new Date() >= hr;
+}
+
+// ── AUTO-MOVER ag_entrega → entrega ──
+async function verificarAutoEntregas() {
+  const pendentes = _ordens.filter(deveAutoMoverEntrega);
+  if(!pendentes.length) return;
+  for(const o of pendentes) {
+    try {
+      await api(`ordens?id=eq.${o.id}`,'PATCH',{col:'entrega', entrega_confirmada:true},tok());
+      o.col='entrega'; o.entrega_confirmada=true;
+    } catch(e){}
+  }
+  if(pendentes.length) {
+    toast(`📦 ${pendentes.length} entrega${pendentes.length>1?'s':''} confirmada${pendentes.length>1?'s':''} automaticamente`,'ok',4000);
+    renderCurrentView();
+  }
+}
+
 
 function setTopbar(title, sub='') {
   document.getElementById('topbarTitle').textContent = title;
@@ -1768,13 +1742,37 @@ function actionCardHTML(o, tipoAcao) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   const d = diasAberto(o);
   const tel = (o.cel||'').replace(/\D/g,'');
+  const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
   let acoes = '';
 
   if(tipoAcao === 'contratar') {
+    const urg = urgenciaContratar(o);
+    const prazo = getPrazoContratar(o);
+    const urgColors = ['','rgba(245,166,35,.15)','rgba(249,115,22,.15)','rgba(239,68,68,.15)','rgba(239,68,68,.25)'];
+    const urgBorderColors = ['','var(--acc3)','rgba(249,115,22,.4)','var(--r3)','var(--r3)'];
+    const urgLabels = ['','⏰','🔴','🚨','💀'];
+    const prazoTxt = prazo ? (() => {
+      const diffH = (prazo - new Date())/(1000*60*60);
+      if(diffH < 0) return 'prazo vencido';
+      if(diffH < 1) return Math.round(diffH*60)+'min restantes';
+      return Math.floor(diffH)+'h restantes';
+    })() : '';
     acoes = `
       <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
+    // Inject urgency style into card via inline — returned as data attr for rendering
+    return `<div class="action-card" onclick="abrirDetalhe('${o.id}')" style="${urg>0?`background:${urgColors[urg]};border-left:3px solid ${urgBorderColors[urg]};border-color:${urgBorderColors[urg]}`:''}" >
+      <div class="ac-row">
+        <div class="ac-main">
+          <div class="ac-name">${urg>=3?`<span class="ac-urgency">${urgLabels[urg]} ${prazoTxt}</span>`:''}${urgBadge}${o.nome||'—'}</div>
+          <div class="ac-addr">${o.logradouro||''} · ${o.bairro||''}</div>
+          ${o.data?`<div style="font-size:11px;color:${urg>0?'var(--r)':'var(--mut)'};margin-top:2px;font-weight:${urg>0?700:400}">📅 ${dateF(o.data)}${prazoTxt&&urg>0&&urg<3?' · '+prazoTxt:''}</div>`:''}
+        </div>
+        <div class="ac-val">R$ ${fmt(o.rec)}</div>
+      </div>
+      <div class="ac-actions">${acoes}</div>
+    </div>`;
   } else if(tipoAcao === 'entregar') {
     // Calcular turno se fornecedor tiver info
     const turno = forn ? (()=>{
@@ -1802,8 +1800,6 @@ function actionCardHTML(o, tipoAcao) {
       ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWAForn('${o.id}')">📲 WA forn.</button>`;
   }
-
-  const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
 
   return `<div class="action-card" onclick="abrirDetalhe('${o.id}')">
     <div class="ac-row">
@@ -1986,7 +1982,9 @@ function renderNova() {
     <div class="form-group">
       <div class="form-group-title">Cliente</div>
       <div class="form-field"><label>Nome *</label><input type="text" id="nv_nome" placeholder="Nome completo" autocomplete="off"></div>
-      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="nv_wh" placeholder="(11) 99999-9999" inputmode="tel"></div>
+      <div id="nv_nome_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;border:1px solid"></div>
+      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="nv_wh" placeholder="(11) 99999-9999" inputmode="tel" oninput="verificarCelular(this.value)"></div>
+      <div id="nv_inad_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;background:var(--r2);border:1px solid var(--r3);color:var(--r)"></div>
       <div class="form-field"><label>CPF / CNPJ</label><input type="text" id="nv_cpf" placeholder="000.000.000-00" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
     </div>
     <div class="form-group">
@@ -2016,6 +2014,58 @@ function renderNova() {
       <div class="form-field"><label>Observação</label><textarea id="nv_obs" placeholder="Observações..."></textarea></div>
     </div>`;
 }
+
+// ── PREENCHIMENTO AUTOMÁTICO NOME POR CELULAR ──
+function verificarCelular(cel) {
+  const inadEl  = document.getElementById('nv_inad_aviso');
+  const nomeEl  = document.getElementById('nv_nome');
+  const avisoEl = document.getElementById('nv_nome_aviso');
+  const telLimpo = (cel||'').replace(/\D/g,'');
+
+  if(telLimpo.length < 8) {
+    if(inadEl)  inadEl.style.display='none';
+    if(avisoEl) avisoEl.style.display='none';
+    return;
+  }
+
+  const ordensDoTel = _ordens.filter(o =>
+    o.col!=='concluido' && o.col!=='orcamento' &&
+    (o.cel||'').replace(/\D/g,'') === telLimpo
+  );
+
+  // Inadimplência
+  const devedoras = ordensDoTel.filter(o=>!o.pago);
+  if(inadEl) {
+    if(devedoras.length) {
+      const total = devedoras.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+      inadEl.style.display='block';
+      inadEl.innerHTML=`⚠️ Cliente com <strong>${devedoras.length} ordem${devedoras.length>1?'ns':''} em aberto</strong> — total R$ ${fmt(total)}`;
+    } else {
+      inadEl.style.display='none';
+    }
+  }
+
+  // Auto-preencher nome
+  if(!avisoEl || !nomeEl) return;
+  if(!ordensDoTel.length) { avisoEl.style.display='none'; return; }
+  const nomeCadastrado = ordensDoTel[0].nome||'';
+  if(!nomeCadastrado) { avisoEl.style.display='none'; return; }
+  const nomeDigitado = nomeEl.value.trim();
+
+  if(!nomeDigitado) {
+    nomeEl.value = nomeCadastrado;
+    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--g)';
+    avisoEl.innerHTML = `✅ Nome preenchido automaticamente: <strong>${nomeCadastrado}</strong>`;
+  } else if(nomeDigitado.toLowerCase() !== nomeCadastrado.toLowerCase()) {
+    const nomeEsc = nomeCadastrado.replace(/'/g,"\\'");
+    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--acc)';
+    avisoEl.innerHTML = `⚠️ Cadastrado como <strong>${nomeCadastrado}</strong> — <span style="text-decoration:underline;cursor:pointer;font-weight:700" onclick="document.getElementById('nv_nome').value='${nomeEsc}';document.getElementById('nv_nome_aviso').style.display='none'">Usar este nome?</span>`;
+  } else {
+    avisoEl.style.display='none';
+  }
+}
+
+
 
 function setNF(v) {
   _novaTemNF = v;
