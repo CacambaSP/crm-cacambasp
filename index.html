@@ -165,6 +165,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .chip.acc{color:var(--acc);border-color:var(--acc3);background:var(--acc2);font-weight:700}
 .card-confirm-actions{display:none;padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)}
 .card:hover .card-confirm-actions{display:block}
+.cards-compact .card-confirm-actions{display:none!important}
 /* card actions */
 .card-del{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:5px;border:1px solid var(--r3);background:var(--r2);color:var(--r);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px;z-index:5;pointer-events:auto}
 .card:hover .card-del{display:flex}
@@ -1331,8 +1332,8 @@ function getHoraEntrega(c){
 }
 
 function deveConfirmarEntrega(c){
-  if(c.col!=='ag_entrega'||c.entrega_confirmada) return false;
-  const hr=getHoraEntrega(c); return hr&&new Date()>=hr;
+  if(c.col!=='entrega'||c.entrega_confirmada) return false;
+  return !!c.forn_id;
 }
 
 function badgeEntregaExpirado(c){
@@ -1342,38 +1343,6 @@ function badgeEntregaExpirado(c){
 
 function autoColFornNomeado(c){
   if(c.col==='contratar') c.col='ag_entrega';
-}
-
-// ── Mudança automática ag_entrega → entrega por horário ──
-// Chamada após cada poll. Processa em lote (sem bloquear a UI).
-const _agEntregaMovidos=new Set(); // evita PATCH duplicado no mesmo ciclo de sessão
-async function _autoMoverAgEntrega(lista){
-  const candidatas=lista.filter(c=>
-    c.col==='ag_entrega'&&
-    !c.entrega_confirmada&&
-    !_agEntregaMovidos.has(c.id)&&
-    deveConfirmarEntrega(c)
-  );
-  if(!candidatas.length) return;
-  for(const c of candidatas){
-    _agEntregaMovidos.add(c.id);
-    c.col='entrega';
-    c.entrega_confirmada=true;
-    try{
-      await api('ordens?id=eq.'+c.id,'PATCH',{col:'entrega',entrega_confirmada:true},tok());
-      addLog(c.id,'Entrega automática','Horário limite atingido — movido para Entrega automaticamente');
-    }catch(e){
-      // Revert local em caso de erro
-      c.col='ag_entrega';
-      c.entrega_confirmada=false;
-      _agEntregaMovidos.delete(c.id);
-      console.error('_autoMoverAgEntrega erro:',e);
-    }
-  }
-  if(candidatas.length){
-    renderBoard();renderStats();
-    toast('🚚 '+candidatas.length+' ordem'+(candidatas.length>1?'s':'')+' movida'+(candidatas.length>1?'s':'')+' para Entrega automaticamente','ok',4000);
-  }
 }
 
 function autoColPagamento(c){
@@ -1387,10 +1356,14 @@ function autoColPagamento(c){
 
 async function confirmarEntrega(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
-  c.col='entrega';c.entrega_confirmada=true;
+  const agora_iso=new Date().toISOString();
+  c.col='pagar';c.entrega_confirmada=true;c.entrega_em=c.entrega_em||agora_iso;
   renderBoard();renderStats();
-  try{await api('ordens?id=eq.'+id,'PATCH',{col:'entrega',entrega_confirmada:true},tok());addLog(id,'Entrega confirmada','');toast('✅ Entrega confirmada!');}
-  catch(e){toast('Erro','err');}
+  try{
+    await api('ordens?id=eq.'+id,'PATCH',{col:'pagar',entrega_confirmada:true,entrega_em:c.entrega_em},tok());
+    addLog(id,'Entrega confirmada manualmente','');
+    toast('✅ Entrega confirmada! Movido para Pagar.');
+  }catch(e){toast('Erro','err');}
 }
 
 async function trocarFornecedor(id){
@@ -1736,6 +1709,45 @@ function _iniciarRealtime(){
   }
 }
 
+async function _rodarFluxoAutomatico(){
+  if(!isAdmin()) return; // só admin processa fluxo automático
+  const agora = new Date();
+  const tok_ = tok();
+  for(const c of ordens){
+    if(c.col==='concluido'||c.col==='orcamento') continue;
+
+    // 1) ag_entrega → entrega (passou horário previsto)
+    if(c.col==='ag_entrega' && !c.entrega_confirmada && c.forn_id){
+      const hr = getHoraEntrega(c);
+      if(hr && agora >= hr){
+        const agora_iso = agora.toISOString();
+        c.col = 'entrega';
+        c.entrega_em = agora_iso;
+        try{
+          await api('ordens?id=eq.'+c.id,'PATCH',{col:'entrega', entrega_em: agora_iso}, tok_);
+          addLog(c.id,'Entrega automática','Passou horário previsto — movido automaticamente');
+        }catch(e){}
+        continue;
+      }
+    }
+
+    // 2) entrega → pagar (24h sem confirmação — deduz OK)
+    if(c.col==='entrega' && !c.entrega_confirmada){
+      const entradaEntrega = c.entrega_em ? new Date(c.entrega_em) : null;
+      if(entradaEntrega && (agora - entradaEntrega) >= 24*60*60*1000){
+        c.col = 'pagar';
+        c.entrega_confirmada = true;
+        try{
+          await api('ordens?id=eq.'+c.id,'PATCH',{col:'pagar', entrega_confirmada: true}, tok_);
+          addLog(c.id,'Pagar automático','24h sem ação na Entrega — deduzido OK');
+          toast('⏱️ '+( c.crm_id||'Ordem')+' movida para Pagar (24h sem confirmação)','info');
+        }catch(e){}
+        continue;
+      }
+    }
+  }
+}
+
 async function _pollOrdens(forcar){
   try{
     setSyncDot('sync');
@@ -1752,7 +1764,7 @@ async function _pollOrdens(forcar){
       const qtdOrcAntes=ordens.filter(c=>c.col==='orcamento').length;
       checarNovasOrdens(novos);
       ordens=novos;
-      await _autoMoverAgEntrega(ordens); // move ag_entrega→entrega quando horário limite passou
+      await _rodarFluxoAutomatico();
       renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge();
       // Detectar nova ordem normal
       const qtdDepois=novos.filter(c=>c.col!=='orcamento').length;
