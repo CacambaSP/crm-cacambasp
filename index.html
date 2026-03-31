@@ -891,6 +891,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
         <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
+        <button class="btn btn-sm" id="detailVoltarOrcBtn" onclick="confirmarVoltarOrcamento()" title="Voltar para Orçamento" style="background:rgba(234,179,8,.1);color:#ca8a04;border-color:rgba(234,179,8,.3)">↩️ Orçamento</button>
         <button class="btn btn-sm btn-r" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
@@ -2167,6 +2168,10 @@ function fillDetail(c){
   const archBtn=document.getElementById('detailArchBtn');
   archBtn.textContent=c.col==='concluido'?'↩️ Voltar':'🏆 Arquivar';
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
+  // botão voltar orçamento — só aparece se for ordem real do kanban (não orçamento, não arquivado)
+  const voltarOrcBtn=document.getElementById('detailVoltarOrcBtn');
+  const isOrcamento=c.col==='orcamento'||c.col==='concluido';
+  voltarOrcBtn.style.display=isOrcamento?'none':'';
   // financeiro
   _fillStatusBlocks(c);
   if(isAdmin()){
@@ -2420,6 +2425,30 @@ async function confirmarDeletar(id){
   catch(e){toast('Erro ao excluir','err');}
 }
 function deletarOrdemAtual(){if(_detailId)confirmarDeletar(_detailId);}
+
+// ── VOLTAR PARA ORÇAMENTO ──
+async function confirmarVoltarOrcamento(){
+  const c=ordens.find(x=>x.id===_detailId);if(!c)return;
+  const ok=await showConfirm({
+    ico:'↩️',
+    title:'Voltar para Orçamento',
+    body:`A ordem <strong>${c.crm_id||''}</strong> de <strong>${c.nome||''}</strong> voltará para a aba de Orçamentos. O número <strong>${c.crm_id||''}</strong> será mantido para quando o cliente confirmar novamente.`,
+    ok:'↩️ Confirmar',
+    okClass:'btn-b'
+  });
+  if(!ok) return;
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+c.id,'PATCH',{col:'orcamento',orc_convertido_em:null},tok());
+    const idx=ordens.findIndex(x=>x.id===c.id);
+    if(idx>=0){ordens[idx].col='orcamento';ordens[idx].orc_convertido_em=null;}
+    addLog(c.id,'Voltou para orçamento','');
+    setSyncDot('ok');
+    toast('↩️ Voltou para Orçamentos');
+    closeDetail();
+    renderBoard(); renderStats(); renderFinanceiro();
+  }catch(e){setSyncDot('err');toast('Erro ao mover','err');}
+}
 
 // ── PAGAR CLIENTE ──
 let _pagarCliCallback=false;
