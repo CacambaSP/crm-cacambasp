@@ -676,40 +676,6 @@ input,select,textarea,button{font-family:var(--font)}
   </div>
 </div>
 
-<!-- MODAL: CANCELAR ORDEM -->
-<div class="modal-overlay" id="cancelarModal">
-  <div class="modal-box">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-ico" style="background:var(--r2)">❌</div>
-      <div>
-        <div class="modal-title">Cancelar ordem</div>
-        <div style="font-size:12px;color:var(--mut)" id="cancel_ordem_label">—</div>
-      </div>
-      <div class="modal-close" onclick="closeModal('cancelarModal')">✕</div>
-    </div>
-    <div class="modal-body">
-      <div class="mfi">
-        <label>Motivo do cancelamento</label>
-        <select id="cancel_motivo_sel" onchange="onCancelMotivoSel(this.value)" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none;margin-bottom:10px">
-          <option value="">— Selecionar motivo —</option>
-          <option value="Cliente desistiu">Cliente desistiu</option>
-          <option value="Preço alto">Preço alto</option>
-          <option value="Erro de cadastro">Erro de cadastro</option>
-          <option value="Duplicada">Duplicada</option>
-          <option value="Sem fornecedor disponível">Sem fornecedor disponível</option>
-          <option value="outro">Outro (digitar)</option>
-        </select>
-        <input type="text" id="cancel_motivo_txt" placeholder="Descreva o motivo..." style="display:none;width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none">
-      </div>
-      <div class="modal-footer">
-        <button class="btn" onclick="closeModal('cancelarModal')">Voltar</button>
-        <button class="btn" style="background:var(--r);color:#fff;border-color:transparent" onclick="confirmarCancelar()">❌ Cancelar ordem</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- CONFIRM -->
 <div class="confirm-bg" id="confirmModal">
   <div class="confirm-box">
@@ -1181,6 +1147,30 @@ async function confirmarRemarcar() {
 }
 
 
+// ── RENDER EDITAR (abre modal de edição) ──
+function renderEditar() {
+  const o = _ordens.find(x=>x.id===_detalheId);
+  if(!o){ setView('inicio'); return; }
+  setTopbar('Editar ordem', o.crm_id||'');
+  document.getElementById('editar_crm_label').textContent = o.crm_id||'';
+  document.getElementById('ed_nome').value  = o.nome||'';
+  document.getElementById('ed_cel').value   = o.cel||'';
+  document.getElementById('ed_cpf').value   = o.cpf||'';
+  document.getElementById('ed_rua').value   = o.logradouro||'';
+  document.getElementById('ed_bairro').value= o.bairro||'';
+  document.getElementById('ed_cidade').value= o.cidade||'São Paulo';
+  document.getElementById('ed_tipo').value  = o.tipo||'Locação';
+  document.getElementById('ed_data').value  = o.data||'';
+  document.getElementById('ed_obs').value   = o.obs||'';
+  document.getElementById('ed_rec').value   = o.rec||'';
+  document.getElementById('ed_cst').value   = o.cst||'';
+  const fSel = document.getElementById('ed_forn');
+  fSel.innerHTML = '<option value="">— Sem fornecedor —</option>' +
+    _forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('');
+  setEditTab('cliente');
+  openModal('editarModal');
+}
+
 // ── SWIPE DOWN PARA FECHAR MODAL ──
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-box').forEach(box => {
@@ -1618,7 +1608,7 @@ function getAcaoPendente(o) {
   // Precisa cobrar cliente
   if(!o.pago && (o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
   // Precisa pagar fornecedor
-  if(o.forn_id && !o.forn_pg && (o.col==='baixar'||o.col==='pagar')) return 'pagar_forn';
+  if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar')) return 'pagar_forn';
   // Ordem sem ação — not in queue
   return null;
 }
