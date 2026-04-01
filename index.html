@@ -938,6 +938,7 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
+        <button class="btn btn-sm" id="detailRemFornBtn" onclick="trocarFornecedor(_detailId)" style="display:none;background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3)">🔄 Remover Fornecedor</button>
         <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
@@ -1368,10 +1369,31 @@ async function confirmarEntrega(id){
 
 async function trocarFornecedor(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
+  // Bloqueio: fornecedor já pago
+  if(c.forn_pago){
+    toast('⚠️ Fornecedor já foi pago — não é possível remover','err');
+    return;
+  }
+  const fornAntes=forns.find(x=>x.id===c.forn_id);
+  const nomeForn=fornAntes?fornAntes.nome:'Fornecedor';
+  const confirmMsg=c.pago
+    ? `Remover ${nomeForn}?\n\nO pagamento do cliente já foi registrado e será mantido.\nA ordem voltará para a coluna Contratar.`
+    : `Remover ${nomeForn}?\n\nA ordem voltará para a coluna Contratar.`;
+  if(!confirm(confirmMsg)) return;
+  // Monta patch — nunca apaga dados de pagamento do cliente
+  const patch={col:'contratar',forn_id:null,entrega_confirmada:false};
   c.col='contratar';c.forn_id=null;c.entrega_confirmada=false;
   renderBoard();renderStats();
-  try{await api('ordens?id=eq.'+id,'PATCH',{col:'contratar',forn_id:null,entrega_confirmada:false},tok());addLog(id,'Fornecedor removido','Voltou para Contratar');toast('🔄 Fornecedor removido');}
-  catch(e){toast('Erro','err');}
+  // Fechar detail se estiver aberto
+  if(_detailId===id){
+    document.getElementById('d_forn').textContent='-';
+    _renderFornSugestao(c);
+  }
+  try{
+    await api('ordens?id=eq.'+id,'PATCH',patch,tok());
+    addLog(id,'Fornecedor removido',nomeForn+' removido — voltou para Contratar');
+    toast('🔄 '+nomeForn+' removido — ordem na coluna Contratar');
+  }catch(e){toast('Erro ao remover fornecedor','err');}
 }
 
 async function remarcarEntrega(id){
@@ -2055,6 +2077,14 @@ function cardHTML(c,color){
         <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
         <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
       </div>
+    </div>`
+    :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
+    <div class="card-confirm-actions" style="display:block;background:rgba(245,158,11,.05)">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-xs" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Remover Forn.</button>
+        <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
+        <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
+      </div>
     </div>`:''
     }
     ${cardBtnsPagamento(c,precisaConfirmar)}
@@ -2698,6 +2728,9 @@ function fillDetail(c){
   _renderFornSugestao(c);
   // Outras ordens do mesmo cliente
   _renderOutrasOrdens(c);
+  // Botão remover fornecedor: visível só se tem forn atribuído e forn não foi pago
+  const remFornBtn=document.getElementById('detailRemFornBtn');
+  if(remFornBtn) remFornBtn.style.display=(c.forn_id&&!c.forn_pago)?'inline-flex':'none';
 }
 
 function _renderFornSugestao(c){
@@ -2756,15 +2789,26 @@ async function _atribuirFornecedor(fornId){
   if(!f) return;
   c.forn_id = fornId;
   autoColFornNomeado(c);
+  // Preencher cst pelo preço do bairro — só se ainda não foi definido manualmente
+  const regioes = Array.isArray(f.regioes) ? f.regioes : [];
+  const bairro = (c.bairro||'').toLowerCase().trim();
+  const reg = bairro ? regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));}) : null;
+  const precoForn = reg?.preco > 0 ? reg.preco : (f.preco_padrao||0);
+  const patch = {forn_id: fornId, col: c.col};
+  if(precoForn > 0 && !(parseFloat(c.cst) > 0)){
+    c.cst = precoForn;
+    patch.cst = precoForn;
+  }
   document.getElementById('d_forn').textContent = f.nome;
   _renderFornSugestao(c);
   renderBoard();
   try{
     setSyncDot('sync');
-    await api('ordens?id=eq.'+c.id, 'PATCH', {forn_id: fornId, col: c.col}, tok());
+    await api('ordens?id=eq.'+c.id, 'PATCH', patch, tok());
     setSyncDot('ok');
-    addLog(c.id, 'Fornecedor atribuído', f.nome);
-    toast('🚛 '+f.nome+' atribuído!');
+    const msg = precoForn>0&&patch.cst ? f.nome+' atribuído · Custo R$ '+fmt(precoForn)+' preenchido' : f.nome+' atribuído';
+    addLog(c.id, 'Fornecedor atribuído', msg);
+    toast('🚛 '+msg);
   }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); }
 }
 
