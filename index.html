@@ -163,6 +163,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .chip.r{color:var(--r);border-color:var(--r3);background:var(--r2)}
 .chip.b{color:var(--b);border-color:var(--b3);background:var(--b2)}
 .chip.acc{color:var(--acc);border-color:var(--acc3);background:var(--acc2);font-weight:700}
+.forn-popup-item:hover{background:var(--bg2)}
 .card-confirm-actions{display:none;padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)}
 .card:hover .card-confirm-actions{display:block}
 .cards-compact .card-details{display:none!important}
@@ -2087,6 +2088,10 @@ function cardHTML(c,color){
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
+      ${c.col==='contratar'&&!c.forn_id?`
+      <div style="padding:6px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px">
+        <button class="btn btn-xs" style="background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.35);width:100%" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">🚛 Atribuir Fornecedor</button>
+      </div>`:''}
       ${precisaConfirmar&&!badgeExpirou?`
       <div style="padding:7px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px">
         <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:5px">⚠️ Confirmar entrega?</div>
@@ -2750,28 +2755,139 @@ function fillDetail(c){
   if(remFornBtn) remFornBtn.style.display=(c.forn_id&&!c.forn_pago)?'inline-flex':'none';
 }
 
+// ── Helper: matching fornecedor×bairro×cidade ──
+function _fornMatchBairro(f, bairro, cidade){
+  const regioes = Array.isArray(f.regioes) ? f.regioes : [];
+  if(!regioes.length) return {match:'geral', reg:null, preco:f.preco_padrao||0};
+  if(!bairro) return {match:'geral', reg:null, preco:f.preco_padrao||0};
+  const bLow = bairro.toLowerCase().trim();
+  const cLow = (cidade||'').toLowerCase().trim();
+  const reg = regioes.find(r=>{
+    const rb = (r.bairro||r.regiao||r.nome||'').toLowerCase().trim();
+    if(!rb) return false;
+    const nomeMatch = rb.includes(bLow) || bLow.includes(rb);
+    if(!nomeMatch) return false;
+    // Se fornecedor tem cidade no bairro, deve bater com a ordem
+    const rc = (r.cidade||'').toLowerCase().trim();
+    if(rc && cLow && rc !== cLow) return false;
+    return true;
+  });
+  if(reg){
+    const preco = reg.preco > 0 ? reg.preco : (f.preco_padrao||0);
+    return {match:'compativel', reg, preco};
+  }
+  // Tem bairros cadastrados mas nenhum bateu — não mostrar
+  return null;
+}
+
+// ── Popup rápido de fornecedor no card ──
+let _popupFornId = null;
+function abrirPopupForn(e, ordemId){
+  e.stopPropagation();
+  // Fechar popup anterior
+  const ant = document.getElementById('fornPopup');
+  if(ant) ant.remove();
+  if(_popupFornId === ordemId){ _popupFornId=null; return; }
+  _popupFornId = ordemId;
+
+  const c = ordens.find(x=>x.id===ordemId);
+  if(!c) return;
+  const bairro = (c.bairro||'').toLowerCase().trim();
+  const cidade = (c.cidade||'').toLowerCase().trim();
+  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+
+  // Classificar fornecedores
+  const lista = [];
+  forns.forEach(f => {
+    const m = _fornMatchBairro(f, bairro, cidade);
+    if(m) lista.push({f, ...m});
+  });
+  // Ordenar: compatíveis primeiro
+  lista.sort((a,b)=>(a.match==='compativel'?-1:1));
+
+  const popup = document.createElement('div');
+  popup.id = 'fornPopup';
+  popup.style.cssText = 'position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bor);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:220px;max-width:280px;max-height:320px;overflow-y:auto';
+
+  if(!lista.length){
+    popup.innerHTML = '<div style="font-size:12px;color:var(--mut2);padding:6px 4px">Nenhum fornecedor cadastrado para este bairro.</div>';
+  } else {
+    const titulo = bairro
+      ? '<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🚛 Fornecedores para '+c.bairro+'</div>'
+      : '<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🚛 Fornecedores disponíveis</div>';
+    const itens = lista.map(s => {
+      const idx = forns.indexOf(s.f);
+      const cor = s.f.color || cores[idx % cores.length];
+      const ini = s.f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const badge = s.match==='compativel'
+        ? '<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>'
+        : '<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:var(--bg2);color:var(--mut2)">geral</span>';
+      return '<div onclick="event.stopPropagation();_atribuirFornecedorCard(this.dataset.oid,this.dataset.fid)" data-oid='+ordemId+' data-fid='+s.f.id+' style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:7px;cursor:pointer;transition:background .12s" >'+
+        '<span style="width:26px;height:26px;border-radius:6px;background:'+cor+'33;color:'+cor+';font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">'+ini+'</span>'+
+        '<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">'+s.f.nome.split(' ')[0]+'</span><br><span style="font-size:11px;color:var(--mut2)">'+s.f.nome.split(' ').slice(1).join(' ')+'</span></span>'+
+        badge+'</div>';
+    }).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>');
+    popup.innerHTML = titulo + itens;
+  }
+
+  // Posicionar próximo ao botão clicado
+  const rect = e.target.closest('button')?.getBoundingClientRect() || e.target.getBoundingClientRect();
+  document.body.appendChild(popup);
+  const pw = popup.offsetWidth, ph = popup.offsetHeight;
+  let top = rect.bottom + 4, left = rect.left;
+  if(left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if(top + ph > window.innerHeight - 8) top = rect.top - ph - 4;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+
+  // Fechar ao clicar fora
+  setTimeout(()=>{ document.addEventListener('click', function _closePopup(){ document.getElementById('fornPopup')?.remove(); _popupFornId=null; document.removeEventListener('click',_closePopup); }); }, 0);
+}
+
+async function _atribuirFornecedorCard(ordemId, fornId){
+  // Fechar popup
+  document.getElementById('fornPopup')?.remove(); _popupFornId=null;
+  // Reusar lógica do detail mas sem precisar abrir o detail
+  const c = ordens.find(x=>x.id===ordemId); if(!c) return;
+  const f = forns.find(x=>x.id===fornId); if(!f) return;
+  const bairro = (c.bairro||'').toLowerCase().trim();
+  const cidade = (c.cidade||'').toLowerCase().trim();
+  const m = _fornMatchBairro(f, bairro, cidade);
+  const precoForn = m?.preco || 0;
+  const turnoStr = m?.reg ? (m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno') : '';
+  const patch = {forn_id: fornId};
+  c.forn_id = fornId;
+  autoColFornNomeado(c);
+  if(precoForn > 0 && !(parseFloat(c.cst) > 0)){ c.cst = precoForn; patch.cst = precoForn; }
+  patch.col = c.col;
+  renderBoard();
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+c.id,'PATCH',patch,tok());
+    setSyncDot('ok');
+    addLog(c.id,'Fornecedor atribuído',f.nome+(patch.cst?' · Custo R$ '+fmt(precoForn)+' preenchido':''));
+  }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); return; }
+  // Montar texto OS e abrir via detail se estiver aberto, senão abrir modal flutuante
+  const end = [c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
+  const dataStr = c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+  const textoOS = '📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  // Abrir modal flutuante de WA
+  _abrirModalAgenda(f, textoOS);
+}
+
 function _renderFornSugestao(c){
   const el = document.getElementById('d_forn_sugestao');
   if(!el) return;
   const bairro = (c.bairro||'').toLowerCase().trim();
-  // Classificar fornecedores: compatíveis, sem bairros (atende tudo), incompatíveis
-  const compatíveis = [];
-  const semBairros = [];
+  const cidade = (c.cidade||'').toLowerCase().trim();
+  // Classificar usando helper com filtro de cidade
+  const lista = [];
   forns.forEach(f => {
-    const regioes = Array.isArray(f.regioes) ? f.regioes : [];
-    if(!regioes.length){
-      // Fornecedor sem bairros cadastrados — atende qualquer lugar
-      semBairros.push({f, regiao:null, preco: f.preco_padrao||0, tipo:'qualquer'});
-      return;
-    }
-    if(!bairro){ semBairros.push({f, regiao:null, preco: f.preco_padrao||0, tipo:'qualquer'}); return; }
-    const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
-    if(reg){
-      const preco = reg.preco>0 ? reg.preco : (f.preco_padrao||0);
-      compatíveis.push({f, regiao:reg, preco, tipo:'compativel'});
-    }
+    const m = _fornMatchBairro(f, bairro, cidade);
+    if(m) lista.push({f, regiao:m.reg, preco:m.preco, tipo:m.match});
   });
-  const todos = [...compatíveis, ...semBairros];
+  const compatíveis = lista.filter(x=>x.tipo==='compativel');
+  const todos = lista;
   if(!todos.length){ el.style.display='none'; return; }
   const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
   const chips = todos.map(s => {
@@ -6064,6 +6180,7 @@ async function editarPrecoBairro(fid,idx){
           <option value="noturno" ${r.turno==='noturno'?'selected':''}>🌙 Noturno</option>
         </select>
       </div>
+      <div class="fi"><label>Cidade <span style="font-size:11px;color:var(--mut2);font-weight:400">— vazio = atende qualquer cidade</span></label><input type="text" id="eb_cidade" value="${r.cidade||''}" placeholder="ex: São Paulo"></div>
       <div class="fi"><label>Hora máxima de contratar</label><input type="time" id="eb_limite" value="${r.limite||''}" placeholder="ex: 16:00"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
         <button class="btn" onclick="closeModal('editBairroModal')">Cancelar</button>
@@ -6079,10 +6196,12 @@ async function salvarEditBairro(fid,idx){
   const r=regioes[idx];if(!r)return;
   const limVal=(document.getElementById('eb_limite')?.value||'').trim();
   const turnoVal=document.getElementById('eb_turno')?.value||'diurno';
+  const cidadeVal=(document.getElementById('eb_cidade')?.value||'').trim();
   regioes[idx]={...r,
     preco:parseFloat(document.getElementById('eb_forn')?.value)||0,
     preco_cli:parseFloat(document.getElementById('eb_cli')?.value)||0,
     turno:turnoVal,
+    ...(cidadeVal?{cidade:cidadeVal}:{cidade:undefined}),
     ...(limVal?{limite:limVal}:{limite:undefined})
   };
   f.regioes=regioes;
