@@ -2760,48 +2760,52 @@ function fillDetail(c){
 // ── Helper: matching fornecedor×bairro×cidade ──
 // Normaliza string: minúsculo, sem acento, sem caracteres especiais
 function _norm(s){
-  return (s||'').toLowerCase().trim()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^a-z0-9\s]/g,' ')
-    .replace(/\s+/g,' ').trim();
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 }
 // Palavras genéricas ignoradas no matching (preposições)
 const _STOP=['de','da','do','das','dos','e','a','o','em'];
 // Similaridade entre duas palavras (0-1)
 function _simScore(a,b){
-  if(a===b) return 1;
-  const la=a.length,lb=b.length;
-  if(Math.abs(la-lb)>2) return 0;
-  let diff=0;const mn=Math.min(la,lb);
-  for(let i=0;i<mn;i++) if(a[i]!==b[i]) diff++;
-  diff+=Math.abs(la-lb);
-  return 1-(diff/Math.max(la,lb));
+  if(a===b) return 1; if(!a||!b) return 0;
+  const longer=a.length>b.length?a:b, shorter=a.length>b.length?b:a;
+  if(longer.length===0) return 1;
+  let matches=0;
+  for(let i=0;i<shorter.length;i++) if(longer.includes(shorter[i])) matches++;
+  return matches/longer.length;
 }
-// Match de palavra individual: igual, includes com diff<=1, ou simScore>=0.8
+// Match de palavra individual
 function _palavraMatch(a,b){
   if(a===b) return true;
-  if(Math.abs(a.length-b.length)<=1&&(a.includes(b)||b.includes(a))) return true;
-  return _simScore(a,b)>=0.8;
+  if(a.includes(b)||b.includes(a)) return true;
+  return Math.abs(a.length-b.length)<=1&&_simScore(a,b)>=0.8;
 }
-// Verifica se dois bairros são o mesmo — tolerante a grafias diferentes
+// Expande abreviações comuns de bairro
+function _expandBairro(s){
+  return s.replace(/jd/g,'jardim').replace(/cel/g,'coronel')
+    .replace(/vl/g,'vila').replace(/pq/g,'parque')
+    .replace(/zabel/g,'sabel');
+}
+// Verifica se dois bairros são o mesmo — tolerante a grafias, acentos e abreviações
 function _bairroMatch(a,b){
   const na=_norm(a),nb=_norm(b);
   if(!na||!nb) return false;
   if(na===nb) return true;
-  // includes de string completa só se diff <=1 char
-  if(Math.abs(na.length-nb.length)<=1&&(na.includes(nb)||nb.includes(na))) return true;
+  // Expandir abreviações e comparar novamente
+  const ea=_expandBairro(na),eb=_expandBairro(nb);
+  if(ea===eb||ea.includes(eb)||eb.includes(ea)) return true;
   // Comparação palavra a palavra ignorando preposições e palavras curtas
-  const wa=na.split(' ').filter(x=>x.length>3&&!_STOP.includes(x));
-  const wb=nb.split(' ').filter(x=>x.length>3&&!_STOP.includes(x));
+  const wa=na.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
+  const wb=nb.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
   if(!wa.length||!wb.length) return false;
   const matches=wa.filter(w=>wb.some(w2=>_palavraMatch(w,w2)));
-  const minW=Math.min(wa.length,wb.length);
-  // 3+ palavras: tolera 1 diferente; 1-2 palavras: todas devem bater
-  const threshold=minW>=3?minW-1:minW;
-  return matches.length>=threshold;
+  return matches.length>=Math.min(wa.length,wb.length);
 }
 function _fornMatchBairro(f, bairro, cidade){
-  const regioes = Array.isArray(f.regioes) ? f.regioes : [];
+  // Parse seguro: regioes pode chegar como string JSON em alguns fornecedores
+  let regioes = f.regioes;
+  if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+  if(!Array.isArray(regioes)) regioes=[];
   if(!regioes.length) return {match:'geral', reg:null, preco:f.preco_padrao||0};
   if(!bairro) return {match:'geral', reg:null, preco:f.preco_padrao||0};
   const cNorm = _norm(cidade||'');
@@ -2818,8 +2822,8 @@ function _fornMatchBairro(f, bairro, cidade){
     const preco = reg.preco > 0 ? reg.preco : (f.preco_padrao||0);
     return {match:'compativel', reg, preco};
   }
-  // Tem bairros mas nenhum bateu — não mostrar
-  return null;
+  // Tem bairros cadastrados mas nenhum bateu — mostra como geral mesmo assim
+  return {match:'geral', reg:null, preco:f.preco_padrao||0};
 }
 
 // ── Popup rápido de fornecedor no card ──
