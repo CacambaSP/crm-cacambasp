@@ -393,7 +393,7 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── FORNECEDOR LISTA ── */
 .forn-lista{display:flex;flex-direction:column;gap:8px}
-.forn-item{display:flex;align-items:center;gap:12px;padding:14px 15px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);cursor:pointer;transition:border-color .15s,background .15s}
+.forn-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);transition:border-color .15s,background .15s}
 .forn-item:active{background:var(--sur)}
 .forn-item.compativel{border-color:var(--g3);background:var(--g2)}
 .forn-item.ativo{border-color:var(--acc3);background:var(--acc2)}
@@ -474,6 +474,9 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="toggle-bar" id="toggleBar" style="display:none">
       <button class="tb-btn on" id="tb-pendentes" onclick="setToggle('pendentes')">⚡ Ações pendentes</button>
       <button class="tb-btn" id="tb-tudo" onclick="setToggle('tudo')">📋 Ver tudo</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:0 16px 4px" id="simpleModeBar" style="display:none">
+      <button onclick="toggleModoSimples()" id="btn-modo-simples" style="padding:5px 12px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;font-weight:700;cursor:pointer">👁 Simples</button>
     </div>
     <!-- filtro de vendedores (admin only) -->
     <div class="vend-filter" id="vendFilter" style="display:none"></div>
@@ -821,6 +824,70 @@ input,select,textarea,button{font-family:var(--font)}
   </div>
 </div>
 
+<!-- MODAL: EDITAR BAIRRO/WA DO FORNECEDOR -->
+<div class="modal-overlay" id="editFornBairroModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--b2)">🏢</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-title" id="efb_nome">Fornecedor</div>
+        <div style="font-size:12px;color:var(--mut)">Editar dados e bairros</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('editFornBairroModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="mfi">
+        <label>WhatsApp (wa_link)</label>
+        <input type="text" id="efb_wa" placeholder="(11) 99999-9999 ou link wa.me/..." style="font-family:var(--mono);font-size:13px">
+      </div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--card);border-radius:var(--rad3)">Pode ser um número, ou um link completo wa.me/...</div>
+      <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Bairros / Regiões</div>
+      <div id="efb_regioes_lista" style="margin-bottom:10px"></div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--acc);margin-bottom:8px">➕ Adicionar bairro</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <input type="text" id="efb_new_bairro" placeholder="Bairro" style="flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none">
+          <input type="text" id="efb_new_cidade" placeholder="Cidade (vazio=qualquer)" style="flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select id="efb_new_turno" style="flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none">
+            <option value="">Turno (qualquer)</option><option value="diurno">☀️ Diurno</option><option value="noturno">🌙 Noturno</option>
+          </select>
+          <input type="number" id="efb_new_preco" placeholder="Preço" style="flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none" step="0.01">
+        </div>
+        <button onclick="efbAdicionarBairro()" style="width:100%;padding:9px;border-radius:8px;border:none;background:var(--acc);color:#000;font-size:13px;font-weight:800;cursor:pointer">➕ Adicionar</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('editFornBairroModal')">Cancelar</button>
+        <button class="btn acc" onclick="efbSalvar()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: WA FORNECEDOR (OS / Cancelamento / Agenda) -->
+<div class="modal-overlay" id="waFornModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--wa)">📲</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-title" id="waFornModal_titulo">Mensagem Fornecedor</div>
+        <div style="font-size:12px;color:var(--mut)" id="waFornModal_forn">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('waFornModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <textarea id="waFornModal_txt" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px;font-size:13px;color:var(--txt);outline:none;resize:none;min-height:180px;line-height:1.5;font-family:var(--font)"></textarea>
+      <div class="modal-footer" style="margin-top:12px">
+        <button class="btn" onclick="closeModal('waFornModal')">Fechar</button>
+        <button class="btn" style="background:var(--wa);color:var(--wa-c);border-color:var(--wa-b)" onclick="waFornEnviar()">📲 Enviar WA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIRM -->
 <div class="confirm-bg" id="confirmModal">
   <div class="confirm-box">
@@ -865,6 +932,7 @@ let _searchQuery = '';
 let _groupStates = {}; // { contratar: true, entregar: false, ... }
 let _filtroVendedores = []; // IDs selecionados; vazio = só o próprio
 let _loteSelected = new Set(); // IDs de ordens selecionadas para lote
+let _modoSimples = false; // toggle Simples/Detalhes nos action cards
 
 const isAdmin = () => _perfil?.nivel === 'admin';
 const tok = () => _user?.access_token;
@@ -941,33 +1009,107 @@ let _af_compativeis = [];
 let _af_gerais = [];
 let _af_cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
 
+// ── MATCHING DE BAIRRO INTELIGENTE ──
+const _STOP = ['de','da','do','das','dos','e','a','o','em'];
+
+function _norm(s) {
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function _simScore(a, b) {
+  if(a===b) return 1;
+  if(!a||!b) return 0;
+  const longer = a.length>b.length?a:b;
+  const shorter = a.length>b.length?b:a;
+  if(longer.length===0) return 1;
+  let matches=0;
+  for(let i=0;i<shorter.length;i++) if(longer.includes(shorter[i])) matches++;
+  return matches/longer.length;
+}
+
+function _palavraMatch(a, b) {
+  if(a===b) return true;
+  if(a.includes(b)||b.includes(a)) return true;
+  const diff = Math.abs(a.length-b.length);
+  if(diff<=1 && _simScore(a,b)>=0.8) return true;
+  return false;
+}
+
+function _bairroMatch(a, b) {
+  const na = _norm(a), nb = _norm(b);
+  if(!na||!nb) return false;
+  if(na===nb) return true;
+  // Expansões comuns
+  const expand = s => s
+    .replace(/\bjd\b/g,'jardim').replace(/\bcel\b/g,'coronel')
+    .replace(/\bv\b/g,'vila').replace(/\bpq\b/g,'parque')
+    .replace(/\bsoc\b/g,'sociedade').replace(/\bjardim\b/g,'jd')
+    .replace(/\bzabel\b/g,'sabel'); // Izabel/Isabel
+  const ea = expand(na), eb = expand(nb);
+  if(ea===eb||ea.includes(eb)||eb.includes(ea)) return true;
+  // Palavras-chave (sem stop words)
+  const palavrasA = na.split(' ').filter(w=>w.length>2&&!_STOP.includes(w));
+  const palavrasB = nb.split(' ').filter(w=>w.length>2&&!_STOP.includes(w));
+  if(!palavrasA.length||!palavrasB.length) return false;
+  const matches = palavrasA.filter(wa=>palavrasB.some(wb=>_palavraMatch(wa,wb)));
+  return matches.length >= Math.min(palavrasA.length, palavrasB.length);
+}
+
+function _fornMatchBairro(f, bairro, cidade) {
+  let regioes = f.regioes;
+  if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+  if(!Array.isArray(regioes)) regioes=[];
+  // Sem regiões = atende tudo
+  if(!regioes.length) return {match:'geral', reg:null, preco:0};
+  if(!bairro) return {match:'geral', reg:null, preco:0};
+  // Buscar compatível por bairro
+  const reg = regioes.find(r=>{
+    // Filtrar por cidade se definida
+    if(r.cidade&&cidade&&_norm(r.cidade)!==_norm(cidade)) return false;
+    const b = r.bairro||r.regiao||r.nome||'';
+    return _bairroMatch(b, bairro);
+  });
+  if(reg) return {match:'compativel', reg, preco:parseFloat(reg.preco||0)};
+  // Verificar se tem alguma região sem filtro de cidade (atende geral)
+  const geral = regioes.find(r=>!r.bairro&&!r.regiao&&!r.nome);
+  if(geral) return {match:'geral', reg:geral, preco:parseFloat(geral.preco||0)};
+  return null;
+}
+
+// ── HELPER WHATSAPP FORNECEDOR ──
+function _waFornAbrir(f, texto) {
+  const waLink = (f.wa_link||'').trim();
+  if(!waLink){ toast('Fornecedor sem WhatsApp cadastrado','warn'); return; }
+  const enc = encodeURIComponent(texto);
+  if(waLink.startsWith('http')) {
+    window.open(waLink, '_blank');
+  } else {
+    const tel = waLink.replace(/\D/g,'');
+    window.open('https://wa.me/55'+tel+'?text='+enc, '_blank');
+  }
+}
+
 function abrirAtribuirForn(id) {
   _detalheId = id;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const bairro = (o.bairro||'').toLowerCase().trim();
 
   // Label com bairro e endereço
   const infoLabel = [o.bairro, o.logradouro].filter(Boolean).join(' · ');
   document.getElementById('af_bairro_label').textContent = infoLabel || 'Bairro não informado';
   document.getElementById('af_busca').value = '';
 
-  // Classificar fornecedores
+  // Classificar fornecedores usando matching inteligente
   _af_compativeis = [];
   _af_gerais = [];
+  const jaAdicionados = new Set();
   _forns.forEach(f => {
-    let regioes = f.regioes;
-    if(typeof regioes === 'string') { try { regioes = JSON.parse(regioes); } catch(e) { regioes = []; } }
-    if(!Array.isArray(regioes)) regioes = [];
-
-    if(!regioes.length) { _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
-    if(!bairro)         { _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'}); return; }
-
-    const reg = regioes.find(r => {
-      const b = (r.bairro||r.regiao||r.nome||'').toLowerCase().trim();
-      return b && (b.includes(bairro) || bairro.includes(b));
-    });
-    if(reg) _af_compativeis.push({f, preco:parseFloat(reg.preco||0), preco_cli:parseFloat(reg.preco_cli||0), tipo:'compativel'});
-    else    _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
+    const res = _fornMatchBairro(f, o.bairro, o.cidade);
+    jaAdicionados.add(f.id);
+    if(!res) return; // fornecedor com regiões definidas mas sem match nenhum
+    const preco = res.reg ? parseFloat(res.reg.preco||0) : 0;
+    const preco_cli = res.reg ? parseFloat(res.reg.preco_cli||res.reg.preco||0) : 0;
+    if(res.match==='compativel') _af_compativeis.push({f, preco, preco_cli, tipo:'compativel'});
+    else _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
   });
 
   renderListaForn('', o.forn_id);
@@ -1008,13 +1150,17 @@ function fornItemHTML(s, fornAtualId, cores) {
   const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   const ativo = f.id === fornAtualId;
   const preco = s.preco_cli > 0 ? s.preco_cli : s.preco;
-  return `<div class="forn-item ${s.tipo==='compativel'?'compativel':''} ${ativo?'ativo':''}" onclick="selecionarFornecedor('${f.id}')">
-    <div class="forn-av" style="background:${cor}22;color:${cor}">${ini}</div>
-    <div class="forn-info">
-      <div class="forn-nome">${f.nome}${ativo?' ✓':''}</div>
-      <span class="forn-badge ${s.tipo==='compativel'?'compat':'geral'}">${s.tipo==='compativel'?'✓ atende bairro':'geral'}</span>
+  return `<div class="forn-item ${s.tipo==='compativel'?'compativel':''} ${ativo?'ativo':''}">
+    <div onclick="selecionarFornecedor('${f.id}')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+      <div class="forn-av" style="background:${cor}22;color:${cor}">${ini}</div>
+      <div class="forn-info">
+        <div class="forn-nome">${f.nome}${ativo?' ✓':''}</div>
+        <span class="forn-badge ${s.tipo==='compativel'?'compat':'geral'}">${s.tipo==='compativel'?'✓ bairro':'geral'}</span>
+      </div>
+      <div class="forn-preco">${preco>0?'R$ '+fmt(preco):'—'}</div>
     </div>
-    <div class="forn-preco">${preco>0?'R$ '+fmt(preco):'—'}</div>
+    <button onclick="event.stopPropagation();abrirAgendaForn('${f.id}')" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--wa-c);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">📲 Agenda</button>
+    ${isAdmin()?`<button onclick="event.stopPropagation();abrirEditFornBairro('${f.id}')" style="margin-left:4px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚙️</button>`:''}
   </div>`;
 }
 
@@ -1023,13 +1169,21 @@ async function selecionarFornecedor(fornId) {
   const f = _forns.find(x=>x.id===fornId); if(!f) return;
   closeModal('atribuirFornModal');
   // autoColFornNomeado: se estava em contratar, vai para ag_entrega
-  if(o.col==='contratar') o.col='ag_entrega';
-  o.forn_id = fornId;
+  const novaCol = o.col==='contratar' ? 'ag_entrega' : o.col;
+  // Preencher cst com precoForn somente se cst ainda não foi definido
+  const s = _af_compativeis.find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
+  const precoForn = s ? (s.preco_cli>0?s.preco_cli:s.preco) : 0;
+  const patch = {forn_id:fornId, col:novaCol};
+  if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
   try {
-    await api(`ordens?id=eq.${o.id}`,'PATCH',{forn_id:fornId, col:o.col},tok());
+    await api(`ordens?id=eq.${o.id}`,'PATCH',patch,tok());
+    o.forn_id=fornId; o.col=novaCol;
+    if(patch.cst) o.cst=patch.cst;
     toast('🚛 '+f.nome+' atribuído!','ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(o.id);
+    // Abrir modal com texto de OS e botão WA
+    _abrirWAFornModal(o, f, 'os');
   } catch(e){ toast('Erro ao salvar','err'); }
 }
 
@@ -1043,13 +1197,185 @@ async function trocarFornecedor(id) {
   if(o.pago) body = 'O pagamento do cliente será mantido.<br>Remove o fornecedor e volta a ordem para Contratar.';
   const ok = await showConfirm({ico:'🔄',title:'Remover fornecedor?',body,ok:'Remover',okClass:'acc',cancel:'Cancelar'});
   if(!ok) return;
+  const forn = _forns.find(f=>f.id===o.forn_id);
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',{col:'contratar',forn_id:null,entrega_confirmada:false},tok());
+    const oldFornId = o.forn_id;
     o.col='contratar'; o.forn_id=null; o.entrega_confirmada=false;
     toast('🔄 Fornecedor removido','ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(id);
+    // Abrir modal WA de cancelamento
+    if(forn) _abrirWAFornModal(o, forn, 'cancel');
   } catch(e){ toast('Erro','err'); }
+}
+
+// ── EDITAR FORNECEDOR (wa_link + bairros) ──
+let _efb_fornId = null;
+let _efb_regioes = [];
+
+function abrirEditFornBairro(fid) {
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  _efb_fornId = fid;
+  let regioes = f.regioes;
+  if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+  _efb_regioes = Array.isArray(regioes) ? JSON.parse(JSON.stringify(regioes)) : [];
+  document.getElementById('efb_nome').textContent = f.nome;
+  document.getElementById('efb_wa').value = f.wa_link||'';
+  document.getElementById('efb_new_bairro').value='';
+  document.getElementById('efb_new_cidade').value='';
+  document.getElementById('efb_new_turno').value='';
+  document.getElementById('efb_new_preco').value='';
+  efbRenderRegioes();
+  openModal('editFornBairroModal');
+}
+
+function efbRenderRegioes() {
+  const lista = document.getElementById('efb_regioes_lista');
+  if(!_efb_regioes.length) { lista.innerHTML = '<div style="font-size:12px;color:var(--mut2);text-align:center;padding:10px">Nenhum bairro cadastrado</div>'; return; }
+  lista.innerHTML = _efb_regioes.map((r,i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-bottom:6px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">${r.bairro||r.regiao||r.nome||'—'}${r.cidade?' · <span style="color:var(--mut);font-size:11px">'+r.cidade+'</span>':''}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px">${r.turno||'qualquer turno'}${r.preco?' · R$ '+parseFloat(r.preco).toFixed(2):''}</div>
+      </div>
+      <button onclick="efbRemoverBairro(${i})" style="padding:4px 8px;border-radius:6px;border:1px solid var(--r3);background:var(--r2);color:var(--r);font-size:11px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function efbAdicionarBairro() {
+  const bairro = document.getElementById('efb_new_bairro').value.trim();
+  if(!bairro) { toast('Informe o bairro','warn'); return; }
+  const cidade = document.getElementById('efb_new_cidade').value.trim();
+  const turno = document.getElementById('efb_new_turno').value;
+  const preco = parseFloat(document.getElementById('efb_new_preco').value)||0;
+  const reg = {bairro};
+  if(cidade) reg.cidade = cidade;
+  if(turno) reg.turno = turno;
+  if(preco>0) reg.preco = preco;
+  _efb_regioes.push(reg);
+  document.getElementById('efb_new_bairro').value='';
+  document.getElementById('efb_new_cidade').value='';
+  document.getElementById('efb_new_turno').value='';
+  document.getElementById('efb_new_preco').value='';
+  efbRenderRegioes();
+}
+
+function efbRemoverBairro(idx) {
+  _efb_regioes.splice(idx,1);
+  efbRenderRegioes();
+}
+
+async function efbSalvar() {
+  const fid = _efb_fornId; if(!fid) return;
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  const waLink = document.getElementById('efb_wa').value.trim();
+  try {
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{wa_link:waLink||null, regioes:_efb_regioes},tok());
+    f.wa_link = waLink||null;
+    f.regioes = _efb_regioes;
+    closeModal('editFornBairroModal');
+    toast('✅ Fornecedor atualizado!','ok');
+  } catch(e){ toast('Erro ao salvar: '+e.message,'err'); }
+}
+
+// ── MODAL WA FORNECEDOR (OS e Cancelamento) ──
+let _waFornModal_data = null;
+
+function _abrirWAFornModal(o, f, tipo) {
+  const data = dateF(o.data);
+  const turno = (() => {
+    let regioes = f.regioes;
+    if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+    if(!Array.isArray(regioes)) regioes=[];
+    const reg = regioes.find(r=>_bairroMatch(r.bairro||r.regiao||r.nome||'', o.bairro||''));
+    return reg?.turno||'';
+  })();
+  const turnoTxt = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':turno||'';
+  const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+  let texto = '';
+  if(tipo === 'os') {
+    texto = `📦 1 caçamba · 📅 ${data}
+📍 ${endereco}
+👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}
+🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
+📋 OS: ${o.crm_id||'—'}
+
+Por favor, confirme o recebimento desta OS.
+_CaçambaSP_`;
+  } else {
+    texto = `❌ CANCELAMENTO · 📦 1 caçamba · 📅 ${data}
+📍 ${endereco}
+📋 OS: ${o.crm_id||'—'}
+
+Pedimos desculpas pelo transtorno.
+_CaçambaSP_`;
+  }
+  _waFornModal_data = {f, texto};
+  // Abrir modal
+  const modal = document.getElementById('waFornModal');
+  document.getElementById('waFornModal_titulo').textContent = tipo==='os' ? '📋 Enviar OS ao fornecedor' : '❌ Cancelamento ao fornecedor';
+  document.getElementById('waFornModal_forn').textContent = f.nome;
+  document.getElementById('waFornModal_txt').value = texto;
+  openModal('waFornModal');
+}
+
+function waFornEnviar() {
+  if(!_waFornModal_data) return;
+  const texto = document.getElementById('waFornModal_txt').value;
+  _waFornAbrir(_waFornModal_data.f, texto);
+  closeModal('waFornModal');
+}
+
+// ── AGENDA DO FORNECEDOR ──
+async function abrirAgendaForn(fid) {
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const ativas = _ordens.filter(o=>o.forn_id===fid && cols.includes(o.col));
+  const cancelamentos = _ordens.filter(o=>o.forn_id===fid && o.col==='concluido' && o.cancel_motivo);
+
+  // Agrupar por logradouro+nome+data
+  const grupos = {};
+  ativas.forEach(o => {
+    const k = (o.logradouro||'')+'|'+(o.nome||'')+'|'+(o.data||'');
+    if(!grupos[k]) grupos[k] = {...o, qtd:0};
+    grupos[k].qtd++;
+  });
+  const lista = Object.values(grupos).sort((a,b)=>(a.data||'')>(b.data||'')?1:-1);
+
+  let turnoTxt = o => {
+    let regioes = f.regioes;
+    if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+    if(!Array.isArray(regioes)) regioes=[];
+    const reg = regioes.find(r=>_bairroMatch(r.bairro||r.regiao||r.nome||'', o.bairro||''));
+    const t = reg?.turno||'';
+    return t==='noturno'?'🌙 Noturno':t==='diurno'?'☀️ Diurno':t;
+  };
+
+  let linhas = lista.map((o,i)=>{
+    const t = turnoTxt(o);
+    const end = [o.logradouro, o.bairro].filter(Boolean).join(', ');
+    const primeiro = (o.nome||'').split(' ')[0];
+    return `${i+1}️⃣ 📦 ${o.qtd} · 📅 ${dateF(o.data)}${t?' · '+t:''}
+📍 ${end}
+👤 ${primeiro} · 📞 ${o.cel||'—'}
+${o.crm_id||''}`;
+  });
+
+  const totalQtd = lista.reduce((s,o)=>s+o.qtd,0);
+  let texto = '📋 Agenda — ' + f.nome + '\n📦 ' + totalQtd + ' caçamba' + (totalQtd!==1?'s':'') + '\n\n' + linhas.join('\n\n');
+
+  if(cancelamentos.length) {
+    texto += '\n\n❌ Cancelamentos:\n';
+    texto += cancelamentos.map(o=>'• ' + (o.crm_id||'—') + ' · ' + dateF(o.data) + ' · ' + (o.logradouro||'')).join('\n');
+  }
+  texto += '\n\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
+
+  _waFornModal_data = {f, texto};
+  document.getElementById('waFornModal_titulo').textContent = `📲 Agenda — ${f.nome}`;
+  document.getElementById('waFornModal_forn').textContent = f.nome;
+  document.getElementById('waFornModal_txt').value = texto;
+  openModal('waFornModal');
 }
 
 // ── PAGAR FORNECEDOR ──
@@ -1753,6 +2079,14 @@ function atualizarAlertBadge() {
   });
 }
 
+// ── MODO SIMPLES / DETALHES ──
+function toggleModoSimples() {
+  _modoSimples = !_modoSimples;
+  const btn = document.getElementById('btn-modo-simples');
+  if(btn) { btn.textContent = _modoSimples ? '👁 Detalhes' : '👁 Simples'; btn.style.color = _modoSimples?'var(--acc)':'var(--mut)'; btn.style.borderColor = _modoSimples?'var(--acc)':'var(--bor)'; }
+  renderCurrentView();
+}
+
 // ── TOGGLE PENDENTES / VER TUDO ──
 function setToggle(mode) {
   _toggleMode = mode;
@@ -1827,6 +2161,10 @@ function renderInicio() {
   });
 
   const ordensVisiveis = _searchQuery ? ordensBase.filter(matchSearch) : ordensBase;
+
+  // Mostrar/ocultar barra de modo simples
+  const smb = document.getElementById('simpleModeBar');
+  if(smb) smb.style.display = isAdmin() && _toggleMode==='pendentes' ? 'flex' : 'none';
 
   if(_toggleMode === 'tudo' || _searchQuery) {
     renderVerTudo(ordensVisiveis);
@@ -2079,7 +2417,7 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       return Math.floor(diffH)+'h restantes';
     })() : '';
     acoes = `
-      <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>
+      ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`}
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
     // Inject urgency style into card via inline — returned as data attr for rendering
@@ -2107,10 +2445,10 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
     const turnoLabel = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':'';
     acoes = `
       <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();confirmarEntrega('${o.id}')">✅ Confirmar entrega</button>
-      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
       ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>
-      ${o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}`;
+      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}`;
   } else if(tipoAcao === 'cobrar') {
     acoes = `
       <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">✅ Registrar pagamento</button>
@@ -2803,10 +3141,10 @@ function renderDetalhe(id) {
     <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico">🔗</div>Tracking</button>
   </div>
   ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    ${!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Trocar fornecedor</button>`}
-    <button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">📅 Remarcar</button>
+    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Trocar fornecedor</button>`)}
+    ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
     ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" style="background:var(--cyan2);color:var(--cyan);border:1px solid rgba(6,182,212,.3)" onclick="abrirPagarForn('${o.id}')">💰 Pagar forn.</button>`:''}
-    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="trocarFornecedor('${o.id}')">🔄 Remover fornecedor</button>`:''}
+    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="trocarFornecedor('${o.id}')">🔄 Remover fornecedor</button>`:''}
   </div>`:''}
   </div>
   <div class="detail-section">
@@ -2824,6 +3162,7 @@ function renderDetalhe(id) {
     <div class="detail-row"><div class="detail-key">Fornecedor</div><div class="detail-val">${forn?.nome||'—'}</div></div>
     <div class="detail-row"><div class="detail-key">Responsável</div><div class="detail-val">${resp?.nome||'—'}</div></div>
     ${forn?.tel?`<div class="detail-row"><div class="detail-key">Tel. Forn.</div><div class="detail-val"><a class="phone-link" href="tel:+55${forn.tel.replace(/\D/g,'')}">${forn.tel}</a></div></div>`:''}
+    ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
     ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
   </div>`;
   if(isAdmin()) {
@@ -2852,10 +3191,10 @@ function renderDetalhe(id) {
     <button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="abrirEditar('${o.id}')">✏️ Editar</button>
     ${o.col==='concluido'?`<button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="desarquivarOrdem('${o.id}')">↩️ Reabrir</button>`:`<button class="card-btn" style="flex:1;justify-content:center;background:var(--r2);color:var(--r);border-color:var(--r3)" onclick="arquivarOrdem('${o.id}')">📦 Arquivar</button>`}
   </div>
-  ${o.col!=='concluido'&&o.col!=='orcamento'?`<div style="padding:0 0 8px">
+  ${!_modoSimples&&o.col!=='concluido'&&o.col!=='orcamento'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
   </div>`:''}
-  ${o.col!=='concluido'?`<div style="padding:0 0 16px">
+  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 16px">
     <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
   </div>`:''}`;
   document.getElementById('detalheContent').innerHTML = h;
@@ -3007,10 +3346,15 @@ function enviarWA(id) {
 function enviarWAForn(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const forn = _forns.find(f=>f.id===o.forn_id);
-  if(!forn?.tel) { toast('Fornecedor sem telefone','warn'); return; }
-  const tel = forn.tel.replace(/\D/g,'');
+  if(!forn) { toast('Fornecedor não encontrado','warn'); return; }
+  if(!forn.wa_link && !forn.tel) { toast('Fornecedor sem WhatsApp/telefone','warn'); return; }
   const msg = `OS ${o.crm_id||''} — ${o.nome||''}\nEndereço: ${o.logradouro||''}, ${o.bairro||''}\nTipo: ${o.tipo||''}\nData: ${dateF(o.data)}`;
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+  if(forn.wa_link) {
+    _waFornAbrir(forn, msg);
+  } else {
+    const tel = forn.tel.replace(/\D/g,'');
+    window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+  }
 }
 
 function enviarTracking(id) {
