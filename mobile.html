@@ -936,7 +936,7 @@ let _toggleMode = 'pendentes'; // 'pendentes' | 'tudo'
 let _searchOpen = false;
 let _searchQuery = '';
 let _groupStates = {}; // { contratar: true, entregar: false, ... }
-let _filtroVendedores = []; // IDs selecionados; vazio = só o próprio
+let _filtroVendedores = null; // null = não iniciado; [] = todos; [uid] = filtrado
 let _loteSelected = new Set(); // IDs de ordens selecionadas para lote
 let _modoSimples = false; // toggle Simples/Detalhes nos action cards
 
@@ -1193,10 +1193,17 @@ async function selecionarFornecedor(fornId) {
   const precoForn = s ? (s.preco_cli>0?s.preco_cli:s.preco) : 0;
   const patch = {forn_id:fornId, col:novaCol};
   if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
+  // Preencher rec com preco_cli somente se ainda não definido
+  // Se a ordem tem NF, somar o acréscimo de NF ao preco_cli
+  const precoRec = s?.preco_cli > 0 ? s.preco_cli : 0;
+  if(precoRec > 0 && !(parseFloat(o.rec) > 0)) {
+    patch.rec = precoRec + (o.nf_num ? (_nfAcrescimo||0) : 0);
+  }
   try {
     await api(`ordens?id=eq.${o.id}`,'PATCH',patch,tok());
     o.forn_id=fornId; o.col=novaCol;
     if(patch.cst) o.cst=patch.cst;
+    if(patch.rec) o.rec=patch.rec;
     toast('🚛 '+f.nome+' atribuído!','ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(o.id);
@@ -2206,8 +2213,8 @@ function renderInicio() {
     vf.style.display = 'flex';
     if(!vf.dataset.built) {
       vf.dataset.built = '1';
-      // inicializar com o próprio uid selecionado
-      if(_filtroVendedores.length === 0) _filtroVendedores = [uid()];
+      // Inicializar com o próprio uid apenas na primeira carga (nunca sobrescrever escolha do usuário)
+      if(_filtroVendedores === null) _filtroVendedores = [uid()];
       renderVendFilter();
     }
   }
@@ -2216,7 +2223,7 @@ function renderInicio() {
   const ordensBase = _ordens.filter(o => {
     if(o.col==='concluido'||o.col==='orcamento') return false;
     if(!isAdmin()) return o.usuario_id === uid();
-    if(_filtroVendedores.length === 0) return true;
+    if(!_filtroVendedores || _filtroVendedores.length === 0) return true;
     return _filtroVendedores.includes(o.usuario_id);
   });
 
@@ -2238,12 +2245,12 @@ function renderVendFilter() {
   const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
   let h = '';
   // Chip "Todos"
-  const todosOn = _filtroVendedores.length === 0;
+  const todosOn = !_filtroVendedores || _filtroVendedores.length === 0;
   h += `<div class="vf-chip${todosOn?' on':''}" onclick="toggleFiltroVend('todos')">
     <span class="vf-nm">👥 Todos</span>
   </div>`;
   _usuarios.forEach(u => {
-    const on = _filtroVendedores.includes(u.id);
+    const on = _filtroVendedores && _filtroVendedores.includes(u.id);
     const cor = colors[u.nome.charCodeAt(0)%colors.length];
     h += `<div class="vf-chip${on?' on':''}" onclick="toggleFiltroVend('${u.id}')">
       <div class="vf-av" style="background:${cor}22;color:${cor}">${u.nome[0]?.toUpperCase()||'?'}</div>
@@ -2386,7 +2393,7 @@ function toggleLote(id) {
     const cobrar = getOrdensComAcao(_ordens.filter(o=>{
       if(o.col==='concluido'||o.col==='orcamento') return false;
       if(!isAdmin()) return o.usuario_id===uid();
-      if(_filtroVendedores.length===0) return true;
+      if(!_filtroVendedores||_filtroVendedores.length===0) return true;
       return _filtroVendedores.includes(o.usuario_id);
     })).cobrar;
     const todos = cobrar.every(o=>_loteSelected.has(o.id));
@@ -2399,7 +2406,7 @@ function selecionarTodosLote(grupo) {
   const base = _ordens.filter(o=>{
     if(o.col==='concluido'||o.col==='orcamento') return false;
     if(!isAdmin()) return o.usuario_id===uid();
-    if(_filtroVendedores.length===0) return true;
+    if(!_filtroVendedores||_filtroVendedores.length===0) return true;
     return _filtroVendedores.includes(o.usuario_id);
   });
   const ordens = getOrdensComAcao(base)[grupo]||[];
