@@ -924,6 +924,8 @@ input[type=checkbox]:checked::after{
       <div id="d_obs_wrap" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--mut2)"></div>
       <!-- SUGESTÃO FORNECEDOR -->
       <div id="d_forn_sugestao" style="display:none;margin-bottom:12px"></div>
+      <!-- MODAL WA FORNECEDOR -->
+      <div id="d_forn_wa_modal" style="display:none;margin-bottom:12px"></div>
       <!-- OUTRAS ORDENS DO CLIENTE -->
       <div id="d_outras_ordens" style="display:none;margin-bottom:12px"></div>
       <!-- PAGAMENTO PARCIAL -->
@@ -1376,22 +1378,48 @@ async function trocarFornecedor(id){
   }
   const fornAntes=forns.find(x=>x.id===c.forn_id);
   const nomeForn=fornAntes?fornAntes.nome:'Fornecedor';
-  const confirmMsg=c.pago
-    ? `Remover ${nomeForn}?\n\nO pagamento do cliente já foi registrado e será mantido.\nA ordem voltará para a coluna Contratar.`
-    : `Remover ${nomeForn}?\n\nA ordem voltará para a coluna Contratar.`;
-  if(!confirm(confirmMsg)) return;
-  // Monta patch — nunca apaga dados de pagamento do cliente
+  const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
+  const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+  const avisoCliente=c.pago?'
+
+⚠️ Pagamento do cliente já registrado — será mantido.':'';
+  const textoCancelamento=
+`❌ CANCELAMENTO · 📦 1 caçamba · 📅 ${dataStr}
+📍 ${end}
+📋 OS: ${c.crm_id||'—'}
+
+Pedimos desculpas pelo transtorno.
+_CaçambaSP_`;
+
+  // Abrir modal de cancelamento com opção de enviar WA
+  _abrirModalWAForn({
+    titulo: `❌ Cancelar com ${nomeForn}?${avisoCliente}`,
+    textoInicial: textoCancelamento,
+    btnEnviar: '📲 Enviar cancelamento e remover',
+    btnSemWA: 'Já cancelei, remover',
+    onEnviar: async (txt) => {
+      _waFornAbrir(fornAntes, txt);
+      await _executarRemocaoFornecedor(id, c, nomeForn);
+    },
+    onSemWA: async () => {
+      await _executarRemocaoFornecedor(id, c, nomeForn);
+    }
+  });
+}
+
+async function _executarRemocaoFornecedor(id, c, nomeForn){
   const patch={col:'contratar',forn_id:null,entrega_confirmada:false};
   c.col='contratar';c.forn_id=null;c.entrega_confirmada=false;
   renderBoard();renderStats();
-  // Fechar detail se estiver aberto
   if(_detailId===id){
     document.getElementById('d_forn').textContent='-';
+    const remFornBtn=document.getElementById('detailRemFornBtn');
+    if(remFornBtn) remFornBtn.style.display='none';
     _renderFornSugestao(c);
   }
   try{
     await api('ordens?id=eq.'+id,'PATCH',patch,tok());
-    addLog(id,'Fornecedor removido',nomeForn+' removido — voltou para Contratar');
+    addLog(id,'Fornecedor removido',nomeForn+' cancelado — voltou para Contratar');
     toast('🔄 '+nomeForn+' removido — ordem na coluna Contratar');
   }catch(e){toast('Erro ao remover fornecedor','err');}
 }
@@ -2067,26 +2095,23 @@ function cardHTML(c,color){
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
-    </div>
-    ${precisaConfirmar&&!badgeExpirou?`
-    <div class="card-confirm-actions" style="display:block">
-      <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">⚠️ Confirmar entrega?</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
-        <button class="btn btn-xs" style="background:var(--acc2);color:var(--acc)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Trocar</button>
-        <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
-        <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
-      </div>
-    </div>`
-    :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
-    <div class="card-confirm-actions" style="display:block;background:rgba(245,158,11,.05)">
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
+      ${precisaConfirmar&&!badgeExpirou?`
+      <div style="padding:7px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px">
+        <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:5px">⚠️ Confirmar entrega?</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
+          <button class="btn btn-xs" style="background:var(--acc2);color:var(--acc)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Trocar</button>
+          <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
+          <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
+        </div>
+      </div>`
+      :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
+      <div style="padding:6px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-xs" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Remover Forn.</button>
         <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
         <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
-      </div>
-    </div>`:''
-    }
+      </div>`:''}
+    </div>
     ${cardBtnsPagamento(c,precisaConfirmar)}
   </div>`;
 }
@@ -2782,34 +2807,208 @@ function _renderFornSugestao(c){
     +'<div style="font-size:10px;color:var(--mut2);margin-top:6px">Clique para atribuir · borda destacada = atende o bairro</div>'
     +'</div>';
 }
+// ── Helper: abre WhatsApp do fornecedor (número ou link de grupo) ──
+function _waFornAbrir(f, texto){
+  const waLink = (f.wa_link||'').trim();
+  if(!waLink){ toast('Fornecedor sem WhatsApp cadastrado','warn'); return; }
+  const enc = encodeURIComponent(texto);
+  if(waLink.startsWith('http')){
+    // Link de grupo — não suporta texto pré-preenchido, abre direto
+    window.open(waLink, '_blank');
+  } else {
+    const tel = waLink.replace(/\D/g,'');
+    window.open('https://wa.me/55'+tel+'?text='+enc, '_blank');
+  }
+}
+
+// ── Modal WA Fornecedor — atribuição ou cancelamento ──
+function _abrirModalWAForn({titulo, textoInicial, btnEnviar, btnSemWA, onEnviar, onSemWA}){
+  // Reutiliza um mini-modal inline no detail
+  const el = document.getElementById('d_forn_wa_modal');
+  if(!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:13px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${titulo}</div>
+      <textarea id="wa_forn_txt" style="width:100%;min-height:130px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${textoInicial}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-wa" onclick="_waFornEnviarModal()">${btnEnviar}</button>
+        <button class="btn btn-sm" style="background:var(--bg2);color:var(--mut2)" onclick="_waFornSemWA()">${btnSemWA}</button>
+        <button class="btn btn-sm btn-r" style="margin-left:auto" onclick="_waFornCancelarModal()">Voltar</button>
+      </div>
+    </div>`;
+  _waFornModalCbs = {onEnviar, onSemWA};
+}
+let _waFornModalCbs = {};
+function _waFornEnviarModal(){
+  const txt = document.getElementById('wa_forn_txt')?.value||'';
+  document.getElementById('d_forn_wa_modal').style.display='none';
+  if(_waFornModalCbs.onEnviar) _waFornModalCbs.onEnviar(txt);
+}
+function _waFornSemWA(){
+  document.getElementById('d_forn_wa_modal').style.display='none';
+  if(_waFornModalCbs.onSemWA) _waFornModalCbs.onSemWA();
+}
+function _waFornCancelarModal(){
+  document.getElementById('d_forn_wa_modal').style.display='none';
+}
+
 async function _atribuirFornecedor(fornId){
   const c = ordens.find(x => x.id === _detailId);
   if(!c) return;
   const f = forns.find(x => x.id === fornId);
   if(!f) return;
-  c.forn_id = fornId;
-  autoColFornNomeado(c);
   // Preencher cst pelo preço do bairro — só se ainda não foi definido manualmente
   const regioes = Array.isArray(f.regioes) ? f.regioes : [];
   const bairro = (c.bairro||'').toLowerCase().trim();
   const reg = bairro ? regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));}) : null;
+  const turnoStr = reg ? (reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno') : '';
   const precoForn = reg?.preco > 0 ? reg.preco : (f.preco_padrao||0);
-  const patch = {forn_id: fornId, col: c.col};
+  const patch = {forn_id: fornId};
   if(precoForn > 0 && !(parseFloat(c.cst) > 0)){
     c.cst = precoForn;
     patch.cst = precoForn;
   }
+  // Montar texto padrão da OS
+  const end = [c.logradouro, c.bairro, c.cidade].filter(Boolean).join(', ') || '—';
+  const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const textoOS =
+`📦 1 caçamba · 📅 ${dataStr}
+📍 ${end}
+👤 ${c.nome||'—'} · 📞 ${c.cel||'—'}
+🪣 ${c.tipo||'—'}${turnoStr?' · '+turnoStr:''}
+📋 OS: ${c.crm_id||'—'}
+
+Por favor, confirme o recebimento desta OS.
+_CaçambaSP_`;
+
+  // Salvar no banco primeiro
+  c.forn_id = fornId;
+  autoColFornNomeado(c);
+  patch.col = c.col;
   document.getElementById('d_forn').textContent = f.nome;
+  const remFornBtn = document.getElementById('detailRemFornBtn');
+  if(remFornBtn) remFornBtn.style.display = (c.forn_id&&!c.forn_pago)?'inline-flex':'none';
   _renderFornSugestao(c);
   renderBoard();
   try{
     setSyncDot('sync');
     await api('ordens?id=eq.'+c.id, 'PATCH', patch, tok());
     setSyncDot('ok');
-    const msg = precoForn>0&&patch.cst ? f.nome+' atribuído · Custo R$ '+fmt(precoForn)+' preenchido' : f.nome+' atribuído';
-    addLog(c.id, 'Fornecedor atribuído', msg);
-    toast('🚛 '+msg);
-  }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); }
+    const logMsg = (precoForn>0&&patch.cst?f.nome+' atribuído · Custo R$ '+fmt(precoForn)+' preenchido':f.nome+' atribuído');
+    addLog(c.id, 'Fornecedor atribuído', logMsg);
+    toast('🚛 '+f.nome+' atribuído!');
+  }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); return; }
+
+  // Abrir modal de envio WA
+  _abrirModalWAForn({
+    titulo: '📲 Enviar OS para '+f.nome,
+    textoInicial: textoOS,
+    btnEnviar: '📲 Enviar via WhatsApp',
+    btnSemWA: 'Já avisei',
+    onEnviar: (txt) => { _waFornAbrir(f, txt); },
+    onSemWA: () => { toast('✅ Fornecedor marcado como avisado'); }
+  });
+}
+
+// ── Agenda do Fornecedor (relatório diário via WA) ──
+function agendaFornecedor(fid){
+  const f = forns.find(x=>x.id===fid);
+  if(!f) return;
+  const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const ordensAtivas = ordens.filter(c=>c.forn_id===fid && ATIVAS.includes(c.col));
+  const ordensCanceladas = ordens.filter(c=>c.forn_id===fid && (c.col==='concluido'||c.col==='inadimp') && c.cancel_motivo);
+
+  if(!ordensAtivas.length && !ordensCanceladas.length){
+    toast('Nenhuma ordem ativa para este fornecedor','warn'); return;
+  }
+
+  // Agrupar: mesmo endereço + mesmo cliente + mesma data → agrupa
+  const grupos = [];
+  ordensAtivas.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  ordensAtivas.forEach(ord=>{
+    const chave = (ord.logradouro||'')+'|'+(ord.nome||'')+'|'+(ord.data||'');
+    const g = grupos.find(x=>x.chave===chave);
+    if(g){ g.itens.push(ord); }
+    else { grupos.push({chave, itens:[ord]}); }
+  });
+
+  const totalQtd = ordensAtivas.length;
+  let linhas = '';
+  grupos.forEach((g,i)=>{
+    const o = g.itens[0];
+    const qtd = g.itens.length;
+    const dataStr = o.data ? new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const turno = (() => {
+      const regioes = Array.isArray(f.regioes)?f.regioes:[];
+      const bairro = (o.bairro||'').toLowerCase().trim();
+      const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
+      return reg?(reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
+    })();
+    const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+    const lcs = g.itens.map(x=>x.crm_id).filter(Boolean).join(' · ');
+    const nomeCliente = (o.nome||'').split(' ')[0];
+    const celCliente = o.cel||'';
+    linhas += `
+${i+1}️⃣ 📦 ${qtd} · 📅 ${dataStr}${turno?' · '+turno:''}
+📍 ${end}
+👤 ${nomeCliente}${celCliente?' · 📞 '+celCliente:''}
+${lcs}
+`;
+  });
+
+  let cancelLinha = '
+❌ Cancelamentos:
+';
+  if(ordensCanceladas.length){
+    ordensCanceladas.forEach(o=>{
+      const dataStr=o.data?new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+      const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
+      cancelLinha += `• ${o.crm_id||'—'} · ${dataStr} · ${end}
+`;
+    });
+  } else {
+    cancelLinha += '— nenhum —
+';
+  }
+
+  const texto =
+`📋 Agenda — ${f.nome}
+📦 ${totalQtd} caçamba${totalQtd!==1?'s':''}
+${linhas}${cancelLinha}
+Por favor, confirme se está tudo certo.
+_CaçambaSP_`;
+
+  // Abrir mini-modal de envio (reutiliza estrutura inline)
+  // Como agendaFornecedor é chamado fora do detail, usa window.prompt-like via showConfirm não serve
+  // Vamos abrir um modal leve próprio
+  _abrirModalAgenda(f, texto);
+}
+
+function _abrirModalAgenda(f, texto){
+  // Remover modal anterior se existir
+  const existente = document.getElementById('agendaFornModal');
+  if(existente) existente.remove();
+  const m = document.createElement('div');
+  m.id = 'agendaFornModal';
+  m.className = 'mbg open';
+  m.innerHTML = `<div class="mbox" style="max-width:500px">
+    <div class="mh"><div><div class="mh-title">📋 Agenda — ${f.nome}</div></div><button class="mx" onclick="document.getElementById('agendaFornModal').remove()">✕</button></div>
+    <div style="padding:14px 16px">
+      <textarea id="agendaTxt" style="width:100%;min-height:200px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${texto}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-wa" onclick="_enviarAgendaWA('${f.id}')">📲 Enviar via WhatsApp</button>
+        <button class="btn btn-sm" style="background:var(--bg2);color:var(--mut2)" onclick="document.getElementById('agendaFornModal').remove()">Fechar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+function _enviarAgendaWA(fid){
+  const f = forns.find(x=>x.id===fid);
+  if(!f) return;
+  const txt = document.getElementById('agendaTxt')?.value||'';
+  _waFornAbrir(f, txt);
 }
 
 let _outrasOrdensCheck=new Set();
@@ -5735,12 +5934,14 @@ function renderForns(){
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs" style="background:var(--g);color:#fff" onclick="event.stopPropagation();abrirLotePrecosCli('${f.id}')" title="Editar preços em lote">💰 Lote</button>
+          <button class="btn btn-xs btn-wa" onclick="event.stopPropagation();agendaFornecedor('${f.id}')" title="Agenda do fornecedor">📲 Agenda</button>
           <button class="btn btn-xs btn-b" onclick="event.stopPropagation();editarSup('${f.id}')">✏️</button>
           <button class="btn btn-xs btn-r" onclick="event.stopPropagation();deletarSup('${f.id}')">🗑</button>
         </div>
       </div>
       <div class="sup-body" id="sup_${f.id}" style="display:${supAberto?'block':'none'}">
         ${f.pix?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
+        ${f.wa_link?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">📲 WA: <strong style="color:var(--txt)">${f.wa_link}</strong></div>`:''}
         ${f.obs?`<div style="font-size:12px;color:var(--mut2);margin-bottom:6px">${f.obs}</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
           <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px">📍 Bairros Atendidos</div>
@@ -5770,7 +5971,7 @@ function toggleSupBody(id){const el=document.getElementById(id);if(el)el.style.d
 function openSupModal(){
   document.getElementById('supModalTitle').textContent='Novo Fornecedor';
   document.getElementById('sup_id').value='';
-  ['sup_nome','sup_tel','sup_pix','sup_obs'].forEach(id=>document.getElementById(id).value='');
+  ['sup_nome','sup_tel','sup_wa_link','sup_pix','sup_obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sup_preco_padrao').value='';
   openModal('supModal');
 }
@@ -5780,6 +5981,7 @@ function editarSup(id){
   document.getElementById('sup_id').value=id;
   document.getElementById('sup_nome').value=f.nome||'';
   document.getElementById('sup_tel').value=f.tel||'';
+  document.getElementById('sup_wa_link').value=f.wa_link||'';
   document.getElementById('sup_pix').value=f.pix||'';
   document.getElementById('sup_obs').value=f.obs||'';
   document.getElementById('sup_preco_padrao').value=f.preco_padrao>0?f.preco_padrao:'';
@@ -5790,7 +5992,7 @@ async function salvarSup(){
   if(!nome){toast('Nome obrigatório','err');return;}
   const id=document.getElementById('sup_id').value;
   const preco_padrao=parseFloat(document.getElementById('sup_preco_padrao').value)||0;
-  const data={nome,tel:document.getElementById('sup_tel').value.trim(),pix:document.getElementById('sup_pix').value.trim(),obs:document.getElementById('sup_obs').value.trim(),preco_padrao};
+  const data={nome,tel:document.getElementById('sup_tel').value.trim(),wa_link:document.getElementById('sup_wa_link').value.trim(),pix:document.getElementById('sup_pix').value.trim(),obs:document.getElementById('sup_obs').value.trim(),preco_padrao};
   closeModal('supModal');
   if(id){
     const f=forns.find(x=>x.id===id);if(!f)return;
