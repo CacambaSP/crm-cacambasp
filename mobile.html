@@ -1088,7 +1088,15 @@ function _waFornAbrir(f, texto) {
   if(!waLink){ toast('Fornecedor sem WhatsApp cadastrado','warn'); return; }
   const enc = encodeURIComponent(texto);
   if(waLink.startsWith('http')) {
-    window.open(waLink, '_blank');
+    // Link de grupo WA não aceita ?text= — copia o texto e abre o link
+    if(texto) {
+      navigator.clipboard.writeText(texto).then(() => {
+        toast('✅ Texto copiado! Cole no WhatsApp após abrir.','ok', 4000);
+      }).catch(() => {
+        toast('Abra o WhatsApp e cole a mensagem manualmente.','warn', 4000);
+      });
+    }
+    setTimeout(() => window.open(waLink, '_blank'), 400);
   } else {
     const tel = waLink.replace(/\D/g,'');
     window.open('https://wa.me/55'+tel+'?text='+enc, '_blank');
@@ -2562,18 +2570,27 @@ function cardHTML(o, tipo='neutral') {
 }
 
 // ── RENDER FORNECEDORES ──
+let _fornsQuery = ''; // busca na view fornecedores
+
 function renderFornecedores() {
-  setTopbar('Fornecedores', _forns.length + ' cadastrado' + (_forns.length !== 1 ? 's' : ''));
   const colors = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+  const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const hoje = new Date().toISOString().slice(0,10);
 
-  if(!_forns.length) {
-    document.getElementById('fornsContent').innerHTML =
-      `<div class="empty-state"><div class="empty-ico">🚛</div><div class="empty-title">Nenhum fornecedor</div><div class="empty-desc">Cadastre fornecedores pelo sistema principal.</div></div>`;
-    return;
-  }
+  // Filtrar: só fornecedores com ordens ativas, depois aplicar busca por texto
+  const comOrdens = _forns.filter(f => _ordens.some(o => o.forn_id === f.id && cols.includes(o.col)));
+  const q = (_fornsQuery||'').toLowerCase().trim();
+  const lista = (q
+    ? _forns.filter(f => (f.nome||'').toLowerCase().includes(q))
+    : comOrdens
+  ).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
 
-  // Ordenar por nome
-  const lista = [..._forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total');
+
+  const searchBar = `<div style="padding:10px 14px 4px">
+    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
+      style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
+  </div>`;
 
   let h = '';
   lista.forEach(f => {
@@ -2637,7 +2654,14 @@ function renderFornecedores() {
     </div>`;
   });
 
-  document.getElementById('fornsContent').innerHTML = h;
+  const semAgenda = !q && comOrdens.length === 0;
+  const emptyMsg = semAgenda
+    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda hoje</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas no momento.</div></div>`
+    : lista.length === 0
+      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
+      : '';
+
+  document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || h);
 }
 
 // ── RENDER EQUIPE ──
