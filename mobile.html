@@ -64,7 +64,8 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── TOPBAR ── */
 .topbar{background:var(--sur);border-bottom:1px solid var(--bor);padding:12px 18px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;flex-shrink:0}
-.topbar-back{width:36px;height:36px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;flex-shrink:0;color:var(--mut)}
+.topbar-back{width:44px;height:44px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;flex-shrink:0;color:var(--mut);-webkit-tap-highlight-color:rgba(0,0,0,0);position:relative}
+.topbar-back::before{content:"";position:absolute;inset:-8px;border-radius:12px}
 .topbar-info{flex:1;min-width:0}
 .topbar-title{font-size:16px;font-weight:800;color:var(--txt);letter-spacing:-.2px}
 .topbar-sub{font-size:12px;color:var(--mut);margin-top:1px}
@@ -515,6 +516,11 @@ input,select,textarea,button{font-family:var(--font)}
   <!-- VIEW: ALERTAS -->
   <div class="view" id="view-alertas">
     <div class="scroll-area" id="alertasContent"></div>
+  </div>
+
+  <!-- VIEW: FORNECEDORES (admin) -->
+  <div class="view" id="view-fornecedores">
+    <div class="scroll-area" id="fornsContent"></div>
   </div>
 
   <!-- VIEW: DETALHE DA ORDEM -->
@@ -1101,11 +1107,13 @@ function abrirAtribuirForn(id) {
   // Classificar fornecedores usando matching inteligente
   _af_compativeis = [];
   _af_gerais = [];
-  const jaAdicionados = new Set();
   _forns.forEach(f => {
     const res = _fornMatchBairro(f, o.bairro, o.cidade);
-    jaAdicionados.add(f.id);
-    if(!res) return; // fornecedor com regiões definidas mas sem match nenhum
+    if(!res) {
+      // Tem regiões definidas mas nenhuma bate com o bairro → aparece como geral
+      _af_gerais.push({f, preco:0, preco_cli:0, tipo:'geral'});
+      return;
+    }
     const preco = res.reg ? parseFloat(res.reg.preco||0) : 0;
     const preco_cli = res.reg ? parseFloat(res.reg.preco_cli||res.reg.preco||0) : 0;
     if(res.match==='compativel') _af_compativeis.push({f, preco, preco_cli, tipo:'compativel'});
@@ -1150,17 +1158,19 @@ function fornItemHTML(s, fornAtualId, cores) {
   const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   const ativo = f.id === fornAtualId;
   const preco = s.preco_cli > 0 ? s.preco_cli : s.preco;
-  return `<div class="forn-item ${s.tipo==='compativel'?'compativel':''} ${ativo?'ativo':''}">
-    <div onclick="selecionarFornecedor('${f.id}')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+  return `<div class="forn-item ${s.tipo==='compativel'?'compativel':''} ${ativo?'ativo':''}" style="flex-direction:column;gap:0;padding:10px 12px">
+    <div onclick="selecionarFornecedor('${f.id}')" style="display:flex;align-items:center;gap:10px;width:100%;cursor:pointer">
       <div class="forn-av" style="background:${cor}22;color:${cor}">${ini}</div>
-      <div class="forn-info">
+      <div class="forn-info" style="flex:1;min-width:0">
         <div class="forn-nome">${f.nome}${ativo?' ✓':''}</div>
         <span class="forn-badge ${s.tipo==='compativel'?'compat':'geral'}">${s.tipo==='compativel'?'✓ bairro':'geral'}</span>
       </div>
       <div class="forn-preco">${preco>0?'R$ '+fmt(preco):'—'}</div>
     </div>
-    <button onclick="event.stopPropagation();abrirAgendaForn('${f.id}')" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--wa-c);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">📲 Agenda</button>
-    ${isAdmin()?`<button onclick="event.stopPropagation();abrirEditFornBairro('${f.id}')" style="margin-left:4px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚙️</button>`:''}
+    <div style="display:flex;gap:6px;margin-top:8px;padding-left:46px">
+      <button onclick="event.stopPropagation();abrirAgendaForn('${f.id}')" style="padding:5px 12px;border-radius:7px;border:1px solid var(--bor);background:var(--card);color:var(--wa-c);font-size:11px;font-weight:700;cursor:pointer">📲 Agenda</button>
+      ${isAdmin()?`<button onclick="event.stopPropagation();abrirEditFornBairro('${f.id}')" style="padding:5px 12px;border-radius:7px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;font-weight:700;cursor:pointer">⚙️ Editar</button>`:''}
+    </div>
   </div>`;
 }
 
@@ -1182,8 +1192,8 @@ async function selecionarFornecedor(fornId) {
     toast('🚛 '+f.nome+' atribuído!','ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(o.id);
-    // Abrir modal com texto de OS e botão WA
-    _abrirWAFornModal(o, f, 'os');
+    // Abrir modal WA após fechar o atribuirFornModal (delay para não conflitar)
+    setTimeout(() => _abrirWAFornModal(o, f, 'os'), 320);
   } catch(e){ toast('Erro ao salvar','err'); }
 }
 
@@ -1325,6 +1335,16 @@ function waFornEnviar() {
   const texto = document.getElementById('waFornModal_txt').value;
   _waFornAbrir(_waFornModal_data.f, texto);
   closeModal('waFornModal');
+}
+
+// ── WA LIVRE PARA FORNECEDOR (sem texto pré-preenchido) ──
+function abrirWAFornLivre(fid) {
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  _waFornModal_data = {f, texto:''};
+  document.getElementById('waFornModal_titulo').textContent = '💬 Mensagem livre — ' + f.nome;
+  document.getElementById('waFornModal_forn').textContent = f.wa_link || f.tel || 'sem contato';
+  document.getElementById('waFornModal_txt').value = '';
+  openModal('waFornModal');
 }
 
 // ── AGENDA DO FORNECEDOR ──
@@ -1654,9 +1674,16 @@ function renderEditar() {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-box').forEach(box => {
     let startY = 0;
-    box.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive:true});
+    let startX = 0;
+    box.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+    }, {passive:true});
     box.addEventListener('touchend', e => {
-      if(e.changedTouches[0].clientY - startY > 80) {
+      const dy = e.changedTouches[0].clientY - startY;
+      const dx = Math.abs(e.changedTouches[0].clientX - startX);
+      // Só fecha se: swipe predominantemente vertical, >= 150px, e box está no topo (scrollTop ~ 0)
+      if(dy > 150 && dx < 60 && box.scrollTop < 10) {
         const overlay = box.closest('.modal-overlay');
         if(overlay) overlay.classList.remove('open');
       }
@@ -1669,9 +1696,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if(_searchOpen) toggleSearch();
     }
   });
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', e => { if(e.target===overlay) overlay.classList.remove('open'); });
-  });
+  // Clique no overlay não fecha mais (evita saída acidental)
+  // Para fechar: usar botão ✕ ou swipe down
 });
 
 // ── SEARCH ──
@@ -1842,8 +1868,14 @@ function initApp() {
   buildBottomNav();
   setView('inicio');
   history.pushState(null, '', location.href);
+  let _backDebounce = false;
   window.addEventListener('popstate', async function handleBack() {
     history.pushState(null, '', location.href);
+    // Debounce: ignora disparo duplo em menos de 600ms (swipe acidental do sistema)
+    if(_backDebounce) return;
+    _backDebounce = true;
+    setTimeout(() => { _backDebounce = false; }, 600);
+
     const modaisAbertos = document.querySelectorAll('.modal-overlay.open, .confirm-bg.open');
     if(modaisAbertos.length > 0) { modaisAbertos.forEach(m => m.classList.remove('open')); return; }
     if(_searchOpen) { toggleSearch(); return; }
@@ -1870,6 +1902,9 @@ function buildBottomNav() {
       </button>
       <button class="bnb" id="bnb-pagamentos" onclick="setView('pagamentos')">
         <div class="bnb-ico">🧾</div><div class="bnb-lbl">Pgtos Forn</div>
+      </button>
+      <button class="bnb" id="bnb-fornecedores" onclick="setView('fornecedores')">
+        <div class="bnb-ico">🚛</div><div class="bnb-lbl">Fornecedores</div>
       </button>
       <button class="bnb" id="bnb-alertas" onclick="setView('alertas')">
         <div class="bnb-ico">🔔</div><div class="bnb-lbl">Alertas</div>
@@ -1910,7 +1945,7 @@ function setView(v, pushStack=true) {
   const fab = document.getElementById('fabNova');
   fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos'||v==='fornecedores') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
@@ -1947,6 +1982,7 @@ function renderCurrentView() {
     case 'financeiro': renderFinanceiro(); break;
     case 'alertas':   renderAlertas(); break;
     case 'pagamentos': renderPagamentos(); break;
+    case 'fornecedores': renderFornecedores(); break;
     case 'nova':      renderNova(); break;
     case 'editar':    renderEditar(); break;
     case 'detalhe':   if(_detalheId) renderDetalhe(_detalheId); break;
@@ -2125,7 +2161,23 @@ function getOrdensComAcao(ordens) {
 
 // ── TOGGLE GRUPO ──
 function toggleGrupo(key) {
+  const abrindo = !!_groupStates[key]; // estava fechado → vai abrir
   _groupStates[key] = !_groupStates[key];
+
+  // Acordeão nas Ações Pendentes: ao abrir um grupo, fecha os outros
+  const FILA_KEYS = ['contratar','entregar','cobrar','pagar_forn'];
+  if(abrindo && FILA_KEYS.includes(key)) {
+    FILA_KEYS.filter(k => k !== key).forEach(k => {
+      _groupStates[k] = true; // collapsed
+      const b = document.getElementById('ag-body-'+k);
+      const ch = document.getElementById('ag-chevron-'+k);
+      const hd = document.getElementById('ag-header-'+k);
+      if(b) b.classList.add('collapsed');
+      ch?.classList.remove('open');
+      if(hd) hd.classList.add('collapsed');
+    });
+  }
+
   const body = document.getElementById('ag-body-'+key);
   const chevron = document.getElementById('ag-chevron-'+key);
   const header = document.getElementById('ag-header-'+key);
@@ -2507,6 +2559,85 @@ function cardHTML(o, tipo='neutral') {
       <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
     </div>
   </div>`;
+}
+
+// ── RENDER FORNECEDORES ──
+function renderFornecedores() {
+  setTopbar('Fornecedores', _forns.length + ' cadastrado' + (_forns.length !== 1 ? 's' : ''));
+  const colors = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+
+  if(!_forns.length) {
+    document.getElementById('fornsContent').innerHTML =
+      `<div class="empty-state"><div class="empty-ico">🚛</div><div class="empty-title">Nenhum fornecedor</div><div class="empty-desc">Cadastre fornecedores pelo sistema principal.</div></div>`;
+    return;
+  }
+
+  // Ordenar por nome
+  const lista = [..._forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+
+  let h = '';
+  lista.forEach(f => {
+    const idx = _forns.indexOf(f);
+    const cor = colors[idx % colors.length];
+    const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+    // Contar ordens ativas deste fornecedor
+    const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+    const ativas = _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col));
+    const hoje = new Date().toISOString().slice(0,10);
+    const hoje_count = ativas.filter(o => o.data === hoje).length;
+
+    // Info de contato
+    const temWA = !!(f.wa_link || f.tel);
+
+    // Regiões resumidas
+    let regioes = f.regioes;
+    if(typeof regioes === 'string') { try { regioes = JSON.parse(regioes); } catch(e) { regioes = []; } }
+    if(!Array.isArray(regioes)) regioes = [];
+    const bairrosLabel = regioes.length
+      ? regioes.slice(0,3).map(r=>r.bairro||r.regiao||r.nome||'').filter(Boolean).join(', ') + (regioes.length > 3 ? ` +${regioes.length-3}` : '')
+      : 'Atende qualquer bairro';
+
+    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
+      <!-- Header do card -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px">
+        <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">${ini}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;color:var(--txt)">${f.nome}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">${bairrosLabel}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${ativas.length ? `<div style="font-size:18px;font-weight:800;color:var(--acc)">${ativas.length}</div><div style="font-size:10px;color:var(--mut)">ativas</div>` : `<div style="font-size:11px;color:var(--mut2)">sem ordens</div>`}
+        </div>
+      </div>
+
+      <!-- Chips de info -->
+      <div style="display:flex;gap:6px;padding:0 14px 10px;flex-wrap:wrap">
+        ${hoje_count ? `<span style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">📅 ${hoje_count} hoje</span>` : ''}
+        ${f.tel ? `<span style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--mut)">📞 ${f.tel}</span>` : ''}
+        ${f.wa_link ? `<span style="background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">WA ✓</span>` : ''}
+        ${regioes.length ? `<span style="background:var(--b2);color:#818cf8;border:1px solid var(--b3);border-radius:6px;padding:3px 9px;font-size:11px">${regioes.length} bairro${regioes.length!==1?'s':''}</span>` : ''}
+      </div>
+
+      <!-- Botões de ação -->
+      <div style="display:flex;gap:0;border-top:1px solid var(--bor)">
+        <button onclick="abrirAgendaForn('${f.id}')"
+          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          📲 Agenda
+        </button>
+        ${temWA ? `<button onclick="abrirWAFornLivre('${f.id}')"
+          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          💬 WA
+        </button>` : `<button disabled style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--mut2);font-size:13px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:6px">💬 Sem WA</button>`}
+        <button onclick="abrirEditFornBairro('${f.id}')"
+          style="flex:1;padding:12px 8px;background:transparent;border:none;color:var(--mut);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          ⚙️ Editar
+        </button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('fornsContent').innerHTML = h;
 }
 
 // ── RENDER EQUIPE ──
