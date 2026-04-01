@@ -1381,17 +1381,11 @@ async function trocarFornecedor(id){
   const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
   const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const avisoCliente=c.pago?'\n\n⚠️ Pagamento do cliente já registrado — será mantido.':'';
-  const textoCancelamento=
-`❌ CANCELAMENTO · 📦 1 caçamba · 📅 ${dataStr}
-📍 ${end}
-📋 OS: ${c.crm_id||'—'}
-
-Pedimos desculpas pelo transtorno.
-_CaçambaSP_`;
+  const textoCancelamento='❌ CANCELAMENTO · 📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPedimos desculpas pelo transtorno.\n_CaçambaSP_';
 
   // Abrir modal de cancelamento com opção de enviar WA
   _abrirModalWAForn({
-    titulo: `❌ Cancelar com ${nomeForn}?${avisoCliente}`,
+    titulo: '❌ Cancelar com '+nomeForn+'?'+avisoCliente,
     textoInicial: textoCancelamento,
     btnEnviar: '📲 Enviar cancelamento e remover',
     btnSemWA: 'Já cancelei, remover',
@@ -2870,15 +2864,7 @@ async function _atribuirFornecedor(fornId){
   // Montar texto padrão da OS
   const end = [c.logradouro, c.bairro, c.cidade].filter(Boolean).join(', ') || '—';
   const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-  const textoOS =
-`📦 1 caçamba · 📅 ${dataStr}
-📍 ${end}
-👤 ${c.nome||'—'} · 📞 ${c.cel||'—'}
-🪣 ${c.tipo||'—'}${turnoStr?' · '+turnoStr:''}
-📋 OS: ${c.crm_id||'—'}
-
-Por favor, confirme o recebimento desta OS.
-_CaçambaSP_`;
+  const textoOS='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
 
   // Salvar no banco primeiro
   c.forn_id = fornId;
