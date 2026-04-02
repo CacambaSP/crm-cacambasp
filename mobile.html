@@ -1651,8 +1651,9 @@ async function confirmarRemarcar() {
   if(!nd){ toast('Selecione uma data','err'); return; }
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{data:nd, entrega_confirmada:false},tok());
-    o.data=nd; o.entrega_confirmada=false;
+    const voltaCol = (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg') ? 'ag_entrega' : o.col;
+    await api(`ordens?id=eq.${id}`,'PATCH',{data:nd, entrega_confirmada:false, col:voltaCol},tok());
+    o.data=nd; o.entrega_confirmada=false; o.col=voltaCol;
     closeModal('remarcarModal');
     toast('📅 Remarcado para '+dateF(nd),'ok');
     renderCurrentView();
