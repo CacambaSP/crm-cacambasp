@@ -2201,7 +2201,8 @@ function getOrdensComAcao(ordens) {
     if(o.col==='orcamento') { grupos.orcamento.push(o); return; }
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
     if(o.col==='ag_entrega') grupos.entregar.push(o);
-    if(!o.pago && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
+    const cobradoHoje = o.cobrado_em && new Date(o.cobrado_em).toDateString()===new Date().toDateString();
+    if(!o.pago && !cobradoHoje && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
     if(o.forn_id && !o.forn_pago && (o.col==='entrega'||o.col==='baixar'||o.col==='pagar') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
   Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
@@ -2483,6 +2484,12 @@ async function dispararLote() {
     cancel:'Cancelar'
   });
   if(!ok) return;
+  // Marcar todas como cobrado_em agora
+  const hoje = new Date().toISOString();
+  ids.forEach(id => {
+    const o = _ordens.find(x=>x.id===id);
+    if(o) { o.cobrado_em = hoje; api(`ordens?id=eq.${id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{}); }
+  });
   let i = 0;
   function abrirProximo() {
     if(i >= ids.length) {
@@ -3591,6 +3598,11 @@ function enviarWA(id) {
     msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+  // Marcar como cobrado hoje → some do grupo cobrar
+  const hoje = new Date().toISOString();
+  api(`ordens?id=eq.${id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
+  o.cobrado_em = hoje;
+  setTimeout(()=>renderCurrentView(), 500);
 }
 
 function enviarWAForn(id) {
