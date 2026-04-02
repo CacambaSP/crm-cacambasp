@@ -2316,7 +2316,7 @@ function renderFilaAcoes(ordens) {
 
     lista.forEach(o => {
       if(isCobrar) {
-        h += actionCardHTML(o, g.key, true);
+        h += actionCardHTML(o, g.key, _loteSelected.size > 0);
       } else if(g.key === 'pagar_forn') {
         // renderizado condensado abaixo
       } else {
