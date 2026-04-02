@@ -2116,7 +2116,11 @@ function diasAberto(o) {
 
 function atualizarAlertBadge() {
   const hoje = new Date().toDateString();
-  const count = _ordens.filter(o => {
+  const semRec = _ordens.filter(o => {
+    if(o.pago || o.col==='concluido' || o.col==='orcamento') return false;
+    return !o.pago && (o.col==='pagar'||o.col==='faltapg') && !(parseFloat(o.rec||0)>0);
+  }).length;
+  const count = semRec + _ordens.filter(o => {
     if(o.pago || o.col==='concluido') return false;
     const cobrado = o.cobrado_em ? new Date(o.cobrado_em).toDateString() : null;
     if(cobrado === hoje) return false;
@@ -2156,7 +2160,7 @@ function getAcaoPendente(o) {
   // Precisa cobrar cliente
   if(!o.pago && (o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
   // Precisa pagar fornecedor
-  if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega')) return 'pagar_forn';
+  if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega') && (o.pago || o.entrega_confirmada)) return 'pagar_forn';
   // Ordem sem ação — not in queue
   return null;
 }
@@ -2168,7 +2172,7 @@ function getOrdensComAcao(ordens) {
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
     if(o.col==='ag_entrega') grupos.entregar.push(o);
     if(!o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
-    if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='ag_entrega')) grupos.pagar_forn.push(o);
+    if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='ag_entrega') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
   Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
   return grupos;
@@ -2516,11 +2520,18 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>
       ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}`;
+
+
+
+
+
   } else if(tipoAcao === 'cobrar') {
-    acoes = `
+    const temRec = parseFloat(o.rec||0) > 0;
+    acoes = temRec ? `
       <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">✅ Registrar pagamento</button>
       <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
+      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>` : `
+      <button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();abrirEditar('${o.id}')">✏️ Informar valor</button>`;
   } else if(tipoAcao === 'pagar_forn') {
     acoes = `
       <button class="ac-btn ac-btn-primary" style="background:var(--cyan);color:#000" onclick="event.stopPropagation();abrirPagarForn('${o.id}')">💰 Registrar pagamento</button>
