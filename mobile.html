@@ -2089,8 +2089,8 @@ async function verificarAutoEntregas() {
   if(!pendentes.length) return;
   for(const o of pendentes) {
     try {
-      await api(`ordens?id=eq.${o.id}`,'PATCH',{col:'entrega', entrega_confirmada:true},tok());
-      o.col='entrega'; o.entrega_confirmada=true;
+      await api(`ordens?id=eq.${o.id}`,'PATCH',{col:'pagar', entrega_confirmada:true},tok());
+      o.col='pagar'; o.entrega_confirmada=true;
     } catch(e){}
   }
   if(pendentes.length) {
@@ -2158,7 +2158,7 @@ function getAcaoPendente(o) {
   // Aguardando entrega (só ag_entrega)
   if(o.col==='ag_entrega') return 'entregar';
   // Precisa cobrar cliente
-  if(!o.pago && (o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
+  if(!o.pago && (o.col==='entrega'||o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
   // Precisa pagar fornecedor
   if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega') && (o.pago || o.entrega_confirmada)) return 'pagar_forn';
   // Ordem sem ação — not in queue
@@ -2171,8 +2171,8 @@ function getOrdensComAcao(ordens) {
     if(o.col==='concluido'||o.col==='orcamento') return;
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
     if(o.col==='ag_entrega') grupos.entregar.push(o);
-    if(!o.pago && (o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
-    if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='ag_entrega') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
+    if(!o.pago && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
+    if(o.forn_id && !o.forn_pago && (o.col==='entrega'||o.col==='baixar'||o.col==='pagar') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
   Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
   return grupos;
@@ -2351,12 +2351,13 @@ function renderVerTudo(ordens) {
     return;
   }
   const ETAPAS = [
-    { key:'vt-contratar', label:'📋 Contratar fornecedor', cls:'ag-contratar', fn: o => o.col==='contratar' },
-    { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  fn: o => o.col==='ag_entrega'||o.col==='entrega' },
-    { key:'vt-cobrar',    label:'💳 Cobrar cliente',        cls:'ag-cobrar',    fn: o => !o.pago&&(o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3) },
-    { key:'vt-pforn',     label:'💰 Pagar fornecedor',      cls:'ag-pagar',     fn: o => o.forn_id&&!o.forn_pago },
-    { key:'vt-ok',        label:'✅ Sem pendência',          cls:'',             fn: o => o.pago&&(!o.forn_id||o.forn_pago) },
-    { key:'vt-outros',    label:'📁 Outros',                cls:'',             fn: o => true },
+    { key:'vt-contratar', label:'🚛 Contratar fornecedor', cls:'ag-contratar', fn: o => o.col==='contratar' },
+    { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  fn: o => o.col==='ag_entrega' },
+    { key:'vt-entrega',   label:'✅ Entrega OK',            cls:'ag-cobrar',    fn: o => o.col==='entrega' },
+    { key:'vt-pagar',     label:'💰 Receber cliente',       cls:'ag-cobrar',    fn: o => o.col==='pagar'||o.col==='faltapg' },
+    { key:'vt-pforn',     label:'🚛 Pagar fornecedor',      cls:'ag-pagar',     fn: o => o.forn_id&&!o.forn_pago&&(o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='faltapg') },
+    { key:'vt-baixar',    label:'⬇️ Baixar',                cls:'',             fn: o => o.col==='baixar' },
+    { key:'vt-concluido', label:'🏁 Concluído',             cls:'',             fn: o => o.col==='concluido' },
   ];
   const usados = new Set();
   const grupos = ETAPAS.map(e => {
