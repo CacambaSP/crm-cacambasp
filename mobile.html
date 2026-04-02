@@ -1345,6 +1345,33 @@ _CaçambaSP_`;
   openModal('waFornModal');
 }
 
+function copiarOS(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const forn = _forns.find(f=>f.id===o.forn_id);
+  const turno = forn ? (()=>{
+    let regioes = forn.regioes;
+    if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+    if(!Array.isArray(regioes)) regioes=[];
+    const reg = regioes.find(r=>_bairroMatch(r.bairro||r.regiao||r.nome||'', o.bairro||''));
+    return reg?.turno||'';
+  })() : '';
+  const turnoTxt = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':turno||'';
+  const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+  const texto = `📦 1 caçamba · 📅 ${dateF(o.data)}
+📍 ${endereco}
+👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}
+🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
+📋 OS: ${o.crm_id||'—'}
+
+Por favor, confirme o recebimento desta OS.
+_CaçambaSP_`;
+  navigator.clipboard.writeText(texto).then(()=>{
+    toast('📋 OS copiada!','ok');
+  }).catch(()=>{
+    toast('Copie manualmente','warn');
+  });
+}
+
 function waFornEnviar() {
   if(!_waFornModal_data) return;
   const texto = document.getElementById('waFornModal_txt').value;
@@ -2153,7 +2180,8 @@ function setToggle(mode) {
 
 // ── LÓGICA DE AÇÕES PENDENTES ──
 function getAcaoPendente(o) {
-  if(o.col==='concluido' || o.col==='orcamento') return null;
+  if(o.col==='concluido') return null;
+  if(o.col==='orcamento') return 'orcamento';
   // Precisa contratar fornecedor
   if(!o.forn_id && o.col==='contratar') return 'contratar';
   // Aguardando entrega (só ag_entrega)
@@ -2167,9 +2195,10 @@ function getAcaoPendente(o) {
 }
 
 function getOrdensComAcao(ordens) {
-  const grupos = { contratar:[], entregar:[], cobrar:[], pagar_forn:[] };
+  const grupos = { orcamento:[], contratar:[], entregar:[], cobrar:[], pagar_forn:[] };
   ordens.forEach(o => {
-    if(o.col==='concluido'||o.col==='orcamento') return;
+    if(o.col==='concluido') return;
+    if(o.col==='orcamento') { grupos.orcamento.push(o); return; }
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
     if(o.col==='ag_entrega') grupos.entregar.push(o);
     if(!o.pago && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
@@ -2226,7 +2255,7 @@ function renderInicio() {
 
   // Ordens filtradas pelos vendedores selecionados
   const ordensBase = _ordens.filter(o => {
-    if(o.col==='concluido'||o.col==='orcamento') return false;
+    if(o.col==='concluido') return false;
     if(!isAdmin()) return o.usuario_id === uid();
     if(!_filtroVendedores || _filtroVendedores.length === 0) return true;
     return _filtroVendedores.includes(o.usuario_id);
@@ -2284,10 +2313,11 @@ function toggleFiltroVend(id) {
 function renderFilaAcoes(ordens) {
   const grupos = getOrdensComAcao(ordens);
   const GRUPOS = [
-    { key:'contratar', label:'Precisa de fornecedor', icon:'🚛', cls:'ag-contratar' },
-    { key:'entregar',  label:'Aguardando entrega',    icon:'📦', cls:'ag-entregar'  },
-    { key:'cobrar',    label:'Cobrar cliente',         icon:'💳', cls:'ag-cobrar'   },
-    { key:'pagar_forn',label:'Pagar fornecedor',       icon:'💰', cls:'ag-pagar'   },
+    { key:'orcamento',  label:'Orçamentos',            icon:'💼', cls:'ag-contratar' },
+    { key:'contratar',  label:'Precisa de fornecedor', icon:'🚛', cls:'ag-contratar' },
+    { key:'entregar',   label:'Aguardando entrega',    icon:'📦', cls:'ag-entregar'  },
+    { key:'cobrar',     label:'Cobrar cliente',         icon:'💳', cls:'ag-cobrar'   },
+    { key:'pagar_forn', label:'Pagar fornecedor',       icon:'💰', cls:'ag-pagar'   },
   ];
 
   let h = '';
@@ -2352,6 +2382,7 @@ function renderVerTudo(ordens) {
     return;
   }
   const ETAPAS = [
+    { key:'vt-orcamento',  label:'💼 Orçamentos',           cls:'ag-contratar', fn: o => o.col==='orcamento' },
     { key:'vt-contratar', label:'🚛 Contratar fornecedor', cls:'ag-contratar', fn: o => o.col==='contratar' },
     { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  fn: o => o.col==='ag_entrega' },
     { key:'vt-entrega',   label:'✅ Entrega OK',            cls:'ag-cobrar',    fn: o => o.col==='entrega' },
@@ -2477,7 +2508,23 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
   let acoes = '';
   const selOn = _loteSelected.has(o.id);
 
-  if(tipoAcao === 'contratar') {
+  if(tipoAcao === 'orcamento') {
+    acoes = `
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();converterOrcamento('${o.id}')">▶️ Converter em pedido</button>
+      ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
+      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
+    return `<div class="action-card" onclick="abrirDetalhe('${o.id}')">
+      <div class="ac-row">
+        <div class="ac-main">
+          <div class="ac-name">${o.nome||'—'}</div>
+          <div class="ac-addr">${o.logradouro||''} · ${o.bairro||''}</div>
+          ${o.data?`<div style="font-size:12px;color:var(--mut);margin-top:2px">📅 ${dateF(o.data)}</div>`:''}
+        </div>
+        <div class="ac-val">${parseFloat(o.rec||0)>0?'R$ '+fmt(o.rec):'—'}</div>
+      </div>
+      <div class="ac-actions">${acoes}</div>
+    </div>`;
+  } else if(tipoAcao === 'contratar') {
     const urg = urgenciaContratar(o);
     const prazo = getPrazoContratar(o);
     const urgColors = ['','rgba(245,166,35,.15)','rgba(249,115,22,.15)','rgba(239,68,68,.15)','rgba(239,68,68,.25)'];
@@ -2492,7 +2539,8 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
     acoes = `
       ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`}
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
+      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
+      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">📋 Copiar OS</button>`:''}`;
     // Inject urgency style into card via inline — returned as data attr for rendering
     return `<div class="action-card" onclick="abrirDetalhe('${o.id}')" style="${urg>0?`background:${urgColors[urg]};border-left:3px solid ${urgBorderColors[urg]};border-color:${urgBorderColors[urg]}`:''}" >
       <div class="ac-row">
@@ -2521,7 +2569,8 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
       ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>
-      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}`;
+      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}
+      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">📋 Copiar OS</button>`:''}`;
 
 
 
@@ -3279,6 +3328,26 @@ function abrirDetalhe(id) {
 }
 
 // ── RENDER DETALHE ──
+async function converterOrcamento(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'▶️',
+    title:'Converter em pedido?',
+    body:`${o.crm_id||''} — ${o.nome||''}\nA ordem vai para Contratar fornecedor.`,
+    ok:'▶️ Converter',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const now = new Date().toISOString();
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'contratar', orc_convertido_em:now},tok());
+    o.col='contratar'; o.orc_convertido_em=now;
+    toast('▶️ Convertido em pedido!','ok');
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
+}
+
 async function voltarOrcamento(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const ok = await showConfirm({
