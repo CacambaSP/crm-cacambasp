@@ -2255,7 +2255,7 @@ function renderInicio() {
 
   // Ordens filtradas pelos vendedores selecionados
   const ordensBase = _ordens.filter(o => {
-    if(o.col==='concluido') return false;
+    if(_toggleMode==='pendentes' && o.col==='concluido') return false;
     if(!isAdmin()) return o.usuario_id === uid();
     if(!_filtroVendedores || _filtroVendedores.length === 0) return true;
     return _filtroVendedores.includes(o.usuario_id);
@@ -2314,7 +2314,7 @@ function renderFilaAcoes(ordens) {
   const grupos = getOrdensComAcao(ordens);
   const GRUPOS = [
     { key:'orcamento',  label:'Orçamentos',            icon:'💼', cls:'ag-contratar' },
-    { key:'contratar',  label:'Precisa de fornecedor', icon:'🚛', cls:'ag-contratar' },
+    { key:'contratar',  label:'Contratar fornecedor',  icon:'🚛', cls:'ag-contratar' },
     { key:'entregar',   label:'Aguardando entrega',    icon:'📦', cls:'ag-entregar'  },
     { key:'cobrar',     label:'Cobrar cliente',         icon:'💳', cls:'ag-cobrar'   },
     { key:'pagar_forn', label:'Pagar fornecedor',       icon:'💰', cls:'ag-pagar'   },
