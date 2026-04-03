@@ -3448,7 +3448,7 @@ function renderDetalhe(id) {
     <button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="abrirEditar('${o.id}')">✏️ Editar</button>
     ${o.col==='concluido'?`<button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="desarquivarOrdem('${o.id}')">↩️ Reabrir</button>`:`<button class="card-btn" style="flex:1;justify-content:center;background:var(--r2);color:var(--r);border-color:var(--r3)" onclick="arquivarOrdem('${o.id}')">📦 Arquivar</button>`}
   </div>
-  ${!_modoSimples&&o.col!=='concluido'&&o.col!=='orcamento'?`<div style="padding:0 0 8px">
+  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
   </div>`:''}
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 16px">
@@ -3598,10 +3598,15 @@ function enviarWA(id) {
     msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-  // Marcar como cobrado hoje → some do grupo cobrar
+  // Marcar como cobrado hoje — todas as ordens do mesmo cel
   const hoje = new Date().toISOString();
-  api(`ordens?id=eq.${id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
-  o.cobrado_em = hoje;
+  const celLimpo = tel;
+  _ordens.forEach(ord => {
+    if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
+      ord.cobrado_em = hoje;
+      api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
+    }
+  });
   setTimeout(()=>renderCurrentView(), 500);
 }
 
