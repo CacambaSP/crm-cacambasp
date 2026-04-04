@@ -2387,7 +2387,7 @@ function renderVerTudo(ordens) {
     { key:'vt-contratar', label:'🚛 Contratar fornecedor', cls:'ag-contratar', fn: o => o.col==='contratar' },
     { key:'vt-entregar',  label:'📦 Aguardando entrega',   cls:'ag-entregar',  fn: o => o.col==='ag_entrega' },
     { key:'vt-entrega',   label:'✅ Entrega OK',            cls:'ag-cobrar',    fn: o => o.col==='entrega' },
-    { key:'vt-pagar',     label:'💰 Receber cliente',       cls:'ag-cobrar',    fn: o => o.col==='pagar'||o.col==='faltapg' },
+    { key:'vt-pagar',     label:'💳 Cobrar cliente',         cls:'ag-cobrar',    fn: o => o.col==='pagar'||o.col==='faltapg' },
     { key:'vt-pforn',     label:'🚛 Pagar fornecedor',      cls:'ag-pagar',     fn: o => o.forn_id&&!o.forn_pago&&(o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='faltapg') },
     { key:'vt-baixar',    label:'⬇️ Baixar',                cls:'',             fn: o => o.col==='baixar' },
     { key:'vt-concluido', label:'🏁 Concluído',             cls:'',             fn: o => o.col==='concluido' },
