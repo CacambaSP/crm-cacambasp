@@ -3155,6 +3155,7 @@ function renderNova() {
     <div id="forn-sug-wrap"></div>
     <div class="form-group">
       <div class="form-group-title">Serviço</div>
+      <div class="form-field"><label>Quantidade de caçambas</label><div style="display:flex;align-items:center;gap:12px;padding:0 2px"><button type="button" onclick="nv_qtd.value=Math.max(1,parseInt(nv_qtd.value||1)-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">−</button><input type="number" id="nv_qtd" value="1" min="1" max="10" style="flex:1;text-align:center;font-size:20px;font-weight:800;color:var(--acc);background:transparent;border:none;outline:none"><button type="button" onclick="nv_qtd.value=Math.min(10,parseInt(nv_qtd.value||1)+1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">+</button></div></div>
       <div class="form-field"><label>Tipo</label><select id="nv_tipo"><option>Locação</option><option>Troca</option><option>Retirada</option></select></div>
       <div class="form-field"><label>Data entrega</label><input type="date" id="nv_data"></div>
       <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="nv_rec" placeholder="0,00" step="0.01" inputmode="decimal"></div>
@@ -3319,9 +3320,17 @@ async function salvarNovaOrdem() {
       col: 'contratar', pago: false,
       criado_em: nowISO()
     };
-    const res = await api('ordens','POST',body,tok());
-    if(res?.[0]) _ordens.unshift(res[0]);
-    toast(`Ordem ${crm_id} criada!`,'ok');
+    const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
+    const ids_criados = [];
+    for(let q=0; q<qtd; q++) {
+      const crm_q = q===0 ? crm_id : await nextCrmId();
+      const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
+      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
+      const res = await api('ordens','POST',bodyQ,tok());
+      if(res?.[0]) _ordens.unshift(res[0]);
+      ids_criados.push(crm_q);
+    }
+    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
     setView('inicio');
   } catch(e) {
     toast('Erro ao salvar: '+e.message,'err');
@@ -3388,7 +3397,8 @@ function renderDetalhe(id) {
     <div class="sb-label">Status de pagamento</div>
     <div class="sb-status">${statusTxt}</div>
     <div class="sb-info">Valor: R$ ${fmt(o.rec)}${o.nf_num?' + NF':''}</div>
-    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">✅ Registrar recebimento</button>`:''}
+    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">✅ Registrar recebimento</button>`:
+      !_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3)" onclick="desfazerPagoCli('${o.id}')">↩️ Desfazer pagamento</button>`:''}
   </div>
   <div class="detail-actions">
     <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico">📲</div>WA Cliente</button>
@@ -3473,7 +3483,7 @@ async function duplicarOrdem(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const crm_id = await nextCrmId();
-    const body = {...o, id:uidGen(), crm_id, pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'contratar', criado_em:nowISO(), tipo:'Troca'};
+    const body = {...o, id:uidGen(), crm_id, pago:false, pago_em:null, pago_valor:null, pago_obs:null, forn_pago:false, forn_pago_em:null, forn_pago_valor:null, forn_pg_ref:null, entrega_confirmada:false, orc_convertido_em:null, col:'contratar', criado_em:nowISO()};
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
     toast(`Ordem ${crm_id} criada!`,'ok');
@@ -3543,6 +3553,27 @@ async function confirmarPagoCli() {
     toast('Pagamento registrado!','ok');
     renderCurrentView();
   } catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function desfazerPagoCli(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Desfazer pagamento?',
+    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento será revertido e a ordem voltará para Receber cliente.`,
+    ok:'↩️ Desfazer',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const upd = {pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'pagar'};
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o,upd);
+    toast('↩️ Pagamento desfeito','ok');
+    renderDetalhe(id);
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
 }
 
 // ── PIX ──
