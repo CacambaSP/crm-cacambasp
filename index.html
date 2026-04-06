@@ -2993,6 +2993,31 @@ function abrirPopupForn(e, ordemId){
       pr+'</div>';
   }
 
+  const popupSearchId = 'fornPopupSearch_'+ordemId;
+  const popupDropId   = 'fornPopupDrop_'+ordemId;
+
+  // Função de busca do popup
+  window['_fpBuscar_'+ordemId] = function(q){
+    const drop = document.getElementById(popupDropId);
+    if(!drop) return;
+    q = q.trim().toLowerCase();
+    if(!q){ drop.style.display='none'; return; }
+    const zonaMap={'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
+    const zonaKey = Object.keys(zonaMap).find(k=>q.includes(k));
+    const zonaAlvo = zonaKey ? zonaMap[zonaKey] : null;
+    const filtrados = lista.filter(s=>{
+      if(zonaAlvo) return (Array.isArray(s.f.regioes)?s.f.regioes:[]).some(r=>r.zona===zonaAlvo);
+      const regioes=Array.isArray(s.f.regioes)?s.f.regioes:[];
+      return s.f.nome.toLowerCase().includes(q)
+        ||regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
+        ||regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
+    });
+    drop.innerHTML = filtrados.length
+      ? filtrados.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>')
+      : '<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "'+q+'"</div>';
+    drop.style.display='block';
+  };
+
   if(!lista.length){
     popup.innerHTML = '<div style="font-size:12px;color:var(--mut2);padding:6px 4px">Nenhum fornecedor cadastrado.</div>';
   } else {
@@ -3012,6 +3037,17 @@ function abrirPopupForn(e, ordemId){
       html += '<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;margin-bottom:4px">'+(nComp?'Outros disponíveis':'Todos os fornecedores')+' ('+nGeral+')</div>';
       html += gerais.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>');
     }
+
+    // Campo de busca no rodapé do popup
+    html += '<div style="position:relative;margin-top:10px;border-top:1px solid var(--bor);padding-top:10px">'
+      +'<span style="position:absolute;left:10px;top:calc(10px + 50%);transform:translateY(-50%);font-size:13px;pointer-events:none">🔍</span>'
+      +'<input id="'+popupSearchId+'" type="text" placeholder="Buscar por nome, bairro ou zona…"'
+      +' oninput="window[\'_fpBuscar_'+ordemId+'\'](this.value)"'
+      +' onfocus="if(this.value.trim())window[\'_fpBuscar_'+ordemId+'\'](this.value)"'
+      +' style="width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font);box-sizing:border-box"'
+      +' onclick="event.stopPropagation()">'
+      +'<div id="'+popupDropId+'" style="display:none;position:absolute;left:0;right:0;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-top:4px;max-height:200px;overflow-y:auto;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)"></div>'
+      +'</div>';
 
     popup.innerHTML = html;
   }
