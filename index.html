@@ -2946,18 +2946,25 @@ function _renderFornSugestao(c){
   if(!el) return;
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
-  const lista = [];
-  forns.forEach(f => {
+  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+
+  // Todos os fornecedores com classificação
+  const todos = forns.map(f => {
     const m = _fornMatchBairro(f, bairro, cidade);
-    if(m) lista.push({f, regiao:m.reg, preco:m.preco, tipo:m.match});
+    return m ? {f, preco:m.preco, tipo:m.match, reg:m.reg} : {f, preco:0, tipo:'geral', reg:null};
+  }).sort((a,b) => {
+    if(a.tipo==='compativel' && b.tipo!=='compativel') return -1;
+    if(a.tipo!=='compativel' && b.tipo==='compativel') return 1;
+    return a.f.nome.localeCompare(b.f.nome,'pt-BR');
   });
-  if(!lista.length){ el.style.display='none'; return; }
-  const compativeis = lista.filter(x=>x.tipo==='compativel');
-  const gerais      = lista.filter(x=>x.tipo!=='compativel');
-  const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+
+  const compativeis = todos.filter(x=>x.tipo==='compativel');
+  const labelBairro = c.bairro || 'este bairro';
+  const searchId = 'fs_search_'+c.id;
+  const dropId   = 'fs_drop_'+c.id;
 
   function chipHtml(s){
-    const f=s.f, preco=s.preco, tipo=s.tipo;
+    const f=s.f, preco=s.preco;
     const idx=forns.indexOf(f);
     const cor=f.color||cores[idx%cores.length];
     const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -2969,38 +2976,75 @@ function _renderFornSugestao(c){
       +pr+ativo+`</div>`;
   }
 
-  const nComp  = compativeis.length;
-  const nGeral = gerais.length;
-  const labelBairro = c.bairro || 'este bairro';
-  const idGerais = 'ds_gerais_'+c.id;
+  function dropItemHtml(s){
+    const f=s.f, preco=s.preco, tipo=s.tipo;
+    const idx=forns.indexOf(f);
+    const cor=f.color||cores[idx%cores.length];
+    const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const zonas=[...new Set((Array.isArray(f.regioes)?f.regioes:[]).map(r=>r.zona).filter(Boolean))].join(', ');
+    const pr=preco>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(preco)}</span>`:'';
+    const badge=tipo==='compativel'
+      ?`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>`
+      :`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--sur);color:var(--mut2)">geral</span>`;
+    const zonaTag=zonas?`<span style="font-size:10px;color:var(--mut2)">📍 ${zonas}</span>`:'';
+    return `<div onclick="event.stopPropagation();_atribuirFornecedor('${f.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bor);transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">`
+      +`<span style="width:28px;height:28px;border-radius:6px;background:${cor}33;color:${cor};font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</span>`
+      +`<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">${f.nome}</span>`
+      +`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badge}${zonaTag}</div></span>`
+      +pr+`</div>`;
+  }
+
+  // Função de busca — exposta globalmente para o oninput
+  window['_fsBuscar_'+c.id] = function(q){
+    const drop = document.getElementById(dropId);
+    if(!drop) return;
+    q = q.trim().toLowerCase();
+    if(!q){ drop.style.display='none'; return; }
+    const zonaMap = {'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
+    const zonaQ = Object.keys(zonaMap).find(k => q.includes(k));
+    const zonaAlvo = zonaQ ? zonaMap[zonaQ] : null;
+    const filtrados = todos.filter(s => {
+      const f = s.f;
+      if(zonaAlvo){
+        const regioes = Array.isArray(f.regioes)?f.regioes:[];
+        return regioes.some(r=>r.zona===zonaAlvo);
+      }
+      const nomeForn = f.nome.toLowerCase();
+      const regioes = Array.isArray(f.regioes)?f.regioes:[];
+      const temBairro = regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q));
+      const temZona = regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
+      return nomeForn.includes(q) || temBairro || temZona;
+    });
+    if(!filtrados.length){
+      drop.innerHTML='<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "'+q+'"</div>';
+    } else {
+      drop.innerHTML = filtrados.map(dropItemHtml).join('');
+    }
+    drop.style.display='block';
+  };
 
   let inner = '';
-  if(nComp){
-    inner += `<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✓ Compatíveis com ${labelBairro} (${nComp})</div>`;
-    inner += '<div style="display:flex;flex-wrap:wrap;gap:6px">'+compativeis.map(chipHtml).join('')+'</div>';
+
+  // Chips compatíveis
+  if(compativeis.length){
+    inner += `<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✓ Compatíveis com ${labelBairro} (${compativeis.length})</div>`;
+    inner += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+compativeis.map(chipHtml).join('')+'</div>';
   } else {
-    inner += `<div style="font-size:11px;color:var(--mut2);margin-bottom:6px;font-style:italic">Nenhum fornecedor com preço cadastrado para ${labelBairro}.</div>`;
+    inner += `<div style="font-size:11px;color:var(--mut2);margin-bottom:10px;font-style:italic">Nenhum fornecedor com preço cadastrado para ${labelBairro}.</div>`;
   }
 
-  if(nGeral){
-    inner += `<div style="margin-top:8px">
-      <button onclick="event.stopPropagation();var el=document.getElementById('${idGerais}');if(el.style.display==='none'){el.style.display='flex';this.textContent='▲ Ocultar (${nGeral})'}else{el.style.display='none';this.textContent='▼ Ver todos os fornecedores (${nGeral})'}" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--mut2);font-size:11px;font-weight:600;cursor:pointer;text-align:left">▼ Ver todos os fornecedores (${nGeral})</button>
-      <div id="${idGerais}" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px">`
-      + gerais.map(s => {
-          const f=s.f, preco=s.preco;
-          const idx=forns.indexOf(f);
-          const cor=f.color||cores[idx%cores.length];
-          const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-          const ativo=f.id===c.forn_id?' <span style="font-size:10px;color:var(--g);font-weight:700">✓</span>':'';
-          const pr=preco>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(preco)}</span>`:'';
-          return `<div style="display:inline-flex;align-items:center;gap:6px;background:${cor}22;border:1px solid ${cor}33;border-radius:7px;padding:5px 10px;cursor:pointer" onclick="event.stopPropagation();_atribuirFornecedor('${f.id}')" title="Clique para atribuir">`
-            +`<span style="width:20px;height:20px;border-radius:5px;background:${cor}33;color:${cor};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${ini}</span>`
-            +`<span style="font-size:12px;font-weight:600;color:var(--txt)">${f.nome.split(' ')[0]}</span>`
-            +`<span style="font-size:10px;color:var(--mut2)">geral</span>`
-            +pr+ativo+`</div>`;
-        }).join('')
-      +'</div></div>';
-  }
+  // Campo de busca
+  inner += `<div style="position:relative">
+    <div style="position:relative">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none">🔍</span>
+      <input id="${searchId}" type="text" placeholder="Buscar por nome, bairro ou zona (ex: zona norte)…"
+        oninput="window['_fsBuscar_${c.id}'](this.value)"
+        onfocus="if(this.value.trim()) window['_fsBuscar_${c.id}'](this.value)"
+        style="width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)"
+        onclick="event.stopPropagation()">
+    </div>
+    <div id="${dropId}" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.3)"></div>
+  </div>`;
 
   el.style.display = 'block';
   el.innerHTML = '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
@@ -3658,32 +3702,15 @@ function _copiarFallback(texto){
 function enviarWAForn(id){
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
-  if(!c){toast("Ordem não encontrada","warn");return;}
+  if(!c){toast('Ordem não encontrada','warn');return;}
   const f=forns.find(x=>x.id===c.forn_id);
-  if(!f){toast("Nenhum fornecedor atribuído à ordem","warn");return;}
-  const tel=(f.tel||"").replace(/\D/g,"");
-  if(!tel){toast("Fornecedor sem WhatsApp cadastrado","warn");return;}
-  const end=(c.logradouro||"-")+(c.bairro?", "+c.bairro:"")+(c.cidade?", "+c.cidade:"");
-  const regioes=Array.isArray(f.regioes)?f.regioes:[];
-  const reg=regioes.find(r=>(r.regiao||"").toLowerCase().includes((c.bairro||"").toLowerCase()));
-  const turnoStr=reg?(reg.turno==="noturno"?"🌙 Noturno":"☀️ Diurno"):"";
-  const valorStr=reg&&reg.preco>0?" · R$ "+parseFloat(reg.preco).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):""
-  const msg=
-"Olá "+f.nome+"! 🚛\n\n"+
-"Segue a ordem de serviço para atendimento:\n\n"+
-"📋 *OS Nº "+(c.crm_id||"-")+"*\n"+
-"📍 *"+end+"*\n"+
-"📅 Data: "+(c.data?new Date(c.data+"T12:00:00").toLocaleDateString("pt-BR"):"—")+"\n"+
-"🪣 Tipo: "+(c.tipo||"—")+"\n"+
-(turnoStr?"⏰ Turno: "+turnoStr+valorStr+"\n":"")+
-"\n"+
-"👤 Cliente: "+(c.nome||"—")+"\n"+
-(c.cel?"📞 "+(c.cel)+"\n":"")+
-"\n"+
-"Por favor, confirme o recebimento desta OS.\n"+
-"_CaçambaSP_";
-  const url="https://wa.me/55"+tel+"?text="+encodeURIComponent(msg);
-  window.open(url,"_blank");
+  if(!f){toast('Nenhum fornecedor atribuído à ordem','warn');return;}
+  const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
+  const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+  const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim());
+  const turnoStr=m?.reg?(m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
+  const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  _waFornAbrir(f, msg);
 }
 function enviarTracking(id){
   const oid=id||_detailId;
@@ -6314,6 +6341,17 @@ async function editarPrecoBairro(fid,idx){
           <option value="noturno" ${r.turno==='noturno'?'selected':''}>🌙 Noturno</option>
         </select>
       </div>
+      <div class="fi"><label>Zona <span style="font-size:11px;color:var(--mut2);font-weight:400">— para busca por zona</span></label>
+        <select id="eb_zona" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:13px;color:var(--txt);outline:none;font-family:var(--font)">
+          <option value="" ${!r.zona?'selected':''}>— Não informado</option>
+          <option value="Norte" ${r.zona==='Norte'?'selected':''}>🔵 Zona Norte</option>
+          <option value="Sul" ${r.zona==='Sul'?'selected':''}>🟢 Zona Sul</option>
+          <option value="Leste" ${r.zona==='Leste'?'selected':''}>🟡 Zona Leste</option>
+          <option value="Oeste" ${r.zona==='Oeste'?'selected':''}>🟠 Zona Oeste</option>
+          <option value="Centro" ${r.zona==='Centro'?'selected':''}>🔴 Centro</option>
+          <option value="Grande SP" ${r.zona==='Grande SP'?'selected':''}>⚪ Grande SP</option>
+        </select>
+      </div>
       <div class="fi"><label>Cidade <span style="font-size:11px;color:var(--mut2);font-weight:400">— vazio = atende qualquer cidade</span></label><input type="text" id="eb_cidade" value="${r.cidade||''}" placeholder="ex: São Paulo"></div>
       <div class="fi"><label>Hora máxima de contratar</label><input type="time" id="eb_limite" value="${r.limite||''}" placeholder="ex: 16:00"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
@@ -6331,10 +6369,12 @@ async function salvarEditBairro(fid,idx){
   const limVal=(document.getElementById('eb_limite')?.value||'').trim();
   const turnoVal=document.getElementById('eb_turno')?.value||'diurno';
   const cidadeVal=(document.getElementById('eb_cidade')?.value||'').trim();
+  const zonaVal=(document.getElementById('eb_zona')?.value||'').trim();
   regioes[idx]={...r,
     preco:parseFloat(document.getElementById('eb_forn')?.value)||0,
     preco_cli:parseFloat(document.getElementById('eb_cli')?.value)||0,
     turno:turnoVal,
+    ...(zonaVal?{zona:zonaVal}:{zona:undefined}),
     ...(cidadeVal?{cidade:cidadeVal}:{cidade:undefined}),
     ...(limVal?{limite:limVal}:{limite:undefined})
   };
