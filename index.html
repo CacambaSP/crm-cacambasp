@@ -604,11 +604,22 @@ input[type=checkbox]:checked::after{
       <div class="view" id="view-pgforn">
         <div class="pw">
           <div class="ph"><div class="ph-title">Pagar Fornecedor</div></div>
-          <div class="fi" style="max-width:400px">
-            <label>Selecione o fornecedor</label>
-            <select id="pgfornSup" onchange="carregarPgForn()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
-              <option value="">-- Escolha --</option>
-            </select>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;max-width:800px">
+            <div class="fi" style="flex:2;min-width:200px;margin-bottom:0">
+              <label>Fornecedor</label>
+              <select id="pgfornSup" onchange="carregarPgForn()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
+                <option value="">-- Escolha --</option>
+              </select>
+            </div>
+            <div class="fi" style="flex:1;min-width:130px;margin-bottom:0">
+              <label>De</label>
+              <input type="date" id="pgfornDe" onchange="carregarPgForn()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
+            </div>
+            <div class="fi" style="flex:1;min-width:130px;margin-bottom:0">
+              <label>Até</label>
+              <input type="date" id="pgfornAte" onchange="carregarPgForn()" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none">
+            </div>
+            <button class="btn btn-sm" onclick="pgfornLimparFiltro()" style="margin-bottom:0;white-space:nowrap">✕ Limpar datas</button>
           </div>
           <div id="pgfornContent"></div>
         </div>
@@ -863,11 +874,26 @@ input[type=checkbox]:checked::after{
       </div>
       <div class="fi-row">
         <div class="fi"><label>Data do serviço</label><input type="date" id="o_data"></div>
-        <div class="fi"><label>Fornecedor</label>
-          <select id="o_forn" onchange="onFornChange()"></select>
+        <div class="fi" style="display:none"><select id="o_forn" onchange="onFornChange()"></select></div>
+      </div>
+      <div class="fi" style="margin-top:4px">
+        <label>Fornecedor</label>
+        <div id="o_forn_chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="position:relative">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none">🔍</span>
+          <input id="o_forn_search" type="text" placeholder="Buscar por nome, bairro ou zona…"
+            oninput="modalFornBuscar(this.value)"
+            onfocus="modalFornBuscar(this.value)"
+            style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)"
+            autocomplete="off">
+          <div id="o_forn_drop" style="display:none;position:absolute;left:0;right:0;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.35)"></div>
+        </div>
+        <div id="o_forn_sel" style="display:none;margin-top:8px;padding:8px 10px;background:var(--g2);border:1px solid var(--g3);border-radius:8px;font-size:12px;color:var(--g);display:flex;align-items:center;justify-content:space-between">
+          <span id="o_forn_sel_nome"></span>
+          <button onclick="modalFornLimpar()" style="border:none;background:none;color:var(--mut2);cursor:pointer;font-size:13px">✕</button>
         </div>
       </div>
-      <div id="o_forn_sug" style="display:none;font-size:11px;color:var(--acc);margin-top:-8px;margin-bottom:10px;cursor:pointer"></div>
+      <div id="o_forn_sug" style="display:none"></div>
       <div class="fi"><label>Observação</label><textarea id="o_obs"></textarea></div>
     </div>
     <div class="mtab-p" id="otab-financeiro">
@@ -1042,7 +1068,7 @@ input[type=checkbox]:checked::after{
         </div>
         <div class="fi">
           <label>Etiqueta / Referência</label>
-          <input type="text" id="pf_ref" placeholder="Ex: FornJuliana25032026" style="font-family:var(--mono);font-size:12px">
+          <input type="text" id="pf_ref" placeholder="Gerada automaticamente" style="font-family:var(--mono);font-size:12px">
         </div>
       </div>
       <div class="fi" style="margin-bottom:4px">
@@ -1050,7 +1076,7 @@ input[type=checkbox]:checked::after{
         <input type="text" id="pf_obs_pg" placeholder="Ex: Pagamento antecipado, desconto combinado...">
       </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px">
-        💡 <strong>Dica:</strong> Use a mesma etiqueta para todas as ordens do mesmo lote.<br>Ex: <span style="font-family:var(--mono);color:var(--acc)">FornJuliana25032026</span>
+        💡 <strong>Dica:</strong> Use a mesma etiqueta para todas as ordens do mesmo lote.<br>Ex: <span style="font-family:var(--mono);color:var(--acc)">Uliana_06042026_1432</span>
       </div>
       <div id="pf_outras" style="margin-bottom:12px"></div>
       <div class="mfooter">
@@ -2366,6 +2392,15 @@ function openNovaOrdem(){
   const fSel=document.getElementById('o_forn');
   fSel.innerHTML='<option value="">- Selecionar -</option>';
   forns.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;fSel.appendChild(o);});
+  // Limpar pill e busca
+  const selDivN=document.getElementById('o_forn_sel');
+  if(selDivN) selDivN.style.display='none';
+  const searchN=document.getElementById('o_forn_search');
+  if(searchN) searchN.value='';
+  const dropN=document.getElementById('o_forn_drop');
+  if(dropN) dropN.style.display='none';
+  const chipsN=document.getElementById('o_forn_chips');
+  if(chipsN){ chipsN.innerHTML=''; chipsN.style.display='none'; }
   document.getElementById('ordemFinPrev').style.display='none';
   switchOrdemTab('cliente');
   openModal('ordemModal');
@@ -2394,6 +2429,13 @@ function editarOrdemAtual(){
   fSel.innerHTML='<option value="">- Selecionar -</option>';
   forns.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;fSel.appendChild(o);});
   fSel.value=c.forn_id||'';
+  // Mostrar pill se já tem fornecedor selecionado
+  const selDiv=document.getElementById('o_forn_sel');
+  const selNome=document.getElementById('o_forn_sel_nome');
+  const fAtual=c.forn_id?forns.find(x=>x.id===c.forn_id):null;
+  if(selDiv) selDiv.style.display=fAtual?'flex':'none';
+  if(selNome&&fAtual) selNome.textContent='✅ '+fAtual.nome;
+  setTimeout(()=>_modalFornRenderChips(),50);
   updOrdemFin();
   // Se tem fornecedor mas custo vazio, calcula automaticamente
   if(c.forn_id && !(c.cst > 0)) onFornChange();
@@ -2425,38 +2467,119 @@ function updOrdemFin(){
 }
 
 function atualizarSugestaoForn(){
-  const bairro=document.getElementById('o_bairro').value.trim();
-  const cidade=document.getElementById('o_cidade').value.trim();
-  const term=(bairro||cidade).toLowerCase();
-  if(!term||term.length<2){document.getElementById('o_forn_sug').style.display='none';return;}
-  const scores={};
-  forns.forEach(f=>{
-    const regioes=Array.isArray(f.regioes)?f.regioes:[];
-    // +15 se tem bairro específico cadastrado
-    if(regioes.some(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase();return b&&(b.includes(term)||term.includes(b));})){
-      scores[f.id]=(scores[f.id]||0)+15;
+  // Atualiza chips de compatíveis quando bairro/cidade muda
+  _modalFornRenderChips();
+}
+
+function _modalFornRenderChips(){
+  const bairro = (document.getElementById('o_bairro')?.value||'').trim().toLowerCase();
+  const cidade  = (document.getElementById('o_cidade')?.value||'').trim().toLowerCase();
+  const chips   = document.getElementById('o_forn_chips');
+  if(!chips) return;
+  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+  const compativeis = forns
+    .map(f=>({f, m:_fornMatchBairro(f,bairro,cidade)}))
+    .filter(x=>x.m && x.m.match==='compativel')
+    .sort((a,b)=>a.f.nome.localeCompare(b.f.nome,'pt-BR'));
+  if(!compativeis.length){ chips.innerHTML=''; chips.style.display='none'; return; }
+  chips.style.display='flex';
+  const selId = document.getElementById('o_forn')?.value||'';
+  chips.innerHTML = compativeis.map(({f,m})=>{
+    const idx=forns.indexOf(f);
+    const cor=f.color||cores[idx%cores.length];
+    const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const precoExib = m.reg?.preco_cli > 0 ? m.reg.preco_cli : m.preco;
+    const pr=precoExib>0?` R$ ${fmt(precoExib)}`:'';
+    const ativo=f.id===selId?' ✓':'';
+    return `<div onclick="modalFornSelecionar('${f.id}')" style="display:inline-flex;align-items:center;gap:5px;background:${cor}22;border:1px solid ${cor}88;border-radius:7px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt)">
+      <span style="width:18px;height:18px;border-radius:4px;background:${cor}33;color:${cor};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${ini}</span>
+      ${f.nome.split(' ')[0]}<span style="color:var(--acc);font-family:var(--mono);font-size:11px">${pr}</span>${ativo?'<span style="color:var(--g);font-size:10px">✓</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function modalFornBuscar(q){
+  const drop = document.getElementById('o_forn_drop');
+  if(!drop) return;
+  q = (q||'').trim().toLowerCase();
+  if(!q){ drop.style.display='none'; return; }
+  const bairro = (document.getElementById('o_bairro')?.value||'').trim().toLowerCase();
+  const cidade  = (document.getElementById('o_cidade')?.value||'').trim().toLowerCase();
+  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+  const zonaMap = {'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
+  const zonaQ = Object.keys(zonaMap).find(k=>q.includes(k));
+  const zonaAlvo = zonaQ ? zonaMap[zonaQ] : null;
+  const todos = forns.map(f=>{
+    const m=_fornMatchBairro(f,bairro,cidade);
+    return {f, preco:m?.preco||0, tipo:m?.match||'geral'};
+  }).sort((a,b)=>{
+    if(a.tipo==='compativel'&&b.tipo!=='compativel') return -1;
+    if(a.tipo!=='compativel'&&b.tipo==='compativel') return 1;
+    return a.f.nome.localeCompare(b.f.nome,'pt-BR');
+  });
+  const filtrados = todos.filter(s=>{
+    const f=s.f;
+    if(zonaAlvo){
+      return (Array.isArray(f.regioes)?f.regioes:[]).some(r=>r.zona===zonaAlvo);
     }
-    // +3 se tem preco_padrao (indica que está ativo)
-    if(f.preco_padrao>0) scores[f.id]=(scores[f.id]||0)+3;
+    const regioes=Array.isArray(f.regioes)?f.regioes:[];
+    return f.nome.toLowerCase().includes(q)
+      || regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
+      || regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
   });
-  ordens.forEach(c=>{
-    if(!c.forn_id||c.col==='concluido') return;
-    const b=(c.bairro||c.cidade||'').toLowerCase();
-    if(b.includes(term)||term.includes(b)) scores[c.forn_id]=(scores[c.forn_id]||0)+1;
-  });
-  const best=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];
-  const sug=document.getElementById('o_forn_sug');
-  if(best){
-    const f=forns.find(x=>x.id===best[0]);
-    if(f){
-      const regioes=Array.isArray(f.regioes)?f.regioes:[];
-      const reg=regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase();return b&&(b.includes(term)||term.includes(b));});
-      const preco=reg&&reg.preco>0?reg.preco:(f.preco_padrao||0);
-      const precoLabel=preco>0?` · R$ ${fmt(preco)}`:'';
-      sug.style.display='block';
-      sug.innerHTML=`💡 Sugestão: <strong>${f.nome}</strong>${precoLabel} — <span style="text-decoration:underline;cursor:pointer" onclick="aplicarSugestaoForn('${f.id}')">Aplicar</span>`;
-    }else sug.style.display='none';
-  }else sug.style.display='none';
+  if(!filtrados.length){
+    drop.innerHTML=`<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "${q}"</div>`;
+  } else {
+    drop.innerHTML = filtrados.map(s=>{
+      const f=s.f, tipo=s.tipo;
+      const preco = s.reg?.preco_cli > 0 ? s.reg.preco_cli : s.preco;
+      const idx=forns.indexOf(f);
+      const cor=f.color||cores[idx%cores.length];
+      const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const zonas=[...new Set((Array.isArray(f.regioes)?f.regioes:[]).map(r=>r.zona).filter(Boolean))].join(', ');
+      const pr=preco>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(preco)}</span>`:'';
+      const badge=tipo==='compativel'
+        ?`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>`
+        :`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--sur);color:var(--mut2)">geral</span>`;
+      const zonaTag=zonas?`<span style="font-size:10px;color:var(--mut2)">📍 ${zonas}</span>`:'';
+      return `<div onclick="modalFornSelecionar('${f.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bor)" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">`
+        +`<span style="width:28px;height:28px;border-radius:6px;background:${cor}33;color:${cor};font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</span>`
+        +`<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">${f.nome}</span>`
+        +`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badge}${zonaTag}</div></span>`
+        +pr+`</div>`;
+    }).join('');
+  }
+  drop.style.display='block';
+}
+
+function modalFornSelecionar(fornId){
+  const f=forns.find(x=>x.id===fornId); if(!f) return;
+  // Atualiza o select oculto para manter compatibilidade com salvarOrdem
+  const sel=document.getElementById('o_forn');
+  if(sel) sel.value=fornId;
+  // Mostra pill de selecionado
+  const selDiv=document.getElementById('o_forn_sel');
+  const selNome=document.getElementById('o_forn_sel_nome');
+  if(selDiv&&selNome){
+    selNome.textContent='✅ '+f.nome;
+    selDiv.style.display='flex';
+  }
+  // Fecha dropdown e limpa busca
+  const drop=document.getElementById('o_forn_drop');
+  const search=document.getElementById('o_forn_search');
+  if(drop) drop.style.display='none';
+  if(search) search.value='';
+  // Atualiza chips e dispara onFornChange para preencher cst
+  _modalFornRenderChips();
+  onFornChange();
+}
+
+function modalFornLimpar(){
+  const sel=document.getElementById('o_forn');
+  if(sel) sel.value='';
+  const selDiv=document.getElementById('o_forn_sel');
+  if(selDiv) selDiv.style.display='none';
+  _modalFornRenderChips();
 }
 
 // ── NF OBRIGATÓRIA ──
@@ -2862,7 +2985,8 @@ function abrirPopupForn(e, ordemId){
     const idx = forns.indexOf(s.f);
     const cor = s.f.color || cores[idx % cores.length];
     const ini = s.f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const pr  = s.preco > 0 ? '<span style="font-size:11px;color:var(--acc);font-family:var(--mono);margin-left:2px">R$ '+fmt(s.preco)+'</span>' : '';
+    const precoExib = s.reg?.preco_cli > 0 ? s.reg.preco_cli : s.preco;
+    const pr  = precoExib > 0 ? '<span style="font-size:11px;color:var(--acc);font-family:var(--mono);margin-left:2px">R$ '+fmt(precoExib)+'</span>' : '';
     return '<div onclick="event.stopPropagation();_atribuirFornecedorCard(this.dataset.oid,this.dataset.fid)" data-oid='+ordemId+' data-fid='+s.f.id+' style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:7px;cursor:pointer;transition:background .12s">'+
       '<span style="width:26px;height:26px;border-radius:6px;background:'+cor+'33;color:'+cor+';font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">'+ini+'</span>'+
       '<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">'+s.f.nome.split(' ')[0]+'</span> <span style="font-size:11px;color:var(--mut2)">'+s.f.nome.split(' ').slice(1).join(' ')+'</span></span>'+
@@ -2878,23 +3002,20 @@ function abrirPopupForn(e, ordemId){
     let html = '';
 
     if(nComp){
-      html += '<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">✓ Compatíveis com '+labelBairro+' ('+nComp+')</div>';
+      html += '<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">✓ Atendem '+labelBairro+' ('+nComp+')</div>';
       html += compativeis.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>');
     } else {
       html += '<div style="font-size:11px;color:var(--mut2);margin-bottom:8px;font-style:italic">Nenhum fornecedor com preço para '+labelBairro+'.</div>';
     }
 
     if(nGeral){
-      const idGerais = 'fp_gerais_'+ordemId;
-      html += '<div style="margin-top:8px">';
-      html += '<button onclick="event.stopPropagation();var el=document.getElementById(\''+ idGerais +'\');if(el.style.display===\'none\'){el.style.display=\'block\';this.textContent=\'▲ Ocultar ('+nGeral+')\'}else{el.style.display=\'none\';this.textContent=\'▼ Ver todos ('+nGeral+')\'}" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid var(--bor);background:var(--sur);color:var(--mut2);font-size:11px;font-weight:600;cursor:pointer;text-align:left">▼ Ver todos ('+nGeral+')</button>';
-      html += '<div id="'+idGerais+'" style="display:none;margin-top:4px">';
+      html += '<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;margin-bottom:4px">'+(nComp?'Outros disponíveis':'Todos os fornecedores')+' ('+nGeral+')</div>';
       html += gerais.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>');
-      html += '</div></div>';
     }
 
     popup.innerHTML = html;
   }
+
 
   // Posicionar próximo ao botão clicado
   const rect = e.target.closest('button')?.getBoundingClientRect() || e.target.getBoundingClientRect();
@@ -2945,110 +3066,95 @@ function _renderFornSugestao(c){
   const el = document.getElementById('d_forn_sugestao');
   if(!el) return;
   const bairro = (c.bairro||'').toLowerCase().trim();
-  const cidade = (c.cidade||'').toLowerCase().trim();
-  const cores = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
+  const cidade  = (c.cidade||'').toLowerCase().trim();
+  const cores   = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
 
-  // Todos os fornecedores com classificação
   const todos = forns.map(f => {
     const m = _fornMatchBairro(f, bairro, cidade);
-    return m ? {f, preco:m.preco, tipo:m.match, reg:m.reg} : {f, preco:0, tipo:'geral', reg:null};
-  }).sort((a,b) => {
-    if(a.tipo==='compativel' && b.tipo!=='compativel') return -1;
-    if(a.tipo!=='compativel' && b.tipo==='compativel') return 1;
+    if(!m) return {f, preco:0, preco_cli:0, tipo:'geral', reg:null};
+    const preco_cli = m.reg?.preco_cli > 0 ? m.reg.preco_cli : 0;
+    return {f, preco:m.preco, preco_cli, tipo:m.match, reg:m.reg};
+  }).sort((a,b)=>{
+    if(a.tipo==='compativel'&&b.tipo!=='compativel') return -1;
+    if(a.tipo!=='compativel'&&b.tipo==='compativel') return 1;
     return a.f.nome.localeCompare(b.f.nome,'pt-BR');
   });
 
   const compativeis = todos.filter(x=>x.tipo==='compativel');
+  const gerais      = todos.filter(x=>x.tipo!=='compativel');
   const labelBairro = c.bairro || 'este bairro';
-  const searchId = 'fs_search_'+c.id;
-  const dropId   = 'fs_drop_'+c.id;
+  const searchId    = 'fs_search_'+c.id;
+  const dropId      = 'fs_drop_'+c.id;
 
-  function chipHtml(s){
-    const f=s.f, preco=s.preco;
+  function itemHtml(s, onclickStr){
+    const f=s.f;
     const idx=forns.indexOf(f);
     const cor=f.color||cores[idx%cores.length];
     const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const ativo=f.id===c.forn_id?' <span style="font-size:10px;color:var(--g);font-weight:700">✓</span>':'';
-    const pr=preco>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(preco)}</span>`:'';
-    return `<div style="display:inline-flex;align-items:center;gap:6px;background:${cor}22;border:1px solid ${cor}88;border-radius:7px;padding:5px 10px;cursor:pointer;box-shadow:0 0 0 1px ${cor}44" onclick="event.stopPropagation();_atribuirFornecedor('${f.id}')" title="Clique para atribuir">`
-      +`<span style="width:20px;height:20px;border-radius:5px;background:${cor}33;color:${cor};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${ini}</span>`
-      +`<span style="font-size:12px;font-weight:600;color:var(--txt)">${f.nome.split(' ')[0]}</span>`
+    const precoExib = s.preco_cli > 0 ? s.preco_cli : s.preco;
+    const pr=precoExib>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(precoExib)}</span>`:'';
+    const zonas=[...new Set((Array.isArray(f.regioes)?f.regioes:[]).map(r=>r.zona).filter(Boolean))].join(', ');
+    const zonaTag=zonas&&s.tipo!=='compativel'?`<span style="font-size:10px;color:var(--mut2)">📍 ${zonas}</span>`:'';
+    const compat=s.tipo==='compativel'
+      ?`<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>`
+      :`<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:var(--sur);color:var(--mut2)">geral</span>`;
+    return `<div onclick="${onclickStr}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bor);transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">`
+      +`<span style="width:26px;height:26px;border-radius:6px;background:${cor}33;color:${cor};font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</span>`
+      +`<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">${f.nome}</span>`
+      +`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${compat}${zonaTag}</div></span>`
       +pr+ativo+`</div>`;
   }
 
-  function dropItemHtml(s){
-    const f=s.f, preco=s.preco, tipo=s.tipo;
-    const idx=forns.indexOf(f);
-    const cor=f.color||cores[idx%cores.length];
-    const ini=f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const zonas=[...new Set((Array.isArray(f.regioes)?f.regioes:[]).map(r=>r.zona).filter(Boolean))].join(', ');
-    const pr=preco>0?`<span style="font-size:11px;color:var(--acc);font-family:var(--mono)">R$ ${fmt(preco)}</span>`:'';
-    const badge=tipo==='compativel'
-      ?`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>`
-      :`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--sur);color:var(--mut2)">geral</span>`;
-    const zonaTag=zonas?`<span style="font-size:10px;color:var(--mut2)">📍 ${zonas}</span>`:'';
-    return `<div onclick="event.stopPropagation();_atribuirFornecedor('${f.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bor);transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">`
-      +`<span style="width:28px;height:28px;border-radius:6px;background:${cor}33;color:${cor};font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</span>`
-      +`<span style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600;color:var(--txt)">${f.nome}</span>`
-      +`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${badge}${zonaTag}</div></span>`
-      +pr+`</div>`;
-  }
-
-  // Função de busca — exposta globalmente para o oninput
   window['_fsBuscar_'+c.id] = function(q){
     const drop = document.getElementById(dropId);
     if(!drop) return;
     q = q.trim().toLowerCase();
     if(!q){ drop.style.display='none'; return; }
-    const zonaMap = {'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
-    const zonaQ = Object.keys(zonaMap).find(k => q.includes(k));
-    const zonaAlvo = zonaQ ? zonaMap[zonaQ] : null;
-    const filtrados = todos.filter(s => {
-      const f = s.f;
-      if(zonaAlvo){
-        const regioes = Array.isArray(f.regioes)?f.regioes:[];
-        return regioes.some(r=>r.zona===zonaAlvo);
-      }
-      const nomeForn = f.nome.toLowerCase();
-      const regioes = Array.isArray(f.regioes)?f.regioes:[];
-      const temBairro = regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q));
-      const temZona = regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
-      return nomeForn.includes(q) || temBairro || temZona;
+    const zonaMap={'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
+    const zonaKey = Object.keys(zonaMap).find(k=>q.includes(k));
+    const zonaAlvo = zonaKey ? zonaMap[zonaKey] : null;
+    const filtrados = todos.filter(s=>{
+      if(zonaAlvo) return (Array.isArray(s.f.regioes)?s.f.regioes:[]).some(r=>r.zona===zonaAlvo);
+      const regioes=Array.isArray(s.f.regioes)?s.f.regioes:[];
+      return s.f.nome.toLowerCase().includes(q)
+        ||regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
+        ||regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
     });
-    if(!filtrados.length){
-      drop.innerHTML='<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "'+q+'"</div>';
-    } else {
-      drop.innerHTML = filtrados.map(dropItemHtml).join('');
-    }
+    drop.innerHTML = filtrados.length
+      ? filtrados.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('')
+      : `<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "${q}"</div>`;
     drop.style.display='block';
   };
 
   let inner = '';
 
-  // Chips compatíveis
   if(compativeis.length){
-    inner += `<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">✓ Compatíveis com ${labelBairro} (${compativeis.length})</div>`;
-    inner += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+compativeis.map(chipHtml).join('')+'</div>';
+    inner += `<div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">✓ Atendem ${labelBairro} (${compativeis.length})</div>`;
+    inner += compativeis.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('');
   } else {
-    inner += `<div style="font-size:11px;color:var(--mut2);margin-bottom:10px;font-style:italic">Nenhum fornecedor com preço cadastrado para ${labelBairro}.</div>`;
+    inner += `<div style="font-size:11px;color:var(--mut2);margin-bottom:8px;font-style:italic">Nenhum fornecedor com preço cadastrado para ${labelBairro}.</div>`;
   }
 
-  // Campo de busca
-  inner += `<div style="position:relative">
-    <div style="position:relative">
-      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none">🔍</span>
-      <input id="${searchId}" type="text" placeholder="Buscar por nome, bairro ou zona (ex: zona norte)…"
-        oninput="window['_fsBuscar_${c.id}'](this.value)"
-        onfocus="if(this.value.trim()) window['_fsBuscar_${c.id}'](this.value)"
-        style="width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)"
-        onclick="event.stopPropagation()">
-    </div>
-    <div id="${dropId}" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.3)"></div>
+  if(gerais.length){
+    inner += `<div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;margin-bottom:6px">${compativeis.length?'Outros disponíveis':'Todos os fornecedores'} (${gerais.length})</div>`;
+    inner += gerais.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('');
+  }
+
+  inner += `<div style="position:relative;margin-top:10px;border-top:1px solid var(--bor);padding-top:10px">
+    <span style="position:absolute;left:10px;top:calc(10px + 50%);transform:translateY(-50%);font-size:13px;pointer-events:none">🔍</span>
+    <input id="${searchId}" type="text" placeholder="Buscar por nome, bairro ou zona…"
+      oninput="window['_fsBuscar_${c.id}'](this.value)"
+      onfocus="if(this.value.trim())window['_fsBuscar_${c.id}'](this.value)"
+      style="width:100%;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)"
+      onclick="event.stopPropagation()">
+    <div id="${dropId}" style="display:none;position:absolute;left:0;right:0;background:var(--card);border:1px solid var(--bor);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)"></div>
   </div>`;
 
   el.style.display = 'block';
   el.innerHTML = '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
 }
+
 // ── Helper: abre WhatsApp do fornecedor (número ou link de grupo) ──
 function _waFornAbrir(f, texto){
   const waLink = (f.wa_link||'').trim();
@@ -3514,6 +3620,17 @@ async function salvarPagoCli(){
 
 // ── PAGAR FORNECEDOR ──
 let _pagarFornCallback=false;
+function _gerarEtiquetaForn(f){
+  const nome = (f?.nome||'Forn').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'').substring(0,12);
+  const agora = new Date();
+  const dd   = String(agora.getDate()).padStart(2,'0');
+  const mm   = String(agora.getMonth()+1).padStart(2,'0');
+  const aaaa = agora.getFullYear();
+  const hh   = String(agora.getHours()).padStart(2,'0');
+  const min  = String(agora.getMinutes()).padStart(2,'0');
+  return nome+'_'+dd+mm+aaaa+'_'+hh+min;
+}
+
 function openPagarForn(callback){
   const c=ordens.find(x=>x.id===_detailId);if(!c)return;
   document.getElementById('pf_val').value=c.cst||'';
@@ -3528,6 +3645,9 @@ function openPagarForn(callback){
       <span style="flex:1">${o.nome||'-'} · ${o.logradouro||'-'}</span>
       <span style="color:var(--acc);font-weight:700">R$ ${fmt(o.cst)}</span>
     </label>`).join(''):'';
+  // Gerar etiqueta automática
+  const fEtiq = forns.find(s=>s.id===c?.forn_id);
+  if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value = _gerarEtiquetaForn(fEtiq);
   _pagarFornCallback=!!callback;
   openModal('pagarFornModal');
 }
@@ -5765,22 +5885,110 @@ function initPgForn(){
   });
   document.getElementById('pgfornContent').innerHTML='';
 }
+let _pgfornLoteFid=null, _pgfornLotePend=[], _pgfornLoteTotal=0, _pgfornModoLote=false;
+let _pgfornSelecionados = new Set();
+
+function pgfornLimparFiltro(){
+  document.getElementById('pgfornDe').value='';
+  document.getElementById('pgfornAte').value='';
+  carregarPgForn();
+}
+
+function pgfornToggle(id){
+  if(_pgfornSelecionados.has(id)) _pgfornSelecionados.delete(id);
+  else _pgfornSelecionados.add(id);
+  pgfornAtualizarRodape();
+}
+
+function pgfornToggleTodos(marcar){
+  const fid=document.getElementById('pgfornSup').value;
+  const de=document.getElementById('pgfornDe').value;
+  const ate=document.getElementById('pgfornAte').value;
+  const pend=_pgfornGetPend(fid,de,ate);
+  if(marcar) pend.forEach(c=>_pgfornSelecionados.add(c.id));
+  else _pgfornSelecionados.clear();
+  pgfornAtualizarRodape();
+  // Atualizar checkboxes
+  pend.forEach(c=>{
+    const cb=document.getElementById('pgcb_'+c.id);
+    if(cb) cb.checked=marcar;
+  });
+}
+
+function pgfornAtualizarRodape(){
+  const fid=document.getElementById('pgfornSup').value;
+  const de=document.getElementById('pgfornDe').value;
+  const ate=document.getElementById('pgfornAte').value;
+  const pend=_pgfornGetPend(fid,de,ate);
+  const sel=pend.filter(c=>_pgfornSelecionados.has(c.id));
+  const totalSel=sel.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const rodape=document.getElementById('pgfornRodape');
+  if(!rodape) return;
+  if(!sel.length){
+    rodape.style.display='none'; return;
+  }
+  rodape.style.display='flex';
+  rodape.innerHTML=`
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--mut2)">${sel.length} ordem(ns) selecionada(s)</div>
+      <div style="font-size:20px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(totalSel)}</div>
+    </div>
+    <button class="btn btn-acc" onclick="pgfornPagarSelecionados()">💰 Pagar selecionadas</button>`;
+}
+
+function _pgfornGetPend(fid,de,ate){
+  if(!fid) return [];
+  return ordens.filter(c=>{
+    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
+    if(de && c.data && c.data < de) return false;
+    if(ate && c.data && c.data > ate) return false;
+    return true;
+  }).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+}
+
 function carregarPgForn(){
   const fid=document.getElementById('pgfornSup').value;
+  const de=document.getElementById('pgfornDe').value;
+  const ate=document.getElementById('pgfornAte').value;
+  _pgfornSelecionados.clear();
   if(!fid){document.getElementById('pgfornContent').innerHTML='';return;}
   const f=forns.find(x=>x.id===fid);
-  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  if(!pend.length){document.getElementById('pgfornContent').innerHTML='<div style="color:var(--mut);text-align:center;padding:30px">✅ Nenhuma pendência com este fornecedor</div>';return;}
+  const pend=_pgfornGetPend(fid,de,ate);
+  const pendTotal=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento').length;
+  const filtrado=de||ate;
+
+  if(!pend.length){
+    document.getElementById('pgfornContent').innerHTML=`
+      <div style="color:var(--mut);text-align:center;padding:30px">
+        ${filtrado?'Nenhuma pendência no período selecionado':'✅ Nenhuma pendência com este fornecedor'}
+      </div>`;
+    return;
+  }
   const total=pend.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const pixInfo=f?.pix?`<div style="font-size:12px;color:var(--mut2)">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:'';
+  const avisoFiltro=filtrado&&pendTotal>pend.length
+    ?`<div style="font-size:11px;color:var(--acc);margin-top:4px">⚠️ Exibindo ${pend.length} de ${pendTotal} ordens (filtro de data ativo)</div>`:'';
+
   document.getElementById('pgfornContent').innerHTML=`
-    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-      <div><div style="font-size:11px;color:var(--mut2);margin-bottom:4px">${pend.length} ordens pendentes</div>
-      <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(total)}</div></div>
-      ${f?.pix?`<div style="font-size:12px;color:var(--mut2)">Pix: <strong style="color:var(--txt)">${f.pix}</strong></div>`:''}
-      <button class="btn btn-acc" onclick="pgfornPagarTodos('${fid}')">💰 Pagar todos</button>
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:2px">${pend.length} ordens · total</div>
+          <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(total)}</div>
+          ${avisoFiltro}
+        </div>
+        ${pixInfo}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="pgfornToggleTodos(true)">☑️ Todas</button>
+          <button class="btn btn-sm" onclick="pgfornToggleTodos(false)">☐ Nenhuma</button>
+          <button class="btn btn-acc btn-sm" onclick="pgfornPagarTodos('${fid}','${de}','${ate}')">💰 Pagar todas</button>
+        </div>
+      </div>
     </div>
+    <div id="pgfornRodape" style="display:none;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap"></div>
     ${pend.map(c=>`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="flex:1">
+      <input type="checkbox" id="pgcb_${c.id}" onchange="pgfornToggle('${c.id}')" style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0">
+      <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">📍 ${c.logradouro||'-'} · 📅 ${dateF(c.data)} · ${c.crm_id||''}</div>
       </div>
@@ -5788,30 +5996,36 @@ function carregarPgForn(){
       <button class="btn btn-sm btn-acc" onclick="_detailId='${c.id}';openPagarForn(true)">💰 Pagar</button>
     </div>`).join('')}`;
 }
-async function pgfornPagarTodos(fid){
-  const pend=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento');
+
+async function pgfornPagarSelecionados(){
+  const fid=document.getElementById('pgfornSup').value;
+  const de=document.getElementById('pgfornDe').value;
+  const ate=document.getElementById('pgfornAte').value;
+  const pend=_pgfornGetPend(fid,de,ate);
+  const sel=pend.filter(c=>_pgfornSelecionados.has(c.id));
+  if(!sel.length){toast('Nenhuma ordem selecionada','warn');return;}
+  _pgfornAbrirModalLote(fid,sel);
+}
+
+async function pgfornPagarTodos(fid,de,ate){
+  const pend=_pgfornGetPend(fid,de||'',ate||'');
   if(!pend.length) return;
+  _pgfornAbrirModalLote(fid,pend);
+}
+
+function _pgfornAbrirModalLote(fid,pend){
   const total=pend.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const f=forns.find(x=>x.id===fid);
-  const nomeForn=(f?.nome||'Forn').replace(/\s+/g,'').substring(0,10);
   const hoje=new Date();
-  const ddmmaaaa=String(hoje.getDate()).padStart(2,'0')+String(hoje.getMonth()+1).padStart(2,'0')+hoje.getFullYear();
-  const etiquetaSugerida='Forn'+nomeForn+ddmmaaaa;
-  // Usar o modal de pagamento (reutilizar openPagarForn mas sem ordem específica)
-  // Abre o modal reutilizável de lote
-  _pgfornLoteFid = fid;
-  _pgfornLotePend = pend;
-  _pgfornLoteTotal = total;
+  _pgfornLoteFid=fid; _pgfornLotePend=pend; _pgfornLoteTotal=total;
   document.getElementById('pf_val').value=total.toFixed(2);
   document.getElementById('pf_data').value=hoje.toISOString().slice(0,10);
-  if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value=etiquetaSugerida;
+  if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value=_gerarEtiquetaForn(f);
   if(document.getElementById('pf_obs_pg')) document.getElementById('pf_obs_pg').value='';
   document.getElementById('pf_outras').innerHTML=`<div style="font-size:12px;color:var(--mut2);padding:8px;background:var(--card);border-radius:var(--rad3);margin-bottom:8px">📦 Pagamento em lote: <strong>${pend.length} ordens</strong> · Total <strong style="color:var(--acc)">R$ ${fmt(total)}</strong><br><span style="font-size:11px">A etiqueta será aplicada em todas as ordens do lote.</span></div>`;
-  _pagarFornCallback = false;
-  _pgfornModoLote = true;
+  _pagarFornCallback=false; _pgfornModoLote=true;
   openModal('pagarFornModal');
 }
-let _pgfornLoteFid=null, _pgfornLotePend=[], _pgfornLoteTotal=0, _pgfornModoLote=false;
 
 // ── RELATÓRIOS ──
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
