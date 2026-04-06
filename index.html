@@ -3464,7 +3464,8 @@ function _fillStatusBlocks(c){
   }else if(c.pago){
     cb.className='status-block pago';ci.textContent='✅';cs.textContent='Pago';
     cf.textContent='R$ '+fmt(c.pago_valor||c.rec)+(c.pago_em?' · '+new Date(c.pago_em).toLocaleDateString('pt-BR'):'');
-    cbtn.style.display='none';
+    cbtn.textContent='↩️ Estornar pagamento';cbtn.className='sb-btn';cbtn.style.cssText='background:rgba(239,68,68,.12);color:var(--r);border:1px solid rgba(239,68,68,.3);font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%;margin-top:6px';
+    cbtn.onclick=()=>estornarPagamentoCli();cbtn.style.display='block';
   }else{
     const dias=c.data?Math.floor((Date.now()-new Date(c.data+'T12:00:00'))/(86400000)):0;
     const atrasado=dias>7;
@@ -3487,7 +3488,8 @@ function _fillStatusBlocks(c){
   if(c.forn_pago){
     fb.className='status-block pago';fi.textContent='✅';fst.textContent='Fornecedor pago';
     ff.textContent='R$ '+fmt(c.forn_pago_valor||c.cst)+(c.forn_pago_em?' · '+new Date(c.forn_pago_em).toLocaleDateString('pt-BR'):'');
-    fbtn.style.display='none';
+    fbtn.textContent='↩️ Estornar pgto forn';fbtn.className='sb-btn';fbtn.style.cssText='background:rgba(239,68,68,.12);color:var(--r);border:1px solid rgba(239,68,68,.3);font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%;margin-top:6px';
+    fbtn.onclick=()=>estornarPagamentoForn();fbtn.style.display='block';
   }else{
     fb.className='status-block pend';fi.textContent='⏳';fst.textContent='Aguardando pagamento';
     ff.textContent=c.cst?'R$ '+fmt(c.cst)+' a pagar':'Sem custo';
@@ -3495,6 +3497,34 @@ function _fillStatusBlocks(c){
   }
 }
 
+async function estornarPagamentoCli(){
+  const c=ordens.find(x=>x.id===_detailId);if(!c)return;
+  if(!confirm('Estornar pagamento do cliente?')) return;
+  c.pago=false;c.pago_em=null;c.pago_valor=null;c.pago_obs=null;
+  autoColPagamento(c);
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+c.id,'PATCH',{pago:false,pago_em:null,pago_valor:null,pago_obs:null,col:c.col},tok());
+    setSyncDot('ok');
+    addLog(c.id,'Estorno','Pagamento cliente estornado');
+    toast('↩️ Pagamento do cliente estornado');
+    renderBoard();renderStats();fillDetail(c);
+  }catch(e){setSyncDot('err');toast('Erro ao estornar','err');}
+}
+async function estornarPagamentoForn(){
+  const c=ordens.find(x=>x.id===_detailId);if(!c)return;
+  if(!confirm('Estornar pagamento ao fornecedor?')) return;
+  c.forn_pago=false;c.forn_pago_em=null;c.forn_pago_valor=null;c.forn_pg_ref=null;
+  autoColPagamento(c);
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+c.id,'PATCH',{forn_pago:false,forn_pago_em:null,forn_pago_valor:null,forn_pg_ref:null,col:c.col},tok());
+    setSyncDot('ok');
+    addLog(c.id,'Estorno','Pagamento fornecedor estornado');
+    toast('↩️ Pagamento do fornecedor estornado');
+    renderBoard();renderStats();fillDetail(c);
+  }catch(e){setSyncDot('err');toast('Erro ao estornar','err');}
+}
 function switchDetailTab(t){
   document.querySelectorAll('#detailModal .mtab').forEach((el,i)=>{el.classList.toggle('act',['info','financeiro','log'][i]===t);});
   document.querySelectorAll('#detailModal .mtab-p').forEach((el,i)=>{el.classList.toggle('act',['dtab-info','dtab-financeiro','dtab-log'][i]==='dtab-'+t);});
