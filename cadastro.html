@@ -132,7 +132,7 @@ select option{background:#191c26;color:#e6e8f0}
     <div class="fr">
       <label>Endereço (rua e número) <span class="req">*</span></label>
       <input type="text" id="c_end" placeholder="Rua das Flores, 123" autocomplete="street-address">
-      <div class="err-msg" id="err_end">Endereço obrigatório</div>
+      <div class="err-msg" id="err_end">Inclua o número do endereço (ex: Rua das Flores, 123 ou s/n)</div>
     </div>
 
     <div class="row2">
@@ -486,7 +486,9 @@ async function enviarCadastro(){
   showErr('err_nome',  !nome);  if(!nome)  ok=false;
   showErr('err_cpf',   !cpf);   if(!cpf)   ok=false;
   showErr('err_cel',   !cel);   if(!cel)   ok=false;
-  showErr('err_end',   !end);   if(!end)   ok=false;
+  // Endereço obrigatório e deve conter número ou s/n
+  const endTemNumero = end && (/\d/.test(end) || /s\/n/i.test(end));
+  showErr('err_end', !endTemNumero); if(!endTemNumero) ok=false;
   showErr('err_bairro',!bairro);if(!bairro)ok=false;
   showErr('err_data',  !data);  if(!data)  ok=false;
   if(!ok) return;
