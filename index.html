@@ -2056,7 +2056,8 @@ function cardBtnsPagamento(c,precisaConfirmar){
   var temCliPend=!c.pago&&['faltapg','pagar','entrega','ag_entrega','baixar'].includes(c.col);
   var temFornPend=!!(c.forn_id&&!c.forn_pago);
   var ambosOk=!!(c.pago&&c.forn_pago);
-  if(precisaConfirmar||ambosOk) return '';
+  if(precisaConfirmar) return '';
+  if(ambosOk) return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px"><span style="flex:1;text-align:center;font-size:11px;color:var(--g);font-weight:700">✅ Quitado</span></div>';
   if(!temCliPend&&!c.pago&&!temFornPend&&!c.forn_pago) return '';
   var btns='';
   if(temCliPend) btns+='<button class="btn btn-r btn-sm" style="flex:1;font-size:11px" onclick="event.stopPropagation();quickPagarCard(\''+c.id+'\')">⚠️ Cliente</button>';
