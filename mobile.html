@@ -1322,7 +1322,7 @@ function _abrirWAFornModal(o, f, tipo) {
   if(tipo === 'os') {
     texto = `📦 1 caçamba · 📅 ${data}
 📍 ${endereco}
-👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}
+👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
 📋 OS: ${o.crm_id||'—'}
 
@@ -1359,7 +1359,7 @@ function copiarOS(id) {
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const texto = `📦 1 caçamba · 📅 ${dateF(o.data)}
 📍 ${endereco}
-👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}
+👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
 📋 OS: ${o.crm_id||'—'}
 
@@ -3671,13 +3671,7 @@ function enviarWAForn(id) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   if(!forn) { toast('Fornecedor não encontrado','warn'); return; }
   if(!forn.wa_link && !forn.tel) { toast('Fornecedor sem WhatsApp/telefone','warn'); return; }
-  const msg = `OS ${o.crm_id||''} — ${o.nome||''}\nEndereço: ${o.logradouro||''}, ${o.bairro||''}\nTipo: ${o.tipo||''}\nData: ${dateF(o.data)}`;
-  if(forn.wa_link) {
-    _waFornAbrir(forn, msg);
-  } else {
-    const tel = forn.tel.replace(/\D/g,'');
-    window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-  }
+  _abrirWAFornModal(o, forn, 'os');
 }
 
 function enviarTracking(id) {
