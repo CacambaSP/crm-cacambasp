@@ -6839,8 +6839,8 @@ function renderCli(){
     clientes[key].ordens.push(c);clientes[key].total+=parseFloat(c.rec)||0;
     if(c.pago)clientes[key].pago+=parseFloat(c.pago_valor||c.rec)||0;
   });
-  let rows=Object.values(clientes).sort((a,b)=>b.total-a.total);
   const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  let rows=Object.values(clientes).sort((a,b)=>_normQ(a.nome).localeCompare(_normQ(b.nome)));
   if(q) rows=rows.filter(c=>_normQ(c.nome).includes(_normQ(q))||(c.cel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   const el=document.getElementById('cliLista');
   if(!rows.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>';return;}
@@ -6852,11 +6852,11 @@ function renderCli(){
       const col=colLabel[o.col]||o.col||'-';
       const statusCor=o.col==='concluido'?'var(--g)':o.col==='inadimp'?'var(--r)':'var(--mut2)';
       return `<div onclick="event.stopPropagation();_detailId='${o.id}';openDetail()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bor);cursor:pointer;transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
-        <span style="font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:700;min-width:90px">${o.crm_id||'-'}</span>
-        <span style="flex:1;font-size:12px;color:var(--txt)">${o.logradouro||o.bairro||'-'}${o.bairro?', '+o.bairro:''}</span>
-        <span style="font-size:11px;color:var(--mut2);font-family:var(--mono)">${o.data?new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
-        <span style="font-size:11px;color:var(--acc);font-family:var(--mono);font-weight:700">R$ ${fmt(o.rec)}</span>
-        <span style="font-size:10px;color:${statusCor};min-width:70px;text-align:right">${col}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:700;width:90px;flex-shrink:0">${o.crm_id||'-'}</span>
+        <span style="flex:1;font-size:12px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.logradouro||o.bairro||'-'}${o.bairro?', '+o.bairro:''}</span>
+        <span style="font-size:11px;color:var(--mut2);font-family:var(--mono);width:80px;flex-shrink:0;text-align:right">${o.data?new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
+        <span style="font-size:11px;color:var(--acc);font-family:var(--mono);font-weight:700;width:80px;flex-shrink:0;text-align:right">R$ ${fmt(o.rec)}</span>
+        <span style="font-size:10px;color:${statusCor};width:75px;flex-shrink:0;text-align:right">${col}</span>
       </div>`;
     }).join('');
     return `<div class="cli-card" style="padding:0;overflow:hidden">
@@ -6875,8 +6875,12 @@ function renderCli(){
         </div>
       </div>
       <div id="${key}" style="display:none;border-top:1px solid var(--bor)">
-        <div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;background:var(--bg2);display:grid;grid-template-columns:90px 1fr 80px 80px 70px;gap:8px">
-          <span>CRM</span><span>Endereço</span><span>Data</span><span>Valor</span><span style="text-align:right">Status</span>
+        <div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;background:var(--bg2);display:flex;gap:8px">
+          <span style="width:90px;flex-shrink:0">CRM</span>
+          <span style="flex:1">Endereço</span>
+          <span style="width:80px;flex-shrink:0;text-align:right">Data</span>
+          <span style="width:80px;flex-shrink:0;text-align:right">Valor</span>
+          <span style="width:75px;flex-shrink:0;text-align:right">Status</span>
         </div>
         ${ordensHtml}
       </div>
