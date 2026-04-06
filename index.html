@@ -2917,12 +2917,14 @@ function _bairroMatch(a,b){
   // Expandir abreviações e comparar novamente
   const ea=_expandBairro(na),eb=_expandBairro(nb);
   if(ea===eb||ea.includes(eb)||eb.includes(ea)) return true;
-  // Comparação palavra a palavra ignorando preposições e palavras curtas
+  // Comparação palavra a palavra — TODAS as palavras significativas precisam bater
   const wa=na.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
   const wb=nb.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
   if(!wa.length||!wb.length) return false;
-  const matches=wa.filter(w=>wb.some(w2=>_palavraMatch(w,w2)));
-  return matches.length>=Math.min(wa.length,wb.length);
+  // Cada palavra de 'a' deve ter par em 'b' e vice-versa
+  const aOk=wa.every(w=>wb.some(w2=>_palavraMatch(w,w2)));
+  const bOk=wb.every(w=>wa.some(w2=>_palavraMatch(w,w2)));
+  return aOk&&bOk;
 }
 function _fornMatchBairro(f, bairro, cidade){
   // Parse seguro: regioes pode chegar como string JSON em alguns fornecedores
