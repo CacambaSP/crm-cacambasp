@@ -3478,12 +3478,37 @@ async function moverColuna(id, colId) {
 }
 
 async function duplicarOrdem(id) {
-  const ok = await showConfirm({ico:'🔁',title:'Duplicar ordem?',body:'Cria uma nova ordem com os mesmos dados (sem pagamento).',ok:'Duplicar',okClass:'acc'});
-  if(!ok) return;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
+  // Modal com 3 opções
+  const manterForn = await new Promise(res => {
+    const bg = document.getElementById('confirmModal');
+    document.getElementById('conf_ico').textContent   = '🔁';
+    document.getElementById('conf_title').textContent = 'Duplicar ordem?';
+    document.getElementById('conf_body').innerHTML    = 'Nova OS com os dados do cliente.<br>Data em branco para preencher na hora.';
+    const btns = bg.querySelector('.confirm-btns');
+    btns.innerHTML = `
+      <button class="btn" onclick="_dupResolve(null)">Cancelar</button>
+      <button class="btn acc" onclick="_dupResolve(false)">🔄 Trocar forn.</button>
+      <button class="btn acc" onclick="_dupResolve(true)">🚛 Manter forn.</button>`;
+    window._dupResolve = v => { bg.classList.remove('open'); btns.innerHTML=''; res(v); };
+    bg.classList.add('open');
+  });
+  if(manterForn === null) return; // cancelou
   try {
     const crm_id = await nextCrmId();
-    const body = {...o, id:uidGen(), crm_id, pago:false, pago_em:null, pago_valor:null, pago_obs:null, forn_pago:false, forn_pago_em:null, forn_pago_valor:null, forn_pg_ref:null, entrega_confirmada:false, orc_convertido_em:null, col:'contratar', criado_em:nowISO()};
+    const body = {
+      ...o,
+      id: uidGen(), crm_id,
+      usuario_id: uid(),
+      col: 'contratar',
+      criado_em: nowISO(),
+      data: null,
+      forn_id: manterForn ? o.forn_id : null,
+      cobrado_em: null, cancel_motivo: null,
+      pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+      forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
+      entrega_confirmada: false, orc_convertido_em: null,
+    };
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
     toast(`Ordem ${crm_id} criada!`,'ok');
