@@ -6834,13 +6834,14 @@ function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,18
 function renderCli(){
   const q=(document.getElementById('cliSearch')?.value||'').toLowerCase();
   const clientes={};
-  ordens.forEach(c=>{if(!c.nome) return;const key=c.cel||c.nome;
+  ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
     if(!clientes[key]) clientes[key]={nome:c.nome,cel:c.cel,ordens:[],total:0,pago:0};
     clientes[key].ordens.push(c);clientes[key].total+=parseFloat(c.rec)||0;
     if(c.pago)clientes[key].pago+=parseFloat(c.pago_valor||c.rec)||0;
   });
   let rows=Object.values(clientes).sort((a,b)=>b.total-a.total);
-  if(q) rows=rows.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.cel||'').includes(q));
+  const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(q) rows=rows.filter(c=>_normQ(c.nome).includes(_normQ(q))||(c.cel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   const el=document.getElementById('cliLista');
   if(!rows.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>';return;}
   const colLabel={contratar:'Contratar',ag_entrega:'Ag.Entrega',entrega:'Entrega',pagar:'Receber',faltapg:'Falta Pagar',baixar:'Baixar',inadimp:'Inadimplente',concluido:'Concluído',orcamento:'Orçamento'};
