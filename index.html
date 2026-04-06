@@ -6406,6 +6406,11 @@ function renderForns(){
   const fornsFiltrados=fornsOrdenados.filter(f=>{
     if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
     if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length) return false;}
+    if(qBairro){
+      const regioes=Array.isArray(f.regioes)?f.regioes:[];
+      const atende=regioes.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro));
+      if(!atende) return false;
+    }
     return true;
   });
   if(!fornsFiltrados.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor encontrado</div>';return;}
