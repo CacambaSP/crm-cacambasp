@@ -3652,8 +3652,10 @@ function openPagarForn(callback){
   openModal('pagarFornModal');
 }
 async function salvarPagoForn(){
-  const c=ordens.find(x=>x.id===_detailId);if(!c)return;
-  const val=parseFloat(document.getElementById('pf_val').value)||c.cst;
+  const c=ordens.find(x=>x.id===_detailId);
+  // Modo lote não precisa de _detailId — só exige c no modo individual
+  if(!c && !_pgfornModoLote)return;
+  const val=parseFloat(document.getElementById('pf_val').value)||(c?c.cst:0);
   const data=document.getElementById('pf_data').value;
   const forma=document.getElementById('pf_forma')?.value||'Pix';
   const ref=document.getElementById('pf_ref')?.value.trim()||'';
