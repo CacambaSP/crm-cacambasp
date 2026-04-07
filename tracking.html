@@ -427,7 +427,9 @@ async function abrirReciboTracking(){
 
   const nomeEmpresa = (vend?.marca_nome||vend?.nome)||'CaçambaSP';
   const telEmpresa  = vend?.marca_tel||'(11) 4237-8757';
-  const logoUrlRaw  = vend?.marca_logo_url ? LOGOS_BUCKET+vend.marca_logo_url : null;
+  const logoUrlRaw  = vend?.marca_logo_url
+    ? (vend.marca_logo_url.startsWith('http') ? vend.marca_logo_url : LOGOS_BUCKET+vend.marca_logo_url)
+    : null;
   const cor         = vend?.marca_cor||'#f5a623';
   const hoje        = new Date().toLocaleDateString('pt-BR');
 
