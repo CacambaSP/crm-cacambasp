@@ -2348,9 +2348,9 @@ function selCobrarAgrupado(){
       msg=tpl(c0,'',vend);
     } else {
       const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);
-      const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt((parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0))}`).join('\n');
+      const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
       const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
-      msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n💰 *Total: R$ '+fmt(total)+'*'+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
+      msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
     if(i<entries.length)setTimeout(abrirProximo,1200);
@@ -3532,8 +3532,8 @@ function cobrarOutrasOrdens(ordemAtualId){
   const extras=[..._outrasOrdensCheck].map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
   const todas=[c,...extras];
   const total=todas.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
-  const linhas=todas.map((o,i)=>`*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt(o.rec)}`).join('\n');
-  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n💰 *Total: R$ '+fmt(total)+'*\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_';
+  const linhas=todas.map((o,i)=>`*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
+  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_';
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
@@ -3929,7 +3929,7 @@ function enviarPixWA(){
   const vend=usuarios.find(u=>u.id===c.usuario_id)||_perfil;
   const marcaNome=vend?.marca_nome||'CaçambaSP';
   const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-  const msg='Olá '+(c.nome||'')+`! 👋\n\nSegue cobrança do serviço de caçamba:\n\n📍 *${c.logradouro||'-'}*${c.bairro?', '+c.bairro:''}${c.cidade?'\n🏙️ '+c.cidade:''}\n📅 ${dateF(c.data)}\n💰 *R$ ${fmt(val)}*\n\n📋 *Código Pix (copia e cola):*\n\`${_pixPayload}\`${trackLink?'\n\n📍 *Acompanhe e pague pelo link:*\n'+trackLink:''}\n\n_${marcaNome} — ${marcaTel}_`;
+  const msg='Olá '+(c.nome||'')+`! 👋\n\nSegue cobrança do serviço de caçamba:\n\n📍 *${c.logradouro||'-'}*${c.bairro?', '+c.bairro:''}${c.cidade?'\n🏙️ '+c.cidade:''}\n📅 ${dateF(c.data)}\n\n📋 *Código Pix (copia e cola):*\n\`${_pixPayload}\`${trackLink?'\n\n📍 *Acompanhe e pague pelo link:*\n'+trackLink:''}\n\n_${marcaNome} — ${marcaTel}_`;
   closeModal('pixModal');
   window.open('https://wa.me/55'+c.cel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -4021,11 +4021,11 @@ const _waTpl={
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+'\n💰 Valor: *R$ '+fmt(parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0))+'*'+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
+    return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
   },
   pix:(c,pixPayload)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
-    return 'Olá '+(c.nome||'')+'! ⚡\n\nSegue o código Pix para pagamento do serviço de caçamba:\n\n'+end+'\n💰 Valor: *R$ '+fmt(c.rec)+'*\n\n📋 *Copia e cola o código abaixo:*\n`'+(pixPayload||'(gere o Pix primeiro)')+'`\n\nApós o pagamento, nos confirme por aqui! ✅\n_CaçambaSP_';
+    return 'Olá '+(c.nome||'')+'! ⚡\n\nSegue o código Pix para pagamento do serviço de caçamba:\n\n'+end+'\n\n📋 *Copia e cola o código abaixo:*\n`'+(pixPayload||'(gere o Pix primeiro)')+'`\n\nApós o pagamento, nos confirme por aqui! ✅\n_CaçambaSP_';
   },
   entrega:(c)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
@@ -4038,7 +4038,7 @@ const _waTpl={
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n💰 Valor em aberto: *R$ '+fmt(parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0))+'*\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
+    return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
   },
   recebido:(c)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
@@ -4363,7 +4363,7 @@ function _dispararProximaCobranca(){
   } else {
     const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0), 0);
     const linhas = ords.map((o,i) =>
-      `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''} — R$ ${fmt((parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0))}`
+      `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`
     ).join('\n');
     const vend = usuarios.find(u=>u.id===c0.usuario_id)||null;
     const marcaNome = vend?.marca_nome||'CaçambaSP';
@@ -4372,7 +4372,7 @@ function _dispararProximaCobranca(){
     const trackLink = c0.crm_id
       ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id)
       : '';
-    msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}\n\n💰 *Total: R$ ${fmt(total)}*${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
+    msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg), '_blank');
   // Registra cobrado_em em todas as ordens do grupo
