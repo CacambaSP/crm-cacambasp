@@ -1033,7 +1033,10 @@ input[type=checkbox]:checked::after{
         <button id="pc_tipo_parcial" class="btn" style="flex:1;justify-content:center" onclick="setPcTipo('parcial')">⏳ Parcial</button>
       </div>
       <div class="fi"><label>Valor recebido (R$)</label><input type="number" id="pc_val" step="0.01" oninput="updPcSaldo()"></div>
-      <div class="fi"><label>Data do recebimento</label><input type="date" id="pc_data"></div>
+      <div style="display:flex;gap:8px">
+        <div class="fi" style="flex:1"><label>Data do recebimento</label><input type="date" id="pc_data"></div>
+        <div class="fi" style="flex:0 0 110px"><label>Hora</label><input type="time" id="pc_hora"></div>
+      </div>
       <div id="pc_parcial_fields" style="display:none">
         <div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--mut2)">Saldo restante</span><span id="pc_saldo_restante" style="font-weight:700;color:var(--r);font-family:var(--mono)">—</span></div>
@@ -3726,6 +3729,7 @@ function openPagarCli(callback){
   if(jaRec>0)document.getElementById('pc_falta_val').textContent='R$ '+fmt(falta);
   document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(c.rec||'');
   document.getElementById('pc_data').value=new Date().toISOString().slice(0,10);
+  document.getElementById('pc_hora').value=new Date().toTimeString().slice(0,5);
   document.getElementById('pc_data_restante').value='';
   document.getElementById('pc_obs').value='';
   document.getElementById('pc_parcial_fields').style.display='none';
@@ -3739,6 +3743,8 @@ async function salvarPagoCli(){
   const val=parseFloat(document.getElementById('pc_val').value)||0;
   if(!val){toast('Informe o valor recebido','err');return;}
   const data=document.getElementById('pc_data').value;
+  const hora=document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
+  const pagoEmISO=data+'T'+hora+':00';
   const obs=document.getElementById('pc_obs').value.trim();
   if(_pcTipo==='parcial'){
     const jaRec=parseFloat(c.pago_parcial_valor)||0;
@@ -3748,7 +3754,7 @@ async function salvarPagoCli(){
     c.pago_parcial_valor=novoAcum;c.pago_parcial_data=dataRest||null;
     c.pago_obs=(obs||'Parcial')+' · Acumulado R$ '+fmt(novoAcum)+' · Falta R$ '+fmt(falta);
     if(falta<=0.01){
-      c.pago=true;c.pago_em=data+'T12:00:00';c.pago_valor=parseFloat(c.rec);
+      c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=parseFloat(c.rec);
       autoColPagamento(c);
       toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento quitado!');
     }else{c.col='faltapg';toast('⏳ Entrada R$ '+fmt(val)+' registrada. Falta R$ '+fmt(falta)+(dataRest?' para '+new Date(dataRest+'T12:00:00').toLocaleDateString('pt-BR'):''));}
@@ -3760,7 +3766,7 @@ async function salvarPagoCli(){
       setSyncDot('ok');addLog(c.id,'Parcial','R$ '+fmt(val)+' recebido');
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
-    c.pago=true;c.pago_em=data+'T12:00:00';c.pago_valor=val;c.pago_obs=obs;
+    c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=val;c.pago_obs=obs;
     autoColPagamento(c);
     renderBoard();renderStats();if(_pagarCliCallback)renderFinanceiro();
     closeModal('pagarCliModal');fillDetail(c);
@@ -6024,22 +6030,8 @@ async function quickPagar(id){
 }
 async function quickPagarCard(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
-  const nome=c.nome?.split(' ')[0]||'cliente';
-  const vp=(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0);
-  const val=vp?'R$ '+fmt(vp):'valor não definido';
-  const destino=c.forn_pago?'Baixar':'Pagar Fornecedor';
-  const ok=await showConfirm({ico:'✅',title:'Marcar como pago?',body:`${nome} — ${val}\n\nA ordem vai para: ${destino}.`,ok:'✅ Confirmar',okClass:'btn-g',cancel:'Cancelar'});
-  if(!ok)return;
-  c.pago=true;c.pago_em=nowISO();c.pago_valor=vp;c.pago_obs='Marcado pelo card';
-  autoColPagamento(c);
-  renderBoard();renderStats();renderFinanceiro();
-  try{
-    setSyncDot('sync');
-    await api('ordens?id=eq.'+id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:vp,pago_obs:c.pago_obs,col:c.col},tok());
-    addLog(id,'Pago','R$ '+fmt(vp)+' — via card');
-    setSyncDot('ok');
-    toast(c.col==='baixar'?'✅ Tudo pago — arquivado! 🎉':'✅ '+nome+' marcado como pago!');
-  }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
+  _detailId=id;
+  openPagarCli(true);
 }
 function renderConcHist(){
   const pagos=ordens.filter(c=>c.pago).sort((a,b)=>(b.pago_em||'').localeCompare(a.pago_em||''));
