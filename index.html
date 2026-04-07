@@ -2793,6 +2793,13 @@ async function salvarOrdem(){
 // ── DETALHE ──
 async function openDetail(id){
   _detailId=id;
+  // Refresh forçado para garantir dados atualizados
+  try{
+    const novos = isAdmin()
+      ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
+      : await api('ordens?usuario_id=eq.'+(_currentUser?.user?.id)+'&order=criado_em.asc',undefined,undefined,tok());
+    if(novos) ordens=novos;
+  }catch(e){}
   const c=ordens.find(x=>x.id===id);if(!c)return;
   fillDetail(c);
   renderDetailLog(id);
@@ -3305,15 +3312,18 @@ async function _atribuirFornecedor(fornId){
 }
 
 // ── Agenda do Fornecedor (relatório diário via WA) ──
-function agendaFornecedor(fid){
+function agendaFornecedor(fid, filtroData){
   const f = forns.find(x=>x.id===fid);
   if(!f) return;
   const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
-  const ordensAtivas = ordens.filter(c=>c.forn_id===fid && ATIVAS.includes(c.col));
-  const ordensCanceladas = ordens.filter(c=>c.forn_id===fid && (c.col==='concluido'||c.col==='inadimp') && c.cancel_motivo);
+  // filtroData: YYYY-MM-DD — padrão hoje
+  const hoje = new Date().toISOString().slice(0,10);
+  const dataFiltro = filtroData || hoje;
+  const ordensAtivas = ordens.filter(c=>c.forn_id===fid && ATIVAS.includes(c.col) && (c.data||'').slice(0,10)===dataFiltro);
+  const ordensCanceladas = ordens.filter(c=>c.forn_id===fid && (c.col==='concluido'||c.col==='inadimp') && c.cancel_motivo && (c.data||'').slice(0,10)===dataFiltro);
 
   if(!ordensAtivas.length && !ordensCanceladas.length){
-    toast('Nenhuma ordem ativa para este fornecedor','warn'); return;
+    toast('Nenhuma ordem para '+new Date(dataFiltro+'T12:00:00').toLocaleDateString('pt-BR'),'warn'); return;
   }
 
   // Agrupar: mesmo endereço + mesmo cliente + mesma data → agrupa
@@ -3372,19 +3382,25 @@ _CaçambaSP_`;
   // Abrir mini-modal de envio (reutiliza estrutura inline)
   // Como agendaFornecedor é chamado fora do detail, usa window.prompt-like via showConfirm não serve
   // Vamos abrir um modal leve próprio
-  _abrirModalAgenda(f, texto);
+  _abrirModalAgenda(f, texto, dataFiltro);
 }
 
-function _abrirModalAgenda(f, texto){
-  // Remover modal anterior se existir
+function _abrirModalAgenda(f, texto, dataFiltro){
   const existente = document.getElementById('agendaFornModal');
   if(existente) existente.remove();
+  const hoje = new Date().toISOString().slice(0,10);
+  const dataAtual = dataFiltro || hoje;
   const m = document.createElement('div');
   m.id = 'agendaFornModal';
   m.className = 'mbg open';
   m.innerHTML = `<div class="mbox" style="max-width:500px">
     <div class="mh"><div><div class="mh-title">📋 Agenda — ${f.nome}</div></div><button class="mx" onclick="document.getElementById('agendaFornModal').remove()">✕</button></div>
     <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--mut2);white-space:nowrap">📅 Data:</label>
+        <input type="date" id="agendaDataFiltro" value="${dataAtual}" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;color:var(--txt);font-size:12px;cursor:pointer"
+          onchange="_agendaFiltrarData('${f.id}', this.value)">
+      </div>
       <textarea id="agendaTxt" style="width:100%;min-height:200px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${texto}</textarea>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-sm btn-wa" onclick="_enviarAgendaWA('${f.id}')">📲 Enviar via WhatsApp</button>
@@ -3393,6 +3409,50 @@ function _abrirModalAgenda(f, texto){
     </div>
   </div>`;
   document.body.appendChild(m);
+}
+
+function _agendaFiltrarData(fid, data){
+  const f = forns.find(x=>x.id===fid); if(!f) return;
+  const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const ordensAtivas = ordens.filter(c=>c.forn_id===fid && ATIVAS.includes(c.col) && (c.data||'').slice(0,10)===data);
+  const ordensCanceladas = ordens.filter(c=>c.forn_id===fid && (c.col==='concluido'||c.col==='inadimp') && c.cancel_motivo && (c.data||'').slice(0,10)===data);
+  if(!ordensAtivas.length && !ordensCanceladas.length){
+    document.getElementById('agendaTxt').value = 'Nenhuma ordem para '+new Date(data+'T12:00:00').toLocaleDateString('pt-BR')+'.';
+    return;
+  }
+  const grupos = [];
+  ordensAtivas.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  ordensAtivas.forEach(ord=>{
+    const chave = (ord.logradouro||'')+'|'+(ord.nome||'')+'|'+(ord.data||'');
+    const g = grupos.find(x=>x.chave===chave);
+    if(g){ g.itens.push(ord); } else { grupos.push({chave, itens:[ord]}); }
+  });
+  const totalQtd = ordensAtivas.length;
+  let linhas = '';
+  grupos.forEach((g,i)=>{
+    const o = g.itens[0];
+    const qtd = g.itens.length;
+    const dataStr = o.data?new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+    const regioes = Array.isArray(f.regioes)?f.regioes:[];
+    const bairro = (o.bairro||'').toLowerCase().trim();
+    const reg = regioes.find(r=>{const b=(r.bairro||r.regiao||r.nome||'').toLowerCase().trim();return b&&(b.includes(bairro)||bairro.includes(b));});
+    const turno = reg?(reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
+    const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+    const lcs = g.itens.map(x=>x.crm_id).filter(Boolean).join(' · ');
+    const nomeCliente = (o.nome||'').split(' ')[0];
+    const celCliente = o.cel||'';
+    linhas += `\n${i+1}️⃣ 📦 ${qtd} · 📅 ${dataStr}${turno?' · '+turno:''}\n📍 ${end}\n👤 ${nomeCliente}${celCliente?' · 📞 '+celCliente:''}${o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:''}\n${lcs}\n`;
+  });
+  let cancelLinha = '\n❌ Cancelamentos:\n';
+  if(ordensCanceladas.length){
+    ordensCanceladas.forEach(o=>{
+      const dataStr=o.data?new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+      const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
+      cancelLinha += `• ${o.crm_id||'—'} · ${dataStr} · ${end}\n`;
+    });
+  } else { cancelLinha += '— nenhum —\n'; }
+  const texto = `📋 Agenda — ${f.nome}\n📦 ${totalQtd} caçamba${totalQtd!==1?'s':''}\n${linhas}${cancelLinha}\nPor favor, confirme se está tudo certo.\n_CaçambaSP_`;
+  document.getElementById('agendaTxt').value = texto;
 }
 function _enviarAgendaWA(fid){
   const f = forns.find(x=>x.id===fid);

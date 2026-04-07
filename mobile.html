@@ -885,6 +885,10 @@ input,select,textarea,button{font-family:var(--font)}
       <div class="modal-close" onclick="closeModal('waFornModal')">✕</div>
     </div>
     <div class="modal-body">
+      <div id="waFornModal_filtroData" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
+        <label style="font-size:12px;color:var(--mut);white-space:nowrap">📅 Data:</label>
+        <input type="date" id="waFornModal_data" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;color:var(--txt);font-size:13px" onchange="_agendaMobileFiltrar(this.value)">
+      </div>
       <textarea id="waFornModal_txt" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px;font-size:13px;color:var(--txt);outline:none;resize:none;min-height:180px;line-height:1.5;font-family:var(--font)"></textarea>
       <div class="modal-footer" style="margin-top:12px">
         <button class="btn" onclick="closeModal('waFornModal')">Fechar</button>
@@ -1309,6 +1313,8 @@ async function efbSalvar() {
 
 // ── MODAL WA FORNECEDOR (OS e Cancelamento) ──
 let _waFornModal_data = null;
+let _waFornModal_fid = null;
+let _waFornModal_dataFiltro = null;
 
 function _abrirWAFornModal(o, f, tipo) {
   const data = dateF(o.data);
@@ -1342,6 +1348,8 @@ _CaçambaSP_`;
   _waFornModal_data = {f, texto};
   // Abrir modal
   const modal = document.getElementById('waFornModal');
+  // Esconder filtro de data (só aparece na agenda)
+  const _fd = document.getElementById('waFornModal_filtroData'); if(_fd) _fd.style.display='none';
   document.getElementById('waFornModal_titulo').textContent = tipo==='os' ? '📋 Enviar OS ao fornecedor' : '❌ Cancelamento ao fornecedor';
   document.getElementById('waFornModal_forn').textContent = f.nome;
   document.getElementById('waFornModal_txt').value = texto;
@@ -1386,6 +1394,7 @@ function waFornEnviar() {
 function abrirWAFornLivre(fid) {
   const f = _forns.find(x=>x.id===fid); if(!f) return;
   _waFornModal_data = {f, texto:''};
+  const _fd2 = document.getElementById('waFornModal_filtroData'); if(_fd2) _fd2.style.display='none';
   document.getElementById('waFornModal_titulo').textContent = '💬 Mensagem livre — ' + f.nome;
   document.getElementById('waFornModal_forn').textContent = f.wa_link || f.tel || 'sem contato';
   document.getElementById('waFornModal_txt').value = '';
@@ -1393,11 +1402,13 @@ function abrirWAFornLivre(fid) {
 }
 
 // ── AGENDA DO FORNECEDOR ──
-async function abrirAgendaForn(fid) {
+async function abrirAgendaForn(fid, filtroData) {
   const f = _forns.find(x=>x.id===fid); if(!f) return;
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
-  const ativas = _ordens.filter(o=>o.forn_id===fid && cols.includes(o.col));
-  const cancelamentos = _ordens.filter(o=>o.forn_id===fid && o.col==='concluido' && o.cancel_motivo);
+  const hoje = new Date().toISOString().slice(0,10);
+  const dataFiltro = filtroData || hoje;
+  const ativas = _ordens.filter(o=>o.forn_id===fid && cols.includes(o.col) && (o.data||'').slice(0,10)===dataFiltro);
+  const cancelamentos = _ordens.filter(o=>o.forn_id===fid && o.col==='concluido' && o.cancel_motivo && (o.data||'').slice(0,10)===dataFiltro);
 
   // Agrupar por logradouro+nome+data
   const grupos = {};
@@ -1423,7 +1434,7 @@ async function abrirAgendaForn(fid) {
     const primeiro = (o.nome||'').split(' ')[0];
     return `${i+1}️⃣ 📦 ${o.qtd} · 📅 ${dateF(o.data)}${t?' · '+t:''}
 📍 ${end}
-👤 ${primeiro} · 📞 ${o.cel||'—'}
+👤 ${primeiro} · 📞 ${o.cel||'—'}${o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:''}
 ${o.crm_id||''}`;
   });
 
@@ -1437,10 +1448,59 @@ ${o.crm_id||''}`;
   texto += '\n\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
 
   _waFornModal_data = {f, texto};
+  _waFornModal_fid = fid;
+  _waFornModal_dataFiltro = dataFiltro || new Date().toISOString().slice(0,10);
   document.getElementById('waFornModal_titulo').textContent = `📲 Agenda — ${f.nome}`;
   document.getElementById('waFornModal_forn').textContent = f.nome;
   document.getElementById('waFornModal_txt').value = texto;
+  // Mostrar filtro de data
+  const filtroEl = document.getElementById('waFornModal_filtroData');
+  if(filtroEl){ filtroEl.style.display='flex'; document.getElementById('waFornModal_data').value=_waFornModal_dataFiltro; }
   openModal('waFornModal');
+}
+
+// ── FILTRO DATA AGENDA MOBILE ──
+function _agendaMobileFiltrar(data) {
+  const fid = _waFornModal_fid;
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  _waFornModal_dataFiltro = data;
+  const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const ativas = _ordens.filter(o=>o.forn_id===fid && cols.includes(o.col) && (o.data||'').slice(0,10)===data);
+  const cancelamentos = _ordens.filter(o=>o.forn_id===fid && o.col==='concluido' && o.cancel_motivo && (o.data||'').slice(0,10)===data);
+  if(!ativas.length && !cancelamentos.length){
+    document.getElementById('waFornModal_txt').value = 'Nenhuma ordem para '+new Date(data+'T12:00:00').toLocaleDateString('pt-BR')+'.';
+    return;
+  }
+  const grupos = {};
+  ativas.forEach(o => {
+    const k = (o.logradouro||'')+'|'+(o.nome||'')+'|'+(o.data||'');
+    if(!grupos[k]) grupos[k] = {...o, qtd:0};
+    grupos[k].qtd++;
+  });
+  const lista = Object.values(grupos).sort((a,b)=>(a.data||'')>(b.data||'')?1:-1);
+  let turnoTxt = o => {
+    let regioes = f.regioes;
+    if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}};
+    if(!Array.isArray(regioes)) regioes=[];
+    const reg = regioes.find(r=>_bairroMatch(r.bairro||r.regiao||r.nome||'', o.bairro||''));
+    const t = reg?.turno||'';
+    return t==='noturno'?'🌙 Noturno':t==='diurno'?'☀️ Diurno':t;
+  };
+  let linhas = lista.map((o,i)=>{
+    const t = turnoTxt(o);
+    const end = [o.logradouro, o.bairro].filter(Boolean).join(', ');
+    const primeiro = (o.nome||'').split(' ')[0];
+    return (i+1)+'️⃣ 📦 '+o.qtd+' · 📅 '+dateF(o.data)+(t?' · '+t:'')+'\n📍 '+end+'\n👤 '+primeiro+' · 📞 '+(o.cel||'—')+(o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:'')+'\n'+(o.crm_id||'');
+  });
+  const totalQtd = lista.reduce((s,o)=>s+o.qtd,0);
+  let texto = '📋 Agenda — ' + f.nome + '\n📦 ' + totalQtd + ' caçamba' + (totalQtd!==1?'s':'') + '\n\n' + linhas.join('\n\n');
+  if(cancelamentos.length) {
+    texto += '\n\n❌ Cancelamentos:\n';
+    texto += cancelamentos.map(o=>'• ' + (o.crm_id||'—') + ' · ' + dateF(o.data) + ' · ' + (o.logradouro||'')).join('\n');
+  }
+  texto += '\n\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
+  document.getElementById('waFornModal_txt').value = texto;
+  _waFornModal_data = {f, texto};
 }
 
 // ── PAGAR FORNECEDOR ──
@@ -3505,7 +3565,7 @@ async function duplicarOrdem(id) {
       ...o,
       id: uidGen(), crm_id,
       usuario_id: uid(),
-      col: 'contratar',
+      col: manterForn ? 'ag_entrega' : 'contratar',
       criado_em: nowISO(),
       data: null,
       forn_id: manterForn ? o.forn_id : null,
