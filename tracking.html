@@ -350,7 +350,9 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
     document.getElementById('pix-card-title').textContent='Total em aberto';
     document.getElementById('pix-card-sub').textContent=pendentes.length+' caçamba(s) · QR Code do total';
     const celNorm=normCel(ord.cel);
-    const txidGrupo='CACAMBA'+(celNorm.slice(-8)||ord.crm_id.replace(/\D/g,'').slice(-8));
+    // txid agrupado: GRP + crm_id da primeira ordem pendente — concilia no extrato Itaú
+    const _primeiraOrdPend = pendentes[0]||emAberto[0];
+    const txidGrupo = ('GRP'+(_primeiraOrdPend?.crm_id||'').replace(/\D/g,'')).substring(0,25);
     document.getElementById('lista-ordens-agrupadas').innerHTML=emAberto.map(o=>{
       const pago=o.pago;
       const acr=o.nf_num?_nfAcrescimo:0;
