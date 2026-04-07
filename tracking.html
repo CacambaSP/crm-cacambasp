@@ -278,12 +278,13 @@ async function carregar(){
     }
     // Buscar outras ordens em aberto pelo celular
     let emAberto=[];
+    let todasOrdens=[];
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
       try{
-        // Busca pelo celular normalizado (sem 55)
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,nf_num,nf_taxa&order=data.asc');
-        emAberto=(todas||[]).filter(o=>o.col!=='concluido'&&o.col!=='orcamento'&&!o.pago);
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa&order=data.asc');
+        todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento');
+        emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
     }
     // Garantir que a ordem do link está na lista
@@ -291,18 +292,21 @@ async function carregar(){
       if(!ord.pago&&ord.col!=='concluido'&&ord.col!=='orcamento') emAberto.unshift(ord);
     }
     if(!emAberto.length) emAberto=[ord];
+    if(!todasOrdens.length) todasOrdens=[ord];
     // Buscar última atualização de pagamento para o aviso de delay
     let ultimoPagoEm=null;
     try{
       const ult=await api('ordens?pago=eq.true&pago_em=not.is.null&order=pago_em.desc&select=pago_em&limit=1');
       if(ult&&ult.length)ultimoPagoEm=ult[0].pago_em;
     }catch(e){}
-    renderizar(ord,vend,emAberto,ultimoPagoEm);
+    renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens);
   }catch(e){console.error(e);mostrarErro('Erro ao buscar pedido. Tente novamente em instantes.');}
 }
 let _ordensTracking = [];
-function renderizar(ord,vend,emAberto,ultimoPagoEm){
+let _todasOrdensTracking = [];
+function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   _ordensTracking = emAberto;
+  _todasOrdensTracking = todasOrdens||emAberto;
   document.getElementById('loading').style.display='none';
   // Vendedor / marca
   const cor=(vend&&vend.marca_cor)||'#f5a623';
@@ -385,7 +389,6 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
   document.getElementById('btn-recibo').style.display='block';
   // Guardar dados para o recibo
   window._reciboOrd = ord;
-  window._reciboOrdens = emAberto;
   window._reciboVend = vend;
 }
 function pagarOrdemIndividual(crmId, valCli){
@@ -416,17 +419,27 @@ function mostrarErro(msg){
   const el=document.getElementById('erro');el.style.display='flex';
   document.getElementById('erro-txt').innerHTML=msg;
 }
-function abrirReciboTracking(){
-  const ordens = window._reciboOrdens||[];
+async function abrirReciboTracking(){
+  const ordens = _todasOrdensTracking||_ordensTracking||[];
   const ord    = window._reciboOrd||{};
   const vend   = window._reciboVend||{};
   if(!ordens.length){alert('Nenhuma ordem encontrada.');return;}
 
   const nomeEmpresa = (vend?.marca_nome||vend?.nome)||'CaçambaSP';
   const telEmpresa  = vend?.marca_tel||'(11) 4237-8757';
-  const logoUrl     = vend?.marca_logo_url ? LOGOS_BUCKET+vend.marca_logo_url : null;
+  const logoUrlRaw  = vend?.marca_logo_url ? LOGOS_BUCKET+vend.marca_logo_url : null;
   const cor         = vend?.marca_cor||'#f5a623';
   const hoje        = new Date().toLocaleDateString('pt-BR');
+
+  // Converter logo para base64
+  let logoUrl = null;
+  if(logoUrlRaw){
+    try{
+      const res=await fetch(logoUrlRaw);
+      const blob=await res.blob();
+      logoUrl=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+    }catch(e){}
+  }
 
   const pagas    = ordens.filter(o=>o.pago);
   const pendentes= ordens.filter(o=>!o.pago);
