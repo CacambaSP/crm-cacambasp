@@ -5820,14 +5820,29 @@ function renderExtratoRevisao(){
     let ordemMatch=null,tipo='normal';
     if(idLimpo.startsWith('GRP')){
       tipo='grp';
-      const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'XXXXX';
-      const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.nome||'').toLowerCase().includes(nomePag));
-      ordemMatch=cands.length===1?cands[0]:null;
+      // Tentar casar pelo crm_id embutido no txid: GRP20266020 → LC20266020
+      const numGrp=idLimpo.replace(/^GRP/,'');
+      const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&!c.pago&&c.col!=='concluido'&&c.col!=='orcamento');
+      if(crmGrp){
+        // Achou pelo crm_id — pegar todas as ordens pendentes do mesmo cliente
+        const celRef=(crmGrp.cel||'').replace(/\D/g,'');
+        const todasGrp=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
+        ordemMatch=todasGrp.length>0?todasGrp:crmGrp;
+      } else {
+        // Fallback: busca pelo primeiro nome do pagador
+        const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'XXXXX';
+        const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.nome||'').toLowerCase().includes(nomePag));
+        ordemMatch=cands.length>=1?cands:null;
+      }
+      // ordemMatch pode ser array (múltiplas) ou objeto único
     }else{
       ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
     }
-    const status=ordemMatch?(ordemMatch.pago?'ja_pago':'encontrado'):'nao_encontrado';
-    return{...linha,ordem:ordemMatch,status,tipo};
+    // ordemMatch pode ser array (GRP múltiplas) ou objeto único
+    const _ordens_arr = Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
+    const _todas_pagas = _ordens_arr.length>0 && _ordens_arr.every(o=>o.pago);
+    const status = _ordens_arr.length===0?'nao_encontrado':(_todas_pagas?'ja_pago':'encontrado');
+    return{...linha,ordens:_ordens_arr,ordem:_ordens_arr[0]||null,status,tipo};
   });
   const enc=resultado.filter(r=>r.status==='encontrado');
   const jp=resultado.filter(r=>r.status==='ja_pago');
@@ -5840,13 +5855,18 @@ function renderExtratoRevisao(){
     </div>
     ${enc.length?`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">✅ Prontos para dar baixa</div>
-      ${enc.map(r=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bor);cursor:pointer">
+      ${enc.map(r=>{
+        const _nomes=(r.ordens||[r.ordem]).filter(Boolean).map(o=>o.crm_id||'').join(', ');
+        const _nomeCliente=r.ordem?.nome||r.pagador||'-';
+        const _grpInfo=r.tipo==='grp'&&r.ordens?.length>1?`🔗 ${r.ordens.length} ordens: ${_nomes}`:(r.tipo==='grp'?'🔗 Agrupado · '+r.id:r.id);
+        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+        return `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bor);cursor:pointer">
         <input type="checkbox" data-crmid="${r.id}" data-valor="${r.valorPago}" checked style="accent-color:var(--g);width:16px;height:16px;flex-shrink:0">
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${r.ordem?.nome||r.pagador||'-'}</div>
-        <div style="font-size:11px;color:var(--mut2)">${r.tipo==='grp'?'🔗 Agrupado · ':''}${r.id} · ${r.dataVenc||r.dataPago||'-'}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${_nomeCliente}</div>
+        <div style="font-size:11px;color:var(--mut2)">${_grpInfo} · ${r.dataVenc||r.dataPago||'-'}</div></div>
         <div style="text-align:right;flex-shrink:0"><div style="font-weight:800;color:var(--g);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
-        ${r.ordem?.rec&&Math.abs(r.valorPago-r.ordem.rec)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(r.ordem.rec)}</div>`:''}</div>
-      </label>`).join('')}
+        ${Math.abs(r.valorPago-_totalOS)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`:''}</div>
+      </label>`;}).join('')}
       <button class="btn btn-g btn-block" style="margin-top:12px" onclick="confirmarBaixaExtrato()">✅ Dar baixa nas selecionadas</button>
     </div>`:''}
     ${ne.length?`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:12px">
@@ -5871,18 +5891,26 @@ async function confirmarBaixaExtrato(){
   const checks=[...document.querySelectorAll('#extratoResultado input[type=checkbox]:checked')];
   if(!checks.length){toast('Nenhuma ordem selecionada','warn');return;}
   const ids=checks.map(ch=>ch.dataset.crmid);
-  const itens=_extratoConfirm.filter(r=>ids.includes(r.id)&&r.ordem);
+  const itens=_extratoConfirm.filter(r=>ids.includes(r.id)&&r.ordens&&r.ordens.length);
   if(!itens.length)return;
-  const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+itens.length+' ordem'+(itens.length!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
+  // Contar total de ordens (GRP pode ter múltiplas)
+  const totalOrdens=itens.reduce((s,r)=>s+(r.ordens||[]).filter(o=>!o.pago).length,0);
+  const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+totalOrdens+' ordem'+(totalOrdens!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
   if(!ok)return;
   const agora=nowISO();let cnt=0;
   for(const item of itens){
-    const o=item.ordem;const vp=item.valorPago||o.rec;
-    o.pago=true;o.pago_em=agora;o.pago_valor=vp;
-    o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
-    o.col='baixar';
-    try{await api('ordens?id=eq.'+o.id,'PATCH',{pago:true,pago_em:agora,pago_valor:vp,pago_obs:o.pago_obs,col:'baixar'},tok());addLog(o.id,'Conciliado','Extrato Itaú · R$ '+fmt(vp));cnt++;}
-    catch(e){toast('Erro: '+o.crm_id,'err');}
+    const pendItem=(item.ordens||[]).filter(o=>!o.pago);
+    const nOrdens=pendItem.length||1;
+    // Distribuir valor proporcionalmente entre as ordens do grupo
+    const totalRec=pendItem.reduce((s,o)=>s+(parseFloat(o.rec)||0),0)||item.valorPago;
+    for(const o of pendItem){
+      const vp=nOrdens===1?item.valorPago:Math.round((parseFloat(o.rec)||0)/totalRec*item.valorPago*100)/100;
+      o.pago=true;o.pago_em=agora;o.pago_valor=vp;
+      o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
+      o.col='baixar';
+      try{await api('ordens?id=eq.'+o.id,'PATCH',{pago:true,pago_em:agora,pago_valor:vp,pago_obs:o.pago_obs,col:'baixar'},tok());addLog(o.id,'Conciliado','Extrato Itaú · R$ '+fmt(vp));cnt++;}
+      catch(e){toast('Erro: '+o.crm_id,'err');}
+    }
   }
   renderBoard();renderStats();renderFinanceiro();renderInadBadge();
   toast('✅ '+cnt+' ordem'+(cnt!==1?'ns':'')+' baixada'+(cnt!==1?'s':'')+'!');
