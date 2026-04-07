@@ -6248,15 +6248,21 @@ function renderRel(){
   else if(_relTab==='recebimento') el.innerHTML=_relRecebimento(src,nomeMes);
   else if(_relTab==='inadimp') el.innerHTML=_relInadimp(src,nomeMes);
   else if(_relTab==='cancelados') el.innerHTML=_relCancelados(nomeMes);
-  else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia();
+  else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia(document.getElementById('agendaDiaFiltro')?.value||'');
   else if(_relTab==='analytics'){ _relAnalytics(el); }
 }
-function _relAgendaDia(){
+function _relAgendaDia(dataParam){
   const hoje = new Date().toISOString().slice(0,10);
+  const dataFiltro = dataParam || hoje;
   const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
-  const ordensHoje = ordens.filter(o => ATIVAS.includes(o.col) && (o.data||'').slice(0,10) === hoje && o.forn_id);
+  const ordensHoje = ordens.filter(o => ATIVAS.includes(o.col) && (o.data||'').slice(0,10) === dataFiltro && o.forn_id);
+  const seletor = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <label style="font-size:12px;color:var(--mut2)">📅 Data:</label>
+    <input type="date" id="agendaDiaFiltro" value="${dataFiltro}" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;color:var(--txt);font-size:12px;cursor:pointer"
+      onchange="document.getElementById('relConteudo').innerHTML=_relAgendaDia(this.value)">
+  </div>`;
   if(!ordensHoje.length){
-    return '<div style="padding:24px;text-align:center;color:var(--mut2);font-size:13px">Nenhuma ordem com fornecedor atribuído para hoje.</div>';
+    return seletor+'<div style="padding:24px;text-align:center;color:var(--mut2);font-size:13px">Nenhuma ordem com fornecedor atribuído para este dia.</div>';
   }
   // Agrupar por fornecedor
   const porForn = {};
@@ -6264,7 +6270,7 @@ function _relAgendaDia(){
     if(!porForn[o.forn_id]) porForn[o.forn_id] = [];
     porForn[o.forn_id].push(o);
   });
-  let html = '<div style="display:flex;flex-direction:column;gap:14px;padding-top:6px">';
+  let html = seletor+'<div style="display:flex;flex-direction:column;gap:14px;padding-top:6px">';
   Object.entries(porForn).forEach(([fid, lista]) => {
     const f = forns.find(x=>x.id===fid);
     if(!f) return;
@@ -6302,7 +6308,7 @@ function _relAgendaDia(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--txt)">${f.nome}</div>
-          <div style="font-size:11px;color:var(--mut2)">${totalQtd} caçamba${totalQtd!==1?'s':''} · ${dateF(hoje+'T00:00:00')}</div>
+          <div style="font-size:11px;color:var(--mut2)">${totalQtd} caçamba${totalQtd!==1?'s':''} · ${dateF(dataFiltro)}</div>
         </div>
         <div style="display:flex;gap:6px">
           ${waUrl?`<button class="btn btn-sm btn-wa" onclick="window.open('${waUrl}','_blank')">📲 WA</button>`:''}
