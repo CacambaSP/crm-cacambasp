@@ -136,6 +136,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="info-row"><div class="info-ico">🏢</div><div><div class="info-key">Atendimento</div><div class="info-val" id="det-atend">CaçambaSP</div></div></div>
   </div>
   <div class="card" style="padding:0"><a id="btn-wa" href="#" style="display:none"><span>💬</span> Falar no WhatsApp</a></div>
+  <button id="btn-recibo" onclick="abrirReciboTracking()" style="display:none;width:calc(100% - 32px);max-width:480px;margin-top:4px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad);padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🧾 Ver / Imprimir Recibo</button>
   <div id="footer">CaçambaSP · Powered by CRM CaçambaSP</div>
 </div>
 <script>
@@ -264,7 +265,7 @@ async function carregar(){
     // Carregar acréscimo NF do banco
     try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
     // Buscar ordem pelo crm_id — incluindo cel para busca agrupada e nf_num para acréscimo NF
-    const ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,nf_num&limit=1');
+    const ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
     if(!ordens||!ordens.length){mostrarErro('Pedido <strong>'+crmId+'</strong> não encontrado.<br>Verifique o link recebido.');return;}
     const ord=ordens[0];
     // Buscar vendedor
@@ -281,7 +282,7 @@ async function carregar(){
     if(celNorm&&celNorm.length>=8){
       try{
         // Busca pelo celular normalizado (sem 55)
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,nf_num,nf_taxa&order=data.asc');
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,nf_num,nf_taxa&order=data.asc');
         emAberto=(todas||[]).filter(o=>o.col!=='concluido'&&o.col!=='orcamento'&&!o.pago);
       }catch(e){}
     }
@@ -381,6 +382,11 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm){
   }
   const cont=document.getElementById('conteudo');
   cont.style.display='flex';cont.style.flexDirection='column';cont.style.alignItems='center';
+  document.getElementById('btn-recibo').style.display='block';
+  // Guardar dados para o recibo
+  window._reciboOrd = ord;
+  window._reciboOrdens = emAberto;
+  window._reciboVend = vend;
 }
 function pagarOrdemIndividual(crmId, valCli){
   const o = _ordensTracking.find(x=>x.crm_id===crmId) || null;
@@ -410,6 +416,136 @@ function mostrarErro(msg){
   const el=document.getElementById('erro');el.style.display='flex';
   document.getElementById('erro-txt').innerHTML=msg;
 }
+function abrirReciboTracking(){
+  const ordens = window._reciboOrdens||[];
+  const ord    = window._reciboOrd||{};
+  const vend   = window._reciboVend||{};
+  if(!ordens.length){alert('Nenhuma ordem encontrada.');return;}
+
+  const nomeEmpresa = (vend?.marca_nome||vend?.nome)||'CaçambaSP';
+  const telEmpresa  = vend?.marca_tel||'(11) 4237-8757';
+  const logoUrl     = vend?.marca_logo_url ? LOGOS_BUCKET+vend.marca_logo_url : null;
+  const cor         = vend?.marca_cor||'#f5a623';
+  const hoje        = new Date().toLocaleDateString('pt-BR');
+
+  const pagas    = ordens.filter(o=>o.pago);
+  const pendentes= ordens.filter(o=>!o.pago);
+  const totalPago= pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
+  const totalPend= pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+  const totalGeral=totalPago+totalPend;
+
+  // Pix payload para pendentes
+  let pixPayload='', pixSection='';
+  if(totalPend>0.01){
+    function _san(s,m){s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]/g,'').trim();return s.substring(0,m);}
+    function _emv(id,v){const sv=String(v);return id+String(sv.length).padStart(2,'0')+sv;}
+    function _crc(s){let c=0xFFFF;for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++)c=(c&0x8000)?(c<<1)^0x1021:(c<<1);c&=0xFFFF;}return c.toString(16).toUpperCase().padStart(4,'0');}
+    const txid=('RC'+(ord.crm_id||'').replace(/\D/g,'')).substring(0,25);
+    const ma=_emv('00','BR.GOV.BCB.PIX')+_emv('01',PIX_KEY);
+    let p=_emv('00','01')+_emv('26',ma)+_emv('52','0000')+_emv('53','986');
+    p+=_emv('54',totalPend.toFixed(2));
+    p+=_emv('58','BR')+_emv('59',_san(PIX_NOME,25))+_emv('60',_san(PIX_CIDADE,15))+_emv('62',_emv('05',txid))+'6304';
+    pixPayload=p+_crc(p);
+    pixSection=`
+    <div style="border:2px solid ${cor};border-radius:8px;padding:14px;margin-bottom:12px;background:#fffbf0;page-break-inside:avoid">
+      <div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:3px">⚡ Pagamento via Pix — R$ ${fmt(totalPend)}</div>
+      <div style="font-size:9px;color:#b45309;margin-bottom:10px;font-style:italic">Válido mediante confirmação do pagamento</div>
+      <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div id="rTrkQR" style="width:110px;height:110px;background:#fff;padding:4px;border-radius:6px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:140px;font-size:10px">
+          <div style="margin-bottom:5px"><span style="color:#777;font-weight:700">Chave:</span> ${PIX_KEY}</div>
+          <div style="margin-bottom:5px"><span style="color:#777;font-weight:700">Beneficiário:</span> ${PIX_NOME}</div>
+          <div style="margin-bottom:8px"><span style="color:#777;font-weight:700">Valor:</span> <strong>R$ ${fmt(totalPend)}</strong></div>
+          <div style="font-size:8px;word-break:break-all;background:#fff;padding:5px 6px;border-radius:4px;font-family:monospace;color:#444;border:1px solid #e5c084">${pixPayload}</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load',function(){
+        if(typeof QRCode!=='undefined'){
+          new QRCode(document.getElementById('rTrkQR'),{text:'${pixPayload.replace(/'/g,"\\'")}',width:110,height:110,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+        }
+      });
+    <\/script>`;
+  }
+
+  function linhaOrdem(o,tipo){
+    const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:parseFloat(o.rec)||0+(o.nf_num?_nfAcrescimo:0);
+    const dataPag=tipo==='pago'&&o.pago_em?' · pago em '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
+    return `<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${o.tipo||'Caçamba'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${dateF(o.data)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${end}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace">${tipo==='pago'?'<span style="color:#16a34a">':'<span style="color:#dc2626">'}R$ ${fmt(val)}</span></td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right">${tipo==='pago'?`<span style="color:#16a34a;font-weight:700">✅ Pago${dataPag}</span>`:'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>'}</td>
+    </tr>`;
+  }
+
+  const logoTag = logoUrl
+    ? `<img src="${logoUrl}" style="width:50px;height:50px;border-radius:10px;object-fit:cover;border:2px solid ${cor}">`
+    : `<div style="width:50px;height:50px;border-radius:10px;background:${cor}22;color:${cor};font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid ${cor}">${nomeEmpresa.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>`;
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Recibo — ${ord.nome||'Cliente'}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:20px 24px}
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;padding:7px 10px;text-align:left;background:#f9fafb;border-bottom:2px solid #e5e7eb}
+th.r{text-align:right}
+@media print{body{padding:10px 14px}@page{margin:10mm;size:A4}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid ${cor};padding-bottom:12px;margin-bottom:14px">
+  <div style="display:flex;align-items:center;gap:12px">
+    ${logoTag}
+    <div>
+      <div style="font-size:18px;font-weight:800;color:#111">${nomeEmpresa}</div>
+      <div style="font-size:10px;color:#6b7280">${telEmpresa}</div>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:4px;background:${pendentes.length===0?'#16a34a':'#dc2626'};color:#fff">${pendentes.length===0?'✅ Recibo Quitado':'⏳ Pagamento Pendente'}</div>
+    <div style="font-size:10px;color:#6b7280">Emitido em ${hoje}</div>
+  </div>
+</div>
+<div style="background:#f8fafc;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap">
+  <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">Cliente</div><div style="font-size:14px;font-weight:800;color:#111">${ord.nome||'—'}</div></div>
+  ${ord.cel?`<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">Telefone</div><div style="font-size:12px;font-weight:600">${ord.cel}</div></div>`:''}
+  ${ord.cpf?`<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">CPF/CNPJ</div><div style="font-size:12px;font-weight:600">${ord.cpf}</div></div>`:''}
+</div>
+<table style="margin-bottom:12px">
+  <thead><tr>
+    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>
+  </tr></thead>
+  <tbody>
+    ${pagas.map(o=>linhaOrdem(o,'pago')).join('')}
+    ${pendentes.map(o=>linhaOrdem(o,'pendente')).join('')}
+  </tbody>
+</table>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:14px">
+  ${totalPago>0?`<div style="display:flex;gap:16px;font-size:11px"><span style="color:#6b7280">✅ Total pago</span><span style="font-weight:700;color:#16a34a;font-family:monospace">R$ ${fmt(totalPago)}</span></div>`:''}
+  ${totalPend>0.01?`<div style="display:flex;gap:16px;font-size:11px"><span style="color:#6b7280">⏳ Total pendente</span><span style="font-weight:700;color:#dc2626;font-family:monospace">R$ ${fmt(totalPend)}</span></div>`:''}
+  <div style="display:flex;gap:16px;background:#111;color:#fff;padding:8px 14px;border-radius:6px;margin-top:4px"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af">Total Geral</span><span style="font-size:14px;font-weight:800;font-family:monospace">R$ ${fmt(totalGeral)}</span></div>
+</div>
+${pixSection}
+<div style="border-top:1px solid #e5e7eb;padding-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <div style="font-size:9px;color:#9ca3af">
+    <div>Documento gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    ${pagas.length&&pagas[0].pago_em?`<div style="margin-top:2px">Último pagamento: ${new Date(pagas[pagas.length-1].pago_em).toLocaleString('pt-BR')}</div>`:''}
+  </div>
+  <div style="text-align:right;font-size:10px;font-weight:700;color:#374151">${nomeEmpresa} · ${telEmpresa}</div>
+</div>
+<button onclick="window.print()" style="position:fixed;bottom:20px;right:20px;background:#111;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)">🖨️ Imprimir / PDF</button>
+</body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
 carregar();
 </script>
 </body>

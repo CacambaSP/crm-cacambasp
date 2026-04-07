@@ -641,6 +641,7 @@ input[type=checkbox]:checked::after{
             <button class="rel-tab" onclick="setRelTab('inadimp')" data-tab="inadimp">🚨 Inadimplência</button>
             <button class="rel-tab" onclick="setRelTab('cancelados')" data-tab="cancelados">❌ Cancelados</button>
             <button class="rel-tab" onclick="setRelTab('agenda_dia')" data-tab="agenda_dia">📅 Agenda do Dia</button>
+            <button class="rel-tab" onclick="setRelTab('recibo')" data-tab="recibo">🧾 Recibo</button>
             <button class="rel-tab admin-only" onclick="setRelTab('analytics')" data-tab="analytics">🔬 Analytics</button>
           </div>
           <div id="relConteudo"></div>
@@ -6243,6 +6244,7 @@ function renderRel(){
   else if(_relTab==='inadimp') el.innerHTML=_relInadimp(src,nomeMes);
   else if(_relTab==='cancelados') el.innerHTML=_relCancelados(nomeMes);
   else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia(document.getElementById('agendaDiaFiltro')?.value||'');
+  else if(_relTab==='recibo') el.innerHTML=_relRecibo();
   else if(_relTab==='analytics'){ _relAnalytics(el); }
 }
 function _relAgendaDia(dataParam){
@@ -6314,6 +6316,279 @@ function _relAgendaDia(dataParam){
   });
   html += '</div>';
   return html;
+}
+
+// ── RECIBO ──
+let _reciboSelecionados = new Set();
+let _reciboClienteOrdens = [];
+
+function _relRecibo() {
+  return `<div style="display:flex;flex-direction:column;gap:16px">
+    <!-- Busca cliente -->
+    <div style="position:relative">
+      <input type="text" id="reciboBusca" placeholder="🔍 Buscar cliente por nome ou telefone..."
+        style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 14px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box"
+        oninput="_reciboFiltrar(this.value)">
+      <div id="reciboAC" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);max-height:220px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.2);margin-top:2px"></div>
+    </div>
+    <!-- Lista de ordens do cliente -->
+    <div id="reciboLista"></div>
+    <!-- Botão gerar -->
+    <div id="reciboActions" style="display:none">
+      <button class="btn btn-acc" style="width:100%;justify-content:center;padding:12px" onclick="gerarReciboImprimir()">🧾 Gerar Recibo (imprimir / PDF)</button>
+    </div>
+  </div>`;
+}
+
+function _reciboFiltrar(q) {
+  const ac = document.getElementById('reciboAC');
+  if (!q || q.length < 2) { ac.style.display='none'; return; }
+  const norm = q.toLowerCase();
+  // Agrupa ordens por cliente (cel como chave primária)
+  const clientes = {};
+  ordens.forEach(o => {
+    const chave = o.cel || o.nome || o.id;
+    if (!clientes[chave]) clientes[chave] = { nome: o.nome||'', cel: o.cel||'', ordens: [] };
+    clientes[chave].ordens.push(o);
+  });
+  const matches = Object.values(clientes).filter(c =>
+    c.nome.toLowerCase().includes(norm) || c.cel.includes(norm)
+  ).slice(0,8);
+  if (!matches.length) { ac.style.display='none'; return; }
+  ac.innerHTML = matches.map(c => {
+    const qtd = c.ordens.length;
+    return `<div onclick="_reciboSelecionarCliente('${encodeURIComponent(c.cel||c.nome)}')"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bor);transition:.1s"
+      onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <div style="font-weight:700;font-size:13px;color:var(--txt)">${c.nome||'(sem nome)'}</div>
+      <div style="font-size:11px;color:var(--mut2)">${c.cel||''} · ${qtd} ordem${qtd!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+  ac.style.display = 'block';
+}
+
+function _reciboSelecionarCliente(chaveEnc) {
+  const chave = decodeURIComponent(chaveEnc);
+  document.getElementById('reciboAC').style.display = 'none';
+  // Pegar todas as ordens deste cliente
+  _reciboClienteOrdens = ordens.filter(o => (o.cel||o.nome||o.id) === chave)
+    .sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  _reciboSelecionados = new Set(_reciboClienteOrdens.map(o=>o.id));
+  _reciboRenderLista();
+}
+
+function _reciboRenderLista() {
+  const lista = document.getElementById('reciboLista');
+  const actions = document.getElementById('reciboActions');
+  if (!_reciboClienteOrdens.length) { lista.innerHTML=''; actions.style.display='none'; return; }
+  const cli = _reciboClienteOrdens[0];
+  const totalSel = _reciboClienteOrdens.filter(o=>_reciboSelecionados.has(o.id));
+  const totalVal = totalSel.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const totalPago = totalSel.filter(o=>o.pago).reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
+  const totalPendente = totalVal - totalPago;
+
+  lista.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);overflow:hidden">
+      <!-- Cabeçalho cliente -->
+      <div style="padding:14px 16px;border-bottom:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--txt)">${cli.nome||'Cliente'}</div>
+          <div style="font-size:11px;color:var(--mut2)">${cli.cel||''} ${cli.cpf?'· '+cli.cpf:''}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs" onclick="_reciboToggleTodos(true)">✅ Todos</button>
+          <button class="btn btn-xs" onclick="_reciboToggleTodos(false)">☐ Nenhum</button>
+        </div>
+      </div>
+      <!-- Ordens -->
+      <div style="display:flex;flex-direction:column">
+        ${_reciboClienteOrdens.map(o => {
+          const sel = _reciboSelecionados.has(o.id);
+          const pago = !!o.pago;
+          const val = parseFloat(o.rec)||0;
+          const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+          const statusChip = pago
+            ? `<span style="font-size:10px;background:rgba(34,197,94,.15);color:var(--g);border-radius:4px;padding:2px 7px;font-weight:700">✅ Pago${o.pago_em?' · '+new Date(o.pago_em).toLocaleDateString('pt-BR'):''}</span>`
+            : `<span style="font-size:10px;background:rgba(239,68,68,.12);color:var(--r);border-radius:4px;padding:2px 7px;font-weight:700">⏳ Pendente</span>`;
+          return `<div onclick="_reciboToggle('${o.id}')" style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--bor);cursor:pointer;background:${sel?'var(--acc2)':'transparent'};transition:.1s">
+            <div style="margin-top:2px;width:18px;height:18px;border-radius:4px;border:2px solid ${sel?'var(--acc)':'var(--bor2)'};background:${sel?'var(--acc)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              ${sel?'<span style="color:#fff;font-size:11px;font-weight:900">✓</span>':''}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+                <span style="font-size:12px;font-weight:700;color:var(--acc)">${o.crm_id||'—'}</span>
+                <span style="font-size:11px;color:var(--mut2)">${o.tipo||''}</span>
+                <span style="font-size:11px;color:var(--mut2)">📅 ${dateF(o.data)}</span>
+                ${statusChip}
+              </div>
+              <div style="font-size:11px;color:var(--mut2)">📍 ${end}</div>
+            </div>
+            <div style="font-weight:800;font-size:13px;color:${pago?'var(--g)':'var(--acc)'};font-family:var(--mono);flex-shrink:0">R$ ${fmt(val)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <!-- Totais -->
+      <div style="padding:12px 16px;background:var(--bg2);display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--mut2)">${totalSel.length} ordem${totalSel.length!==1?'s':''} selecionada${totalSel.length!==1?'s':''}</span>
+          <span style="font-weight:700;color:var(--txt)">Total: R$ ${fmt(totalVal)}</span>
+        </div>
+        ${totalPago>0?`<div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--g)">✅ Já pago</span>
+          <span style="font-weight:700;color:var(--g)">R$ ${fmt(totalPago)}</span>
+        </div>`:''}
+        ${totalPendente>0.01?`<div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--r)">⏳ Pendente</span>
+          <span style="font-weight:700;color:var(--r)">R$ ${fmt(totalPendente)}</span>
+        </div>`:''}
+      </div>
+    </div>`;
+  actions.style.display = _reciboSelecionados.size > 0 ? 'block' : 'none';
+}
+
+function _reciboToggle(id) {
+  if (_reciboSelecionados.has(id)) _reciboSelecionados.delete(id);
+  else _reciboSelecionados.add(id);
+  _reciboRenderLista();
+}
+
+function _reciboToggleTodos(sel) {
+  if (sel) _reciboSelecionados = new Set(_reciboClienteOrdens.map(o=>o.id));
+  else _reciboSelecionados.clear();
+  _reciboRenderLista();
+}
+
+function gerarReciboImprimir() {
+  const selecionadas = _reciboClienteOrdens.filter(o => _reciboSelecionados.has(o.id));
+  if (!selecionadas.length) { toast('Selecione pelo menos uma ordem','warn'); return; }
+
+  const cli = selecionadas[0];
+  const nomeEmpresa = _perfil?.marca_nome || 'CaçambaSP';
+  const telEmpresa  = _perfil?.marca_tel  || '(11) 4237-8757';
+  const logoUrl     = _perfil?.marca_logo_url || null;
+  const cor         = _perfil?.marca_cor || '#f5a623';
+  const hoje        = new Date().toLocaleDateString('pt-BR');
+
+  const pagas     = selecionadas.filter(o => o.pago);
+  const pendentes = selecionadas.filter(o => !o.pago);
+  const totalPago = pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
+  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+  const totalGeral= totalPago + totalPend;
+
+  // Pix para pendentes
+  let pixPayload='', pixSection='';
+  if(totalPend>0.01){
+    const txid=('RC'+(cli.crm_id||cli.cel||'').replace(/\D/g,'')).substring(0,25);
+    pixPayload = buildPix(PIX_KEY, PIX_NAME, PIX_CITY, totalPend, txid);
+    pixSection=`
+    <div style="border:2px solid ${cor};border-radius:8px;padding:12px;margin-bottom:12px;background:#fffbf0;page-break-inside:avoid">
+      <div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:2px">⚡ Pagamento via Pix — R$ \${fmt(totalPend)}</div>
+      <div style="font-size:9px;color:#b45309;margin-bottom:8px;font-style:italic">Válido mediante confirmação do pagamento. Após pagar, envie o comprovante.</div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div id="printQR" style="width:100px;height:100px;background:#fff;padding:4px;border-radius:6px;flex-shrink:0"></div>
+        <div style="flex:1;font-size:10px">
+          <div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Chave:</span> \${PIX_KEY}</div>
+          <div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Beneficiário:</span> \${PIX_NAME}</div>
+          <div style="margin-bottom:6px"><span style="color:#777;font-weight:700">Valor:</span> <strong>R$ \${fmt(totalPend)}</strong></div>
+          <div style="font-size:8px;word-break:break-all;background:#fff;padding:4px 6px;border-radius:4px;font-family:monospace;color:#444;border:1px solid #e5c084">\${pixPayload}</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load',function(){
+        if(typeof QRCode!=='undefined'){
+          new QRCode(document.getElementById('printQR'),{text:'\${pixPayload.replace(/'/g,"\\'")}',width:100,height:100,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+        }
+      });
+    <\/script>`;
+  }
+
+  function linhaOrdem(o, tipo){
+    const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:parseFloat(o.rec)||0+(o.nf_num?_nfAcrescimo:0);
+    const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
+    return `<tr>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">\${o.crm_id||'—'}</td>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">\${o.tipo||'Caçamba'}</td>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">\${dateF(o.data)}</td>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">\${end}</td>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace">\${tipo==='pago'?'<span style=\"color:#16a34a\">':'<span style=\"color:#dc2626\">'}R$ \${fmt(val)}</span></td>
+      <td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:10px;text-align:right">\${tipo==='pago'?`<span style="color:#16a34a;font-weight:700">✅ Pago\${dataPag}</span>`:'<span style=\"color:#dc2626;font-weight:700\">⏳ Pendente</span>'}</td>
+    </tr>`;
+  }
+
+  const logoTag = logoUrl
+    ? `<img src="\${logoUrl}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid \${cor}">`
+    : `<div style="width:48px;height:48px;border-radius:10px;background:\${cor}22;color:\${cor};font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid \${cor}">\${nomeEmpresa.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>`;
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Recibo — \${cli.nome||'Cliente'}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:18px 22px}
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;padding:6px 9px;text-align:left;background:#f9fafb;border-bottom:2px solid #e5e7eb}
+th.r{text-align:right}
+.btn-print{position:fixed;bottom:16px;right:16px;background:#111;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+@media print{.btn-print{display:none}body{padding:8px 12px}@page{margin:8mm;size:A4}}
+</style></head><body>
+
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid \${cor};padding-bottom:10px;margin-bottom:12px">
+  <div style="display:flex;align-items:center;gap:10px">
+    \${logoTag}
+    <div>
+      <div style="font-size:17px;font-weight:800;color:#111">\${nomeEmpresa}</div>
+      <div style="font-size:10px;color:#6b7280">\${telEmpresa}</div>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:3px;background:\${pendentes.length===0?'#16a34a':'#dc2626'};color:#fff">\${pendentes.length===0?'✅ Recibo Quitado':'⏳ Pagamento Pendente'}</div>
+    <div style="font-size:10px;color:#6b7280">Emitido em \${hoje}</div>
+  </div>
+</div>
+
+<div style="background:#f8fafc;border-radius:6px;padding:8px 12px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap">
+  <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Cliente</div><div style="font-size:13px;font-weight:800;color:#111">\${cli.nome||'—'}</div></div>
+  \${cli.cel?`<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Telefone</div><div style="font-size:11px;font-weight:600">\${cli.cel}</div></div>`:''}
+  \${cli.cpf?`<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">CPF/CNPJ</div><div style="font-size:11px;font-weight:600">\${cli.cpf}</div></div>`:''}
+</div>
+
+<table style="margin-bottom:10px">
+  <thead><tr>
+    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>
+  </tr></thead>
+  <tbody>
+    \${pagas.map(o=>linhaOrdem(o,'pago')).join('')}
+    \${pendentes.map(o=>linhaOrdem(o,'pendente')).join('')}
+  </tbody>
+</table>
+
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-bottom:12px">
+  \${totalPago>0?`<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">✅ Total pago</span><span style="font-weight:700;color:#16a34a;font-family:monospace">R$ \${fmt(totalPago)}</span></div>`:''}
+  \${totalPend>0.01?`<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">⏳ Total pendente</span><span style="font-weight:700;color:#dc2626;font-family:monospace">R$ \${fmt(totalPend)}</span></div>`:''}
+  <div style="display:flex;gap:14px;background:#111;color:#fff;padding:7px 12px;border-radius:6px;margin-top:3px">
+    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af">Total Geral</span>
+    <span style="font-size:14px;font-weight:800;font-family:monospace">R$ \${fmt(totalGeral)}</span>
+  </div>
+</div>
+
+\${pixSection}
+
+<div style="border-top:1px solid #e5e7eb;padding-top:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+  <div style="font-size:9px;color:#9ca3af">
+    <div>Gerado em \${new Date().toLocaleString('pt-BR')}</div>
+    \${pagas.length&&pagas[pagas.length-1].pago_em?`<div style="margin-top:1px">Último pagamento: \${new Date(pagas[pagas.length-1].pago_em).toLocaleString('pt-BR')}</div>`:''}
+  </div>
+  <div style="font-size:10px;font-weight:700;color:#374151">\${nomeEmpresa} · \${telEmpresa}</div>
+</div>
+
+<button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
+</body></html>`;
+
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 async function _relAnalytics(el){
