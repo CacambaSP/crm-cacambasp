@@ -559,7 +559,10 @@ input,select,textarea,button{font-family:var(--font)}
         <div style="font-size:24px;font-weight:800;color:var(--acc);font-family:var(--mono)" id="pc_rec_display">R$ 0,00</div>
       </div>
       <div class="mfi"><label>Valor recebido (R$)</label><input type="number" id="pc_val" step="0.01" inputmode="decimal" placeholder="0,00"></div>
-      <div class="mfi"><label>Data do recebimento</label><input type="date" id="pc_data"></div>
+      <div style="display:flex;gap:8px">
+        <div class="mfi" style="flex:1"><label>Data do recebimento</label><input type="date" id="pc_data"></div>
+        <div class="mfi" style="flex:0 0 110px"><label>Hora</label><input type="time" id="pc_hora"></div>
+      </div>
       <div class="mfi"><label>Observação</label><input type="text" id="pc_obs" placeholder="Ex: Pix confirmado"></div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('pagarCliModal')">Cancelar</button>
@@ -3616,18 +3619,14 @@ async function desarquivarOrdem(id) {
 }
 
 async function quickPagarCard(id) {
+  _detalheId = id;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const nome = o.nome?.split(' ')[0]||'cliente';
-  const val = o.rec ? 'R$ '+fmt(o.rec) : 'valor não definido';
-  const ok = await showConfirm({ico:'✅',title:'Marcar como pago?',body:nome+' — '+val+'<br><br>A ordem vai para a coluna Baixar.',ok:'✅ Confirmar',okClass:'acc',cancel:'Cancelar'});
-  if(!ok) return;
-  try {
-    const upd={pago:true,pago_em:nowISO(),pago_valor:o.rec,pago_obs:'Marcado pelo card',col:'baixar'};
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    Object.assign(o,upd);
-    renderCurrentView();
-    toast('Pagamento registrado!','ok');
-  } catch(e){toast('Erro','err');}
+  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
+  document.getElementById('pc_val').value = o.rec||'';
+  document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
+  document.getElementById('pc_obs').value = '';
+  openModal('pagarCliModal');
 }
 
 // ── PAGAR CLIENTE MODAL ──
@@ -3637,6 +3636,7 @@ function abrirPagarCli(id) {
   document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
   document.getElementById('pc_val').value = o.rec||'';
   document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
   document.getElementById('pc_obs').value = '';
   openModal('pagarCliModal');
 }
@@ -3645,12 +3645,14 @@ async function confirmarPagoCli() {
   const id = _detalheId;
   const val = parseFloat(document.getElementById('pc_val').value||0);
   const data = document.getElementById('pc_data').value;
+  const hora = document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
+  const pagoEmISO = data ? data+'T'+hora+':00' : nowISO();
   const obs  = document.getElementById('pc_obs').value.trim();
   if(!val) { toast('Informe o valor','err'); return; }
   try {
     const o = _ordens.find(x=>x.id===id);
     const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
-    const upd = {pago:true,pago_em:data?data+'T12:00:00.000Z':nowISO(),pago_valor:val,pago_obs:obs||null,col:novaCol};
+    const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     if(o) Object.assign(o,upd);
     closeModal('pagarCliModal');
