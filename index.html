@@ -640,6 +640,8 @@ input[type=checkbox]:checked::after{
             <button class="rel-tab" onclick="setRelTab('recebimento')" data-tab="recebimento">💰 Recebimentos</button>
             <button class="rel-tab" onclick="setRelTab('inadimp')" data-tab="inadimp">🚨 Inadimplência</button>
             <button class="rel-tab" onclick="setRelTab('cancelados')" data-tab="cancelados">❌ Cancelados</button>
+            <button class="rel-tab" onclick="setRelTab('agenda_dia')" data-tab="agenda_dia">📅 Agenda do Dia</button>
+            <button class="rel-tab admin-only" onclick="setRelTab('analytics')" data-tab="analytics">🔬 Analytics</button>
           </div>
           <div id="relConteudo"></div>
         </div>
@@ -1277,6 +1279,18 @@ const COLS = [
 
 // ── ESTADO ──
 let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
+
+// ── Analytics de uso ──
+async function track(evento, detalhe=''){
+  try{
+    const u = _currentUser?.user;
+    const nome = u ? (usuarios.find(x=>x.id===u.id)?.nome || u.email) : 'anon';
+    await api('crm_uso','POST',{
+      evento, detalhe: detalhe||null,
+      usuario: nome, plataforma:'desktop'
+    }, tok());
+  }catch(e){} // silencioso — nunca quebra o fluxo
+}
 let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco
 let _nfAcrescimo=40; // Acréscimo fixo R$ no valor ao cliente quando tem NF — carregado do banco
 let _limiteDiurno='09:00';   // Hora limite para contratar fornecedor diurno (padrão global)
@@ -1455,6 +1469,7 @@ async function remarcarEntrega(id){
 }
 
 async function cancelarOrdem(id){
+  track('btn_cancelar_ordem');
   const motivo=prompt('Motivo do cancelamento:','');
   if(motivo===null)return;
   const c=ordens.find(x=>x.id===id);if(!c)return;
@@ -1854,6 +1869,7 @@ const viewTitles={
   cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos',config:'⚙️ Configurações'
 };
 function setView(v){
+  track('view_'+v);
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('act'));
   document.querySelectorAll('.nb').forEach(el=>el.classList.remove('act'));
   const vEl=document.getElementById('view-'+v);
@@ -2716,6 +2732,7 @@ function onFornChange(){
 }
 
 async function salvarOrdem(){
+  track('salvar_ordem');
   const nome=document.getElementById('o_nome').value.trim();
   const cel=document.getElementById('o_cel').value.trim();
   if(!_ordemEditId&&_ordemTemNF===null){
@@ -2793,6 +2810,7 @@ async function salvarOrdem(){
 // ── DETALHE ──
 async function openDetail(id){
   _detailId=id;
+  track('detalhe_ordem');
   // Refresh forçado para garantir dados atualizados
   try{
     const novos = isAdmin()
@@ -3254,6 +3272,7 @@ function _waFornCancelarModal(){
 }
 
 async function _atribuirFornecedor(fornId){
+  track('btn_atribuir_forn', fornId);
   const c = ordens.find(x => x.id === _detailId);
   if(!c) return;
   const f = forns.find(x => x.id === fornId);
@@ -3313,6 +3332,7 @@ async function _atribuirFornecedor(fornId){
 
 // ── Agenda do Fornecedor (relatório diário via WA) ──
 function agendaFornecedor(fid, filtroData){
+  track('btn_agenda_forn', fid);
   const f = forns.find(x=>x.id===fid);
   if(!f) return;
   const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
@@ -3852,6 +3872,7 @@ async function openPixDoDetail(){
   openModal('pixModal');
 }
 function _gerarQRPix(valor,pixId,c){
+  track('btn_pix');
   c=c||ordens.find(x=>x.id===_pixCardId);if(!c)return;
   const payload=buildPix(PIX_KEY,PIX_NAME,PIX_CITY,valor,pixId);
   _pixPayload=payload;
@@ -3957,6 +3978,7 @@ function _copiarFallback(texto){
 }
 
 function enviarWAForn(id){
+  track('btn_wa_forn');
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
   if(!c){toast('Ordem não encontrada','warn');return;}
@@ -6208,6 +6230,7 @@ function initRelMes(){
   }
 }
 function setRelTab(t){
+  track('rel_tab_'+t);
   _relTab=t;
   document.querySelectorAll('.rel-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   renderRel();
@@ -6225,7 +6248,176 @@ function renderRel(){
   else if(_relTab==='recebimento') el.innerHTML=_relRecebimento(src,nomeMes);
   else if(_relTab==='inadimp') el.innerHTML=_relInadimp(src,nomeMes);
   else if(_relTab==='cancelados') el.innerHTML=_relCancelados(nomeMes);
+  else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia();
+  else if(_relTab==='analytics'){ _relAnalytics(el); }
 }
+function _relAgendaDia(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const ATIVAS = ['contratar','ag_entrega','entrega','pagar','faltapg'];
+  const ordensHoje = ordens.filter(o => ATIVAS.includes(o.col) && (o.data||'').slice(0,10) === hoje && o.forn_id);
+  if(!ordensHoje.length){
+    return '<div style="padding:24px;text-align:center;color:var(--mut2);font-size:13px">Nenhuma ordem com fornecedor atribuído para hoje.</div>';
+  }
+  // Agrupar por fornecedor
+  const porForn = {};
+  ordensHoje.forEach(o => {
+    if(!porForn[o.forn_id]) porForn[o.forn_id] = [];
+    porForn[o.forn_id].push(o);
+  });
+  let html = '<div style="display:flex;flex-direction:column;gap:14px;padding-top:6px">';
+  Object.entries(porForn).forEach(([fid, lista]) => {
+    const f = forns.find(x=>x.id===fid);
+    if(!f) return;
+    const tel = (f.wa_link || f.tel || '').replace(/\D/g,'');
+    const totalQtd = lista.length;
+    let linhas = '';
+    lista.forEach((o,i) => {
+      const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+      const nomeCliente = (o.nome||'').split(' ')[0];
+      const celCliente = o.cel||'';
+      const m = _fornMatchBairro(f,(o.bairro||'').toLowerCase().trim(),(o.cidade||'').toLowerCase().trim());
+      const turno = m?.reg?(m.reg.turno==='noturno'?'🌙':'☀️'):'';
+      const colLabel = {contratar:'📋 Contratar',ag_entrega:'⏳ Ag.Entrega',entrega:'🚛 Entrega',pagar:'💳 Receber',faltapg:'⚠️ Falta Pagar'}[o.col]||o.col;
+      linhas += `<div style="padding:6px 0;border-top:1px solid var(--bor2);display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;font-weight:700;color:var(--txt)">${i+1}. ${o.crm_id||'—'}</span>
+          <span style="font-size:11px;color:var(--mut2)">${colLabel} ${turno}</span>
+        </div>
+        <div style="font-size:11px;color:var(--mut2)">📍 ${end}</div>
+        <div style="font-size:11px;color:var(--mut2)">👤 ${nomeCliente}${celCliente?' · 📞 '+celCliente:''}${o.cpf?'  📄 '+o.cpf:''}</div>
+      </div>`;
+    });
+    // Montar texto WA
+    let txtWA = '📋 Agenda — ' + f.nome + '\n📦 ' + totalQtd + ' caçamba' + (totalQtd!==1?'s':'') + '\n';
+    lista.forEach((o,i) => {
+      const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+      const m = _fornMatchBairro(f,(o.bairro||'').toLowerCase().trim(),(o.cidade||'').toLowerCase().trim());
+      const turno = m?.reg?(m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
+      const nomeCliente = (o.nome||'').split(' ')[0];
+      txtWA += '\n'+(i+1)+'️⃣ 📦 1 · 📅 '+dateF(o.data)+(turno?' · '+turno:'')+'\n📍 '+end+'\n👤 '+nomeCliente+(o.cel?' · 📞 '+o.cel:'')+(o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:'')+'\n📋 OS: '+(o.crm_id||'—')+'\n';
+    });
+    txtWA += '\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
+    const waUrl = tel ? 'https://wa.me/55'+tel+'?text='+encodeURIComponent(txtWA) : null;
+    html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--txt)">${f.nome}</div>
+          <div style="font-size:11px;color:var(--mut2)">${totalQtd} caçamba${totalQtd!==1?'s':''} · ${dateF(hoje+'T00:00:00')}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${waUrl?`<button class="btn btn-sm btn-wa" onclick="window.open('${waUrl}','_blank')">📲 WA</button>`:''}
+          <button class="btn btn-sm" onclick="agendaFornecedor('${f.id}')">📋 Agenda</button>
+        </div>
+      </div>
+      ${linhas}
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+async function _relAnalytics(el){
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mut2);font-size:13px">⏳ Carregando analytics...</div>';
+  try{
+    // Buscar últimos 30 dias
+    const desde = new Date(); desde.setDate(desde.getDate()-30);
+    const desde_iso = desde.toISOString();
+    const dados = await api('crm_uso?criado_em=gte.'+desde_iso+'&order=criado_em.desc&limit=2000', undefined, undefined, tok());
+    if(!dados||!dados.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--mut2)">Nenhum dado ainda.</div>'; return; }
+
+    // Contagem por evento
+    const contEvento = {};
+    const contUsuario = {};
+    const porDia = {};
+    dados.forEach(d => {
+      contEvento[d.evento] = (contEvento[d.evento]||0)+1;
+      if(d.usuario) contUsuario[d.usuario] = (contUsuario[d.usuario]||0)+1;
+      const dia = (d.criado_em||'').slice(0,10);
+      if(dia) porDia[dia] = (porDia[dia]||0)+1;
+    });
+
+    // Top eventos
+    const topEventos = Object.entries(contEvento).sort((a,b)=>b[1]-a[1]);
+    const topUsuarios = Object.entries(contUsuario).sort((a,b)=>b[1]-a[1]);
+
+    // Labels legíveis
+    const labelEvento = {
+      'view_funil':'📋 Kanban','view_fin':'💰 Financeiro','view_forn':'🚛 Fornecedores',
+      'view_rel':'📈 Relatórios','view_cobr':'📲 Cobrança','view_nf':'🧾 NF',
+      'detalhe_ordem':'📄 Abrir detalhe','salvar_ordem':'✅ Salvar ordem','btn_pagar_cliente':'💳 Pagar cliente',
+      'btn_wa_forn':'📲 WA Fornecedor','btn_agenda_forn':'📋 Agenda forn.','btn_atribuir_forn':'🚛 Atribuir forn.',
+      'btn_pix':'🔳 Gerar Pix','btn_cancelar_ordem':'❌ Cancelar ordem',
+      'rel_tab_resumo':'📊 Rel: Resumo','rel_tab_vendedor':'👤 Rel: Vendedor','rel_tab_fornecedor':'🚛 Rel: Fornecedor',
+      'rel_tab_recebimento':'💰 Rel: Recebimentos','rel_tab_inadimp':'🚨 Rel: Inadimplência',
+      'rel_tab_cancelados':'❌ Rel: Cancelados','rel_tab_agenda_dia':'📅 Rel: Agenda Dia',
+      'rel_tab_analytics':'🔬 Rel: Analytics',
+    };
+
+    const eventoHtml = topEventos.slice(0,20).map(([ev,qt],i) => {
+      const pct = Math.round(qt/dados.length*100);
+      const label = labelEvento[ev]||ev;
+      const bar = Math.round(pct*2);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bor2)">
+        <div style="width:22px;text-align:right;font-size:11px;color:var(--mut2)">${i+1}</div>
+        <div style="flex:1;font-size:12px;color:var(--txt)">${label}</div>
+        <div style="width:120px;background:var(--bor2);border-radius:4px;height:8px;overflow:hidden">
+          <div style="width:${bar}%;background:var(--acc);height:100%;border-radius:4px"></div>
+        </div>
+        <div style="width:40px;text-align:right;font-size:12px;font-weight:700;color:var(--acc)">${qt}</div>
+        <div style="width:35px;text-align:right;font-size:11px;color:var(--mut2)">${pct}%</div>
+      </div>`;
+    }).join('');
+
+    const usuarioHtml = topUsuarios.map(([u,qt]) =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bor2);font-size:12px">
+        <span style="color:var(--txt)">${u}</span>
+        <span style="font-weight:700;color:var(--acc)">${qt} ações</span>
+      </div>`
+    ).join('');
+
+    // Últimos 7 dias de atividade
+    const hoje7 = new Date();
+    const dias7 = Array.from({length:7},(_,i)=>{
+      const d = new Date(hoje7); d.setDate(d.getDate()-6+i);
+      return d.toISOString().slice(0,10);
+    });
+    const max7 = Math.max(...dias7.map(d=>porDia[d]||0),1);
+    const dias7Html = dias7.map(d=>{
+      const qt = porDia[d]||0;
+      const h = Math.round(qt/max7*60);
+      const label = new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit'});
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+        <div style="height:60px;display:flex;align-items:flex-end">
+          <div style="width:28px;background:var(--acc);border-radius:3px 3px 0 0;height:${h}px;min-height:${qt?3:0}px"></div>
+        </div>
+        <div style="font-size:10px;color:var(--mut2);text-align:center">${label}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--txt)">${qt}</div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="rel-kpi" style="flex:1;min-width:120px"><div class="rel-kpi-label">Total de ações</div><div class="rel-kpi-val" style="color:var(--acc)">${dados.length}</div><div class="rel-kpi-sub">últimos 30 dias</div></div>
+        <div class="rel-kpi" style="flex:1;min-width:120px"><div class="rel-kpi-label">Usuários ativos</div><div class="rel-kpi-val" style="color:var(--g)">${Object.keys(contUsuario).length}</div></div>
+        <div class="rel-kpi" style="flex:1;min-width:120px"><div class="rel-kpi-label">Eventos distintos</div><div class="rel-kpi-val" style="color:var(--acc)">${Object.keys(contEvento).length}</div></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:12px">
+        <div class="rel-section" style="margin-bottom:10px">📅 Atividade — últimos 7 dias</div>
+        <div style="display:flex;gap:4px;align-items:flex-end">${dias7Html}</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:12px">
+        <div class="rel-section" style="margin-bottom:8px">🔝 Top ações (últimos 30 dias)</div>
+        ${eventoHtml}
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
+        <div class="rel-section" style="margin-bottom:8px">👤 Por usuário</div>
+        ${usuarioHtml}
+      </div>`;
+  }catch(e){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--r)">Erro ao carregar analytics: '+e.message+'</div>';
+  }
+}
+
 function _kpi(label,val,color,sub){return `<div class="rel-kpi"><div class="rel-kpi-label">${label}</div><div class="rel-kpi-val" style="color:${color}">${val}</div>${sub?`<div class="rel-kpi-sub">${sub}</div>`:''}</div>`;}
 function _relResumo(src,nm){
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);

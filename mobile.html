@@ -1313,6 +1313,17 @@ async function efbSalvar() {
 
 // ── MODAL WA FORNECEDOR (OS e Cancelamento) ──
 let _waFornModal_data = null;
+
+// ── Analytics de uso ──
+async function track(evento, detalhe=''){
+  try{
+    const nome = _perfil?.nome || _user?.email || 'anon';
+    await api('crm_uso','POST',{
+      evento, detalhe: detalhe||null,
+      usuario: nome, plataforma:'mobile'
+    }, tok());
+  }catch(e){}
+}
 let _waFornModal_fid = null;
 let _waFornModal_dataFiltro = null;
 
@@ -1384,6 +1395,7 @@ _CaçambaSP_`;
 }
 
 function waFornEnviar() {
+  track('btn_wa_forn');
   if(!_waFornModal_data) return;
   const texto = document.getElementById('waFornModal_txt').value;
   _waFornAbrir(_waFornModal_data.f, texto);
@@ -1403,6 +1415,7 @@ function abrirWAFornLivre(fid) {
 
 // ── AGENDA DO FORNECEDOR ──
 async function abrirAgendaForn(fid, filtroData) {
+  track('btn_agenda_forn', fid);
   const f = _forns.find(x=>x.id===fid); if(!f) return;
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
   const hoje = new Date().toISOString().slice(0,10);
@@ -2031,6 +2044,7 @@ function buildBottomNav() {
 
 // ── NAVEGAÇÃO ──
 function setView(v, pushStack=true) {
+  track('view_'+v);
   if(pushStack && _currentView && _currentView!==v) _viewStack.push(_currentView);
   _currentView = v;
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('act'));
@@ -3702,6 +3716,7 @@ function buildPixPayload(valor, txid, nome, cidade, chave) {
 }
 
 function abrirPix(id) {
+  track('btn_pix');
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _pixOrdemId = id;
   const valor = parseFloat(o.rec||0)+(o.nf_num&&!o.pago?_nfAcrescimo:0);
