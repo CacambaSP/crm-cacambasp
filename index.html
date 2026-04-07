@@ -2970,6 +2970,8 @@ function _fornMatchBairro(f, bairro, cidade){
     // Filtro de cidade: só aplica se ambos têm cidade preenchida
     const rc = _norm(r.cidade||'');
     if(rc && cNorm && rc !== cNorm) return false;
+    // Se a ordem tem cidade mas a região não tem cidade → não é compatível (vai para geral)
+    if(cNorm && !rc) return false;
     return true;
   });
   if(reg){
@@ -6958,6 +6960,19 @@ async function salvarEditBairro(fid,idx){
   renderForns();toggleSupBody('sup_'+fid);
   try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Bairro atualizado!');}
   catch(e){toast('Erro ao salvar','err');}
+}
+async function removerRegiao(fid, idx){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
+  const r=regioes[idx];if(!r)return;
+  const nomeBairro=r.bairro||r.regiao||r.nome||'bairro';
+  const ok=await showConfirm({ico:'🗑',title:'Remover bairro?',body:`Remover <strong>${nomeBairro}</strong> do fornecedor <strong>${f.nome}</strong>?`,ok:'🗑 Remover',okClass:'btn-r',cancel:'Cancelar'});
+  if(!ok)return;
+  regioes.splice(idx,1);
+  f.regioes=regioes;
+  renderForns();toggleSupBody('sup_'+fid);
+  try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());toast('✅ Bairro removido!');}
+  catch(e){toast('Erro ao remover','err');}
 }
 // ── LOTE PREÇOS CLIENTE ──
 function abrirLotePrecosCli(fid){
