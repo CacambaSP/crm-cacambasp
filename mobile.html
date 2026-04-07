@@ -950,9 +950,10 @@ const nowISO = () => new Date().toISOString();
 const uidGen = () => crypto.randomUUID();
 
 // ── API ──
-const api = async (path, method='GET', body=null, token=null) => {
+const api = async (path, method='GET', body=null, token=null, prefer=null) => {
   const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY)};
-  if(method==='POST') h['Prefer']='return=representation';
+  if(prefer) h['Prefer']=prefer;
+  else if(method==='POST') h['Prefer']='return=representation';
   const r = await fetch(SUPA_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):null});
   if(!r.ok){const e=await r.text();throw new Error(e);}
   const t = await r.text(); return t?JSON.parse(t):null;
@@ -1041,24 +1042,26 @@ function _palavraMatch(a, b) {
   return false;
 }
 
+function _expandBairro(s){
+  return s.replace(/\bjd\b/g,'jardim').replace(/\bcel\b/g,'coronel')
+    .replace(/\bvl\b/g,'vila').replace(/\bpq\b/g,'parque')
+    .replace(/zabel\b/g,'sabel');
+}
 function _bairroMatch(a, b) {
   const na = _norm(a), nb = _norm(b);
   if(!na||!nb) return false;
   if(na===nb) return true;
-  // Expansões comuns
-  const expand = s => s
-    .replace(/\bjd\b/g,'jardim').replace(/\bcel\b/g,'coronel')
-    .replace(/\bv\b/g,'vila').replace(/\bpq\b/g,'parque')
-    .replace(/\bsoc\b/g,'sociedade').replace(/\bjardim\b/g,'jd')
-    .replace(/\bzabel\b/g,'sabel'); // Izabel/Isabel
-  const ea = expand(na), eb = expand(nb);
+  // Expandir abreviações e comparar novamente
+  const ea = _expandBairro(na), eb = _expandBairro(nb);
   if(ea===eb||ea.includes(eb)||eb.includes(ea)) return true;
-  // Palavras-chave (sem stop words)
-  const palavrasA = na.split(' ').filter(w=>w.length>2&&!_STOP.includes(w));
-  const palavrasB = nb.split(' ').filter(w=>w.length>2&&!_STOP.includes(w));
-  if(!palavrasA.length||!palavrasB.length) return false;
-  const matches = palavrasA.filter(wa=>palavrasB.some(wb=>_palavraMatch(wa,wb)));
-  return matches.length >= Math.min(palavrasA.length, palavrasB.length);
+  // Comparação palavra a palavra — TODAS as palavras significativas precisam bater
+  const wa = na.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
+  const wb = nb.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
+  if(!wa.length||!wb.length) return false;
+  // Cada palavra de 'a' deve ter par em 'b' e vice-versa
+  const aOk = wa.every(w=>wb.some(w2=>_palavraMatch(w,w2)));
+  const bOk = wb.every(w=>wa.some(w2=>_palavraMatch(w,w2)));
+  return aOk&&bOk;
 }
 
 function _fornMatchBairro(f, bairro, cidade) {
@@ -3438,7 +3441,9 @@ function renderDetalhe(id) {
       <div class="detail-row"><div class="detail-key">Receita</div><div class="detail-val acc">R$ ${fmt(o.rec)}</div></div>
       <div class="detail-row"><div class="detail-key">Custo forn.</div><div class="detail-val">R$ ${fmt(o.cst)}</div></div>
       <div class="detail-row"><div class="detail-key">Margem</div><div class="detail-val" style="color:var(--g)">R$ ${fmt(parseFloat(o.rec||0)-parseFloat(o.cst||0))}</div></div>
-      <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pg?'✅ Sim':'❌ Não'}</div></div>
+      <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pago?'✅ Sim':'❌ Não'}</div></div>
+      ${o.pago&&o.forn_pago?`<div style="text-align:center;padding:10px 0"><span style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:20px;padding:6px 16px;font-weight:700;font-size:13px">✅ Quitado</span></div>`:''}
+      ${o.forn_pago&&!_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3);margin-top:8px" onclick="estornarPagamentoForn('${o.id}')">↩️ Estornar pgto forn.</button>`:''}
     </div>`;
   }
   if(o.col!=='concluido') {
@@ -3596,6 +3601,30 @@ async function desfazerPagoCli(id) {
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o,upd);
     toast('↩️ Pagamento desfeito','ok');
+    renderDetalhe(id);
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
+}
+
+async function estornarPagamentoForn(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Estornar pagamento forn.?',
+    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento do fornecedor será revertido.`,
+    ok:'↩️ Estornar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const upd = {forn_pago:false, forn_pago_em:null, forn_pago_valor:null, forn_pg_ref:null};
+    // Ajuste de coluna: se estava em baixar, volta para pagar
+    const o2 = _ordens.find(x=>x.id===id);
+    if(o2 && o2.col==='baixar') upd.col='pagar';
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o,upd);
+    toast('↩️ Pgto forn. estornado','ok');
     renderDetalhe(id);
     renderCurrentView();
   } catch(e){ toast('Erro','err'); }
