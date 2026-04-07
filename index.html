@@ -5831,13 +5831,14 @@ function renderConc(){setConcTab('manual');}
 
 // ── CONCILIAÇÃO XLS ITAÚ ──
 let _extratoDados=[],_extratoConfirm=[];
-function renderConcExtrato(){
+async function renderConcExtrato(){
   const el=document.getElementById('concPanel-extrato');if(!el)return;
-  const ultimaImp=localStorage.getItem('crm_ultima_importacao');
   let txtUltima='';
-  if(ultimaImp){
-    try{
-      const d=new Date(ultimaImp);
+  try{
+    const cfg=await api('config?chave=eq.ultima_conciliacao&select=valor&limit=1',undefined,undefined,tok());
+    const ultimaConc=cfg&&cfg.length?cfg[0].valor:null;
+    if(ultimaConc){
+      const d=new Date(ultimaConc);
       const hoje=new Date();
       const ontem=new Date(hoje);ontem.setDate(hoje.getDate()-1);
       const mesmoDia=(a,b)=>a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear();
@@ -5845,8 +5846,8 @@ function renderConcExtrato(){
       if(mesmoDia(d,hoje)) txtUltima=`hoje às ${hora}`;
       else if(mesmoDia(d,ontem)) txtUltima=`ontem às ${hora}`;
       else txtUltima=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+hora;
-    }catch(e){}
-  }
+    }
+  }catch(e){}
   el.innerHTML=`
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:20px;margin-bottom:16px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">🏦</div>
@@ -6005,6 +6006,8 @@ async function confirmarBaixaExtrato(){
   }
   renderBoard();renderStats();renderFinanceiro();renderInadBadge();
   toast('✅ '+cnt+' ordem'+(cnt!==1?'ns':'')+' baixada'+(cnt!==1?'s':'')+'!');
+  // Salvar horário da última conciliação no banco (usado pelo tracking)
+  try{await api('config?chave=eq.ultima_conciliacao','PATCH',{valor:agora},tok());}catch(e){}
   _extratoDados=[];_extratoConfirm=[];
   const xi=document.getElementById('xlsInput');if(xi)xi.value='';
   renderConcExtrato();
@@ -6458,16 +6461,26 @@ function _reciboToggleTodos(sel) {
   _reciboRenderLista();
 }
 
-function gerarReciboImprimir() {
+async function gerarReciboImprimir() {
   const selecionadas = _reciboClienteOrdens.filter(o => _reciboSelecionados.has(o.id));
   if (!selecionadas.length) { toast('Selecione pelo menos uma ordem','warn'); return; }
 
   const cli = selecionadas[0];
   const nomeEmpresa = _perfil?.marca_nome || 'CaçambaSP';
   const telEmpresa  = _perfil?.marca_tel  || '(11) 4237-8757';
-  const logoUrl     = _perfil?.marca_logo_url || null;
+  const logoUrlRaw  = _perfil?.marca_logo_url || null;
   const cor         = _perfil?.marca_cor || '#f5a623';
   const hoje        = new Date().toLocaleDateString('pt-BR');
+
+  // Converter logo para base64 para evitar bloqueio na janela de impressão
+  async function toBase64(url){
+    try{
+      const res = await fetch(url);
+      const blob = await res.blob();
+      return await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+    }catch(e){return null;}
+  }
+  const logoUrl = logoUrlRaw ? await toBase64(logoUrlRaw) : null;
 
   const pagas     = selecionadas.filter(o => o.pago);
   const pendentes = selecionadas.filter(o => !o.pago);

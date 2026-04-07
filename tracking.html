@@ -293,11 +293,11 @@ async function carregar(){
     }
     if(!emAberto.length) emAberto=[ord];
     if(!todasOrdens.length) todasOrdens=[ord];
-    // Buscar última atualização de pagamento para o aviso de delay
+    // Buscar última conciliação para o aviso de delay
     let ultimoPagoEm=null;
     try{
-      const ult=await api('ordens?pago=eq.true&pago_em=not.is.null&order=pago_em.desc&select=pago_em&limit=1');
-      if(ult&&ult.length)ultimoPagoEm=ult[0].pago_em;
+      const cfg=await api('config?chave=eq.ultima_conciliacao&select=valor&limit=1');
+      if(cfg&&cfg.length)ultimoPagoEm=cfg[0].valor;
     }catch(e){}
     renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens);
   }catch(e){console.error(e);mostrarErro('Erro ao buscar pedido. Tente novamente em instantes.');}
