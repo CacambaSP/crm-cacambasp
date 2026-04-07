@@ -6480,32 +6480,24 @@ function gerarReciboImprimir() {
   if(totalPend>0.01){
     const txid=('RC'+(cli.crm_id||cli.cel||'').replace(/\D/g,'')).substring(0,25);
     pixPayload = buildPix(PIX_KEY, PIX_NAME, PIX_CITY, totalPend, txid);
-    pixSection=`
-    <div style="border:2px solid ${cor};border-radius:8px;padding:12px;margin-bottom:12px;background:#fffbf0;page-break-inside:avoid">
-      <div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:2px">⚡ Pagamento via Pix — R$ \${fmt(totalPend)}</div>
-      <div style="font-size:9px;color:#b45309;margin-bottom:8px;font-style:italic">Válido mediante confirmação do pagamento. Após pagar, envie o comprovante.</div>
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div id="printQR" style="width:100px;height:100px;background:#fff;padding:4px;border-radius:6px;flex-shrink:0"></div>
-        <div style="flex:1;font-size:10px">
-          <div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Chave:</span> \${PIX_KEY}</div>
-          <div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Beneficiário:</span> \${PIX_NAME}</div>
-          <div style="margin-bottom:6px"><span style="color:#777;font-weight:700">Valor:</span> <strong>R$ \${fmt(totalPend)}</strong></div>
-          <div style="font-size:8px;word-break:break-all;background:#fff;padding:4px 6px;border-radius:4px;font-family:monospace;color:#444;border:1px solid #e5c084">\${pixPayload}</div>
-        </div>
-      </div>
-    </div>
-    <script>
-      window.addEventListener('load',function(){
-        if(typeof QRCode!=='undefined'){
-          new QRCode(document.getElementById('printQR'),{text:'\${pixPayload.replace(/'/g,"\\'")}',width:100,height:100,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-        }
-      });
-    <\/script>`;
+    pixSection = '<div style="border:2px solid '+cor+';border-radius:8px;padding:12px;margin-bottom:12px;background:#fffbf0;page-break-inside:avoid">'
+      +'<div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:2px">⚡ Pagamento via Pix — R$ '+fmt(totalPend)+'</div>'
+      +'<div style="font-size:9px;color:#b45309;margin-bottom:8px;font-style:italic">Válido mediante confirmação do pagamento. Após pagar, envie o comprovante.</div>'
+      +'<div style="display:flex;gap:12px;align-items:flex-start">'
+        +'<div id="printQR" style="width:100px;height:100px;background:#fff;padding:4px;border-radius:6px;flex-shrink:0"></div>'
+        +'<div style="flex:1;font-size:10px">'
+          +'<div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Chave:</span> '+PIX_KEY+'</div>'
+          +'<div style="margin-bottom:4px"><span style="color:#777;font-weight:700">Beneficiário:</span> '+PIX_NAME+'</div>'
+          +'<div style="margin-bottom:6px"><span style="color:#777;font-weight:700">Valor:</span> <strong>R$ '+fmt(totalPend)+'</strong></div>'
+          +'<div style="font-size:8px;word-break:break-all;background:#fff;padding:4px 6px;border-radius:4px;font-family:monospace;color:#444;border:1px solid #e5c084">'+pixPayload+'</div>'
+        +'</div>'
+      +'</div>'
+      +'</div>';
   }
 
   function linhaOrdem(o, tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:parseFloat(o.rec)||0+(o.nf_num?_nfAcrescimo:0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
     const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const corVal=tipo==='pago'?'#16a34a':'#dc2626';
     const statusCell=tipo==='pago'
@@ -6522,73 +6514,89 @@ function gerarReciboImprimir() {
   }
 
   const logoTag = logoUrl
-    ? `<img src="\${logoUrl}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid \${cor}">`
-    : `<div style="width:48px;height:48px;border-radius:10px;background:\${cor}22;color:\${cor};font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid \${cor}">\${nomeEmpresa.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>`;
+    ? '<img src="'+logoUrl+'" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid '+cor+'">'
+    : '<div style="width:48px;height:48px;border-radius:10px;background:'+cor+'22;color:'+cor+';font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid '+cor+'">'+nomeEmpresa.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()+'</div>';
 
-  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>Recibo — \${cli.nome||'Cliente'}</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:18px 22px}
-table{width:100%;border-collapse:collapse}
-th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;padding:6px 9px;text-align:left;background:#f9fafb;border-bottom:2px solid #e5e7eb}
-th.r{text-align:right}
-.btn-print{position:fixed;bottom:16px;right:16px;background:#111;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)}
-@media print{.btn-print{display:none}body{padding:8px 12px}@page{margin:8mm;size:A4}}
-</style></head><body>
+  const statusBadge = pendentes.length===0
+    ? '<div style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:3px;background:#16a34a;color:#fff">✅ Recibo Quitado</div>'
+    : '<div style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:3px;background:#dc2626;color:#fff">⏳ Pagamento Pendente</div>';
 
-<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid \${cor};padding-bottom:10px;margin-bottom:12px">
-  <div style="display:flex;align-items:center;gap:10px">
-    \${logoTag}
-    <div>
-      <div style="font-size:17px;font-weight:800;color:#111">\${nomeEmpresa}</div>
-      <div style="font-size:10px;color:#6b7280">\${telEmpresa}</div>
-    </div>
-  </div>
-  <div style="text-align:right">
-    <div style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:3px;background:\${pendentes.length===0?'#16a34a':'#dc2626'};color:#fff">\${pendentes.length===0?'✅ Recibo Quitado':'⏳ Pagamento Pendente'}</div>
-    <div style="font-size:10px;color:#6b7280">Emitido em \${hoje}</div>
-  </div>
-</div>
+  const cliCel = cli.cel
+    ? '<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Telefone</div><div style="font-size:11px;font-weight:600">'+cli.cel+'</div></div>'
+    : '';
+  const cliCpf = cli.cpf
+    ? '<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">CPF/CNPJ</div><div style="font-size:11px;font-weight:600">'+cli.cpf+'</div></div>'
+    : '';
 
-<div style="background:#f8fafc;border-radius:6px;padding:8px 12px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap">
-  <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Cliente</div><div style="font-size:13px;font-weight:800;color:#111">\${cli.nome||'—'}</div></div>
-  \${cli.cel?`<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Telefone</div><div style="font-size:11px;font-weight:600">\${cli.cel}</div></div>`:''}
-  \${cli.cpf?`<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">CPF/CNPJ</div><div style="font-size:11px;font-weight:600">\${cli.cpf}</div></div>`:''}
-</div>
+  const ultimoPagRow = pagas.length && pagas[pagas.length-1].pago_em
+    ? '<div style="margin-top:1px">Último pagamento: '+new Date(pagas[pagas.length-1].pago_em).toLocaleString('pt-BR')+'</div>'
+    : '';
 
-<table style="margin-bottom:10px">
-  <thead><tr>
-    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>
-  </tr></thead>
-  <tbody>
-    \${pagas.map(o=>linhaOrdem(o,'pago')).join('')}
-    \${pendentes.map(o=>linhaOrdem(o,'pendente')).join('')}
-  </tbody>
-</table>
+  const totalPagoRow = totalPago>0
+    ? '<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">✅ Total pago</span><span style="font-weight:700;color:#16a34a;font-family:monospace">R$ '+fmt(totalPago)+'</span></div>'
+    : '';
+  const totalPendRow = totalPend>0.01
+    ? '<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">⏳ Total pendente</span><span style="font-weight:700;color:#dc2626;font-family:monospace">R$ '+fmt(totalPend)+'</span></div>'
+    : '';
 
-<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-bottom:12px">
-  \${totalPago>0?`<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">✅ Total pago</span><span style="font-weight:700;color:#16a34a;font-family:monospace">R$ \${fmt(totalPago)}</span></div>`:''}
-  \${totalPend>0.01?`<div style="display:flex;gap:14px;font-size:11px"><span style="color:#6b7280">⏳ Total pendente</span><span style="font-weight:700;color:#dc2626;font-family:monospace">R$ \${fmt(totalPend)}</span></div>`:''}
-  <div style="display:flex;gap:14px;background:#111;color:#fff;padding:7px 12px;border-radius:6px;margin-top:3px">
-    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af">Total Geral</span>
-    <span style="font-size:14px;font-weight:800;font-family:monospace">R$ \${fmt(totalGeral)}</span>
-  </div>
-</div>
+  const qrScript = pixPayload
+    ? '<script>window.addEventListener("load",function(){if(typeof QRCode!=="undefined"){new QRCode(document.getElementById("printQR"),{text:"'+pixPayload.replace(/"/g,'\\"')+'",width:100,height:100,colorDark:"#000",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.M});}});<\/script>'
+    : '';
 
-\${pixSection}
-
-<div style="border-top:1px solid #e5e7eb;padding-top:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-  <div style="font-size:9px;color:#9ca3af">
-    <div>Gerado em \${new Date().toLocaleString('pt-BR')}</div>
-    \${pagas.length&&pagas[pagas.length-1].pago_em?`<div style="margin-top:1px">Último pagamento: \${new Date(pagas[pagas.length-1].pago_em).toLocaleString('pt-BR')}</div>`:''}
-  </div>
-  <div style="font-size:10px;font-weight:700;color:#374151">\${nomeEmpresa} · \${telEmpresa}</div>
-</div>
-
-<button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
-</body></html>`;
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
+    +'<title>Recibo — '+(cli.nome||'Cliente')+'</title>'
+    +'<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Segoe UI",Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:18px 22px}'
+    +'table{width:100%;border-collapse:collapse}'
+    +'th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;padding:6px 9px;text-align:left;background:#f9fafb;border-bottom:2px solid #e5e7eb}'
+    +'th.r{text-align:right}'
+    +'.btn-print{position:fixed;bottom:16px;right:16px;background:#111;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)}'
+    +'@media print{.btn-print{display:none}body{padding:8px 12px}@page{margin:8mm;size:A4}}'
+    +'</style></head><body>'
+    // Cabeçalho
+    +'<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid '+cor+';padding-bottom:10px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:10px">'+logoTag
+        +'<div><div style="font-size:17px;font-weight:800;color:#111">'+nomeEmpresa+'</div>'
+        +'<div style="font-size:10px;color:#6b7280">'+telEmpresa+'</div></div>'
+      +'</div>'
+      +'<div style="text-align:right">'+statusBadge
+        +'<div style="font-size:10px;color:#6b7280">Emitido em '+hoje+'</div>'
+      +'</div>'
+    +'</div>'
+    // Cliente
+    +'<div style="background:#f8fafc;border-radius:6px;padding:8px 12px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap">'
+      +'<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:1px">Cliente</div>'
+      +'<div style="font-size:13px;font-weight:800;color:#111">'+(cli.nome||'—')+'</div></div>'
+      +cliCel+cliCpf
+    +'</div>'
+    // Tabela
+    +'<table style="margin-bottom:10px"><thead><tr>'
+      +'<th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>'
+    +'</tr></thead><tbody>'
+      +pagas.map(o=>linhaOrdem(o,'pago')).join('')
+      +pendentes.map(o=>linhaOrdem(o,'pendente')).join('')
+    +'</tbody></table>'
+    // Totais
+    +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-bottom:12px">'
+      +totalPagoRow+totalPendRow
+      +'<div style="display:flex;gap:14px;background:#111;color:#fff;padding:7px 12px;border-radius:6px;margin-top:3px">'
+        +'<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af">Total Geral</span>'
+        +'<span style="font-size:14px;font-weight:800;font-family:monospace">R$ '+fmt(totalGeral)+'</span>'
+      +'</div>'
+    +'</div>'
+    // Pix
+    +pixSection
+    // Rodapé
+    +'<div style="border-top:1px solid #e5e7eb;padding-top:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+      +'<div style="font-size:9px;color:#9ca3af">'
+        +'<div>Gerado em '+new Date().toLocaleString('pt-BR')+'</div>'
+        +ultimoPagRow
+      +'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:#374151">'+nomeEmpresa+' · '+telEmpresa+'</div>'
+    +'</div>'
+    +'<button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>'
+    +qrScript
+    +'</body></html>';
 
   const win = window.open('','_blank');
   win.document.write(html);
