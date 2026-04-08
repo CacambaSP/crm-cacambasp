@@ -3753,11 +3753,11 @@ function enviarWA(id) {
   const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
   let msg;
   if(o.col==='inadimp') {
-    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
+    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
   } else if(d>=5) {
-    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
+    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
   } else {
-    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*\n💰 *R$ ${fmt(o.rec)}*${trackLink}\n\n_CaçambaSP_`;
+    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
   }
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
   // Marcar como cobrado hoje — todas as ordens do mesmo cel
@@ -3786,7 +3786,7 @@ function enviarTracking(id) {
   if(!tel){toast('Celular não cadastrado','warn');return;}
   if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
   const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
-  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n_CaçambaSP_`;
+  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 

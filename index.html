@@ -3133,7 +3133,7 @@ async function _atribuirFornecedorCard(ordemId, fornId){
   // Montar texto OS e abrir via detail se estiver aberto, senão abrir modal flutuante
   const end = [c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
   const dataStr = c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
-  const textoOS = '📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  const textoOS = '📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
   // Abrir modal flutuante de WA
   _abrirModalAgenda(f, textoOS);
 }
@@ -3305,7 +3305,7 @@ async function _atribuirFornecedor(fornId){
   // Montar texto padrão da OS
   const end = [c.logradouro, c.bairro, c.cidade].filter(Boolean).join(', ') || '—';
   const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-  const textoOS='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  const textoOS='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
 
   // Salvar no banco primeiro
   c.forn_id = fornId;
@@ -3997,7 +3997,7 @@ function enviarWAForn(id){
   const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim());
   const turnoStr=m?.reg?(m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
-  const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
   _waFornAbrir(f, msg);
 }
 function enviarTracking(id){
@@ -4008,7 +4008,7 @@ function enviarTracking(id){
   if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
   const link='https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id);
   const nome=(c.nome||'').split(' ')[0]||'Cliente';
-  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
+  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
   const tel=c.cel.replace(/\D/g,'');
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
