@@ -2715,15 +2715,15 @@ function cardHTML(o, tipo='neutral') {
   const mg = (parseFloat(o.rec||0)-parseFloat(o.cst||0));
   const chips = [];
   if(o.nome) chips.push(`<span class="chip">👤 ${o.nome.split(' ')[0]}</span>`);
-  if(isAdmin()&&o.rec) chips.push(`<span class="chip acc" style="font-size:10px">↑ R$${fmts(o.rec)}</span>`);
-  if(isAdmin()&&o.cst) chips.push(`<span class="chip r" style="font-size:10px">↓ R$${fmts(o.cst)}</span>`);
-  if(o.pago) chips.push(`<span class="chip g">✅ Pago</span>`);
-  else if(d>=5) chips.push(`<span class="chip r">🔴 ${d}d</span>`);
-  else if(d>=3) chips.push(`<span class="chip acc">⚠️ ${d}d</span>`);
-  if(o.forn_pago) chips.push(`<span class="chip b">💰 F.Pago</span>`);
-  if(forn) chips.push(`<span class="chip">🚛 ${forn.nome.split(' ')[0]}</span>`);
-  if(o.nf_num) chips.push(`<span class="chip b">🧾 NF</span>`);
-  if(o.crm_id) chips.push(`<span class="chip acc" style="font-size:9px;font-family:var(--mono)">${o.crm_id}</span>`);
+  if(isAdmin()&&o.rec) chips.push(`<span class="chip acc">↑ R$${fmts(o.rec)}</span>`);
+  if(isAdmin()&&o.cst) chips.push(`<span class="chip r">↓ R$${fmts(o.cst)}</span>`);
+  if(o.pago) chips.push(`<span class="chip g">Pago</span>`);
+  else if(d>=5) chips.push(`<span class="chip r">${d}d</span>`);
+  else if(d>=3) chips.push(`<span class="chip acc">${d}d</span>`);
+  if(o.forn_pago) chips.push(`<span class="chip g">F.Pago</span>`);
+  if(forn) chips.push(`<span class="chip">${forn.nome.split(' ')[0]}</span>`);
+  if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
+  if(o.crm_id) chips.push(`<span class="chip" style="font-size:10px;font-family:var(--mono)">${o.crm_id}</span>`);
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
     <div class="card-bar ${tipo}"></div>
     <div class="card-body-inner">
