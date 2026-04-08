@@ -3185,7 +3185,8 @@ function _renderFornSugestao(c){
   window['_fsBuscar_'+c.id] = function(q){
     const drop = document.getElementById(dropId);
     if(!drop) return;
-    q = q.trim().toLowerCase();
+    const _fsNorm = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    q = _fsNorm(q);
     if(!q){ drop.style.display='none'; return; }
     const zonaMap={'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
     const zonaKey = Object.keys(zonaMap).find(k=>q.includes(k));
@@ -3193,9 +3194,9 @@ function _renderFornSugestao(c){
     const filtrados = todos.filter(s=>{
       if(zonaAlvo) return (Array.isArray(s.f.regioes)?s.f.regioes:[]).some(r=>r.zona===zonaAlvo);
       const regioes=Array.isArray(s.f.regioes)?s.f.regioes:[];
-      return s.f.nome.toLowerCase().includes(q)
-        ||regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
-        ||regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
+      return _fsNorm(s.f.nome).includes(q)
+        ||regioes.some(r=>_fsNorm(r.bairro||r.regiao||'').includes(q))
+        ||regioes.some(r=>_fsNorm(r.zona||'').includes(q));
     });
     drop.innerHTML = filtrados.length
       ? filtrados.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('')
@@ -3246,35 +3247,42 @@ function _waFornAbrir(f, texto){
 }
 
 // ── Modal WA Fornecedor — atribuição ou cancelamento ──
+// Modal flutuante global — funciona tanto no detail quanto direto do card Kanban
 function _abrirModalWAForn({titulo, textoInicial, btnEnviar, btnSemWA, onEnviar, onSemWA}){
-  // Reutiliza um mini-modal inline no detail
-  const el = document.getElementById('d_forn_wa_modal');
-  if(!el) return;
-  el.style.display = 'block';
-  el.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:13px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${titulo}</div>
-      <textarea id="wa_forn_txt" style="width:100%;min-height:130px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${textoInicial}</textarea>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+  // Remover modal anterior se existir
+  document.getElementById('_waFornModalGlobal')?.remove();
+  const m = document.createElement('div');
+  m.id = '_waFornModalGlobal';
+  m.className = 'mbg open';
+  m.innerHTML = `<div class="mbox" style="max-width:480px">
+    <div class="mh"><div class="mh-title" style="font-size:13px">${titulo}</div><button class="mx" onclick="_waFornCancelarModal()">✕</button></div>
+    <div style="padding:14px 16px">
+      <textarea id="wa_forn_txt" style="width:100%;min-height:150px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${textoInicial}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-sm btn-wa" onclick="_waFornEnviarModal()">${btnEnviar}</button>
         <button class="btn btn-sm" style="background:var(--bg2);color:var(--mut2)" onclick="_waFornSemWA()">${btnSemWA}</button>
-        <button class="btn btn-sm btn-r" style="margin-left:auto" onclick="_waFornCancelarModal()">Voltar</button>
+        <button class="btn btn-sm" style="margin-left:auto;background:var(--bg2);color:var(--mut2)" onclick="_waFornCancelarModal()">Fechar</button>
       </div>
-    </div>`;
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  // Também atualizar inline do detail se estiver aberto (mantém compatibilidade)
+  const elInline = document.getElementById('d_forn_wa_modal');
+  if(elInline) elInline.style.display = 'none';
   _waFornModalCbs = {onEnviar, onSemWA};
 }
 let _waFornModalCbs = {};
 function _waFornEnviarModal(){
   const txt = document.getElementById('wa_forn_txt')?.value||'';
-  document.getElementById('d_forn_wa_modal').style.display='none';
+  document.getElementById('_waFornModalGlobal')?.remove();
   if(_waFornModalCbs.onEnviar) _waFornModalCbs.onEnviar(txt);
 }
 function _waFornSemWA(){
-  document.getElementById('d_forn_wa_modal').style.display='none';
+  document.getElementById('_waFornModalGlobal')?.remove();
   if(_waFornModalCbs.onSemWA) _waFornModalCbs.onSemWA();
 }
 function _waFornCancelarModal(){
-  document.getElementById('d_forn_wa_modal').style.display='none';
+  document.getElementById('_waFornModalGlobal')?.remove();
 }
 
 async function _atribuirFornecedor(fornId){
@@ -6273,7 +6281,6 @@ function _relAgendaDia(dataParam){
   Object.entries(porForn).forEach(([fid, lista]) => {
     const f = forns.find(x=>x.id===fid);
     if(!f) return;
-    const tel = (f.wa_link || f.tel || '').replace(/\D/g,'');
     const totalQtd = lista.length;
     let linhas = '';
     lista.forEach((o,i) => {
@@ -6302,7 +6309,10 @@ function _relAgendaDia(dataParam){
       txtWA += '\n'+(i+1)+'️⃣ 📦 1 · 📅 '+dateF(o.data)+(turno?' · '+turno:'')+'\n📍 '+end+'\n👤 '+nomeCliente+(o.cel?' · 📞 '+o.cel:'')+(o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:'')+'\n📋 OS: '+(o.crm_id||'—')+'\n';
     });
     txtWA += '\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
-    const waUrl = tel ? 'https://wa.me/55'+tel+'?text='+encodeURIComponent(txtWA) : null;
+    const _waLinkRaw = (f.wa_link||'').trim();
+    const waUrl = _waLinkRaw.startsWith('http')
+      ? _waLinkRaw  // link de grupo — abre direto
+      : ((() => { const t=(f.wa_link||f.tel||'').replace(/\D/g,''); return t?'https://wa.me/55'+t+'?text='+encodeURIComponent(txtWA):null; })());
     html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
