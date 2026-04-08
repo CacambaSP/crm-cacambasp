@@ -2714,16 +2714,16 @@ function cardHTML(o, tipo='neutral') {
   const forn = _forns.find(f=>f.id===o.forn_id);
   const mg = (parseFloat(o.rec||0)-parseFloat(o.cst||0));
   const chips = [];
-  if(o.nome) chips.push(`<span class="chip">👤 ${o.nome.split(' ')[0]}</span>`);
+  if(o.nome) chips.push(`<span class="chip" style="font-size:13px;font-weight:600;color:var(--txt)">${o.nome.split(' ')[0]}</span>`);
   if(isAdmin()&&o.rec) chips.push(`<span class="chip acc">↑ R$${fmts(o.rec)}</span>`);
   if(isAdmin()&&o.cst) chips.push(`<span class="chip r">↓ R$${fmts(o.cst)}</span>`);
   if(o.pago) chips.push(`<span class="chip g">Pago</span>`);
   else if(d>=5) chips.push(`<span class="chip r">${d}d</span>`);
   else if(d>=3) chips.push(`<span class="chip acc">${d}d</span>`);
   if(o.forn_pago) chips.push(`<span class="chip g">F.Pago</span>`);
-  if(forn) chips.push(`<span class="chip">${forn.nome.split(' ')[0]}</span>`);
+  if(forn) chips.push(`<span class="chip b">${forn.nome.split(' ')[0]}</span>`);
   if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
-  if(o.crm_id) chips.push(`<span class="chip" style="font-size:10px;font-family:var(--mono)">${o.crm_id}</span>`);
+  if(o.crm_id) chips.push(`<span class="chip" style="font-size:11px;font-family:var(--mono);color:var(--txt);border-color:var(--bor2)">${o.crm_id}</span>`);
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
     <div class="card-bar ${tipo}"></div>
     <div class="card-body-inner">
@@ -2738,7 +2738,7 @@ function cardHTML(o, tipo='neutral') {
       <div class="card-divider"></div>
       <div class="card-actions">
         <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
-        <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
+        ${!o.pago?`<button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>`:''}
       </div>
     </div>
   </div>`;
