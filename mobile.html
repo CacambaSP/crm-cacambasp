@@ -301,33 +301,42 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── DETALHE DA ORDEM ── */
 .detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px calc(var(--nav-h) + var(--safe-b) + 16px)}
-.detail-section{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);overflow:hidden;margin-bottom:12px}
-.detail-section-title{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;padding:12px 15px;border-bottom:1px solid var(--bor);background:var(--card)}
-.detail-row{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid var(--bor)}
+.detail-section{background:#13151e;border:1px solid rgba(255,255,255,.14);border-radius:var(--rad2);overflow:hidden;margin-bottom:10px}
+.detail-section-title{font-size:11px;font-weight:800;color:#ffffff;text-transform:uppercase;letter-spacing:.8px;padding:11px 14px 9px;border-bottom:1px solid rgba(255,255,255,.1);background:#1c1f2e}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid rgba(255,255,255,.07)}
 .detail-row:last-child{border-bottom:none}
-.detail-key{font-size:13px;color:var(--mut)}
-.detail-val{font-size:13px;font-weight:600;color:var(--txt);text-align:right;max-width:60%}
-.detail-val.acc{color:var(--acc);font-family:var(--mono)}
-.detail-val.g{color:var(--g)}
-.detail-val.r{color:var(--r)}
-.detail-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 16px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px}
-.detail-action{padding:14px 10px;border-radius:var(--rad2);border:1px solid var(--bor);background:var(--card);font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:64px;justify-content:center;transition:.1s;color:var(--txt)}
+.detail-key{font-size:12px;color:#9ca3b8;font-weight:500}
+.detail-val{font-size:13px;font-weight:700;color:#f0f2ff;text-align:right;max-width:60%}
+.detail-val.acc{color:#fbbf24;font-family:var(--mono);font-size:14px}
+.detail-val.g{color:#4ade80;font-family:var(--mono);font-size:14px}
+.detail-val.r{color:#f87171;font-family:var(--mono);font-size:14px}
+.detail-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.detail-action{padding:11px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:#1a1d2e;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:60px;justify-content:center;transition:.1s;color:#d1d5db}
 .detail-action:active{transform:scale(.96)}
-.detail-action .da-ico{font-size:22px;line-height:1}
-.detail-action.da-g{background:var(--g2);border-color:var(--g3);color:var(--g)}
-.detail-action.da-wa{background:var(--wa);border-color:var(--wa-b);color:var(--wa-c)}
-.detail-action.da-pix{background:var(--pix);border-color:var(--pix-b);color:var(--pix-c)}
-.detail-action.da-acc{background:var(--acc2);border-color:var(--acc3);color:var(--acc)}
-.status-block{border-radius:var(--rad2);padding:16px 15px;margin-bottom:12px;border:1px solid}
-.status-block.pago{background:var(--g2);border-color:var(--g3)}
-.status-block.pend{background:var(--acc2);border-color:var(--acc3)}
-.status-block.urg{background:var(--r2);border-color:var(--r3)}
-.sb-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin-bottom:4px}
-.sb-status{font-size:16px;font-weight:800;margin-bottom:4px}
-.sb-info{font-size:13px;opacity:.85}
-.sb-action{width:100%;margin-top:12px;padding:12px;border:none;border-radius:var(--rad3);font-size:14px;font-weight:700;cursor:pointer}
-.sb-action.cli{background:var(--g);color:#000}
-.sb-action.forn{background:var(--acc);color:#000}
+.detail-action .da-ico{display:flex;align-items:center;justify-content:center}
+.detail-action .da-ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.detail-action.da-g{background:rgba(74,222,128,.15);border-color:#4ade80;color:#4ade80}
+.detail-action.da-wa{background:rgba(18,140,70,.3);border-color:#25D366;color:#4ade80}
+.detail-action.da-pix{background:rgba(50,188,173,.2);border-color:#32bcad;color:#5eead4}
+.detail-action.da-acc{background:rgba(245,166,35,.2);border-color:#f5a623;color:#fbbf24}
+.detail-action.da-forn{background:rgba(55,138,221,.2);border-color:#378ADD;color:#93c5fd}
+.status-block{border-radius:var(--rad2);overflow:hidden;margin-bottom:10px;border:1.5px solid}
+.status-block.pago{background:rgba(74,222,128,.12);border-color:#4ade80}
+.status-block.pend{background:rgba(251,191,36,.1);border-color:#fbbf24}
+.status-block.urg{background:rgba(248,113,113,.1);border-color:#f87171}
+.sb-label{font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px;display:inline-block}
+.pago .sb-label{background:#16a34a;color:#ffffff}
+.pend .sb-label{background:#d97706;color:#ffffff}
+.urg .sb-label{background:#dc2626;color:#ffffff}
+.sb-status{font-size:22px;font-weight:800;font-family:var(--mono)}
+.pago .sb-status{color:#4ade80}
+.pend .sb-status{color:#fbbf24}
+.urg .sb-status{color:#f87171}
+.sb-top{display:flex;align-items:center;justify-content:space-between;padding:13px 15px}
+.sb-info{font-size:13px;color:rgba(255,255,255,.7);padding:0 15px 4px}
+.sb-action{width:calc(100% - 28px);margin:0 14px 13px;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer}
+.sb-action.cli{background:#16a34a;color:#ffffff}
+.sb-action.forn{background:#d97706;color:#ffffff}
 
 /* ── FAB ── */
 .fab{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);right:20px;width:56px;height:56px;background:var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;color:#000;font-weight:800;box-shadow:0 4px 24px rgba(245,166,35,.4);cursor:pointer;z-index:100;border:none;transition:transform .15s,box-shadow .15s;line-height:1}
@@ -3490,19 +3499,22 @@ function renderDetalhe(id) {
   const tel = (o.cel||'').replace(/\D/g,'');
   let statusClass = o.pago?'pago':(d>=5?'urg':'pend');
   let statusTxt = o.pago?'✅ Pago':(d>=5?`🔴 Atrasado ${d}d`:`⏳ Em aberto ${d}d`);
+  let statusDias = !o.pago && d>0 ? ` · ${d}d` : '';
+  let statusLabel = o.pago?'Pago':(d>=5?`Atrasado${statusDias}`:`Em aberto${statusDias}`);
   let h = `<div class="status-block ${statusClass}">
-    <div class="sb-label">Status de pagamento</div>
-    <div class="sb-status">${statusTxt}</div>
-    <div class="sb-info">Valor: R$ ${fmt(o.rec)}${o.nf_num?' + NF':''}</div>
+    <div class="sb-top">
+      <span class="sb-label">${statusLabel}</span>
+      <span class="sb-status">R$ ${fmt(o.rec)}${o.nf_num?' +NF':''}</span>
+    </div>
     ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">Registrar recebimento</button>`:
-      !_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3)" onclick="desfazerPagoCli('${o.id}')">↩️ Desfazer pagamento</button>`:''}
+      !_modoSimples?`<button class="sb-action" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid #ef4444;width:calc(100% - 28px);margin:0 14px 13px;padding:12px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer" onclick="desfazerPagoCli('${o.id}')">Desfazer pagamento</button>`:''}
   </div>
   <div class="detail-actions">
-    <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico">📲</div>WA Cliente</button>
-    <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico">⚡</div>Gerar Pix</button>
-    ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico">📞</div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico">📞</div>Ligar</button>`}
-    <button class="detail-action da-wa" onclick="enviarWAForn('${o.id}')"><div class="da-ico">🚛</div>WA Forn.</button>
-    <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico">🔗</div>Tracking</button>
+    <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>WA Cliente</button>
+    <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>Gerar Pix</button>
+    ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</button>`}
+    <button class="detail-action da-forn" onclick="enviarWAForn('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>WA Forn.</button>
+    <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>Tracking</button>
   </div>
   ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`)}
@@ -3542,20 +3554,20 @@ function renderDetalhe(id) {
   }
   if(o.col!=='concluido') {
     const colunas=[
-      {id:'contratar',l:'📋 Contratar'},{id:'ag_entrega',l:'📦 Ag. Entrega'},{id:'entrega',l:'🚛 Entrega'},
-      {id:'pagar',l:'💳 Pagar'},{id:'faltapg',l:'⚠️ Falta Pg'},{id:'baixar',l:'📦 Baixar'},{id:'inadimp',l:'🚨 Inadimp.'}
+      {id:'contratar',l:'Contratar'},{id:'ag_entrega',l:'Ag. Entrega'},{id:'entrega',l:'Entrega'},
+      {id:'pagar',l:'Pagar'},{id:'faltapg',l:'Falta Pg'},{id:'baixar',l:'Baixar'},{id:'inadimp',l:'Inadimp.'}
     ];
     h+=`<div class="detail-section">
       <div class="detail-section-title">Etapa no funil</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 15px">
-        ${colunas.map(c=>`<button onclick="moverColuna('${o.id}','${c.id}')" style="padding:9px 14px;border-radius:8px;border:1px solid;font-size:13px;font-weight:700;cursor:pointer;background:${o.col===c.id?'var(--acc)':'var(--card)'};color:${o.col===c.id?'#000':'var(--mut)'};border-color:${o.col===c.id?'var(--acc)':'var(--bor)'}">${c.l}</button>`).join('')}
+      <div style="display:flex;flex-wrap:wrap;gap:7px;padding:11px 14px 13px">
+        ${colunas.map(c=>`<button onclick="moverColuna('${o.id}','${c.id}')" style="padding:7px 13px;border-radius:20px;border:1px solid;font-size:12px;font-weight:700;cursor:pointer;background:${o.col===c.id?'#d97706':'rgba(255,255,255,.07)'};color:${o.col===c.id?'#ffffff':'#9ca3b8'};border-color:${o.col===c.id?'#f5a623':'rgba(255,255,255,.14)'}">${c.l}</button>`).join('')}
       </div>
     </div>`;
   }
-  h+=`<div style="display:flex;gap:10px;padding:4px 0 4px">
-    <button class="card-btn cb-ghost" style="flex:1;justify-content:center" onclick="duplicarOrdem('${o.id}')">🔁 Duplicar</button>
-    <button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="abrirEditar('${o.id}')">✏️ Editar</button>
-    ${o.col==='concluido'?`<button class="card-btn" style="flex:1;justify-content:center;background:var(--b2);color:#818cf8;border:1px solid var(--b3)" onclick="desarquivarOrdem('${o.id}')">↩️ Reabrir</button>`:`<button class="card-btn" style="flex:1;justify-content:center;background:var(--r2);color:var(--r);border-color:var(--r3)" onclick="arquivarOrdem('${o.id}')">📦 Arquivar</button>`}
+  h+=`<div style="display:flex;gap:8px;padding:4px 0 4px">
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(255,255,255,.08);color:#d1d5db;border:1px solid rgba(255,255,255,.2)" onclick="duplicarOrdem('${o.id}')">Duplicar</button>
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="abrirEditar('${o.id}')">Editar</button>
+    ${o.col==='concluido'?`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="desarquivarOrdem('${o.id}')">Reabrir</button>`:`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid #ef4444" onclick="arquivarOrdem('${o.id}')">Arquivar</button>`}
   </div>
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
