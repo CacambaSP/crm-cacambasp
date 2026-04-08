@@ -202,44 +202,54 @@ input,select,textarea,button{font-family:var(--font)}
 .ac-addr{font-size:12px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ac-val{font-size:15px;font-weight:800;color:var(--acc);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
 .ac-actions{display:flex;gap:7px;flex-wrap:wrap}
-.ac-btn{padding:9px 14px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;min-height:38px;white-space:nowrap;transition:opacity .15s}
+.ac-btn{padding:9px 14px;border-radius:20px;border:1px solid transparent;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;min-height:36px;white-space:nowrap;transition:opacity .15s}
 .ac-btn:active{opacity:.7}
-.ac-btn-primary{background:var(--acc);color:#000}
+.ac-btn-primary{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
 .ac-btn-ghost{background:var(--card);border:1px solid var(--bor);color:var(--txt)}
-.ac-btn-wa{background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b)}
-.ac-btn-pix{background:var(--pix);color:var(--pix-c);border:1px solid var(--pix-b)}
-.ac-btn-r{background:var(--r2);color:var(--r);border:1px solid var(--r3)}
-.ac-btn-b{background:var(--b2);color:#818cf8;border:1px solid var(--b3)}
-.ac-btn-g{background:var(--g);color:#000}
+.ac-btn-wa{background:var(--card);color:var(--mut);border:1px solid var(--bor)}
+.ac-btn-pix{background:#E1F5EE;color:#085041;border-color:#5DCAA5}
+.ac-btn-r{background:#FCEBEB;color:#791F1F;border-color:#F09595}
+.ac-btn-b{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
+.ac-btn-g{background:#EAF3DE;color:#27500A;border-color:#97C459}
 .ac-urgency{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--r2);color:var(--r);display:inline-flex;align-items:center;gap:3px;margin-right:4px}
 
 /* ── SEÇÃO "VER TUDO" ── */
 .sec-lbl{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;padding:14px 18px 6px}
 
 /* ── CARD NORMAL (Ver tudo) ── */
-.order-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:0 14px 10px;padding:14px 15px;position:relative;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .1s}
+.order-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:0 14px 10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .1s}
 .order-card:active{transform:scale(.98)}
-.order-card.urg{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.03)}
-.order-card.warn{border-color:var(--acc3);background:rgba(245,166,35,.03)}
-.order-card.ok{border-color:var(--g3);background:var(--g2)}
+.order-card.urg{border-color:rgba(239,68,68,.4)}
+.order-card.warn{border-color:rgba(245,166,35,.3)}
+.order-card.ok{border-color:rgba(100,194,34,.3)}
 .order-card.neutral{border-color:var(--b3)}
-.card-bar{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:var(--rad2) 0 0 var(--rad2)}
+.card-bar{height:3px;width:100%;display:block}
+.card-bar.urg{background:#ef4444}
+.card-bar.warn{background:#f5a623}
+.card-bar.ok{background:#639922}
+.card-bar.neutral{background:var(--b)}
+.card-body-inner{padding:14px 15px}
 .card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px}
 .card-name{font-size:15px;font-weight:700;color:var(--txt);margin-left:10px}
-.card-val{font-size:15px;font-weight:800;color:var(--acc);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+.card-val{font-size:17px;font-weight:800;color:var(--acc);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
 .card-addr{font-size:12px;color:var(--mut);margin-left:10px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-chips{display:flex;gap:5px;margin-left:9px;flex-wrap:wrap;margin-bottom:10px}
-.chip{font-size:11px;padding:3px 9px;border-radius:5px;background:var(--card);border:1px solid var(--bor);color:var(--mut);display:inline-flex;align-items:center;gap:3px}
-.chip.acc{color:var(--acc);border-color:var(--acc3);background:var(--acc2)}
-.chip.g{color:var(--g);border-color:var(--g3);background:var(--g2)}
-.chip.r{color:var(--r);border-color:var(--r3);background:var(--r2)}
-.chip.b{color:var(--b);border-color:var(--b3);background:var(--b2)}
-.card-actions{display:flex;gap:7px;margin-left:9px;flex-wrap:wrap}
-.card-btn{padding:9px 14px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;min-height:38px;white-space:nowrap;transition:opacity .15s}
+.chip{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--card);border:1px solid var(--bor);color:var(--mut);display:inline-flex;align-items:center;gap:3px}
+.chip.acc{color:#BA7517;border-color:#EF9F27;background:rgba(239,159,39,.15)}
+.chip.g{color:#27500A;border-color:#97C459;background:rgba(99,153,34,.15)}
+.chip.r{color:#791F1F;border-color:#F09595;background:rgba(226,75,74,.12)}
+.chip.b{color:#185FA5;border-color:#85B7EB;background:rgba(55,138,221,.12)}
+.card-divider{height:1px;background:var(--bor);margin:0 0 10px}
+.card-actions{display:flex;gap:7px;margin-left:0;flex-wrap:wrap}
+.card-btn{padding:8px 14px;border-radius:20px;border:1px solid transparent;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;min-height:34px;white-space:nowrap;transition:opacity .15s}
 .card-btn:active{opacity:.7}
-.cb-wa{background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b)}
-.cb-pix{background:var(--pix);color:var(--pix-c);border:1px solid var(--pix-b)}
+.cb-wa{background:var(--card);color:var(--mut);border:1px solid var(--bor)}
+.cb-pix{background:#E1F5EE;color:#085041;border-color:#5DCAA5}
 .cb-ghost{background:var(--card);border:1px solid var(--bor);color:var(--txt)}
+.cb-blue{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
+.cb-yellow{background:rgba(239,159,39,.15);color:#BA7517;border-color:#EF9F27}
+.cb-green{background:rgba(99,153,34,.15);color:#27500A;border-color:#97C459}
+.cb-red{background:rgba(226,75,74,.12);color:#791F1F;border-color:#F09595}
 .card-check{width:28px;height:28px;border-radius:8px;border:2px solid var(--bor2);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .card-check.checked{background:var(--g);border-color:var(--g)}
 .card-check.checked::after{content:'✓';color:#000;font-size:16px;font-weight:900;line-height:1}
@@ -827,7 +837,7 @@ input,select,textarea,button{font-family:var(--font)}
       <div class="mfi"><label>Nova data de entrega</label><input type="date" id="rem_data"></div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('remarcarModal')">Cancelar</button>
-        <button class="btn acc" onclick="confirmarRemarcar()">📅 Remarcar</button>
+        <button class="btn acc" onclick="confirmarRemarcar()">Remarcar</button>
       </div>
     </div>
   </div>
@@ -2597,9 +2607,9 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
 
   if(tipoAcao === 'orcamento') {
     acoes = `
-      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();converterOrcamento('${o.id}')">▶️ Converter em pedido</button>
-      ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>`;
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();converterOrcamento('${o.id}')">Converter em pedido</button>
+      ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>`;
     return `<div class="action-card" onclick="abrirDetalhe('${o.id}')">
       <div class="ac-row">
         <div class="ac-main">
@@ -2624,10 +2634,10 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       return Math.floor(diffH)+'h restantes';
     })() : '';
     acoes = `
-      ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`}
-      ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
-      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">📋 Copiar OS</button>`:''}`;
+      ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`}
+      ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`;
     // Inject urgency style into card via inline — returned as data attr for rendering
     return `<div class="action-card" onclick="abrirDetalhe('${o.id}')" style="${urg>0?`background:${urgColors[urg]};border-left:3px solid ${urgBorderColors[urg]};border-color:${urgBorderColors[urg]}`:''}" >
       <div class="ac-row">
@@ -2652,12 +2662,12 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
     })() : null;
     const turnoLabel = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':'';
     acoes = `
-      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();confirmarEntrega('${o.id}')">✅ Confirmar entrega</button>
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
-      ${forn?.tel?`<a class="ac-btn ac-btn-wa" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">🚛 Ligar forn.</a>`:''}
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA cliente</button>
-      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`:''}
-      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">📋 Copiar OS</button>`:''}`;
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();confirmarEntrega('${o.id}')">Confirmar entrega</button>
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
+      ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">Ligar forn.</a>`:''}
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA cliente</button>
+      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''}
+      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`;
 
 
 
@@ -2666,21 +2676,21 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
   } else if(tipoAcao === 'cobrar') {
     const temRec = parseFloat(o.rec||0) > 0;
     acoes = temRec ? `
-      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">✅ Registrar pagamento</button>
-      <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`}` : `
-      <button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();abrirEditar('${o.id}')">✏️ Informar valor</button>
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`}`;
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Registrar pagamento</button>
+      <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}` : `
+      <button class="ac-btn ac-btn-r" onclick="event.stopPropagation();abrirEditar('${o.id}')">Informar valor</button>
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}`;
   } else if(tipoAcao === 'pagar_forn') {
     acoes = `
-      <button class="ac-btn ac-btn-primary" style="background:var(--cyan);color:#000" onclick="event.stopPropagation();abrirPagarForn('${o.id}')">💰 Registrar pagamento</button>
-      ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
-      <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWAForn('${o.id}')">📲 WA forn.</button>
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
-      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">🔄 Remover Forn.</button>`}`;
+      <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarForn('${o.id}')">Registrar pagamento</button>
+      ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">Ligar</a>`:''}
+      <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWAForn('${o.id}')">WA forn.</button>
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}`;
   }
 
   return `<div class="action-card${selOn?' selected':''}" onclick="${loteMode?`toggleLote('${o.id}')`:`abrirDetalhe('${o.id}')`}">
@@ -2715,18 +2725,21 @@ function cardHTML(o, tipo='neutral') {
   if(o.nf_num) chips.push(`<span class="chip b">🧾 NF</span>`);
   if(o.crm_id) chips.push(`<span class="chip acc" style="font-size:9px;font-family:var(--mono)">${o.crm_id}</span>`);
   return `<div class="order-card ${tipo}" onclick="abrirDetalhe('${o.id}')">
-    <div class="card-bar" style="background:${tipo==='urg'?'var(--r)':tipo==='ok'?'var(--g)':tipo==='warn'?'var(--acc)':'var(--b)'}"></div>
-    <div class="card-header">
-      <div onclick="event.stopPropagation();if(!${o.pago})quickPagarCard('${o.id}')" class="card-check ${o.pago?'checked':''}"></div>
-      <div class="card-name" style="flex:1;margin-left:8px;font-size:14px;font-weight:700">${o.logradouro||'Sem endereço'}</div>
-      <div class="card-val">R$ ${fmt(o.rec)}</div>
-    </div>
-    ${o.bairro?`<div class="card-addr" style="color:var(--acc);font-weight:600;font-size:12px;padding-left:28px;margin-bottom:2px">${o.bairro}</div>`:''}
-    <div class="card-addr" style="padding-left:28px;font-size:12px;color:var(--mut)">${o.tipo||''}${o.data?' · '+dateF(o.data):''}</div>
-    <div class="card-chips" style="padding-left:28px">${chips.join('')}</div>
-    <div class="card-actions">
-      <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
-      <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
+    <div class="card-bar ${tipo}"></div>
+    <div class="card-body-inner">
+      <div class="card-header">
+        <div onclick="event.stopPropagation();if(!${o.pago})quickPagarCard('${o.id}')" class="card-check ${o.pago?'checked':''}"></div>
+        <div class="card-name" style="flex:1;margin-left:8px;font-size:14px;font-weight:700">${o.logradouro||'Sem endereço'}</div>
+        <div class="card-val" style="${tipo==='ok'?'color:#639922':tipo==='urg'?'color:#A32D2D':tipo==='warn'?'color:#BA7517':''}">R$ ${fmt(o.rec)}</div>
+      </div>
+      ${o.bairro?`<div class="card-addr" style="color:var(--acc);font-weight:600;font-size:12px;padding-left:28px;margin-bottom:2px">${o.bairro}</div>`:''}
+      <div class="card-addr" style="padding-left:28px;font-size:12px;color:var(--mut)">${o.tipo||''}${o.data?' · '+dateF(o.data):''}</div>
+      <div class="card-chips" style="padding-left:28px">${chips.join('')}</div>
+      <div class="card-divider"></div>
+      <div class="card-actions">
+        <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+        <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
+      </div>
     </div>
   </div>`;
 }
@@ -3133,17 +3146,21 @@ function renderFinanceiro() {
     h+=`<div class="sec-lbl">⚠️ A receber (${urgentes.length})</div>`;
     urgentes.slice(0,15).forEach(o=>{
       const d=diasAberto(o);
-      h+=`<div class="order-card ${d>=7?'urg':'warn'}" onclick="abrirDetalhe('${o.id}')">
-        <div class="card-bar" style="background:${d>=7?'var(--r)':'var(--acc)'}"></div>
-        <div class="card-header">
-          <div class="card-name" style="margin-left:10px">${o.nome||'—'}</div>
-          <div class="card-val">R$ ${fmt(o.rec)}</div>
-        </div>
-        <div class="card-addr">${o.bairro||''} · ${d}d em aberto</div>
-        <div class="card-actions" style="margin-left:9px">
-          <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
-          <button class="card-btn cb-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
-          <button class="card-btn" style="background:var(--g2);color:var(--g);border:1px solid var(--g3)" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">✅ Pago</button>
+      const _tipo_fin = d>=7?'urg':'warn';
+      h+=`<div class="order-card ${_tipo_fin}" onclick="abrirDetalhe('${o.id}')">
+        <div class="card-bar ${_tipo_fin}"></div>
+        <div class="card-body-inner">
+          <div class="card-header">
+            <div class="card-name" style="margin-left:0">${o.nome||'—'}</div>
+            <div class="card-val" style="${d>=7?'color:#A32D2D':'color:#BA7517'}">R$ ${fmt(o.rec)}</div>
+          </div>
+          <div class="card-addr" style="margin-left:0">${o.bairro||''} · ${d}d em aberto</div>
+          <div class="card-divider"></div>
+          <div class="card-actions">
+            <button class="card-btn ${d>=7?'cb-red':'cb-yellow'}" onclick="event.stopPropagation();enviarWA('${o.id}')">Cobrar</button>
+            <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+            <button class="card-btn cb-green" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Pago</button>
+          </div>
         </div>
       </div>`;
     });
@@ -3179,10 +3196,10 @@ function renderAlertas() {
           <div class="ac-val">R$ ${fmt(o.rec)}</div>
         </div>
         <div class="ac-actions">
-          <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">✅ Registrar</button>
-          <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">⚡ Pix</button>
-          <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">📲 WA</button>
-          ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">📞 Ligar</a>`:''}
+          <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Registrar</button>
+          <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
+          <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+          ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
         </div>
       </div>`;
     });
@@ -3200,7 +3217,7 @@ function renderAlertas() {
           <div class="ac-val">R$ ${fmt(o.rec)}</div>
         </div>
         <div class="ac-actions">
-          <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">🚛 Contratar</button>
+          <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">Contratar</button>
         </div>
       </div>`;
     });
@@ -3477,7 +3494,7 @@ function renderDetalhe(id) {
     <div class="sb-label">Status de pagamento</div>
     <div class="sb-status">${statusTxt}</div>
     <div class="sb-info">Valor: R$ ${fmt(o.rec)}${o.nf_num?' + NF':''}</div>
-    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">✅ Registrar recebimento</button>`:
+    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">Registrar recebimento</button>`:
       !_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3)" onclick="desfazerPagoCli('${o.id}')">↩️ Desfazer pagamento</button>`:''}
   </div>
   <div class="detail-actions">
@@ -3488,10 +3505,10 @@ function renderDetalhe(id) {
     <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico">🔗</div>Tracking</button>
   </div>
   ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">🚛 Trocar fornecedor</button>`)}
-    ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">📅 Remarcar</button>`}
-    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" style="background:var(--cyan2);color:var(--cyan);border:1px solid rgba(6,182,212,.3)" onclick="abrirPagarForn('${o.id}')">💰 Pagar forn.</button>`:''}
-    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" style="color:var(--r);border-color:var(--r3)" onclick="trocarFornecedor('${o.id}')">🔄 Remover fornecedor</button>`:''}
+    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`)}
+    ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
+    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
+    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
   </div>`:''}
   </div>
   <div class="detail-section">
