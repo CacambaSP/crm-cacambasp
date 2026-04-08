@@ -366,7 +366,7 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── BOTTOM NAV ── */
 .bottom-nav{background:var(--sur);border-top:1px solid var(--bor);display:flex;flex-shrink:0;padding-bottom:var(--safe-b)}
 .bnb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;padding:8px 2px;min-height:var(--nav-h);position:relative}
-.bnb-ico{font-size:22px;line-height:1;color:var(--mut);transition:.15s}
+.bnb-ico{display:flex;align-items:center;justify-content:center;color:var(--mut);transition:.15s}
 .bnb-lbl{font-size:10px;color:var(--mut);font-weight:600;transition:.15s}
 .bnb.act .bnb-ico,.bnb.act .bnb-lbl{color:var(--acc)}
 .bnb-badge{position:absolute;top:8px;right:50%;transform:translateX(15px);background:var(--r);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:8px;min-width:16px;text-align:center}
@@ -2024,31 +2024,31 @@ function buildBottomNav() {
   if(isAdmin()) {
     nav.innerHTML = `
       <button class="bnb act" id="bnb-inicio" onclick="setView('inicio')">
-        <div class="bnb-ico">⚡</div><div class="bnb-lbl">Pendências</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="bnb-lbl">Pendências</div>
       </button>
       <button class="bnb" id="bnb-equipe" onclick="setView('equipe')">
-        <div class="bnb-ico">👥</div><div class="bnb-lbl">Equipe</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="bnb-lbl">Equipe</div>
       </button>
       <button class="bnb" id="bnb-financeiro" onclick="setView('financeiro')">
-        <div class="bnb-ico">💰</div><div class="bnb-lbl">Financeiro</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="bnb-lbl">Financeiro</div>
       </button>
       <button class="bnb" id="bnb-pagamentos" onclick="setView('pagamentos')">
-        <div class="bnb-ico">🧾</div><div class="bnb-lbl">Pgtos Forn</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="bnb-lbl">Pgtos Forn</div>
       </button>
       <button class="bnb" id="bnb-fornecedores" onclick="setView('fornecedores')">
-        <div class="bnb-ico">🚛</div><div class="bnb-lbl">Fornecedores</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="bnb-lbl">Fornecedores</div>
       </button>
       <button class="bnb" id="bnb-alertas" onclick="setView('alertas')">
-        <div class="bnb-ico">🔔</div><div class="bnb-lbl">Alertas</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="bnb-lbl">Alertas</div>
         <div class="bnb-badge" id="badge-alert"></div>
       </button>`;
   } else {
     nav.innerHTML = `
       <button class="bnb act" id="bnb-inicio" onclick="setView('inicio')">
-        <div class="bnb-ico">⚡</div><div class="bnb-lbl">Pendências</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="bnb-lbl">Pendências</div>
       </button>
       <button class="bnb" id="bnb-alertas" onclick="setView('alertas')">
-        <div class="bnb-ico">🔔</div><div class="bnb-lbl">Avisos</div>
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="bnb-lbl">Avisos</div>
         <div class="bnb-badge" id="badge-alert"></div>
       </button>`;
   }
