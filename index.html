@@ -144,25 +144,34 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .empty-col{text-align:center;padding:20px 10px;color:var(--mut);font-size:11px}
 
 /* ── CARD ── */
-.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:11px 12px 10px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .15s;position:relative;overflow:visible}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:0;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .15s;position:relative;overflow:visible}
+.card-body{padding:11px 12px 10px;position:relative}
 .card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.5);border-color:var(--bor2);z-index:10}
 .card.dragging{opacity:.3;transform:scale(.95)}
 .card.selected{border-color:var(--acc)!important;box-shadow:0 0 0 2px var(--acc3)!important}
 .card.pago{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.02)}
-.card-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--rad2) 0 0 var(--rad2)}
-.card-addr{font-weight:700;font-size:14px;color:var(--txt);padding-left:9px;padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-bar{height:3px;width:100%;display:block;border-radius:var(--rad2) var(--rad2) 0 0;flex-shrink:0}
+.card-addr{font-weight:700;font-size:14px;color:var(--txt);padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card:hover .card-addr{white-space:normal;overflow:visible}
 .card-details{display:block}
 .cards-compact .card-details{display:none!important}
 .cards-compact .card-addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-bairro{font-size:12px;color:var(--acc);font-weight:600;padding-left:9px;margin-bottom:4px}
-.card-tipo{font-size:12px;color:var(--mut2);padding-left:9px;margin-bottom:6px}
-.card-chips{display:flex;flex-wrap:wrap;gap:3px;padding-left:7px}
-.chip{font-size:12px;padding:2px 6px;border-radius:4px;background:var(--sur);border:1px solid var(--bor);color:var(--mut2);display:inline-flex;align-items:center;gap:2px;pointer-events:none}
+.card-bairro{font-size:12px;color:var(--acc);font-weight:600;margin-bottom:4px}
+.card-tipo{font-size:12px;color:var(--mut2);margin-bottom:6px}
+.card-chips{display:flex;flex-wrap:wrap;gap:3px}
+.chip{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--sur);border:1px solid var(--bor);color:var(--mut2);display:inline-flex;align-items:center;gap:2px;pointer-events:none}
 .chip.g{color:var(--g);border-color:var(--g3);background:var(--g2)}
 .chip.r{color:var(--r);border-color:var(--r3);background:var(--r2)}
 .chip.b{color:var(--b);border-color:var(--b3);background:var(--b2)}
 .chip.acc{color:var(--acc);border-color:var(--acc3);background:var(--acc2);font-weight:700}
+/* Botões semânticos de card — desktop — fundos sólidos, texto sempre branco */
+.cb-blue{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-yellow{background:#b45309;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-green{background:#16a34a;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-red{background:#dc2626;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-neutral{background:rgba(255,255,255,.12);color:#e6e8f0;border:1px solid rgba(255,255,255,.22);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-wa{background:#16a34a;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.cb-blue:hover,.cb-yellow:hover,.cb-green:hover,.cb-red:hover,.cb-neutral:hover,.cb-wa:hover{filter:brightness(1.15)}
 .forn-popup-item:hover{background:var(--bg2)}
 .card-confirm-actions{display:none;padding:8px 9px;border-top:1px solid var(--bor);background:rgba(245,166,35,.07);border-radius:0 0 var(--rad2) var(--rad2)}
 .card:hover .card-confirm-actions{display:block}
@@ -2077,13 +2086,13 @@ function cardBtnsPagamento(c,precisaConfirmar){
   var temFornPend=!!(c.forn_id&&!c.forn_pago);
   var ambosOk=!!(c.pago&&c.forn_pago);
   if(precisaConfirmar) return '';
-  if(ambosOk) return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px"><span style="flex:1;text-align:center;font-size:11px;color:var(--g);font-weight:700">✅ Quitado</span></div>';
+  if(ambosOk) return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px"><span style="flex:1;text-align:center;font-size:11px;color:var(--g);font-weight:700">Quitado</span></div>';
   if(!temCliPend&&!c.pago&&!temFornPend&&!c.forn_pago) return '';
   var btns='';
-  if(temCliPend) btns+='<button class="btn btn-r btn-sm" style="flex:1;font-size:11px" onclick="event.stopPropagation();quickPagarCard(\''+c.id+'\')">⚠️ Cliente</button>';
-  else if(c.pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:var(--g);font-weight:700">✅ Cliente</span>';
-  if(temFornPend) btns+='<button class="btn btn-r btn-sm" style="flex:1;font-size:11px;background:var(--r2);color:var(--r);border:1px solid var(--r3)" onclick="event.stopPropagation();_detailId=\''+c.id+'\';openPagarForn()">⚠️ Forn</button>';
-  else if(c.forn_pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:var(--b);font-weight:700">✅ Forn</span>';
+  if(temCliPend) btns+='<button class="cb-red" style="flex:1;text-align:center" onclick="event.stopPropagation();quickPagarCard(\''+c.id+'\')">⚠️ Cliente</button>';
+  else if(c.pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:#4ade80;font-weight:700">✅ Cliente</span>';
+  if(temFornPend) btns+='<button class="cb-yellow" style="flex:1;text-align:center" onclick="event.stopPropagation();_detailId=\''+c.id+'\';openPagarForn()">⚠️ Forn</button>';
+  else if(c.forn_pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:#93c5fd;font-weight:700">✅ Forn</span>';
   if(!btns) return '';
   return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px">'+btns+'</div>';
 }
@@ -2111,52 +2120,57 @@ function cardHTML(c,color){
   const badgeExpirou=badgeEntregaExpirado(c);
   const turnoLabel=getTurnoOrdem(c)==='noturno'?'🌙 Noturno':'☀️ Diurno';
 
+  // Cor da barra: urgência sobrepõe cor da coluna
+  const barColor = urg>=3?'#ef4444':urg===2?'#f97316':urg===1?'#eab308':color;
+
   return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true" style="position:relative"
     ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault();event.stopPropagation();this.closest('.col-cards')?.classList.add('drag-over')" ondrop="event.stopPropagation();oDrop(event,this.closest('.col-cards')?.id.replace('col_',''))" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
     <div style="${maskStyle}"></div>
-    <div class="card-bar" style="background:${color}"></div>
+    <div class="card-bar" style="background:${barColor}"></div>
+    <div class="card-body">
     ${isAdmin()?`<div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>`:''}
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
-    ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;padding:2px 9px;margin-bottom:1px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
-    ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">🧾 NF ${c.nf_num}</div>`:''}
-    ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-left:9px;padding-right:28px;margin-bottom:1px">⏳ Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
+    ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
+    ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
+    ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-right:28px;margin-bottom:2px">Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div class="card-addr">${c.logradouro||'Sem endereço'}</div>
     <div class="card-details">
       ${c.bairro?`<div class="card-bairro">${c.bairro}</div>`:''}
       <div class="card-tipo">${c.tipo||''}${c.data?' · '+dateF(c.data):''}</div>
       <div class="card-chips">
-      ${c.nome?`<span class="chip">👤 ${c.nome.split(' ')[0]}</span>`:''}
+      ${c.nome?`<span class="chip" style="font-weight:700;color:var(--txt);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.06)">${c.nome.split(' ')[0]}</span>`:''}
+      ${f?`<span class="chip b">${f.nome.split(' ')[0]}</span>`:''}
       ${isAdmin()&&c.rec?`<span class="chip acc">↑ R$${fmts(c.rec)}</span>`:''}
-      ${isAdmin()&&c.cst?`<span class="chip r">↓ R$${fmts(c.cst)}</span>`:''}
+      ${isAdmin()&&c.cst?`<span class="chip r" style="background:rgba(160,30,30,.15)">↓ R$${fmts(c.cst)}</span>`:''}
       ${isAdmin()&&c.rec&&c.cst?`<span class="chip b">= R$${fmts(mg)}</span>`:''}
-      ${c.pago?`<span class="chip g">✅ Pago</span>`:''}
-      ${c.forn_pago?`<span class="chip b">💰 F.Pago</span>`:''}
-      ${f?`<span class="chip">🚛 ${f.nome.split(' ')[0]}</span>`:''}
-      ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.15);color:#0ea5e9">${turnoLabel}</span>`:''}
+      ${c.pago?`<span class="chip g">Pago</span>`:''}
+      ${c.forn_pago?`<span class="chip b">F.Pago</span>`:''}
+      ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.12);color:#0ea5e9;border-color:rgba(14,165,233,.3)">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
       ${c.col==='contratar'&&!c.forn_id?`
-      <div style="padding:6px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px">
-        <button class="btn btn-xs" style="background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.35);width:100%" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">🚛 Atribuir Fornecedor</button>
+      <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
+        <button class="cb-blue" style="width:100%;text-align:center" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">Atribuir Fornecedor</button>
       </div>`:''}
       ${precisaConfirmar&&!badgeExpirou?`
-      <div style="padding:7px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px">
-        <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:5px">⚠️ Confirmar entrega?</div>
+      <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
+        <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn btn-g btn-xs" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">✅ Confirmar</button>
-          <button class="btn btn-xs" style="background:var(--acc2);color:var(--acc)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Trocar</button>
-          <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
-          <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
+          <button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>
+          <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
+          <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
+          <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
         </div>
       </div>`
       :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
-      <div style="padding:6px 0 2px 0;border-top:1px solid var(--bor);margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-xs" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3)" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">🔄 Remover Forn.</button>
-        <button class="btn btn-xs" style="background:var(--b2);color:var(--b)" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">📅 Remarcar</button>
-        <button class="btn btn-xs btn-r" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">❌ Cancelar</button>
+      <div style="padding:6px 0 2px;border-top:1px solid var(--bor);margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+        <button class="cb-yellow" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Remover Forn.</button>
+        <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
+        <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
       </div>`:''}
+    </div>
     </div>
     ${cardBtnsPagamento(c,precisaConfirmar)}
   </div>`;
@@ -3185,8 +3199,7 @@ function _renderFornSugestao(c){
   window['_fsBuscar_'+c.id] = function(q){
     const drop = document.getElementById(dropId);
     if(!drop) return;
-    const _fsNorm = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-    q = _fsNorm(q);
+    q = q.trim().toLowerCase();
     if(!q){ drop.style.display='none'; return; }
     const zonaMap={'norte':'Norte','sul':'Sul','leste':'Leste','oeste':'Oeste','centro':'Centro','grande sp':'Grande SP'};
     const zonaKey = Object.keys(zonaMap).find(k=>q.includes(k));
@@ -3194,9 +3207,9 @@ function _renderFornSugestao(c){
     const filtrados = todos.filter(s=>{
       if(zonaAlvo) return (Array.isArray(s.f.regioes)?s.f.regioes:[]).some(r=>r.zona===zonaAlvo);
       const regioes=Array.isArray(s.f.regioes)?s.f.regioes:[];
-      return _fsNorm(s.f.nome).includes(q)
-        ||regioes.some(r=>_fsNorm(r.bairro||r.regiao||'').includes(q))
-        ||regioes.some(r=>_fsNorm(r.zona||'').includes(q));
+      return s.f.nome.toLowerCase().includes(q)
+        ||regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
+        ||regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
     });
     drop.innerHTML = filtrados.length
       ? filtrados.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('')
@@ -3247,42 +3260,35 @@ function _waFornAbrir(f, texto){
 }
 
 // ── Modal WA Fornecedor — atribuição ou cancelamento ──
-// Modal flutuante global — funciona tanto no detail quanto direto do card Kanban
 function _abrirModalWAForn({titulo, textoInicial, btnEnviar, btnSemWA, onEnviar, onSemWA}){
-  // Remover modal anterior se existir
-  document.getElementById('_waFornModalGlobal')?.remove();
-  const m = document.createElement('div');
-  m.id = '_waFornModalGlobal';
-  m.className = 'mbg open';
-  m.innerHTML = `<div class="mbox" style="max-width:480px">
-    <div class="mh"><div class="mh-title" style="font-size:13px">${titulo}</div><button class="mx" onclick="_waFornCancelarModal()">✕</button></div>
-    <div style="padding:14px 16px">
-      <textarea id="wa_forn_txt" style="width:100%;min-height:150px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${textoInicial}</textarea>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+  // Reutiliza um mini-modal inline no detail
+  const el = document.getElementById('d_forn_wa_modal');
+  if(!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:13px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${titulo}</div>
+      <textarea id="wa_forn_txt" style="width:100%;min-height:130px;background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;resize:vertical;box-sizing:border-box">${textoInicial}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn btn-sm btn-wa" onclick="_waFornEnviarModal()">${btnEnviar}</button>
         <button class="btn btn-sm" style="background:var(--bg2);color:var(--mut2)" onclick="_waFornSemWA()">${btnSemWA}</button>
-        <button class="btn btn-sm" style="margin-left:auto;background:var(--bg2);color:var(--mut2)" onclick="_waFornCancelarModal()">Fechar</button>
+        <button class="btn btn-sm btn-r" style="margin-left:auto" onclick="_waFornCancelarModal()">Voltar</button>
       </div>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-  // Também atualizar inline do detail se estiver aberto (mantém compatibilidade)
-  const elInline = document.getElementById('d_forn_wa_modal');
-  if(elInline) elInline.style.display = 'none';
+    </div>`;
   _waFornModalCbs = {onEnviar, onSemWA};
 }
 let _waFornModalCbs = {};
 function _waFornEnviarModal(){
   const txt = document.getElementById('wa_forn_txt')?.value||'';
-  document.getElementById('_waFornModalGlobal')?.remove();
+  document.getElementById('d_forn_wa_modal').style.display='none';
   if(_waFornModalCbs.onEnviar) _waFornModalCbs.onEnviar(txt);
 }
 function _waFornSemWA(){
-  document.getElementById('_waFornModalGlobal')?.remove();
+  document.getElementById('d_forn_wa_modal').style.display='none';
   if(_waFornModalCbs.onSemWA) _waFornModalCbs.onSemWA();
 }
 function _waFornCancelarModal(){
-  document.getElementById('_waFornModalGlobal')?.remove();
+  document.getElementById('d_forn_wa_modal').style.display='none';
 }
 
 async function _atribuirFornecedor(fornId){
@@ -6281,6 +6287,7 @@ function _relAgendaDia(dataParam){
   Object.entries(porForn).forEach(([fid, lista]) => {
     const f = forns.find(x=>x.id===fid);
     if(!f) return;
+    const tel = (f.wa_link || f.tel || '').replace(/\D/g,'');
     const totalQtd = lista.length;
     let linhas = '';
     lista.forEach((o,i) => {
@@ -6309,10 +6316,7 @@ function _relAgendaDia(dataParam){
       txtWA += '\n'+(i+1)+'️⃣ 📦 1 · 📅 '+dateF(o.data)+(turno?' · '+turno:'')+'\n📍 '+end+'\n👤 '+nomeCliente+(o.cel?' · 📞 '+o.cel:'')+(o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:'')+'\n📋 OS: '+(o.crm_id||'—')+'\n';
     });
     txtWA += '\nPor favor, confirme se está tudo certo.\n_CaçambaSP_';
-    const _waLinkRaw = (f.wa_link||'').trim();
-    const waUrl = _waLinkRaw.startsWith('http')
-      ? _waLinkRaw  // link de grupo — abre direto
-      : ((() => { const t=(f.wa_link||f.tel||'').replace(/\D/g,''); return t?'https://wa.me/55'+t+'?text='+encodeURIComponent(txtWA):null; })());
+    const waUrl = tel ? 'https://wa.me/55'+tel+'?text='+encodeURIComponent(txtWA) : null;
     html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
