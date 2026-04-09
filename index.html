@@ -144,18 +144,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .empty-col{text-align:center;padding:20px 10px;color:var(--mut);font-size:11px}
 
 /* ── CARD ── */
-.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:0;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .15s;position:relative;overflow:hidden}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:0;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .15s;position:relative;overflow:visible}
+.card-bar{height:3px;width:100%;display:block;flex-shrink:0;border-radius:var(--rad2) var(--rad2) 0 0;overflow:hidden}
 .card-body{padding:11px 12px 10px;position:relative}
 .card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.5);border-color:var(--bor2);z-index:10}
 .card.dragging{opacity:.3;transform:scale(.95)}
 .card.selected{border-color:var(--acc)!important;box-shadow:0 0 0 2px var(--acc3)!important}
 .card.pago{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.02)}
-.card-bar{height:3px;width:100%;display:block;border-radius:var(--rad2) var(--rad2) 0 0;flex-shrink:0}
 .card-addr{font-weight:700;font-size:14px;color:var(--txt);padding-right:28px;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card:hover .card-addr{white-space:normal;overflow:visible}
 .card-details{display:block}
 .cards-compact .card-details{display:none!important}
 .cards-compact .card-addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cards-compact .card-pay{display:none!important}
 .card-bairro{font-size:12px;color:var(--acc);font-weight:600;margin-bottom:4px}
 .card-tipo{font-size:12px;color:var(--mut2);margin-bottom:6px}
 .card-chips{display:flex;flex-wrap:wrap;gap:3px}
@@ -2094,7 +2095,7 @@ function cardBtnsPagamento(c,precisaConfirmar){
   if(temFornPend) btns+='<button class="cb-yellow" style="flex:1;text-align:center" onclick="event.stopPropagation();_detailId=\''+c.id+'\';openPagarForn()">⚠️ Forn</button>';
   else if(c.forn_pago) btns+='<span style="flex:1;text-align:center;font-size:11px;color:#60a5fa;font-weight:700">✅ Forn</span>';
   if(!btns) return '';
-  return '<div style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px">'+btns+'</div>';
+  return '<div class="card-pay" style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px">'+btns+'</div>';
 }
 
 function cardHTML(c,color){
