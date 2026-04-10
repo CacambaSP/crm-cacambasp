@@ -5964,13 +5964,14 @@ function renderExtratoRevisao(){
       tipo='grp';
       let matchTipo='';
       // Tentar casar pelo crm_id embutido no txid: GRP20266020 → LC20266020
+      // Busca a ordem de referência mesmo que já paga — para extrair o celular do cliente
       const numGrp=idLimpo.replace(/^GRP/,'');
-      const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&!c.pago&&c.col!=='concluido'&&c.col!=='orcamento');
+      const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&c.col!=='orcamento');
       if(crmGrp){
         const celRef=(crmGrp.cel||'').replace(/\D/g,'');
         const todasGrp=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
-        ordemMatch=todasGrp.length>0?todasGrp:crmGrp;
-        matchTipo='id';
+        ordemMatch=todasGrp.length>0?todasGrp:null;
+        if(ordemMatch) matchTipo='id';
       } else {
         // Fallback 1: CPF/CNPJ do pagador
         const cpfPag=(linha.cpf||'').replace(/\D/g,'');
