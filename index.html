@@ -12,6 +12,7 @@
 <link rel="manifest" href="/manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:#0c0e14;--sur:#13151e;--card:#191c26;--bor:rgba(255,255,255,.07);--bor2:rgba(255,255,255,.14);
@@ -5904,39 +5905,51 @@ function processarXLS(input){
   const reader=new FileReader();
   reader.onload=function(e){
     try{
-      const bytes=new Uint8Array(e.target.result);
-      let texto='';for(let i=0;i<bytes.length;i++)texto+=String.fromCharCode(bytes[i]);
-      const tokens=[];
-      const re=/[A-Za-z\u00c0-\u00ff0-9\/\.\-\s,']+/g;
-      let m;while((m=re.exec(texto))!==null){const s=m[0].trim();if(s.length>3)tokens.push(s);}
-      const cabIdx=tokens.findIndex(t=>t.toLowerCase().includes('identificador'));
+      // Lê o XLS via xlrd-style: extrai bytes e usa SheetJS se disponível,
+      // senão fallback para leitura estruturada por colunas fixas
+      const data=new Uint8Array(e.target.result);
+      // Usar SheetJS (XLSX) — já carregado globalmente no CRM
+      let wb;
+      try{
+        wb=XLSX.read(data,{type:'array'});
+      }catch(ex){
+        toast('Erro ao abrir XLS: '+ex.message,'err');return;
+      }
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // Encontrar linha de cabeçalho (contém "identificador")
+      const cabIdx=rows.findIndex(r=>r.some(c=>String(c).toLowerCase().includes('identificador')));
       if(cabIdx===-1){toast('Formato não reconhecido — use o extrato de QR Codes do Itaú','err');return;}
-      const dados=tokens.slice(cabIdx+8);
-      const isId=s=>/^(LC|GRP)\d{6,}/.test(s.trim());
-      const isData=s=>/^\d{2}\/\d{2}\/\d{4}$/.test(s.trim());
-      const isValor=s=>/^\d{1,3}(\.\d{3})*(,\d{2})?$/.test(s.trim());
-      const isCpf=s=>/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(s.trim())||/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(s.trim());
-      const linhas=[];let i=0;
-      while(i<dados.length){
-        const t=dados[i].trim();
-        if(isId(t)){
-          const linha={id:t,pagador:'',cpf:'',dataVenc:'',dataPago:'',valorEmitido:0,valorPago:0};i++;
-          let np=[];
-          while(i<dados.length&&!isCpf(dados[i])&&!isId(dados[i])&&!isData(dados[i])&&np.length<6){np.push(dados[i].trim());i++;}
-          linha.pagador=np.join(' ').trim();
-          if(i<dados.length&&isCpf(dados[i])){linha.cpf=dados[i].trim();i++;}
-          while(i<dados.length&&!isId(dados[i])){
-            const tk=dados[i].trim();
-            if(isData(tk)){if(!linha.dataVenc)linha.dataVenc=tk;else if(!linha.dataPago)linha.dataPago=tk;i++;}
-            else if(isValor(tk)){const v=parseBrFloat(tk);if(!linha.valorEmitido)linha.valorEmitido=v;else if(!linha.valorPago)linha.valorPago=v;else{i++;break;}i++;}
-            else break;
-          }
-          if(!linha.valorPago&&linha.valorEmitido)linha.valorPago=linha.valorEmitido;
-          linhas.push(linha);
-        }else i++;
+      // Mapear índices de colunas pelo cabeçalho
+      const cab=rows[cabIdx].map(c=>String(c).toLowerCase().trim());
+      const iId    = cab.findIndex(c=>c.includes('identificador'));
+      const iPag   = cab.findIndex(c=>c.includes('pagador'));
+      const iCpf   = cab.findIndex(c=>c.includes('cpf')||c.includes('cnpj'));
+      const iVenc  = cab.findIndex(c=>c.includes('vencimento')||c.includes('expira'));
+      const iPagoEm= cab.findIndex(c=>c.includes('pago em'));
+      const iEmit  = cab.findIndex(c=>c.includes('emitido'));
+      const iPagoV = cab.findIndex(c=>c.includes('valor pago'));
+      const isId=s=>/^(LC|GRP)\d{6,}/i.test(String(s).trim());
+      const linhas=[];
+      for(let i=cabIdx+1;i<rows.length;i++){
+        const r=rows[i];
+        const id=String(r[iId]||'').trim();
+        if(!isId(id)) continue;
+        const valorEmitido=parseBrFloat(String(r[iEmit]||'0'));
+        const valorPagoRaw=parseBrFloat(String(r[iPagoV]||'0'));
+        const valorPago=valorPagoRaw>0?valorPagoRaw:valorEmitido; // fallback para emitido se pago=0
+        linhas.push({
+          id,
+          pagador:String(r[iPag]||'').trim(),
+          cpf:String(r[iCpf]||'').trim(),
+          dataVenc:String(r[iVenc]||'').trim(),
+          dataPago:String(r[iPagoEm]||'').trim(),
+          valorEmitido,
+          valorPago
+        });
       }
       if(!linhas.length){toast('Nenhuma transação encontrada','warn');return;}
-      localStorage.setItem('crm_ultima_importacao', new Date().toISOString());
+      localStorage.setItem('crm_ultima_importacao',new Date().toISOString());
       _extratoDados=linhas;renderExtratoRevisao();
     }catch(err){console.error(err);toast('Erro ao processar: '+err.message,'err');}
   };
