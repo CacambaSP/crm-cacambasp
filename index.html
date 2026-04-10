@@ -5969,7 +5969,9 @@ function renderExtratoRevisao(){
       const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&c.col!=='orcamento');
       if(crmGrp){
         const celRef=(crmGrp.cel||'').replace(/\D/g,'');
-        const todasGrp=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
+        // Só considera ordens com crm_id numérico <= número do GRP (ordens que existiam quando o GRP foi criado)
+        const numGrpInt=parseInt(numGrp,10)||0;
+        const todasGrp=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef&&parseInt((c.crm_id||'').replace(/\D/g,''),10)<=numGrpInt);
         const pendGrp=todasGrp.filter(c=>!c.pago);
         if(pendGrp.length>0){
           ordemMatch=pendGrp;
