@@ -8195,6 +8195,30 @@ async function confirmarArquivarOrc(id){
   }catch(e){ setSyncDot('err'); toast('Erro ao arquivar','err'); }
 }
 
+// ── Excluir orçamento ──
+async function confirmarExcluirOrc(id, nome){
+  const o = ordens.find(x=>x.id===id);
+  if(!o) return;
+  const ok = await showConfirm({
+    ico:'🗑',
+    title:'Excluir Orçamento',
+    body:`Excluir permanentemente o orçamento <strong>${o.crm_id||''}</strong> de <strong>${nome||o.nome||''}</strong>? Esta ação não pode ser desfeita.`,
+    ok:'🗑 Excluir',
+    okClass:'btn-r'
+  });
+  if(!ok) return;
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id, 'DELETE', null, tok());
+    const idx = ordens.findIndex(x=>x.id===id);
+    if(idx>-1) ordens.splice(idx,1);
+    setSyncDot('ok');
+    renderOrcPend();
+    _atualizarOrcBadge();
+    toast('🗑 Orçamento excluído');
+  }catch(e){ setSyncDot('err'); toast('Erro ao excluir','err'); }
+}
+
 // ── Histórico de orçamentos ──
 function debounceOrcHist(){ clearTimeout(_orcHistDebTimer); _orcHistDebTimer = setTimeout(renderOrcHist, 200); }
 
@@ -8348,11 +8372,13 @@ function renderOrcPend(){
         ${validade?`<span style="font-size:11px;border-radius:20px;padding:3px 10px;background:${vencida?'var(--r2)':'var(--card)'};border:1px solid ${vencida?'var(--r3)':'var(--bor)'};color:${vencida?'var(--r)':'var(--mut2)'}">📅 ${vencida?'Vencido':'Válido até'} ${validade}</span>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn btn-sm" onclick="_detailId='${o.id}';openDetail()">👁 Ver Detalhes</button>
         <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
         <button class="btn btn-sm" onclick="baixarPDFDireto('${o.id}')" title="Baixar PDF para enviar pelo WhatsApp">⬇️ Baixar PDF</button>
         <button class="btn btn-sm btn-g" onclick="confirmarConverterOrc('${o.id}')">✅ Converter em Ordem</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWaOrc('${o.id}')">💬 WhatsApp</button>
         <button class="btn btn-sm" onclick="confirmarArquivarOrc('${o.id}')">🏆 Arquivar</button>
+        <button class="btn btn-sm btn-r" onclick="confirmarExcluirOrc('${o.id}','${(o.nome||'').replace(/'/g,'')}')">🗑 Excluir</button>
       </div>
     </div>`;
   }).join('');
