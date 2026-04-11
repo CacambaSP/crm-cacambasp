@@ -950,6 +950,7 @@ input[type=checkbox]:checked::after{
         <div class="mh-title" id="d_title">—</div>
         <div class="mh-sub" id="d_sub">—</div>
       </div>
+      <button class="btn btn-xs btn-b" id="detailOrcBtn" onclick="voltarOrcamentoDetail()" title="Mover para Orçamento" style="margin-right:4px;display:none">↩ Orçamento</button>
       <button class="btn btn-xs" id="detailArchBtn" onclick="arquivarDoDetail()" title="Arquivar/Desarquivar" style="margin-right:4px">🏆</button>
       <button class="mx" onclick="closeDetail()">✕</button>
     </div>
@@ -2885,6 +2886,8 @@ function fillDetail(c){
   const archBtn=document.getElementById('detailArchBtn');
   archBtn.textContent=c.col==='concluido'?'↩️ Voltar':'🏆 Arquivar';
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
+  const orcBtn=document.getElementById('detailOrcBtn');
+  if(orcBtn) orcBtn.style.display=(c.col!=='concluido'&&c.col!=='orcamento')?'':'none';
   // financeiro
   _fillStatusBlocks(c);
   if(isAdmin()){
@@ -3741,6 +3744,21 @@ async function arquivarOrdem(id){
 }
 
 function arquivarDoDetail(){if(_detailId)arquivarOrdem(_detailId);}
+async function voltarOrcamentoDetail(){
+  if(!_detailId) return;
+  const c=ordens.find(x=>x.id===_detailId);
+  if(!c) return;
+  const ok=await showConfirm({ico:'↩',title:'Voltar para Orçamento',body:'A ordem '+( c.crm_id||'')+'  será movida de volta para Orçamentos.',ok:'↩ Confirmar',okClass:'btn-b'});
+  if(!ok) return;
+  try{
+    await api('ordens?id=eq.'+_detailId,'PATCH',{col:'orcamento'},tok());
+    const o=ordens.find(x=>x.id===_detailId);
+    if(o) o.col='orcamento';
+    closeDetail();
+    renderKanban();
+    toast('↩ Ordem movida para Orçamento','ok');
+  }catch(e){toast('Erro ao mover ordem','err');}
+}
 
 // ── DELETAR ──
 async function confirmarDeletar(id){
