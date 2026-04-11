@@ -8372,13 +8372,13 @@ function renderOrcPend(){
         ${validade?`<span style="font-size:11px;border-radius:20px;padding:3px 10px;background:${vencida?'var(--r2)':'var(--card)'};border:1px solid ${vencida?'var(--r3)':'var(--bor)'};color:${vencida?'var(--r)':'var(--mut2)'}">📅 ${vencida?'Vencido':'Válido até'} ${validade}</span>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
-        <button class="btn btn-sm" onclick="_detailId='${o.id}';openDetail()">👁 Ver Detalhes</button>
+        <button class="btn btn-sm" onclick="openDetail('${o.id}')">👁 Ver Detalhes</button>
         <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
         <button class="btn btn-sm" onclick="baixarPDFDireto('${o.id}')" title="Baixar PDF para enviar pelo WhatsApp">⬇️ Baixar PDF</button>
         <button class="btn btn-sm btn-g" onclick="confirmarConverterOrc('${o.id}')">✅ Converter em Ordem</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWaOrc('${o.id}')">💬 WhatsApp</button>
         <button class="btn btn-sm" onclick="confirmarArquivarOrc('${o.id}')">🏆 Arquivar</button>
-        <button class="btn btn-sm btn-r" onclick="confirmarExcluirOrc('${o.id}','${(o.nome||'').replace(/'/g,'')}')">🗑 Excluir</button>
+        <button class="btn btn-sm btn-r" onclick="confirmarExcluirOrc('${o.id}')">🗑 Excluir</button>
       </div>
     </div>`;
   }).join('');
