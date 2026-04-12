@@ -426,9 +426,26 @@ input[type=checkbox]:checked::after{
   .pw{padding:14px 16px}
   .stats-bar{padding:0 16px 12px}
   .filter-bar{padding:10px 14px}
-  .fin-chips{padding:10px 16px}
-  .fin-lista{padding:10px 16px}
-  .fin-row-top{flex-direction:column;gap:4px}
+  .fin-chips{padding:8px 12px;gap:5px}
+  .fin-chip{padding:5px 10px;font-size:11px}
+  .fin-lista{padding:10px 12px;gap:6px}
+  .fin-totalizador{display:none}
+  .fin-row-top{flex-direction:row;gap:6px;align-items:flex-start}
+  .fin-row-addr{font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fin-row-date{font-size:10px}
+  .fin-row-mid{font-size:10px;gap:6px;margin-bottom:6px}
+  .fin-row-bot{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .fin-acts{flex-shrink:0}
+  .fin-action{padding:5px 10px;font-size:11px}
+  .fin-mob-summary{display:flex!important}
+  .forn-mob-tabs{display:flex!important}
+  .mob-equipe-card{display:flex!important}
+  .mob-equipe-resumo{display:grid!important}
+  .forn-desk-tabs{display:none!important}
+  #comTabsDesk{display:none!important}
+  #comTabsMob{display:flex!important}
+  #equipeResumoMob{display:grid!important}
+  #finMobSummary{display:flex!important}
   .status-blocks{grid-template-columns:1fr}
   .fi-row{grid-template-columns:1fr}
   .dash-grid{grid-template-columns:1fr 1fr}
@@ -555,12 +572,23 @@ input[type=checkbox]:checked::after{
 
       <!-- FINANCEIRO -->
       <div class="view" id="view-financeiro" style="flex-direction:column">
+        <!-- Card resumo mobile (oculto no desktop) -->
+        <div class="fin-mob-summary" id="finMobSummary" style="display:none;padding:10px 12px 0;gap:8px;flex-shrink:0">
+          <div style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px">
+            <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">A receber</div>
+            <div id="finMobReceber" style="font-size:16px;font-weight:800;color:var(--acc);font-family:var(--mono)">R$ 0</div>
+          </div>
+          <div style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px">
+            <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Recebido</div>
+            <div id="finMobRecebido" style="font-size:16px;font-weight:800;color:var(--g);font-family:var(--mono)">R$ 0</div>
+          </div>
+        </div>
         <div class="fin-chips" id="finChips">
           <button class="fin-chip on" data-f="todos" onclick="setFinFiltro('todos')">Todos <span class="fin-cnt-todos">0</span></button>
-          <button class="fin-chip" data-f="falta_cli" onclick="setFinFiltro('falta_cli')">⏳ Falta cliente <span class="fin-cnt-falta_cli">0</span></button>
-          <button class="fin-chip" data-f="falta_forn" onclick="setFinFiltro('falta_forn')">🚚 Falta fornecedor <span class="fin-cnt-falta_forn">0</span></button>
-          <button class="fin-chip" data-f="prontos" onclick="setFinFiltro('prontos')">✅ Prontos <span class="fin-cnt-prontos">0</span></button>
-          <button class="fin-chip" data-f="inadimp" onclick="setFinFiltro('inadimp')">🚨 Inadimp. <span class="fin-cnt-inadimp">0</span></button>
+          <button class="fin-chip" data-f="falta_cli" onclick="setFinFiltro('falta_cli')">⏳ Cli <span class="fin-cnt-falta_cli">0</span></button>
+          <button class="fin-chip" data-f="falta_forn" onclick="setFinFiltro('falta_forn')">🚚 Forn <span class="fin-cnt-falta_forn">0</span></button>
+          <button class="fin-chip" data-f="prontos" onclick="setFinFiltro('prontos')">✅ <span class="fin-cnt-prontos">0</span></button>
+          <button class="fin-chip" data-f="inadimp" onclick="setFinFiltro('inadimp')">🚨 <span class="fin-cnt-inadimp">0</span></button>
         </div>
         <div class="fin-totalizador">
           <div>
@@ -691,8 +719,14 @@ input[type=checkbox]:checked::after{
             <div class="ph-title">Fornecedores</div>
             <button class="btn btn-acc btn-sm" onclick="openSupModal()">+ Novo Fornecedor</button>
           </div>
-          <!-- Tabs -->
-          <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--bor);padding-bottom:12px">
+          <!-- Tabs mobile (compactas, ocultas no desktop) -->
+          <div class="forn-mob-tabs" style="display:none;gap:0;background:var(--card);border-radius:var(--rad2);overflow:hidden;margin-bottom:10px;border:1px solid var(--bor)">
+            <button style="flex:1;padding:7px 6px;font-size:11px;font-weight:600;background:var(--acc2);color:var(--acc);border:none;cursor:pointer;font-family:var(--font)" id="fornMobTab_lista" onclick="setFornTab('lista');_fornMobTabAtivo('lista')">🚛 Lista</button>
+            <button style="flex:1;padding:7px 6px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="fornMobTab_cobertura" onclick="setFornTab('cobertura');_fornMobTabAtivo('cobertura')">📍 Cobertura</button>
+            <button style="flex:1;padding:7px 6px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="fornMobTab_ativos" onclick="toggleFornFiltroAtivos()" data-ativo="0">⚡ Ativos</button>
+          </div>
+          <!-- Tabs desktop -->
+          <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--bor);padding-bottom:12px" class="forn-desk-tabs">
             <button class="btn btn-sm btn-acc" id="fornTab_lista" onclick="setFornTab('lista')">🚛 Fornecedores</button>
             <button class="btn btn-sm" id="fornTab_cobertura" onclick="setFornTab('cobertura')">📍 Cobertura por bairro</button>
           </div>
@@ -700,7 +734,7 @@ input[type=checkbox]:checked::after{
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
             <input type="text" id="fornFiltroNome" placeholder="🔍 Nome do fornecedor" oninput="renderForns()" style="flex:1;min-width:160px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
             <input type="text" id="fornFiltroBairro" placeholder="📍 Filtrar bairro" oninput="renderForns()" style="flex:1;min-width:140px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
-            <button class="btn btn-sm" id="fornFiltroAtivos" data-ativo="0" onclick="toggleFornFiltroAtivos()" style="color:var(--mut2)">⚡ Só ativos</button>
+            <button class="btn btn-sm forn-desk-tabs" id="fornFiltroAtivos" data-ativo="0" onclick="toggleFornFiltroAtivos()" style="color:var(--mut2)">⚡ Só ativos</button>
           </div>
           <!-- Lista de fornecedores -->
           <div id="supLista"></div>
@@ -764,8 +798,25 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div><div class="ph-title">💸 Comissões</div><div class="ph-sub">Configuração e relatório por vendedor</div></div>
           </div>
-          <!-- Tabs -->
-          <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--bor);padding-bottom:12px">
+          <!-- Card resumo equipe mobile -->
+          <div class="mob-equipe-resumo" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px" id="equipeResumoMob">
+            <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px">
+              <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ordens no mês</div>
+              <div id="equipeOrdensMob" style="font-size:18px;font-weight:800;color:var(--acc);font-family:var(--mono)">—</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px">
+              <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Total comissões</div>
+              <div id="equipeComissaoMob" style="font-size:18px;font-weight:800;color:var(--g);font-family:var(--mono)">—</div>
+            </div>
+          </div>
+          <!-- Tabs compactas mobile -->
+          <div class="mob-equipe-card" style="display:none;gap:0;background:var(--card);border-radius:var(--rad2);overflow:hidden;margin-bottom:12px;border:1px solid var(--bor)" id="comTabsMob">
+            <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:var(--acc2);color:var(--acc);border:none;cursor:pointer;font-family:var(--font)" id="comMobTab_fechamento" onclick="setComTab('fechamento');_comMobTabAtivo('fechamento')">⚡ Fechamento</button>
+            <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="comMobTab_hist" onclick="setComTab('hist');_comMobTabAtivo('hist')">📋 Histórico</button>
+            <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="comMobTab_config" onclick="setComTab('config');_comMobTabAtivo('config')">⚙️ Modelos</button>
+          </div>
+          <!-- Tabs desktop -->
+          <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--bor);padding-bottom:12px" id="comTabsDesk">
             <button class="btn btn-sm btn-acc" id="comTab_fechamento" onclick="setComTab('fechamento')">&#9889; Fechamento</button>
             <button class="btn btn-sm" id="comTab_hist" onclick="setComTab('hist')">&#128203; Hist&#243;rico</button>
             <button class="btn btn-sm" id="comTab_config" onclick="setComTab('config')">&#9881;&#65039; Modelos</button>
@@ -4695,9 +4746,31 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
 // RENDER TELA COMISSÕES
 // ══════════════════════════════════════════════════════════════
 
+function _comMobTabAtivo(tab){
+  ['fechamento','hist','config'].forEach(t=>{
+    const b=document.getElementById('comMobTab_'+t);
+    if(b){b.style.background=t===tab?'var(--acc2)':'none';b.style.color=t===tab?'var(--acc)':'var(--mut2)';}
+  });
+}
 function renderComissaoView(){
   _carregarComissoes();
   setComTab('fechamento');
+  // Resumo mobile
+  if(window.innerWidth<=700){
+    const mes=new Date();
+    const src=ordens.filter(c=>{
+      if(!c.pago||!c.pago_em||c.col==='orcamento')return false;
+      const d=new Date(c.pago_em);
+      return d.getMonth()===mes.getMonth()&&d.getFullYear()===mes.getFullYear();
+    });
+    const elO=document.getElementById('equipeOrdensMob');
+    const elC=document.getElementById('equipeComissaoMob');
+    if(elO)elO.textContent=src.length||'0';
+    if(elC){
+      const tot=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+      elC.textContent='R$ '+fmt(tot*0.1);
+    }
+  }
 }
 
 function setComTab(tab){
@@ -5455,6 +5528,15 @@ function renderFinanceiro(){
   document.getElementById('finTotLabel').textContent=totLabel;
   document.getElementById('finTotVal').textContent='R$ '+fmt(totVal);
   document.getElementById('finTotActs').innerHTML=totActs;
+  // Card resumo mobile
+  const _mobSum=document.getElementById('finMobSummary');
+  if(_mobSum&&window.innerWidth<=700){
+    const _todasAtivas=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
+    const _aRec=_todasAtivas.filter(c=>!c.pago).reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const _recebido=_todasAtivas.filter(c=>c.pago).reduce((s,c)=>s+(parseFloat(c.pago_valor||c.rec)||0),0);
+    document.getElementById('finMobReceber').textContent='R$ '+fmt(_aRec);
+    document.getElementById('finMobRecebido').textContent='R$ '+fmt(_recebido);
+  }
   if(!lista.length){
     document.getElementById('finLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut);font-size:13px">🎉 Nenhuma ordem neste filtro</div>';
     return;
@@ -7146,12 +7228,18 @@ function filtrarCobertura(){
     el.style.display=!q||el.dataset.bairro.includes(q)?'':'none';
   });
 }
+function _fornMobTabAtivo(tab){
+  ['lista','cobertura'].forEach(t=>{
+    const b=document.getElementById('fornMobTab_'+t);
+    if(b){b.style.background=t===tab?'var(--acc2)':'none';b.style.color=t===tab?'var(--acc)':'var(--mut2)';}
+  });
+}
 function toggleFornFiltroAtivos(){
   const btn=document.getElementById('fornFiltroAtivos');
-  const ativo=btn.dataset.ativo==='1'?'0':'1';
-  btn.dataset.ativo=ativo;
-  btn.style.color=ativo==='1'?'var(--acc)':'var(--mut2)';
-  btn.style.fontWeight=ativo==='1'?'700':'400';
+  const btnMob=document.getElementById('fornMobTab_ativos');
+  const ativo=btn?btn.dataset.ativo==='1'?'0':'1':(btnMob?btnMob.dataset.ativo==='1'?'0':'1':'0');
+  if(btn){btn.dataset.ativo=ativo;btn.style.color=ativo==='1'?'var(--acc)':'var(--mut2)';btn.style.fontWeight=ativo==='1'?'700':'400';}
+  if(btnMob){btnMob.dataset.ativo=ativo;btnMob.style.color=ativo==='1'?'var(--acc)':'var(--mut2)';btnMob.style.fontWeight=ativo==='1'?'700':'500';}
   renderForns();
 }
 function renderForns(){
