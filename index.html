@@ -6117,6 +6117,39 @@ async function confirmarBaixaExtrato(){
   }
   renderBoard();renderStats();renderFinanceiro();renderInadBadge();
   toast('✅ '+cnt+' ordem'+(cnt!==1?'ns':'')+' baixada'+(cnt!==1?'s':'')+'!');
+
+  // ── GRP PARCIAL: criar novo GRP automático para ordens restantes ──
+  if(desmarcadasGrp.size>0){
+    // Coletar as ordens que ficaram de fora (desmarcadas) e ainda não pagas
+    const restantes=ordens.filter(o=>desmarcadasGrp.has(o.id)&&!o.pago&&o.col!=='orcamento'&&o.col!=='concluido');
+    if(restantes.length>0){
+      // Agrupar por celular (mesmo critério do GRP normal)
+      const porCel={};
+      restantes.forEach(o=>{
+        const cel=(o.cel||'').replace(/\D/g,'')||('__'+o.id);
+        if(!porCel[cel])porCel[cel]=[];
+        porCel[cel].push(o);
+      });
+      let novosGrps=0;
+      for(const grupo of Object.values(porCel)){
+        // ID do novo GRP = crm_id numérico mais alto do grupo (mesmo que o sistema usa para casar)
+        const maxCrmId=grupo.reduce((max,o)=>{
+          const n=parseInt((o.crm_id||'').replace(/\D/g,''),10)||0;
+          return n>max?n:max;
+        },0);
+        if(!maxCrmId)continue;
+        const novoGrpId='GRP'+String(maxCrmId).padStart(8,'0');
+        // Registrar no log de cada ordem restante
+        for(const o of grupo){
+          try{addLog(o.id,'GRP criado automaticamente','Novo agrupamento: '+novoGrpId+' (restante de baixa parcial)');}catch(e){}
+        }
+        novosGrps++;
+        // Toast informativo com o novo GRP ID
+        setTimeout(()=>toast('🔗 Novo GRP criado: '+novoGrpId+' ('+grupo.length+' ordem'+(grupo.length!==1?'ns':'')+')')  ,800*novosGrps);
+      }
+    }
+  }
+
   // Salvar horário da última conciliação no banco (usado pelo tracking)
   try{await api('config?chave=eq.ultima_conciliacao','PATCH',{valor:agora},tok());}catch(e){}
   _extratoDados=[];_extratoConfirm=[];
