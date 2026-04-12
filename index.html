@@ -324,6 +324,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .dash-card-label{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
 .dash-card-val{font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:-.5px}
 .dash-card-sub{font-size:11px;color:var(--mut2);margin-top:4px}
+.dash-section{margin-bottom:24px}
+.dash-sec-title{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;padding:0 0 8px;border-bottom:1px solid var(--bor);margin-bottom:12px}
+.dash-bar-wrap{height:3px;background:var(--bor2);border-radius:4px;overflow:hidden;margin-top:10px}
+.dash-bar{height:100%;border-radius:4px;transition:width .3s}
+.dash-table{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);overflow:hidden}
+.dash-row{padding:10px 14px;border-bottom:1px solid var(--bor)}
+.dash-row:last-child{border-bottom:none}
+.dash-row-nome{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-row-info{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.dash-row-sub{font-size:11px;color:var(--mut2)}
+.dash-row-val{font-size:12px;font-weight:700;color:var(--txt);font-family:var(--mono)}
 
 /* ── RELATÓRIOS ── */
 .rel-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:20px}
@@ -5832,27 +5843,177 @@ function renderDash(){
   }
   const [ano,mes]=ms.value.split('-').map(Number);
   document.getElementById('dashPeriodo').textContent=ms.options[ms.selectedIndex]?.text||'';
-  const src=ordens.filter(c=>{if(!c.data)return false;if(c.col==='orcamento')return false;const d=new Date(c.data+'T12:00:00');return d.getMonth()+1===mes&&d.getFullYear()===ano;});
+
+  // ── fonte de dados ──
+  const src=ordens.filter(c=>{
+    if(!c.data)return false;
+    if(c.col==='orcamento')return false;
+    const d=new Date(c.data+'T12:00:00');
+    return d.getMonth()+1===mes&&d.getFullYear()===ano;
+  });
+
+  // orçamentos do mês (para conversão)
+  const orcMes=ordens.filter(c=>{
+    if(!c.created_at)return false;
+    const d=new Date(c.created_at);
+    return c.col==='orcamento'&&d.getMonth()+1===mes&&d.getFullYear()===ano;
+  });
+
+  // ── financeiro ──
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const mg=tr-tc;
-  const pagos=src.filter(c=>c.pago).length;
-  const inad=src.filter(c=>c.col==='inadimp').length;
   const nfs=src.filter(c=>c.nf_num).length;
-  // Usa a taxa salva em cada ordem (ou a atual se não tiver)
   const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+(parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
   const mgLiq=mg-imp;
-  document.getElementById('dashGrid').innerHTML=`
-    <div class="dash-card"><div class="dash-card-label">Ordens</div><div class="dash-card-val" style="color:var(--acc)">${src.length}</div><div class="dash-card-sub">${pagos} pagas · ${src.length-pagos} pendentes</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Receita</div><div class="dash-card-val" style="color:var(--g)">R$ ${fmts(tr)}</div><div class="dash-card-sub">Ticket médio R$ ${src.length?fmts(tr/src.length):'0'}</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Custo</div><div class="dash-card-val" style="color:var(--r)">R$ ${fmts(tc)}</div><div class="dash-card-sub">${forns.length} fornecedores ativos</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Margem bruta</div><div class="dash-card-val" style="color:var(--b)">R$ ${fmts(mg)}</div><div class="dash-card-sub">${tr>0?Math.round(mg/tr*100):0}% de margem</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Imposto NF ${_taxaNF}%</div><div class="dash-card-val" style="color:#f97316">R$ ${fmts(imp)}</div><div class="dash-card-sub">${nfs} ordens com NF</div></div>
-    <div class="dash-card admin-only"><div class="dash-card-label">Margem líquida</div><div class="dash-card-val" style="color:var(--b)">${tr>0?'R$ '+fmts(mgLiq):'-'}</div><div class="dash-card-sub">${tr>0?Math.round(mgLiq/tr*100):0}% real</div></div>
-    <div class="dash-card"><div class="dash-card-label">Inadimplência</div><div class="dash-card-val" style="color:var(--r)">${inad}</div><div class="dash-card-sub">ordens inadimplentes</div></div>
-  `;
-  document.querySelectorAll('#dashGrid .admin-only').forEach(el=>el.style.display=isAdmin()?'block':'none');
-  if(isAdmin()) document.getElementById('dashCharts').innerHTML=`<div style="text-align:center;padding:20px;color:var(--mut2);font-size:12px">⚙️ Configurações disponíveis em <a href="#" onclick="setViewMob('config')" style="color:var(--acc)">Configurações</a></div>`;
+
+  // ── operacional ──
+  const pagos=src.filter(c=>c.pago).length;
+  const inad=src.filter(c=>c.col==='inadimp').length;
+  const inadVal=src.filter(c=>c.col==='inadimp').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const recebido=src.filter(c=>c.pago).reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const aReceber=src.filter(c=>!c.pago&&c.col!=='inadimp'&&c.col!=='concluido').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const canceladas=src.filter(c=>c.cancel_motivo&&c.col==='concluido').length;
+  const fornPagos=src.filter(c=>c.forn_pago).length;
+  const ticket=src.length?tr/src.length:0;
+
+  // conversão: orçamentos → ordens no mesmo mês
+  const orcTotal=orcMes.length+src.length;
+  const taxaConv=orcTotal>0?Math.round(src.length/orcTotal*100):0;
+
+  // tempo médio no funil (criação → concluido_em ou hoje)
+  const comData=src.filter(c=>c.created_at);
+  let tempoMedio=0;
+  if(comData.length){
+    const soma=comData.reduce((s,c)=>{
+      const ini=new Date(c.created_at);
+      const fim=c.concluido_em?new Date(c.concluido_em):new Date();
+      return s+Math.max(0,(fim-ini)/(1000*60*60*24));
+    },0);
+    tempoMedio=soma/comData.length;
+  }
+
+  // ── ranking bairros (top 5) ──
+  const bairroMap={};
+  src.forEach(c=>{
+    const b=(c.bairro||'Sem bairro').trim();
+    if(!bairroMap[b])bairroMap[b]={n:0,rec:0};
+    bairroMap[b].n++;
+    bairroMap[b].rec+=parseFloat(c.rec)||0;
+  });
+  const topBairros=Object.entries(bairroMap).sort((a,b)=>b[1].rec-a[1].rec).slice(0,5);
+  const maxBRec=topBairros[0]?topBairros[0][1].rec:1;
+
+  // ── ranking fornecedores (top 5) ──
+  const fornMap={};
+  src.forEach(c=>{
+    if(!c.forn_id)return;
+    const f=forns.find(x=>x.id===c.forn_id);
+    const nome=f?.nome||'Forn. '+c.forn_id.slice(0,6);
+    if(!fornMap[nome])fornMap[nome]={n:0,cst:0};
+    fornMap[nome].n++;
+    fornMap[nome].cst+=parseFloat(c.cst)||0;
+  });
+  const topForns=Object.entries(fornMap).sort((a,b)=>b[1].n-a[1].n).slice(0,5);
+  const maxFN=topForns[0]?topForns[0][1].n:1;
+
+  // ── ranking vendedores (top 5) ──
+  const vendMap={};
+  src.forEach(c=>{
+    if(!c.usuario_id)return;
+    const u=usuarios.find(x=>x.id===c.usuario_id);
+    const nome=u?.nome||u?.email||'Usuário';
+    if(!vendMap[nome])vendMap[nome]={n:0,rec:0};
+    vendMap[nome].n++;
+    vendMap[nome].rec+=parseFloat(c.rec)||0;
+  });
+  const topVends=Object.entries(vendMap).sort((a,b)=>b[1].rec-a[1].rec).slice(0,5);
+  const maxVRec=topVends[0]?topVends[0][1].rec:1;
+
+  // ── helpers de renderização ──
+  const pct=(v,max)=>max>0?Math.round(v/max*100):0;
+  const dc=(lbl,val,sub,cor,extra='')=>`
+    <div class="dash-card">
+      <div class="dash-card-label">${lbl}</div>
+      <div class="dash-card-val" style="color:${cor}">${val}</div>
+      <div class="dash-card-sub">${sub}</div>
+      ${extra}
+    </div>`;
+  const dsec=(title)=>`<div class="dash-sec-title">${title}</div>`;
+  const dbar=(pct,cor)=>`<div class="dash-bar-wrap"><div class="dash-bar" style="width:${pct}%;background:${cor}"></div></div>`;
+  const drow=(nome,n,val,pct,cor)=>`
+    <div class="dash-row">
+      <div class="dash-row-nome">${nome}</div>
+      <div class="dash-row-info">
+        <span class="dash-row-sub">${n}</span>
+        <span class="dash-row-val">${val}</span>
+      </div>
+      ${dbar(pct,cor)}
+    </div>`;
+
+  // ── monta HTML ──
+  const admin=isAdmin();
+  let html='';
+
+  // BLOCO 1 — KPIs principais
+  html+=`<div class="dash-grid" id="dashGrid">
+    ${dc('Ordens no mês',src.length,`${pagos} pagas · ${src.length-pagos} pendentes`,'var(--acc)')}
+    ${admin?dc('Receita bruta','R$ '+fmts(tr),'Ticket médio R$ '+fmts(ticket),'var(--g)'):''}
+    ${admin?dc('Custo total','R$ '+fmts(tc),`${Object.keys(fornMap).length} fornecedores usados`,'var(--r)'):''}
+    ${admin?dc('Margem líquida',tr>0?'R$ '+fmts(mgLiq):'-',`${tr>0?Math.round(mgLiq/tr*100):0}% real · imposto R$ ${fmts(imp)}`,'var(--b)'):''}
+    ${dc('Inadimplência',inad,`${inad} ordens · ${tr>0?Math.round(inadVal/tr*100):0}% da receita`,'var(--r)')}
+    ${dc('Cancelamentos',canceladas,`${src.length>0?Math.round(canceladas/src.length*100):0}% das ordens`,canceladas>0?'#f97316':'var(--mut2)')}
+  </div>`;
+
+  // BLOCO 2 — Operacional
+  html+=`<div class="dash-section">
+    ${dsec('Operacional')}
+    <div class="dash-grid">
+      ${dc('Conversão orc→ordem',taxaConv+'%',`${src.length} ordens de ~${orcTotal} contatos`,'var(--acc)',dbar(taxaConv,'var(--acc)'))}
+      ${dc('Tempo médio no funil',tempoMedio.toFixed(1)+'d','da criação ao fechamento','var(--mut2)')}
+      ${admin?dc('Fornecedores pagos',fornPagos,`de ${src.filter(c=>c.forn_id).length} com fornecedor · ${src.filter(c=>c.forn_id).length>0?Math.round(fornPagos/src.filter(c=>c.forn_id).length*100):0}%`,'var(--g)',dbar(src.filter(c=>c.forn_id).length>0?Math.round(fornPagos/src.filter(c=>c.forn_id).length*100):0,'var(--g)')):''}
+      ${admin?dc('Com nota fiscal',nfs,`${src.length>0?Math.round(nfs/src.length*100):0}% das ordens · imposto R$ ${fmts(imp)}`,'#f97316'):''}
+    </div>
+  </div>`;
+
+  // BLOCO 3 — Recebimento
+  if(admin) html+=`<div class="dash-section">
+    ${dsec('Recebimento do cliente')}
+    <div class="dash-grid">
+      ${dc('Já recebido','R$ '+fmts(recebido),`${pagos} ordens · ${tr>0?Math.round(recebido/tr*100):0}% da receita`,'var(--g)',dbar(tr>0?Math.round(recebido/tr*100):0,'var(--g)'))}
+      ${dc('A receber','R$ '+fmts(aReceber),`${src.filter(c=>!c.pago&&c.col!=='inadimp'&&c.col!=='concluido').length} ordens pendentes`,'var(--acc)')}
+      ${dc('Inadimplente','R$ '+fmts(inadVal),`${inad} ordens em aberto`,'var(--r)')}
+    </div>
+  </div>`;
+
+  // BLOCO 4 — Top Bairros
+  if(topBairros.length) html+=`<div class="dash-section">
+    ${dsec('Top bairros por receita')}
+    <div class="dash-table">
+      ${topBairros.map(([nome,d])=>drow(nome,d.n+' ordens','R$ '+fmts(d.rec),pct(d.rec,maxBRec),'var(--acc)')).join('')}
+    </div>
+  </div>`;
+
+  // BLOCO 5 — Top Fornecedores (admin)
+  if(admin&&topForns.length) html+=`<div class="dash-section">
+    ${dsec('Top fornecedores por ordens')}
+    <div class="dash-table">
+      ${topForns.map(([nome,d])=>drow(nome,d.n+' ordens',admin?'R$ '+fmts(d.cst)+' custo':'',pct(d.n,maxFN),'var(--r)')).join('')}
+    </div>
+  </div>`;
+
+  // BLOCO 6 — Top Vendedores (admin)
+  if(admin&&topVends.length) html+=`<div class="dash-section">
+    ${dsec('Top vendedores por receita')}
+    <div class="dash-table">
+      ${topVends.map(([nome,d])=>drow(nome,d.n+' ordens','R$ '+fmts(d.rec),pct(d.rec,maxVRec),'var(--b)')).join('')}
+    </div>
+  </div>`;
+
+  html+=`<div style="height:32px"></div>`;
+
+  document.getElementById('dashCharts').innerHTML=html;
+  document.getElementById('dashGrid').innerHTML=''; // grid legado vazio
 }
 
 // ── CONFIGURAÇÕES ──
