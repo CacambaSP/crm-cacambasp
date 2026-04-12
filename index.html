@@ -410,6 +410,35 @@ input[type=checkbox]:checked::after{
 .bnb-ico{font-size:18px;line-height:1}
 .bnb-badge{position:absolute;top:4px;right:50%;transform:translateX(14px);background:var(--r);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:8px;min-width:14px;text-align:center;display:none}
 .bnb-badge.show{display:block}
+/* ── ALERTAS ── */
+.alerta-sec{margin-bottom:16px}
+.alerta-sec-hd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:6px 0 8px;border-bottom:2px solid var(--bor);margin-bottom:8px}
+.alerta-cnt{margin-left:auto;background:var(--r);color:#fff;font-size:10px;padding:1px 7px;border-radius:20px}
+.alerta-inad{color:var(--r)}
+.alerta-crit{color:#f6a053}
+.alerta-atencao{color:#e6b84a}
+.alerta-orc{color:var(--acc)}
+.alerta-entrega{color:#818cf8}
+.alerta-card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s}
+.alerta-card:active{opacity:.8}
+.alerta-card-inad{border-left:3px solid var(--r)}
+.alerta-card-crit{border-left:3px solid #f6a053}
+.alerta-card-atencao{border-left:3px solid #e6b84a}
+.alerta-card-orc{border-left:3px solid var(--acc)}
+.alerta-card-entrega{border-left:3px solid #818cf8}
+.alerta-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:8px}
+.alerta-nome{font-size:14px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+.alerta-val{font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0}
+.alerta-card-bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.alerta-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.alerta-tag-inad{background:var(--r2);color:var(--r)}
+.alerta-tag-crit{background:rgba(221,107,32,.12);color:#f6a053}
+.alerta-tag-atencao{background:rgba(214,158,46,.12);color:#e6b84a}
+.alerta-tag-orc{background:var(--acc2);color:var(--acc)}
+.alerta-tag-entrega{background:var(--b2);color:#818cf8}
+.alerta-sub{font-size:11px;color:var(--mut2)}
+.alerta-dias{font-size:11px;color:var(--mut2);margin-left:auto}
+.alerta-actions{display:flex;gap:6px;margin-top:2px}
 
 @media(max-width:700px){
   :root{--sidebar:260px}
@@ -437,15 +466,7 @@ input[type=checkbox]:checked::after{
   .fin-row-bot{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
   .fin-acts{flex-shrink:0}
   .fin-action{padding:5px 10px;font-size:11px}
-  .fin-mob-summary{display:flex!important}
-  .forn-mob-tabs{display:flex!important}
-  .mob-equipe-card{display:flex!important}
-  .mob-equipe-resumo{display:grid!important}
   .forn-desk-tabs{display:none!important}
-  #comTabsDesk{display:none!important}
-  #comTabsMob{display:flex!important}
-  #equipeResumoMob{display:grid!important}
-  #finMobSummary{display:flex!important}
   .status-blocks{grid-template-columns:1fr}
   .fi-row{grid-template-columns:1fr}
   .dash-grid{grid-template-columns:1fr 1fr}
@@ -515,6 +536,7 @@ input[type=checkbox]:checked::after{
         <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nb-ico">🔄</span> Conciliação</button>
         <button class="nb" id="nav-pgforn" onclick="setViewMob('pgforn')"><span class="nb-ico">💰</span> Pagar Fornecedor</button>
         <button class="nb" id="nav-cobr" onclick="setViewMob('cobr')"><span class="nb-ico">📲</span> Cobrança Auto<span class="nb-badge" id="cobrBadge" style="display:none">0</span></button>
+        <button class="nb" id="nav-alertas" onclick="setViewMob('alertas')"><span class="nb-ico">🔔</span> Alertas<span class="nb-badge" id="alertasSbBadge" style="display:none">0</span></button>
         <button class="nb admin-only" id="nav-rel" onclick="setViewMob('rel')"><span class="nb-ico">📈</span> Relatórios</button>
         <button class="nb admin-only" id="nav-nf" onclick="setViewMob('nf')"><span class="nb-ico">🧾</span> Notas Fiscais</button>
         <div class="sb-section">Cadastros</div>
@@ -788,6 +810,17 @@ input[type=checkbox]:checked::after{
             <div class="ph-title">Usuários</div>
             <button class="btn btn-acc btn-sm" onclick="openUsrModal()">+ Novo Usuário</button>
           </div>
+          <!-- Resumo mobile -->
+          <div class="usr-mob-summary" id="usrMobSummary" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px;text-align:center">
+              <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Admins</div>
+              <div id="usrMobAdmins" style="font-size:18px;font-weight:800;color:var(--acc);font-family:var(--mono)">0</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px;text-align:center">
+              <div style="font-size:9px;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Operadores</div>
+              <div id="usrMobOps" style="font-size:18px;font-weight:800;color:var(--b);font-family:var(--mono)">0</div>
+            </div>
+          </div>
           <div id="usrLista"></div>
         </div>
       </div>
@@ -848,6 +881,20 @@ input[type=checkbox]:checked::after{
         <div class="pw" style="max-width:500px">
           <div class="ph"><div class="ph-title">Meu Perfil</div></div>
           <div id="perfilContent"></div>
+        </div>
+      </div>
+
+      <!-- ALERTAS -->
+      <div class="view" id="view-alertas">
+        <div class="pw" style="max-width:600px">
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div class="ph-title">🔔 Alertas</div>
+              <div class="ph-sub" id="alertasSubtitle">Pendências que precisam de atenção</div>
+            </div>
+            <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
+          </div>
+          <div id="alertasContent"></div>
         </div>
       </div>
 
@@ -1927,7 +1974,7 @@ async function _pollOrdens(forcar){
       checarNovasOrdens(novos);
       ordens=novos;
       await _rodarFluxoAutomatico();
-      renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge();
+      renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge(); _atualizarAlertasBadge();
       // Detectar nova ordem normal
       const qtdDepois=novos.filter(c=>c.col!=='orcamento').length;
       const qtdOrcDepois=novos.filter(c=>c.col==='orcamento').length;
@@ -1942,8 +1989,27 @@ const viewTitles={
   funil:'Funil de Ordens',financeiro:'Central Financeira',dash:'Dashboard',
   hist:'Histórico',conc:'Conciliação',pgforn:'Pagar Fornecedor',
   rel:'Relatórios',nf:'Notas Fiscais',forn:'Fornecedores',cobr:'Cobrança Auto',comissao:'Comissões',
-  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos',config:'⚙️ Configurações'
+  cli:'Clientes',usr:'Usuários',perfil:'Meu Perfil',orc:'📄 Orçamentos',config:'⚙️ Configurações',
+  alertas:'🔔 Alertas'
 };
+function _applyMobUI(v){
+  const isMob=window.innerWidth<=700;
+  // Financeiro: card resumo mobile
+  const finSum=document.getElementById('finMobSummary');
+  if(finSum) finSum.style.display=(isMob&&v==='financeiro')?'flex':'none';
+  // Fornecedores: tabs mobile vs desktop
+  document.querySelectorAll('.forn-mob-tabs').forEach(el=>el.style.display=isMob?'flex':'none');
+  // Comissões: tabs mobile + resumo
+  const comMob=document.getElementById('comTabsMob');
+  const comDesk=document.getElementById('comTabsDesk');
+  const eqRes=document.getElementById('equipeResumoMob');
+  if(comMob) comMob.style.display=(isMob&&v==='comissao')?'flex':'none';
+  if(comDesk) comDesk.style.display=(isMob&&v==='comissao')?'none':'';
+  if(eqRes) eqRes.style.display=(isMob&&v==='comissao')?'grid':'none';
+  // Usuários: resumo mobile
+  const usrSum=document.getElementById('usrMobSummary');
+  if(usrSum) usrSum.style.display=(isMob&&v==='usr')?'grid':'none';
+}
 function setView(v){
   track('view_'+v);
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('act'));
@@ -1955,6 +2021,7 @@ function setView(v){
   document.getElementById('topbarTitle').textContent=viewTitles[v]||v;
   const btnNova=document.getElementById('btnNova');
   btnNova.style.display=(['funil','financeiro','hist'].includes(v)?'inline-flex':'none');
+  _applyMobUI(v);
   if(v==='funil'){initFilters();renderBoard();renderStats();}
   if(v==='financeiro') renderFinanceiro();
   if(v==='dash') renderDash();
@@ -1971,10 +2038,11 @@ function setView(v){
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
   if(v==='orc') renderOrc();
+  if(v==='alertas') renderAlertas();
 }
 function setViewMob(v){if(window.innerWidth<=700)closeMobSidebar();setView(v);_syncBottomNav(v);}
 function _syncBottomNav(v){
-  ['funil','financeiro','hist'].forEach(id=>{
+  ['funil','financeiro','hist','alertas'].forEach(id=>{
     const b=document.getElementById('bnb-'+id);
     if(b)b.classList.toggle('act',id===v);
   });
@@ -2107,6 +2175,7 @@ function renderInadBadge(){
   const b=document.getElementById('inadBadge');
   b.textContent=n; b.style.display=n>0?'inline':'none';
   _atualizarCobrBadge();
+  _atualizarAlertasBadge();
 }
 function _atualizarCobrBadge(){
   const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
@@ -5528,15 +5597,14 @@ function renderFinanceiro(){
   document.getElementById('finTotLabel').textContent=totLabel;
   document.getElementById('finTotVal').textContent='R$ '+fmt(totVal);
   document.getElementById('finTotActs').innerHTML=totActs;
-  // Card resumo mobile
-  const _mobSum=document.getElementById('finMobSummary');
-  if(_mobSum&&window.innerWidth<=700){
-    const _todasAtivas=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
-    const _aRec=_todasAtivas.filter(c=>!c.pago).reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-    const _recebido=_todasAtivas.filter(c=>c.pago).reduce((s,c)=>s+(parseFloat(c.pago_valor||c.rec)||0),0);
-    document.getElementById('finMobReceber').textContent='R$ '+fmt(_aRec);
-    document.getElementById('finMobRecebido').textContent='R$ '+fmt(_recebido);
-  }
+  // Card resumo mobile — popula sempre, visibilidade controlada por _applyMobUI
+  const _todasAtivas=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
+  const _aRec=_todasAtivas.filter(c=>!c.pago).reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+  const _recebido=_todasAtivas.filter(c=>c.pago).reduce((s,c)=>s+(parseFloat(c.pago_valor||c.rec)||0),0);
+  const _elRec=document.getElementById('finMobReceber');
+  const _elRecbdo=document.getElementById('finMobRecebido');
+  if(_elRec) _elRec.textContent='R$ '+fmt(_aRec);
+  if(_elRecbdo) _elRecbdo.textContent='R$ '+fmt(_recebido);
   if(!lista.length){
     document.getElementById('finLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut);font-size:13px">🎉 Nenhuma ordem neste filtro</div>';
     return;
@@ -7747,21 +7815,52 @@ function renderCli(){
 function renderUsrs(){
   const el=document.getElementById('usrLista');
   if(!usuarios.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum usuário cadastrado</div>';return;}
-  el.innerHTML=usuarios.map(u=>`<div class="user-row">
-    <div class="user-info">
-      <div class="user-av" style="background:${u.nivel==='admin'?'rgba(245,166,35,.15)':'var(--b2)'};color:${u.nivel==='admin'?'var(--acc)':'var(--b)'}">${(u.nome||u.email||'?')[0].toUpperCase()}</div>
-      <div>
-        <div class="user-nm">${u.nome||'-'} ${u.id===_currentUser?.user?.id?'<span style="font-size:10px;color:var(--mut)">(você)</span>':''}</div>
-        <div class="user-rl">${u.email||'-'}</div>
+  // Popular resumo mobile
+  const nAdmins=usuarios.filter(u=>u.nivel==='admin').length;
+  const nOps=usuarios.filter(u=>u.nivel!=='admin').length;
+  const elA=document.getElementById('usrMobAdmins');
+  const elO=document.getElementById('usrMobOps');
+  if(elA) elA.textContent=nAdmins;
+  if(elO) elO.textContent=nOps;
+  const isMob=window.innerWidth<=700;
+  el.innerHTML=usuarios.map(u=>{
+    const isMe=u.id===_currentUser?.user?.id;
+    const avBg=u.nivel==='admin'?'rgba(245,166,35,.15)':'var(--b2)';
+    const avCor=u.nivel==='admin'?'var(--acc)':'var(--b)';
+    const inicial=(u.nome||u.email||'?')[0].toUpperCase();
+    if(isMob){
+      return `<div class="user-row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="user-info">
+          <div class="user-av" style="width:36px;height:36px;border-radius:10px;background:${avBg};color:${avCor}">${inicial}</div>
+          <div style="flex:1;min-width:0">
+            <div class="user-nm">${u.nome||'-'} ${isMe?'<span style="font-size:10px;color:var(--mut)">(você)</span>':''}</div>
+            <div class="user-rl">${u.email||'-'}</div>
+          </div>
+          <span class="role-badge ${u.nivel==='admin'?'role-admin':'role-op'}" style="flex-shrink:0">${u.nivel==='admin'?'👑 Admin':'👤 Op'}</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs btn-b" style="flex:1;justify-content:center" onclick="editarUsr('${u.id}')">✏️ Editar</button>
+          <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" class="btn btn-xs btn-acc" style="flex:1;justify-content:center;text-decoration:none">🔗 Link</a>
+          ${!isMe?`<button class="btn btn-xs btn-r" style="flex:1;justify-content:center" onclick="deletarUsr('${u.id}')">🗑 Excluir</button>`:`<button class="btn btn-xs" style="flex:1;justify-content:center;opacity:.3" disabled>🗑 Excluir</button>`}
+        </div>
+      </div>`;
+    }
+    return `<div class="user-row">
+      <div class="user-info">
+        <div class="user-av" style="background:${avBg};color:${avCor}">${inicial}</div>
+        <div>
+          <div class="user-nm">${u.nome||'-'} ${isMe?'<span style="font-size:10px;color:var(--mut)">(você)</span>':''}</div>
+          <div class="user-rl">${u.email||'-'}</div>
+        </div>
       </div>
-    </div>
-    <div class="user-acts">
-      <span class="role-badge ${u.nivel==='admin'?'role-admin':'role-op'}">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</span>
-      <span style="font-size:11px;color:var(--mut2)">Link: <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
-      <button class="btn btn-xs btn-b" onclick="editarUsr('${u.id}')">✏️ Editar</button>
-      ${u.id!==_currentUser?.user?.id?`<button class="btn btn-xs btn-r" onclick="deletarUsr('${u.id}')">🗑</button>`:''}
-    </div>
-  </div>`).join('');
+      <div class="user-acts">
+        <span class="role-badge ${u.nivel==='admin'?'role-admin':'role-op'}">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</span>
+        <span style="font-size:11px;color:var(--mut2)">Link: <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
+        <button class="btn btn-xs btn-b" onclick="editarUsr('${u.id}')">✏️ Editar</button>
+        ${!isMe?`<button class="btn btn-xs btn-r" onclick="deletarUsr('${u.id}')">🗑</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
 }
 function openUsrModal(){
   document.getElementById('usrModalTitle').textContent='Novo Usuário';
@@ -8420,6 +8519,190 @@ function _atualizarOrcBadge(){
   }
 }
 
+// ── ALERTAS ──
+function _atualizarAlertasBadge(){
+  const inadimp = ordens.filter(c=>c.col==='inadimp').length;
+  const criticos = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).length;
+  const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
+  const entregaConf = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
+  const cobrPend = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
+  const total = inadimp + criticos + orcPend + entregaConf + cobrPend;
+  // Badge no bottom nav
+  const bnbB = document.getElementById('alertasBnbBadge');
+  if(bnbB){ bnbB.textContent=total>99?'99+':total; bnbB.classList.toggle('show',total>0); }
+  // Badge no sidebar
+  const sbB = document.getElementById('alertasSbBadge');
+  if(sbB){ sbB.textContent=total>99?'99+':total; sbB.style.display=total>0?'inline-flex':'none'; }
+  return {inadimp, criticos, orcPend, entregaConf, cobrPend, total};
+}
+
+function renderAlertas(){
+  const el = document.getElementById('alertasContent');
+  if(!el) return;
+  const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
+
+  // Inadimplentes
+  const listaInad = ordens.filter(c=>c.col==='inadimp').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  // Críticos (não inadimp, mas acima do threshold)
+  const listaCrit = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  // Cobranças (atenção, acima de alerta mas abaixo de crítico)
+  const listaCobr = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  // Orçamentos não lidos
+  const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const listaOrc = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  // Entregas aguardando confirmação
+  const listaEntrega = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c));
+
+  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
+
+  const sub = document.getElementById('alertasSubtitle');
+  if(sub) sub.textContent = total === 0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
+
+  if(total===0){
+    el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
+      <div style="font-size:48px">✅</div>
+      <div style="font-size:16px;font-weight:600;color:var(--txt)">Tudo em dia!</div>
+      <div style="font-size:13px;text-align:center">Nenhum alerta pendente no momento.</div>
+    </div>`;
+    return;
+  }
+
+  const fmt = (c) => {
+    const dias = diasEmAberto(c);
+    const nome = c.cli_nome||c.cliente||'—';
+    const val = c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+    const bairro = c.bairro||'';
+    return {dias, nome, val, bairro};
+  };
+
+  let html = '';
+
+  // ── Seção 1: Inadimplentes ──
+  if(listaInad.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
+      ${listaInad.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();setViewMob('cobr')" style="font-size:11px;padding:4px 10px">📋 Cobrança</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Seção 2: Críticos (não inadimp) ──
+  if(listaCrit.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — Sem pagamento +${COBR_DIAS_CRITICO}d <span class="alerta-cnt">${listaCrit.length}</span></div>
+      ${listaCrit.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver Ordem</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Seção 3: Cobranças (atenção) ──
+  if(listaCobr.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — Cobrança pendente +${COBR_DIAS_ALERTA}d <span class="alerta-cnt">${listaCobr.length}</span></div>
+      ${listaCobr.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Seção 4: Orçamentos aguardando ──
+  if(listaOrc.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-orc">📄 Orçamentos aguardando aprovação <span class="alerta-cnt">${listaOrc.length}</span></div>
+      ${listaOrc.map(c=>{
+        const nome=c.cli_nome||c.cliente||'—';
+        const val=c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+        const bairro=c.bairro||'';
+        const dt=(c.created_at||c.data||'').slice(0,10).split('-').reverse().join('/');
+        return `<div class="alerta-card alerta-card-orc" onclick="setViewMob('orc')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-orc">📋 Orçamento</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dt}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Seção 5: Entregas a confirmar ──
+  if(listaEntrega.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas aguardando confirmação <span class="alerta-cnt">${listaEntrega.length}</span></div>
+      ${listaEntrega.map(c=>{
+        const nome=c.cli_nome||c.cliente||'—';
+        const bairro=c.bairro||'';
+        const hr=getHoraEntrega(c);
+        const hrStr=hr?hr.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—';
+        return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">⏰ ${hrStr}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-entrega">🚚 Confirmar entrega</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
 // ── Popular filtro de vendedor ──
 function _popularFiltroVendOrc(){
   if(!isAdmin()) return;
@@ -8978,6 +9261,11 @@ function enviarWaOrc(id){
     <button class="bnb" id="bnb-hist" onclick="setViewMob('hist')">
       <span class="bnb-ico">🏆</span>
       Histórico
+    </button>
+    <button class="bnb" id="bnb-alertas" onclick="setViewMob('alertas')" style="position:relative">
+      <span class="bnb-ico">🔔</span>
+      <span class="bnb-badge" id="alertasBnbBadge">0</span>
+      Alertas
     </button>
     <button class="bnb" id="bnb-mais" onclick="toggleBottomMenu()">
       <span class="bnb-ico">⋯</span>
