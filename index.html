@@ -1562,20 +1562,46 @@ async function trocarFornecedor(id){
   const avisoCliente=c.pago?'\n\n⚠️ Pagamento do cliente já registrado — será mantido.':'';
   const textoCancelamento='❌ CANCELAMENTO · 📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPedimos desculpas pelo transtorno.\n_CaçambaSP_';
 
-  // Abrir modal de cancelamento com opção de enviar WA
-  _abrirModalWAForn({
-    titulo: '❌ Cancelar com '+nomeForn+'?'+avisoCliente,
-    textoInicial: textoCancelamento,
-    btnEnviar: '📲 Enviar cancelamento e remover',
-    btnSemWA: 'Já cancelei, remover',
-    onEnviar: async (txt) => {
-      _waFornAbrir(fornAntes, txt);
-      await _executarRemocaoFornecedor(id, c, nomeForn);
-    },
-    onSemWA: async () => {
-      await _executarRemocaoFornecedor(id, c, nomeForn);
-    }
+  // Se o detail panel está aberto para esta ordem, usar mini-modal inline
+  const elInline = document.getElementById('d_forn_wa_modal');
+  if(elInline && _detailId === id){
+    _abrirModalWAForn({
+      titulo: '❌ Cancelar com '+nomeForn+'?'+avisoCliente,
+      textoInicial: textoCancelamento,
+      btnEnviar: '📲 Enviar cancelamento e remover',
+      btnSemWA: 'Já cancelei, remover',
+      onEnviar: async (txt) => {
+        _waFornAbrir(fornAntes, txt);
+        await _executarRemocaoFornecedor(id, c, nomeForn);
+      },
+      onSemWA: async () => {
+        await _executarRemocaoFornecedor(id, c, nomeForn);
+      }
+    });
+    return;
+  }
+  // Fallback: chamado direto do card Kanban — usar showConfirm + opção WA
+  const avisoBody = c.pago ? '<br><span style="color:#f59e0b;font-size:11px">⚠️ Pagamento do cliente será mantido.</span>' : '';
+  const ok = await showConfirm({
+    ico: '🔄',
+    title: 'Remover '+nomeForn+'?',
+    body: 'A ordem volta para <b>Contratar Fornecedor</b>.'+avisoBody,
+    ok: 'Remover',
+    okClass: 'btn-r',
+    cancel: 'Cancelar'
   });
+  if(!ok) return;
+  // Perguntar se quer enviar WA
+  const enviarWA = fornAntes?.wa_link ? await showConfirm({
+    ico: '📲',
+    title: 'Avisar '+nomeForn+'?',
+    body: 'Enviar mensagem de cancelamento no WhatsApp?',
+    ok: 'Sim, enviar WA',
+    okClass: 'btn-wa',
+    cancel: 'Não enviar'
+  }) : false;
+  if(enviarWA) _waFornAbrir(fornAntes, textoCancelamento);
+  await _executarRemocaoFornecedor(id, c, nomeForn);
 }
 
 async function _executarRemocaoFornecedor(id, c, nomeForn){
