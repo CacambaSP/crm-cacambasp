@@ -4018,9 +4018,9 @@ async function confirmarDuplicarOrdem(){
   const tipoNovo = _dupTipo==='troca' ? 'Troca' : (orig.tipo||'Nova coloca');
   const dataNova = document.getElementById('dup_data').value || new Date().toISOString().slice(0,10);
   const obsNova  = document.getElementById('dup_obs').value.trim();
-  const crmId = await nextCrmId('LC');
+  // Cria ordem com crm_id temporário para render imediato (sem esperar API)
   const novaOrdem = {
-    id: uid(), crm_id: crmId, col: 'contratar',
+    id: uid(), crm_id: '...', col: 'contratar',
     nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
     logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
     tipo: tipoNovo, data: dataNova, obs: obsNova,
@@ -4037,6 +4037,12 @@ async function confirmarDuplicarOrdem(){
   setTimeout(()=>{ const el=document.getElementById('card_'+novaOrdem.id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },120);
   try{
     setSyncDot('sync');
+    // Busca o próximo crm_id em paralelo ao render (não bloqueia mais a UI)
+    const crmId = await nextCrmId('LC');
+    novaOrdem.crm_id = crmId;
+    // Atualiza o chip do card que já está no board
+    const chipEl = document.querySelector('#card_'+novaOrdem.id+' .chip.acc');
+    if(chipEl) chipEl.textContent = crmId;
     await api('ordens','POST',novaOrdem,tok());
     setSyncDot('ok');
     addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
@@ -8951,7 +8957,9 @@ function _atualizarAlertasBadge(){
   const orcPend    = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
   const entregaConf= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
   const cobrPend   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
-  const total = inadimp + criticos + orcPend + entregaConf + cobrPend;
+  // Ordens na coluna "contratar" sem fornecedor atribuído (visível só para admin)
+  const semForn    = isAdmin() ? ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&c.col!=='concluido').length : 0;
+  const total = inadimp + criticos + orcPend + entregaConf + cobrPend + semForn;
   // Badge no bottom nav
   const bnbB = document.getElementById('alertasBnbBadge');
   if(bnbB){ bnbB.textContent=total>99?'99+':total; bnbB.classList.toggle('show',total>0); }
@@ -8965,7 +8973,7 @@ function _atualizarAlertasBadge(){
     return {uid, nome:u?.nome||'?', n:alertaOrdens.filter(o=>o.usuario_id===uid).length};
   });
   _renderVendBadges('alertasVendBadges', counts);
-  return {inadimp, criticos, orcPend, entregaConf, cobrPend, total};
+  return {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, total};
 }
 
 function renderAlertas(){
@@ -8994,7 +9002,9 @@ function renderAlertas(){
   const listaEntregaOut = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
 
   const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
-  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
+  // Ordens sem fornecedor (só admin vê)
+  const listaSemForn = isAdmin() ? ordens.filter(c=>c.col==='contratar'&&!c.forn_id).sort((a,b)=>(a.criado_em||'').localeCompare(b.criado_em||'')) : [];
+  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length;
 
   const sub = document.getElementById('alertasSubtitle');
   if(sub) sub.textContent = total === 0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
@@ -9134,6 +9144,32 @@ function renderAlertas(){
           </div>
           <div class="alerta-actions">
             <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Seção 6: Sem fornecedor (só admin) ──
+  if(listaSemForn.length){
+    html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.3);color:#f5a623">
+        🏗️ Sem fornecedor atribuído <span class="alerta-cnt" style="background:rgba(245,166,35,.2);color:#f5a623">${listaSemForn.length}</span>
+      </div>
+      ${listaSemForn.map(c=>{
+        const vend = usuarios.find(u=>u.id===c.usuario_id);
+        return `<div class="alerta-card" style="background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);cursor:pointer" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${c.logradouro||c.nome||'—'}</span>
+            <span class="alerta-val" style="color:#f5a623">R$ ${Number(c.rec||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.3)">🚫 Sem fornecedor</span>
+            ${c.bairro?`<span class="alerta-sub">${c.bairro}</span>`:''}
+            ${vend?`<span class="alerta-sub">👤 ${vend.nome}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px;background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.3)">🏗️ Atribuir Fornecedor</button>
           </div>
         </div>`;
       }).join('')}
