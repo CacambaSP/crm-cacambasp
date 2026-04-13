@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual do Vendedor — CaçambaSP CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f1e;
+  --sur: #111827;
+  --card: #1a2235;
+  --bor: #1e2d45;
+  --acc: #f5a623;
+  --acc2: rgba(245,166,35,.12);
+  --acc3: rgba(245,166,35,.3);
+  --azul: #2563eb;
+  --azul2: rgba(37,99,235,.12);
+  --verde: #16a34a;
+  --verde2: rgba(22,163,74,.12);
+  --verm: #dc2626;
+  --verm2: rgba(220,38,38,.12);
+  --roxo: #7c3aed;
+  --roxo2: rgba(124,58,237,.12);
+  --txt: #f1f5f9;
+  --mut: #64748b;
+  --mut2: #94a3b8;
+  --font: 'DM Sans', sans-serif;
+  --disp: 'Syne', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,166,35,.18) 0%, transparent 70%),
+              radial-gradient(ellipse 60% 50% at 80% 100%, rgba(37,99,235,.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--acc2);
+  border: 1px solid var(--acc3);
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--acc);
+  margin-bottom: 24px;
+  animation: fadeUp .6s ease both;
+}
+.hero h1 {
+  font-family: var(--disp);
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin-bottom: 16px;
+  animation: fadeUp .7s ease .1s both;
+}
+.hero h1 span { color: var(--acc); }
+.hero p {
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  color: var(--mut2);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 36px;
+  animation: fadeUp .7s ease .2s both;
+}
+.hero-btns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  animation: fadeUp .7s ease .3s both;
+}
+.btn-hero {
+  padding: 13px 28px;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all .2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-primary { background: var(--acc); color: #000; }
+.btn-primary:hover { background: #f0a020; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245,166,35,.3); }
+.btn-secondary { background: var(--card); color: var(--txt); border: 1px solid var(--bor); }
+.btn-secondary:hover { border-color: var(--acc3); transform: translateY(-2px); }
+
+/* ── NAV LATERAL ── */
+.layout { display: flex; min-height: 100vh; }
+.sidenav {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--sur);
+  border-right: 1px solid var(--bor);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 0;
+}
+.sidenav-logo {
+  font-family: var(--disp);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--acc);
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--bor);
+  margin-bottom: 12px;
+}
+.sidenav-logo span { color: var(--mut2); font-size: 11px; font-weight: 400; display: block; margin-top: 2px; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 13px;
+  color: var(--mut2);
+  cursor: pointer;
+  border-radius: 0;
+  text-decoration: none;
+  transition: all .15s;
+  border-left: 3px solid transparent;
+}
+.nav-item:hover { color: var(--txt); background: var(--acc2); border-left-color: var(--acc3); }
+.nav-item.active { color: var(--acc); background: var(--acc2); border-left-color: var(--acc); font-weight: 600; }
+.nav-ico { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+
+/* ── MAIN CONTENT ── */
+.main { flex: 1; padding: 40px 48px; max-width: 900px; }
+@media(max-width: 768px) {
+  .sidenav { display: none; }
+  .main { padding: 24px 20px; }
+}
+
+/* ── SEÇÕES ── */
+.section { margin-bottom: 64px; opacity: 0; transform: translateY(20px); transition: opacity .5s ease, transform .5s ease; }
+.section.visible { opacity: 1; transform: translateY(0); }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--bor);
+}
+.section-num {
+  width: 40px; height: 40px;
+  background: var(--acc);
+  color: #000;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--disp);
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.section-title {
+  font-family: var(--disp);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--txt);
+}
+.section-sub { font-size: 13px; color: var(--mut2); margin-top: 2px; }
+
+/* ── STEPS ── */
+.steps { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+.step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--card);
+  border: 1px solid var(--bor);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color .2s;
+}
+.step:hover { border-color: var(--acc3); }
+.step-n {
+  width: 28px; height: 28px;
+  background: var(--acc);
+  color: #000;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.step-txt { font-size: 14px; line-height: 1.6; color: var(--txt); padding-top: 3px; }
+.step-txt b { color: var(--acc); }
+
+/* ── CALLOUTS ── */
+.callout {
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.callout-ico { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.tip { background: var(--verde2); border: 1px solid rgba(22,163,74,.25); color: #86efac; }
+.warn { background: var(--verm2); border: 1px solid rgba(220,38,38,.25); color: #fca5a5; }
+.info { background: var(--azul2); border: 1px solid rgba(37,99,235,.25); color: #93c5fd; }
+
+/* ── TABELAS ── */
+.tbl-wrap { overflow-x: auto; margin: 16px 0; border-radius: 12px; border: 1px solid var(--bor); }
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: linear-gradient(135deg, var(--azul), #1d4ed8); }
+thead th { padding: 11px 14px; text-align: left; font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: .5px; }
+tbody tr { border-bottom: 1px solid var(--bor); transition: background .15s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--acc2); }
+tbody td { padding: 11px 14px; font-size: 13px; color: var(--mut2); }
+tbody td:first-child { color: var(--txt); font-weight: 600; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.badge-orange { background: var(--acc2); color: var(--acc); border: 1px solid var(--acc3); }
+.badge-blue   { background: var(--azul2); color: #93c5fd; border: 1px solid rgba(37,99,235,.3); }
+.badge-green  { background: var(--verde2); color: #86efac; border: 1px solid rgba(22,163,74,.3); }
+.badge-red    { background: var(--verm2); color: #fca5a5; border: 1px solid rgba(220,38,38,.3); }
+.badge-purple { background: var(--roxo2); color: #c4b5fd; border: 1px solid rgba(124,58,237,.3); }
+
+/* ── KANBAN VISUAL ── */
+.kanban-flow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0 16px;
+  align-items: center;
+}
+.kcard {
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--bor);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-width: 120px;
+  text-align: center;
+  position: relative;
+}
+.kcard::after {
+  content: '→';
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--mut);
+  font-size: 14px;
+}
+.kcard:last-child::after { display: none; }
+.kcard-ico { font-size: 22px; margin-bottom: 6px; }
+.kcard-name { font-size: 11px; font-weight: 700; color: var(--txt); }
+.kcard-sub { font-size: 10px; color: var(--mut2); margin-top: 2px; }
+
+/* ── GRID CARDS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+@media(max-width:600px){ .grid-2 { grid-template-columns: 1fr; } }
+.feat-card {
+  background: var(--card);
+  border: 1px solid var(--bor);
+  border-radius: 14px;
+  padding: 20px;
+  transition: all .2s;
+}
+.feat-card:hover { border-color: var(--acc3); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.feat-ico { font-size: 28px; margin-bottom: 10px; }
+.feat-title { font-family: var(--disp); font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.feat-desc { font-size: 13px; color: var(--mut2); line-height: 1.6; }
+
+/* ── MOBILE PREVIEW ── */
+.phone-mockup {
+  background: var(--card);
+  border: 2px solid var(--bor);
+  border-radius: 24px;
+  padding: 20px 16px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+.phone-nav {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 16px;
+  border-top: 1px solid var(--bor);
+  padding-top: 12px;
+}
+.pnav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  font-size: 9px;
+  color: var(--mut2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: .15s;
+}
+.pnav-btn.act { color: var(--acc); background: var(--acc2); }
+.pnav-ico { font-size: 18px; }
+
+/* ── PROGRESS INDICATOR ── */
+.progress-bar {
+  display: flex;
+  gap: 6px;
+  margin: 20px 0;
+  align-items: center;
+}
+.prog-step {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--bor);
+  position: relative;
+  cursor: pointer;
+  transition: background .2s;
+}
+.prog-step.done { background: var(--acc); }
+.prog-step.active { background: linear-gradient(90deg, var(--acc), #f0c060); }
+
+/* ── ANIMAÇÕES ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SEARCH ── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--bor);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 24px;
+  transition: border-color .2s;
+}
+.search-bar:focus-within { border-color: var(--acc3); }
+.search-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--txt);
+  font-family: var(--font);
+  font-size: 14px;
+}
+.search-bar input::placeholder { color: var(--mut); }
+
+/* ── TOP PROGRESS ── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--bor);
+  z-index: 999;
+}
+#topbar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--acc), #f0c060);
+  width: 0%;
+  transition: width .3s ease;
+}
+</style>
+</head>
+<body>
+
+<div id="topbar"><div id="topbar-fill"></div></div>
+
+<!-- ── HERO ── -->
+<section class="hero" id="home">
+  <div class="hero-badge">📱 CaçambaSP CRM v3.0</div>
+  <h1>Manual do<br><span>Vendedor</span></h1>
+  <p>Tudo que você precisa saber para usar o sistema no dia a dia — do orçamento ao pagamento.</p>
+  <div class="hero-btns">
+    <a href="#inicio" class="btn-hero btn-primary">🚀 Começar o Manual</a>
+    <a href="https://cacambasp-crm.vercel.app" target="_blank" class="btn-hero btn-secondary">🔗 Acessar o CRM</a>
+  </div>
+</section>
+
+<!-- ── LAYOUT COM SIDENAV ── -->
+<div class="layout" id="manual-layout">
+
+  <!-- Sidenav -->
+  <nav class="sidenav">
+    <div class="sidenav-logo">
+      CaçambaSP CRM
+      <span>Manual do Vendedor</span>
+    </div>
+    <a href="#acesso"    class="nav-item" data-section="acesso">    <span class="nav-ico">🔐</span> Acesso ao Sistema</a>
+    <a href="#orcamento" class="nav-item" data-section="orcamento"> <span class="nav-ico">📋</span> Criar Orçamento</a>
+    <a href="#pdf"       class="nav-item" data-section="pdf">       <span class="nav-ico">📄</span> Gerar PDF</a>
+    <a href="#converter" class="nav-item" data-section="converter"> <span class="nav-ico">✅</span> Converter em Pedido</a>
+    <a href="#kanban"    class="nav-item" data-section="kanban">    <span class="nav-ico">📊</span> Funil Kanban</a>
+    <a href="#whatsapp"  class="nav-item" data-section="whatsapp">  <span class="nav-ico">💬</span> WhatsApp & Pix</a>
+    <a href="#alertas"   class="nav-item" data-section="alertas">   <span class="nav-ico">🔔</span> Alertas</a>
+    <a href="#pagamento" class="nav-item" data-section="pagamento"> <span class="nav-ico">💰</span> Registrar Pagamentos</a>
+    <a href="#celular"   class="nav-item" data-section="celular">   <span class="nav-ico">📱</span> App Mobile</a>
+    <a href="#dicas"     class="nav-item" data-section="dicas">     <span class="nav-ico">💡</span> Dicas e Atalhos</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" id="searchInput" placeholder="Buscar no manual... (ex: orçamento, pagar, WhatsApp)" oninput="buscarManual(this.value)">
+    </div>
+
+    <!-- 1. ACESSO -->
+    <section class="section" id="acesso">
+      <div class="section-header">
+        <div class="section-num">1</div>
+        <div>
+          <div class="section-title">🔐 Acesso ao Sistema</div>
+          <div class="section-sub">Como entrar no CRM pelo computador ou celular</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="feat-card">
+          <div class="feat-ico">💻</div>
+          <div class="feat-title">Computador</div>
+          <div class="feat-desc">Acesse <b style="color:var(--acc)">cacambasp-crm.vercel.app</b> em qualquer navegador. Funciona melhor no Chrome.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">📱</div>
+          <div class="feat-title">Celular</div>
+          <div class="feat-desc">Acesse <b style="color:var(--acc)">cacambasp-crm.vercel.app/mobile.html</b> — versão otimizada para campo.</div>
+        </div>
+      </div>
+
+      <div class="callout tip"><span class="callout-ico">💡</span><div>Salve o link como atalho na tela inicial do celular para acesso com um toque.</div></div>
+      <div class="callout warn"><span class="callout-ico">⚠️</span><div>Nunca compartilhe sua senha. Cada vendedor tem login individual com código de acesso separado.</div></div>
+    </section>
+
+    <!-- 2. ORÇAMENTO -->
+    <section class="section" id="orcamento">
+      <div class="section-header">
+        <div class="section-num">2</div>
+        <div>
+          <div class="section-title">📋 Criar um Novo Orçamento</div>
+          <div class="section-sub">Quando um cliente entra em contato, comece por aqui</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-txt">Clique em <b>+ Nova Ordem</b> — botão laranja no topo da tela (ou ícone <b>+</b> no celular)</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-txt">Preencha: <b>Nome do cliente</b>, <b>WhatsApp</b>, <b>Endereço</b>, <b>Bairro</b>, <b>Tipo de resíduo</b></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-txt">Selecione <b>Orçamento</b> no tipo — ainda não é pedido confirmado</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-txt">Salve — o orçamento aparece na aba <b>Orçamentos</b> com código <b style="color:var(--acc)">ORC...</b></div></div>
+      </div>
+
+      <div class="callout tip"><span class="callout-ico">💡</span><div>Preencha o <b>CPF/CNPJ</b> quando disponível — ele aparece automaticamente no PDF do orçamento.</div></div>
+    </section>
+
+    <!-- 3. PDF -->
+    <section class="section" id="pdf">
+      <div class="section-header">
+        <div class="section-num">3</div>
+        <div>
+          <div class="section-title">📄 Gerar e Enviar o PDF</div>
+          <div class="section-sub">Crie um orçamento profissional para enviar ao cliente</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-txt">Vá em <b>Orçamentos</b> e clique no orçamento desejado</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-txt">Clique em <b>📄 Gerar Orçamento</b></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-txt">Preencha valor, validade e as condições de permanência</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-txt">Clique em <b>Abrir PDF</b> — uma nova aba abre com o documento formatado</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-txt">No navegador: <b>Ctrl+P → Salvar como PDF</b> e envie pelo WhatsApp</div></div>
+        <div class="step"><div class="step-n">6</div><div class="step-txt">Ou use o botão <b>💬 Salvar e Enviar WA</b> — abre o WhatsApp com mensagem pronta</div></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Campo</th><th>O que significa</th><th>Padrão</th></tr></thead>
+          <tbody>
+            <tr><td>Valor (R$)</td><td>Preço cobrado do cliente</td><td>—</td></tr>
+            <tr><td>Válido até</td><td>Data limite para o cliente aceitar</td><td>Hoje + 5 dias</td></tr>
+            <tr><td>Prazo de locação</td><td>Quantos dias a caçamba fica no local</td><td>7 dias</td></tr>
+            <tr><td>Permanência na rua</td><td>Dias úteis na calçada/via pública</td><td>3 dias úteis</td></tr>
+            <tr><td>Permanência no canteiro</td><td>Dias úteis dentro do canteiro</td><td>5 dias úteis</td></tr>
+            <tr><td>Observações</td><td>Tipo de resíduo, condições especiais</td><td>Livre</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. CONVERTER -->
+    <section class="section" id="converter">
+      <div class="section-header">
+        <div class="section-num">4</div>
+        <div>
+          <div class="section-title">✅ Converter em Pedido</div>
+          <div class="section-sub">Quando o cliente aprovar, transforme o orçamento em ordem</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-txt">Abra o orçamento em <b>Orçamentos</b></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-txt">Clique em <b>✅ Converter em Ordem</b></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-txt">Confirme — o código <b style="color:var(--acc)">ORC20260003</b> vira <b style="color:var(--verde)">LC20266073</b> automaticamente</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-txt">A ordem entra no Kanban na coluna <b>Contratar Fornecedor</b></div></div>
+      </div>
+
+      <div class="callout info"><span class="callout-ico">ℹ️</span><div>Cada número é <b>único e nunca se repete</b> — o sistema verifica todos os pedidos anteriores antes de gerar o código.</div></div>
+      <div class="callout tip"><span class="callout-ico">💡</span><div>Precisa revisar o preço? Use <b>↩ Voltar para Orçamento</b> no detalhe da ordem — os dados são mantidos.</div></div>
+    </section>
+
+    <!-- 5. KANBAN -->
+    <section class="section" id="kanban">
+      <div class="section-header">
+        <div class="section-num">5</div>
+        <div>
+          <div class="section-title">📊 Funil Kanban</div>
+          <div class="section-sub">Acompanhe todas as etapas de cada pedido</div>
+        </div>
+      </div>
+
+      <p style="color:var(--mut2);font-size:14px;margin-bottom:16px;line-height:1.6">
+        O Funil mostra todas as ordens ativas. Cada coluna é uma etapa — arraste os cards ou use os botões para avançar.
+      </p>
+
+      <div class="kanban-flow">
+        <div class="kcard" style="border-top:3px solid #f5a623">
+          <div class="kcard-ico">🟠</div>
+          <div class="kcard-name">Contratar Forn.</div>
+          <div class="kcard-sub">Atribuir fornecedor</div>
+        </div>
+        <div class="kcard" style="border-top:3px solid #0ea5e9">
+          <div class="kcard-ico">🔵</div>
+          <div class="kcard-name">Ag. Entrega</div>
+          <div class="kcard-sub">Aguardar dia</div>
+        </div>
+        <div class="kcard" style="border-top:3px solid #22c55e">
+          <div class="kcard-ico">🟢</div>
+          <div class="kcard-name">Entrega OK?</div>
+          <div class="kcard-sub">Confirmar entrega</div>
+        </div>
+        <div class="kcard" style="border-top:3px solid #6366f1">
+          <div class="kcard-ico">🟣</div>
+          <div class="kcard-name">Pagar Forn.</div>
+          <div class="kcard-sub">Pagar fornecedor</div>
+        </div>
+        <div class="kcard" style="border-top:3px solid #a78bfa">
+          <div class="kcard-ico">💜</div>
+          <div class="kcard-name">Receber Cliente</div>
+          <div class="kcard-sub">Cobrar cliente</div>
+        </div>
+        <div class="kcard" style="border-top:3px solid #f472b6">
+          <div class="kcard-ico">🩷</div>
+          <div class="kcard-name">Baixar</div>
+          <div class="kcard-sub">Tudo pago</div>
+        </div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Coluna</th><th>Situação</th><th>O que fazer</th></tr></thead>
+          <tbody>
+            <tr><td>🟠 Contratar Fornecedor</td><td>Ordem nova</td><td>Atribuir fornecedor pelo botão na ordem</td></tr>
+            <tr><td>🔵 Aguardando Entrega</td><td>Forn. contratado</td><td>Aguardar dia da entrega</td></tr>
+            <tr><td>🟢 Entrega OK?</td><td>Dia da entrega</td><td>Confirmar que a caçamba foi entregue</td></tr>
+            <tr><td>🟣 Pagar Fornecedor</td><td>Entrega confirmada</td><td>Registrar pagamento ao fornecedor</td></tr>
+            <tr><td>💜 Receber Cliente</td><td>Falta receber</td><td>Cobrar cliente via WA, Pix ou ligação</td></tr>
+            <tr><td>🩷 Baixar</td><td>Tudo pago</td><td>Arquivar a ordem</td></tr>
+            <tr><td>🔴 Inadimplentes</td><td>Cliente não pagou</td><td>Acionar cobrança — prazo vencido</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. WHATSAPP -->
+    <section class="section" id="whatsapp">
+      <div class="section-header">
+        <div class="section-num">6</div>
+        <div>
+          <div class="section-title">💬 WhatsApp, Pix e Tracking</div>
+          <div class="section-sub">Atalhos de comunicação direto de cada ordem</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="feat-card">
+          <div class="feat-ico">💬</div>
+          <div class="feat-title">WA Cliente</div>
+          <div class="feat-desc">Abre WhatsApp com mensagem de cobrança ou acompanhamento pré-formatada.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">🚛</div>
+          <div class="feat-title">WA Fornecedor</div>
+          <div class="feat-desc">Envia a OS completa ao fornecedor: endereço, data, tipo, código CRM.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">⚡</div>
+          <div class="feat-title">Pix</div>
+          <div class="feat-desc">Gera QR Code Pix automaticamente com o valor da ordem.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">📍</div>
+          <div class="feat-title">Tracking</div>
+          <div class="feat-desc">Envia link de rastreio em tempo real para o cliente acompanhar a entrega.</div>
+        </div>
+      </div>
+
+      <div class="callout tip"><span class="callout-ico">💡</span><div>O botão <b>Salvar e Enviar WA</b> no orçamento salva os dados e abre o WhatsApp com o orçamento em texto — tudo de uma vez.</div></div>
+    </section>
+
+    <!-- 7. ALERTAS -->
+    <section class="section" id="alertas">
+      <div class="section-header">
+        <div class="section-num">7</div>
+        <div>
+          <div class="section-title">🔔 Painel de Alertas</div>
+          <div class="section-sub">Badge vermelho = tem algo urgente para fazer</div>
+        </div>
+      </div>
+
+      <p style="color:var(--mut2);font-size:14px;margin-bottom:16px;line-height:1.6">
+        O badge vermelho no botão <b>Alertas</b> (bottom nav no celular ou menu lateral no desktop) mostra quantas pendências existem. Clique para ver a lista organizada por prioridade.
+      </p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Seção</th><th>Prioridade</th><th>O que fazer</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>🚫 Inadimplentes</td>
+              <td><span class="badge badge-red">🔴 Urgente</span></td>
+              <td>Cliente marcado como inadimplente — acionar cobrança imediata</td>
+            </tr>
+            <tr>
+              <td>🚨 Críticos (+7 dias)</td>
+              <td><span class="badge badge-red">🔴 Alta</span></td>
+              <td>Sem pagamento há mais de 7 dias — ligar ou enviar WA urgente</td>
+            </tr>
+            <tr>
+              <td>⚠️ Atenção (+3 dias)</td>
+              <td><span class="badge badge-orange">🟡 Média</span></td>
+              <td>Começar a cobrar — enviar WA de lembrete</td>
+            </tr>
+            <tr>
+              <td>📄 Orçamentos novos</td>
+              <td><span class="badge badge-blue">🔵 Normal</span></td>
+              <td>Orçamento aguardando aprovação — entrar em contato com cliente</td>
+            </tr>
+            <tr>
+              <td>🚚 Confirmar entrega</td>
+              <td><span class="badge badge-green">🟢 Normal</span></td>
+              <td>Confirmar que a entrega foi realizada no prazo</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info"><span class="callout-ico">ℹ️</span><div>Os alertas são configuráveis: o administrador define quantos dias para acionar alerta amarelo (padrão: 3) e vermelho (padrão: 7).</div></div>
+    </section>
+
+    <!-- 8. PAGAMENTO -->
+    <section class="section" id="pagamento">
+      <div class="section-header">
+        <div class="section-num">8</div>
+        <div>
+          <div class="section-title">💰 Registrar Pagamentos</div>
+          <div class="section-sub">Mantenha o Kanban atualizado quando o cliente pagar</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-txt">Abra a ordem (clique no card do Kanban ou busque pelo nome)</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-txt">Clique em <b>Registrar recebimento</b> — botão verde no topo da ordem</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-txt">Informe o valor recebido e a data</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-txt">Salve — a ordem avança para <b>🩷 Baixar</b> automaticamente</div></div>
+      </div>
+
+      <div class="callout tip"><span class="callout-ico">💡</span><div>Se o cliente pagou via Pix, o administrador pode importar o extrato do Itaú e o sistema detecta e marca automaticamente — sem precisar registrar manualmente.</div></div>
+    </section>
+
+    <!-- 9. CELULAR -->
+    <section class="section" id="celular">
+      <div class="section-header">
+        <div class="section-num">9</div>
+        <div>
+          <div class="section-title">📱 App Mobile</div>
+          <div class="section-sub">Tudo que você precisa para trabalhar em campo</div>
+        </div>
+      </div>
+
+      <div class="phone-mockup">
+        <div style="text-align:center;padding:10px 0 16px">
+          <div style="font-size:13px;font-weight:700;color:var(--txt)">Pendências do Dia</div>
+          <div style="font-size:11px;color:var(--mut2)">5 itens para resolver</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="background:var(--sur);border:1px solid #f5a62333;border-left:3px solid var(--acc);border-radius:8px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:700">Rua das Glicínias, 121</div>
+            <div style="font-size:11px;color:var(--mut2)">Mirandópolis · LC20266073</div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <span class="badge badge-orange">🚛 Contratar forn.</span>
+            </div>
+          </div>
+          <div style="background:var(--sur);border:1px solid #dc262633;border-left:3px solid var(--verm);border-radius:8px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:700">Av. Paulista, 800</div>
+            <div style="font-size:11px;color:var(--mut2)">Bela Vista · LC20265041</div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <span class="badge badge-red">🚨 7d sem pagar</span>
+            </div>
+          </div>
+        </div>
+        <div class="phone-nav">
+          <button class="pnav-btn act"><span class="pnav-ico">⚡</span>Pendências</button>
+          <button class="pnav-btn"><span class="pnav-ico">💰</span>Financeiro</button>
+          <button class="pnav-btn"><span class="pnav-ico">➕</span>Nova</button>
+          <button class="pnav-btn"><span class="pnav-ico">📜</span>Histórico</button>
+          <button class="pnav-btn"><span class="pnav-ico">🔔</span>Alertas</button>
+        </div>
+      </div>
+
+      <div style="margin-top:24px">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Aba</th><th>Função</th></tr></thead>
+          <tbody>
+            <tr><td>⚡ Pendências</td><td>Tudo que precisa de ação agora — ordens por prioridade</td></tr>
+            <tr><td>👥 Equipe</td><td>Resumo de desempenho da equipe (só admin)</td></tr>
+            <tr><td>💰 Financeiro</td><td>Receita e custo do dia/semana/mês</td></tr>
+            <tr><td>🔔 Alertas</td><td>5 seções de alertas com badge de contagem</td></tr>
+            <tr><td>+ Nova</td><td>Criar nova ordem diretamente no campo</td></tr>
+            <tr><td>📜 Histórico</td><td>Consultar ordens concluídas</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+    </section>
+
+    <!-- 10. DICAS -->
+    <section class="section" id="dicas">
+      <div class="section-header">
+        <div class="section-num">10</div>
+        <div>
+          <div class="section-title">💡 Dicas e Atalhos</div>
+          <div class="section-sub">Truques para usar o sistema mais rápido</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="callout tip"><span class="callout-ico">💡</span><div><b>Código CRM:</b> Use o código LC... no WhatsApp com o fornecedor para identificar a ordem sem confusão.</div></div>
+        <div class="callout tip"><span class="callout-ico">💡</span><div><b>Busca rápida:</b> Na tela de Clientes ou Kanban, use a barra de busca — funciona por nome, bairro ou código.</div></div>
+        <div class="callout tip"><span class="callout-ico">💡</span><div><b>Preço automático:</b> Quando o bairro do cliente bate com um bairro cadastrado do fornecedor, o preço é sugerido automaticamente.</div></div>
+        <div class="callout tip"><span class="callout-ico">💡</span><div><b>Atualização automática:</b> O sistema se atualiza a cada 15 segundos — não precisa ficar recarregando a página.</div></div>
+        <div class="callout tip"><span class="callout-ico">💡</span><div><b>Orçamento → Revisão:</b> Usou "Converter" mas o cliente pediu desconto? Botão "↩ Orçamento" volta sem perder os dados.</div></div>
+        <div class="callout info"><span class="callout-ico">ℹ️</span><div><b>Sincronização:</b> Se você e outro vendedor abrirem a mesma ordem, as mudanças aparecem para os dois em segundos.</div></div>
+        <div class="callout warn"><span class="callout-ico">⚠️</span><div><b>Erro no sistema?</b> Tire um print e informe o administrador com o código CRM da ordem afetada.</div></div>
+      </div>
+
+      <div style="margin-top:32px;background:var(--card);border:1px solid var(--acc3);border-radius:14px;padding:20px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">🚀</div>
+        <div style="font-family:var(--disp);font-size:18px;font-weight:700;color:var(--acc);margin-bottom:8px">Pronto para começar!</div>
+        <div style="font-size:14px;color:var(--mut2);margin-bottom:16px">Acesse o sistema agora e coloque em prática.</div>
+        <a href="https://cacambasp-crm.vercel.app" target="_blank" class="btn-hero btn-primary" style="display:inline-flex;text-decoration:none">🔗 Acessar o CRM</a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ── Intersection Observer para animações ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.section').forEach(s => observer.observe(s));
+
+// ── Active nav on scroll ──
+const sections = document.querySelectorAll('.section[id]');
+const navItems = document.querySelectorAll('.nav-item[data-section]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if(window.scrollY >= s.offsetTop - 120) current = s.id; });
+  navItems.forEach(n => {
+    n.classList.toggle('active', n.dataset.section === current);
+  });
+  // topbar
+  const prog = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+  document.getElementById('topbar-fill').style.width = prog + '%';
+});
+
+// ── Busca simples ──
+function buscarManual(q) {
+  if(!q.trim()) { sections.forEach(s => s.style.display=''); return; }
+  const lower = q.toLowerCase();
+  sections.forEach(s => {
+    s.style.display = s.textContent.toLowerCase().includes(lower) ? '' : 'none';
+  });
+}
+
+// ── Smooth scroll from hero ──
+document.querySelector('a[href="#inicio"]')?.addEventListener('click', e => {
+  e.preventDefault();
+  document.getElementById('acesso')?.scrollIntoView({behavior:'smooth'});
+});
+</script>
+</body>
+</html>
