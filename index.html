@@ -8086,10 +8086,9 @@ function editarUsr(id){
   document.getElementById('usr_pass').value='';
   document.getElementById('usr_nivel').value=u.nivel||'operador';
   document.getElementById('usr_err').style.display='none';
-  // Em edição, e-mail não pode mudar, senha é opcional
+  // Em edição: e-mail não pode mudar, senha oculta (usuário altera no próprio perfil)
   document.getElementById('usr_email_wrap').style.display='none';
-  document.getElementById('usr_pass_wrap').style.display='block';
-  document.getElementById('usr_pass_label').textContent='Nova senha (deixe em branco para não alterar)';
+  document.getElementById('usr_pass_wrap').style.display='none';
   openModal('usrModal');
 }
 async function salvarUsr(){
@@ -8120,24 +8119,8 @@ async function salvarUsr(){
     }
     const u=usuarios.find(x=>x.id===id);
     if(u){u.nome=nome;u.nivel=nivel;}
-    // Passo 2: alterar senha se informada (Edge Function — CORS separado)
-    if(pass){
-      try{
-        const pr=await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
-          body:JSON.stringify({userId:id,password:pass})
-        }).then(r=>r.json());
-        if(pr?.error) toast('⚠️ Perfil salvo, mas erro ao alterar senha: '+(pr.error||'').slice(0,60),'err');
-        else toast('✅ Usuário e senha atualizados!');
-      }catch(corsErr){
-        // CORS ou rede — perfil já foi salvo, só senha falhou
-        toast('⚠️ Perfil salvo. Senha não alterada (erro CORS na Edge Function).','err');
-        console.warn('CORS ao alterar senha:',corsErr);
-      }
-    } else {
-      toast('✅ Usuário atualizado!');
-    }
+    // Senha não é alterada na edição de usuário (usuário altera no próprio "Meu Perfil")
+    toast('✅ Usuário atualizado!');
     // Passo 3: recarregar do banco e verificar
     try{
       const att=await api('perfis?order=criado_em.asc',undefined,undefined,tok());
