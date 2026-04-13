@@ -981,6 +981,7 @@ const PIX_CITY = 'SAO PAULO';
 
 // ── ESTADO ──
 let _user = null, _perfil = null, _ordens = [], _forns = [], _usuarios = [];
+let _filtroAlertaMobVend = ''; // uid do vendedor filtrado em Alertas ('' = padrão)
 let _currentView = 'inicio';
 let _viewStack = [];
 let _detalheId = null;
@@ -3243,21 +3244,52 @@ function renderAlertas(){
   if(!el) return;
   const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
 
+  const meuid = uid();
   const ordens = _ordens || [];
-  const listaInad = ordens.filter(c=>c.col==='inadimp').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const listaCrit = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const listaCobr = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-  const listaOrc = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
-  const listaEntrega = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c));
 
+  // Filtro de vendedor (admin only)
+  const filtroVend = _filtroAlertaMobVend;
+  const _minhas = c => {
+    if(!isAdmin()) return !meuid || c.usuario_id === meuid;
+    if(filtroVend) return c.usuario_id === filtroVend;
+    return !meuid || c.usuario_id === meuid;
+  };
+  const _outros = c => {
+    if(!isAdmin() || filtroVend) return false;
+    return meuid && c.usuario_id !== meuid;
+  };
+
+  const listaInad      = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaInadOut   = ordens.filter(c=>c.col==='inadimp'&&_outros(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaCrit      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCritOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobr      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobrOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const listaEntrega   = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
+  const listaEntregaOut= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
+
+  const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
   const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
 
   const sub = document.getElementById('alertasSubtitle');
   if(sub) sub.textContent = total===0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
 
+  // Pills de filtro por vendedor (admin only)
+  let pillsHtml = '';
+  if(isAdmin() && _usuarios.length > 0){
+    const todos_ativos = !filtroVend;
+    const meuNome = _usuarios.find(u=>u.id===meuid)?.nome || 'Minhas';
+    pillsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 4px">
+      <button onclick="_setFiltroAlertaMob('')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${todos_ativos?'var(--acc)':'var(--bor)'};background:${todos_ativos?'var(--acc2)':'var(--card)'};color:${todos_ativos?'var(--acc)':'var(--mut2)'};cursor:pointer">Todos</button>
+      <button onclick="_setFiltroAlertaMob('${meuid}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===meuid?'var(--acc)':'var(--bor)'};background:${filtroVend===meuid?'var(--acc2)':'var(--card)'};color:${filtroVend===meuid?'var(--acc)':'var(--mut2)'};cursor:pointer">👤 ${meuNome}</button>
+      ${_usuarios.filter(u=>u.id!==meuid).map(u=>`<button onclick="_setFiltroAlertaMob('${u.id}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===u.id?'var(--acc)':'var(--bor)'};background:${filtroVend===u.id?'var(--acc2)':'var(--card)'};color:${filtroVend===u.id?'var(--acc)':'var(--mut2)'};cursor:pointer">${u.nome}</button>`).join('')}
+    </div>`;
+  }
+
   if(total===0){
-    el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
+    el.innerHTML= pillsHtml + `<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
       <div style="font-size:48px">✅</div>
       <div style="font-size:16px;font-weight:600;color:var(--txt)">Tudo em dia!</div>
       <div style="font-size:13px;text-align:center">Nenhum alerta pendente no momento.</div>
@@ -3273,7 +3305,7 @@ function renderAlertas(){
     return {dias, nome, val, bairro};
   };
 
-  let html = '<div style="padding:0 14px 20px">';
+  let html = pillsHtml + '<div style="padding:0 14px 20px">';
 
   // Seção 1: Inadimplentes
   if(listaInad.length){
@@ -3382,8 +3414,49 @@ function renderAlertas(){
     </div>`;
   }
 
+  // Seção "Outros vendedores" — só admin sem filtro ativo
+  if(isAdmin() && !filtroVend && totalOutros > 0){
+    html += `<div style="border-top:2px dashed var(--bor);margin:16px 0 10px;padding-top:4px">
+      <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;padding:0 0 8px">📌 Outros vendedores (${totalOutros})</div>`;
+
+    if(listaInadOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInadOut.length}</span></div>
+      ${listaInadOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${dias}d${vn?` · ${vn}`:''}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaCritOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos <span class="alerta-cnt">${listaCritOut.length}</span></div>
+      ${listaCritOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-crit">🚨 ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaCobrOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-atenc">⚠️ Atenção <span class="alerta-cnt">${listaCobrOut.length}</span></div>
+      ${listaCobrOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-atenc" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-atenc">⚠️ ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaEntregaOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas a confirmar <span class="alerta-cnt">${listaEntregaOut.length}</span></div>
+      ${listaEntregaOut.map(c=>{ const nome=c.nome||'—'; const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">🚚</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-entrega">Confirmar entrega</span><span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    html += '</div>';
+  }
+
   html += '</div>';
   el.innerHTML = html;
+}
+
+function _setFiltroAlertaMob(uid){
+  _filtroAlertaMobVend = uid;
+  renderAlertas();
 }
 
 // ── RENDER NOVA ORDEM ──

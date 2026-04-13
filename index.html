@@ -788,7 +788,12 @@ input[type=checkbox]:checked::after{
               <div class="ph-title">📲 Cobrança Automática</div>
               <div class="ph-sub">Ordens com pagamento pendente</div>
             </div>
-            <button class="btn btn-sm" onclick="renderCobrancaAuto()">↻ Atualizar</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="cobrFiltroVend" onchange="renderCobrancaAuto()" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+                <option value="">Todos os vendedores</option>
+              </select>
+              <button class="btn btn-sm" onclick="renderCobrancaAuto()">↻ Atualizar</button>
+            </div>
           </div>
           <!-- Config dias -->
           <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -907,7 +912,12 @@ input[type=checkbox]:checked::after{
               <div class="ph-title">🔔 Alertas</div>
               <div class="ph-sub" id="alertasSubtitle">Pendências que precisam de atenção</div>
             </div>
-            <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="alertasFiltroVend" onchange="renderAlertas()" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+                <option value="">Todos os vendedores</option>
+              </select>
+              <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
+            </div>
           </div>
           <div id="alertasContent"></div>
         </div>
@@ -4615,6 +4625,9 @@ function renderCobrancaAuto(){
   const el = document.getElementById('cobrancaAutoConteudo');
   if(!el) return;
 
+  _popularFiltroVend('cobrFiltroVend');
+  const filtroVend = document.getElementById('cobrFiltroVend')?.value||'';
+
   // Ordens ativas sem pagamento do cliente
   const meuid = _currentUser?.user?.id;
   const todosGlobal = ordens.filter(c =>
@@ -4624,9 +4637,18 @@ function renderCobrancaAuto(){
   ).map(c => ({ ...c, dias: diasEmAberto(c) }))
     .sort((a,b) => b.dias - a.dias);
 
-  // Minhas ordens vs ordens de outros (só admin vê outros)
-  const todos       = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
-  const todosOutros = isAdmin() ? todosGlobal.filter(c => c.usuario_id !== meuid) : [];
+  // Filtro por usuário
+  let todos, todosOutros;
+  if(!isAdmin()){
+    todos = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
+    todosOutros = [];
+  } else if(filtroVend){
+    todos = todosGlobal.filter(c => c.usuario_id === filtroVend);
+    todosOutros = [];
+  } else {
+    todos       = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
+    todosOutros = todosGlobal.filter(c => c.usuario_id !== meuid);
+  }
 
   // Separa cobrados hoje (não entram nos contadores de alerta)
   const cobradosHoje = todos.filter(c => foiCobradoHoje(c));
@@ -8981,9 +9003,19 @@ function renderAlertas(){
   if(!el) return;
   const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
 
+  _popularFiltroVend('alertasFiltroVend');
+  const filtroVend = document.getElementById('alertasFiltroVend')?.value||'';
+
   const _meuid = _currentUser?.user?.id;
-  const _minhas = c => !_meuid || c.usuario_id === _meuid;
-  const _outros  = c => isAdmin() && _meuid && c.usuario_id !== _meuid;
+  const _minhas = c => {
+    if(!isAdmin()) return !_meuid || c.usuario_id === _meuid;
+    if(filtroVend) return c.usuario_id === filtroVend;
+    return !_meuid || c.usuario_id === _meuid;
+  };
+  const _outros = c => {
+    if(!isAdmin() || filtroVend) return false;
+    return isAdmin() && _meuid && c.usuario_id !== _meuid;
+  };
 
   // Inadimplentes
   const listaInad     = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
@@ -9214,11 +9246,11 @@ function renderAlertas(){
   el.innerHTML = html;
 }
 
-// ── Popular filtro de vendedor ──
-function _popularFiltroVendOrc(){
-  if(!isAdmin()) return;
-  const sel = document.getElementById('orcFiltroVend');
+// ── Popular filtro de vendedor (reutilizável) ──
+function _popularFiltroVend(selectId){
+  const sel = document.getElementById(selectId);
   if(!sel) return;
+  if(!isAdmin()){ sel.style.display='none'; return; }
   const valAtual = sel.value;
   sel.innerHTML = '<option value="">Todos os vendedores</option>';
   usuarios.forEach(u=>{
@@ -9228,8 +9260,9 @@ function _popularFiltroVendOrc(){
     sel.appendChild(opt);
   });
   if(valAtual) sel.value = valAtual;
-  sel.style.display = isAdmin() ? 'inline-block' : 'none';
+  sel.style.display = 'inline-block';
 }
+function _popularFiltroVendOrc(){ _popularFiltroVend('orcFiltroVend'); }
 
 // ── Sub-aba Pendentes ──
 function debounceOrc(){ clearTimeout(_orcDebTimer); _orcDebTimer = setTimeout(renderOrcPend, 200); }
