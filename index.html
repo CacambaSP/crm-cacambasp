@@ -9342,23 +9342,13 @@ function renderOrcGerador(id){
           <div class="fi"><label>Cliente</label><input type="text" id="orc_g_nome" value="${o?.nome||''}" placeholder="Nome do cliente" oninput="atualizarPreviewPDF()"></div>
           <div class="fi"><label>Endereço</label><input type="text" id="orc_g_end" value="${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')}" placeholder="Endereço completo" oninput="atualizarPreviewPDF()"></div>
           <div class="fi"><label>Tipo de Resíduo / Serviço</label><input type="text" id="orc_g_tipo" value="${o?.tipo||''}" placeholder="Ex: 1 caçamba entulho" oninput="atualizarPreviewPDF()"></div>
-          <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
-          <div class="fi">
-            <label>Tipo de prazo</label>
-            <div style="display:flex;gap:8px;margin-top:2px">
-              <label style="flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;cursor:pointer;transition:background .15s" id="orc_g_tipo_rua_lbl">
-                <input type="radio" name="orc_g_tipo_prazo" id="orc_g_tipo_rua" value="rua" ${(o?.orc_perm_canteiro||0)>0&&(o?.orc_perm_rua||0)===0?'':'checked'} onchange="orcSelTipoPrazo()" style="accent-color:var(--acc);width:15px;height:15px">
-                <div><div style="font-size:12px;font-weight:700">Via pública</div><div style="font-size:10px;color:var(--mut2)">3 dias úteis</div></div>
-              </label>
-              <label style="flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;cursor:pointer;transition:background .15s" id="orc_g_tipo_cant_lbl">
-                <input type="radio" name="orc_g_tipo_prazo" id="orc_g_tipo_cant" value="canteiro" ${(o?.orc_perm_canteiro||0)>0&&(o?.orc_perm_rua||0)===0?'checked':''} onchange="orcSelTipoPrazo()" style="accent-color:var(--acc);width:15px;height:15px">
-                <div><div style="font-size:12px;font-weight:700">Canteiro de obras</div><div style="font-size:10px;color:var(--mut2)">5 dias úteis</div></div>
-              </label>
-            </div>
+          <div class="fi-row">
+            <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
           </div>
-          <input type="hidden" id="orc_g_perm_rua" value="${o?.orc_perm_rua||3}">
-          <input type="hidden" id="orc_g_perm_canteiro" value="${o?.orc_perm_canteiro||0}">
-          <input type="hidden" id="orc_g_prazo" value="${o?.orc_prazo||3}">
+          <div class="fi-row">
+            <div class="fi"><label>Via pública (dias úteis)</label><input type="number" id="orc_g_perm_rua" value="${o?.orc_perm_rua||3}" min="1" oninput="atualizarPreviewPDF()"></div>
+            <div class="fi"><label>Canteiro de obras (dias úteis)</label><input type="number" id="orc_g_perm_canteiro" value="${o?.orc_perm_canteiro||5}" min="1" oninput="atualizarPreviewPDF()"></div>
+          </div>
           <div class="fi-row">
             <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
             <div class="fi"><label>Telefone / WhatsApp</label><input type="text" id="orc_g_tel" value="${o?.cel||''}" placeholder="(11) 99999-9999" oninput="atualizarPreviewPDF()"></div>
@@ -9511,205 +9501,196 @@ function _pdfDados(o, campos){
   return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,valor,validade,prazo,permRua,permCant,isCanteiro,tipoPrazoLabel,tipoPrazoDias,obs,tel,cpf,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
 }
 
-// ── Tema A — Clássico / Corporativo ──
-function _pdfTemaA(d){
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${d.crmId}</title>
-  ${d.fontLink}<style>
-  *{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:680px;margin:0 auto} ${d.printCss}
-  .cab{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid ${d.marcaCor}}
-  .mn{font-size:20px;font-weight:800;color:${d.marcaCor}} .ot{font-size:18px;font-weight:800;color:${d.marcaCor};text-align:right} .oc{font-size:10px;color:#888;text-align:right}
-  .sec{background:#f7f7f7;border-radius:8px;padding:12px 14px;margin-bottom:14px} .sec-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
-  table{width:100%;border-collapse:collapse;margin-bottom:14px} thead tr{background:${d.marcaCor}}
-  thead th{padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
-  tbody td{padding:10px;border-bottom:1px solid #eee;font-size:11px} .vc{font-size:16px;font-weight:800;color:${d.marcaCor};text-align:right}
-  </style></head><body>
-  <div class="no-print">${d.btnPrint}</div>
-  <div class="cab">
-    <div>${d.logoHtml}<div class="mn">${d.marcaNome}</div>${d.slogHtml}</div>
-    <div><div class="ot">ORÇAMENTO</div><div class="oc">${d.crmId}</div><div class="oc">${new Date().toLocaleDateString('pt-BR')}</div></div>
+// ── Bloco comum: serviço + permanência + meta ──
+function _pdfBlocoServico(d,tc){
+  return `
+  <div class="serv-card">
+    <div class="serv-hd">
+      <div class="sh-lbl">Descrição do serviço</div>
+      <div class="sh-lbl sh-val">Valor</div>
+    </div>
+    <div class="serv-row">
+      <div>
+        <div class="sr-desc">📦 1 caçamba 4m³</div>
+        <div class="sr-detail">${d.tipo}${d.obs?' · '+d.obs:''}</div>
+      </div>
+      <div class="sr-val">${d.valorFmt}</div>
+    </div>
   </div>
-  <div class="sec"><div class="sec-lbl">Para</div>
-    <div style="font-size:14px;font-weight:700">${d.nome}</div>
-    <div style="font-size:11px;color:#555;margin-top:2px">${d.end}</div>
-    ${d.tel?`<div style="font-size:11px;color:#555;margin-top:2px">📞 ${d.tel}</div>`:''}
-    ${d.cpf?`<div style="font-size:11px;color:#555;margin-top:2px">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
+  <div class="perm-grid">
+    <div class="perm-box"><div class="perm-lbl">Permanência na rua</div><div class="perm-val">${d.permRua}</div><div class="perm-sub">dias úteis</div></div>
+    <div class="perm-box"><div class="perm-lbl">Permanência no canteiro</div><div class="perm-val">${d.permCant}</div><div class="perm-sub">dias úteis</div></div>
   </div>
-  <table><thead><tr><th style="text-align:left">Descrição do Serviço</th><th style="text-align:center">Permanência</th><th style="text-align:right">Valor</th></tr></thead>
-  <tbody><tr><td>${d.tipo}</td><td style="text-align:center">${d.tipoPrazoLabel}<br><span style="font-size:9px;color:#888">${d.tipoPrazoDias} dias úteis</span></td><td class="vc">${d.valorFmt}</td></tr></tbody></table>
-  <div style="font-size:10px;color:#888;margin-bottom:8px">📅 Proposta válida até: <strong>${d.validFmt}</strong></div>
-  ${d.obsHtml}${d.rodape}</body></html>`;
+  <div class="meta-row">
+    <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${d.validFmt}</div></div>
+    <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
+    <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${d.crmId}</div></div>
+  </div>`;
+}
+function _pdfCssServico(mc,tc){
+  return `
+  .serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:18px}
+  .serv-hd{background:${mc};padding:8px 16px;display:flex;justify-content:space-between;align-items:center}
+  .sh-lbl{font-size:10px;font-weight:700;color:${tc};text-transform:uppercase;letter-spacing:.4px}
+  .sh-val{text-align:right}
+  .serv-row{padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .sr-desc{font-size:13px;font-weight:700;color:#222;margin-bottom:3px}
+  .sr-detail{font-size:11px;color:#777}
+  .sr-val{font-size:22px;font-weight:800;color:${mc};white-space:nowrap}
+  .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .perm-box{background:#f8f8f8;border-radius:8px;padding:10px 14px;text-align:center}
+  .perm-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .perm-val{font-size:20px;font-weight:800;color:#111}
+  .perm-sub{font-size:9px;color:#bbb;margin-top:1px}
+  .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .meta-b{background:#f8f8f8;border-radius:8px;padding:8px 12px}
+  .meta-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .meta-val{font-size:12px;font-weight:700;color:#222}`;
 }
 
-// ── Tema B — Moderno / Barra lateral ──
-function _pdfTemaB(d){
-  const corClaro = d.marcaCor+'22';
+// ── Tema A — Clássico ──
+function _pdfTemaA(d){
+  const tc='#fff';
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${d.crmId}</title>
-  ${d.fontLink}<style>
-  *{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;margin:0;display:flex;min-height:100vh} ${d.printCss}
-  .sidebar{width:180px;background:${d.marcaCor};padding:32px 20px;display:flex;flex-direction:column;gap:16px;flex-shrink:0}
-  .main{flex:1;padding:32px;max-width:500px}
-  .s-logo{width:64px;height:64px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px}
-  .s-nome{font-size:16px;font-weight:800;color:#fff} .s-slogan{font-size:10px;color:rgba(255,255,255,.7);margin-top:4px}
-  .s-item{background:rgba(255,255,255,.15);border-radius:8px;padding:10px 12px}
-  .s-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-  .s-val{font-size:12px;font-weight:700;color:#fff}
-  .titulo{font-size:24px;font-weight:800;color:${d.marcaCor};margin-bottom:4px} .cod{font-size:11px;color:#888;margin-bottom:24px;font-family:monospace}
-  .cli-box{background:${corClaro};border-left:3px solid ${d.marcaCor};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:20px}
-  .cli-nm{font-size:14px;font-weight:700} .cli-end{font-size:11px;color:#555;margin-top:2px}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px}
-  thead tr{border-bottom:2px solid ${d.marcaCor}} thead th{padding:8px 4px;text-align:left;font-size:10px;font-weight:700;color:${d.marcaCor};text-transform:uppercase}
-  tbody td{padding:10px 4px;border-bottom:1px solid #eee;font-size:11px}
-  .vc{font-size:18px;font-weight:800;color:${d.marcaCor};text-align:right}
-  .rodape{border-top:1px solid #eee;padding-top:10px;font-size:9px;color:#aaa;text-align:center;margin-top:12px}
-  </style></head><body>
+  ${d.fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:700px;margin:0 auto} ${d.printCss}
+  .cab{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${d.marcaCor}}
+  .mn{font-size:20px;font-weight:800;color:${d.marcaCor}} .sl{font-size:10px;color:#aaa;margin-top:2px}
+  .ot{font-size:18px;font-weight:800;color:${d.marcaCor};text-align:right} .oc{font-size:10px;color:#888;text-align:right}
+  .cli{background:#f7f7f7;border-radius:8px;padding:12px 16px;margin-bottom:18px}
+  .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  .cli-nm{font-size:15px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:2px}
+  ${_pdfCssServico(d.marcaCor,tc)}</style></head><body>
+  <div class="no-print">${d.btnPrint}</div>
+  <div class="cab">
+    <div>${d.logoHtml}<div class="mn">${d.marcaNome}</div>${d.marcaSlogan?`<div class="sl">${d.marcaSlogan}</div>`:''}</div>
+    <div><div class="ot">ORÇAMENTO</div><div class="oc">${d.crmId}</div><div class="oc">${new Date().toLocaleDateString('pt-BR')}</div></div>
+  </div>
+  <div class="cli">
+    <div class="cli-lbl">Para</div>
+    <div class="cli-nm">${d.nome}</div>
+    <div class="cli-inf">📍 ${d.end}</div>
+    ${d.tel?`<div class="cli-inf">📞 ${d.tel}</div>`:''}
+    ${d.cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
+  </div>
+  ${_pdfBlocoServico(d,tc)}
+  ${d.rodape}</body></html>`;
+}
+
+// ── Tema B — Moderno dark barra lateral ──
+function _pdfTemaB(d){
+  const tc='#fff';
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${d.crmId}</title>
+  ${d.fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;margin:0;display:flex;min-height:100vh} ${d.printCss}
+  .sidebar{width:190px;background:#1a1a2e;padding:26px 16px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+  .main{flex:1;padding:26px 26px;max-width:520px}
+  .s-logo{width:50px;height:50px;background:rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:6px}
+  .s-nm{font-size:14px;font-weight:800;color:${d.marcaCor}} .s-sl{font-size:9px;color:rgba(255,255,255,.45);margin-top:2px}
+  .s-item{background:rgba(255,255,255,.07);border-radius:7px;padding:8px 10px}
+  .s-lbl{font-size:8px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .s-val{font-size:11px;font-weight:700;color:#fff}
+  .orc-ttl{font-size:22px;font-weight:800;color:${d.marcaCor};margin-bottom:3px}
+  .orc-cod{font-size:10px;color:#aaa;font-family:monospace;margin-bottom:20px}
+  .cli-box{background:${d.marcaCor}18;border-left:3px solid ${d.marcaCor};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
+  .cli-nm{font-size:14px;font-weight:700;color:#111} .cli-inf{font-size:10px;color:#666;margin-top:2px}
+  ${_pdfCssServico(d.marcaCor,tc)}</style></head><body>
   <div class="sidebar">
     <div>
       <div class="s-logo">${d.marcaLogo?`<img src="${d.marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
-      <div class="s-nome">${d.marcaNome}</div>
-      ${d.marcaSlogan?`<div class="s-slogan">${d.marcaSlogan}</div>`:''}
+      <div class="s-nm">${d.marcaNome}</div>
+      ${d.marcaSlogan?`<div class="s-sl">${d.marcaSlogan}</div>`:''}
     </div>
-    <div class="s-item"><div class="s-lbl">Permanência</div><div class="s-val">${d.tipoPrazoLabel} · ${d.tipoPrazoDias} dias úteis</div></div>
+    <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${d.permRua} dias úteis</div></div>
+    <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${d.permCant} dias úteis</div></div>
     <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${d.validFmt}</div></div>
-    <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:15px">${d.valorFmt}</div></div>
+    <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:13px;color:${d.marcaCor}">${d.valorFmt}</div></div>
   </div>
   <div class="main">
-    <div class="no-print" style="margin-bottom:16px">${d.btnPrint}</div>
-    <div class="titulo">ORÇAMENTO</div>
-    <div class="cod">${d.crmId} · ${new Date().toLocaleDateString('pt-BR')}</div>
+    <div class="no-print" style="margin-bottom:14px">${d.btnPrint}</div>
+    <div class="orc-ttl">ORÇAMENTO</div>
+    <div class="orc-cod">${d.crmId} · ${new Date().toLocaleDateString('pt-BR')}</div>
     <div class="cli-box">
       <div class="cli-nm">${d.nome}</div>
-      <div class="cli-end">${d.end}</div>
-      ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
-      ${d.cpf?`<div class="cli-end" style="margin-top:2px">🪪 ${d.cpf}</div>`:''}
+      <div class="cli-inf">📍 ${d.end}</div>
+      ${d.tel?`<div class="cli-inf">📞 ${d.tel}</div>`:''}
+      ${d.cpf?`<div class="cli-inf">🪪 ${d.cpf}</div>`:''}
     </div>
-    <table>
-      <thead><tr><th>Serviço</th><th style="text-align:right">Valor</th></tr></thead>
-      <tbody><tr><td>${d.tipo}</td><td class="vc">${d.valorFmt}</td></tr></tbody>
-    </table>
-    ${d.obsHtml}
-    <div class="rodape">CaçambaSP · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
-  </div>
-  </body></html>`;
+    ${_pdfBlocoServico(d,tc)}
+    ${d.rodape}
+  </div></body></html>`;
 }
 
-// ── Tema C — Minimalista / Clean ──
+// ── Tema C — Minimalista clean ──
 function _pdfTemaC(d){
+  const tc='#fff';
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${d.crmId}</title>
-  ${d.fontLink}<style>
-  *{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:48px;max-width:620px;margin:0 auto} ${d.printCss}
-  .topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:40px}
-  .logo-min{height:36px;object-fit:contain} .marca-min{font-size:16px;font-weight:700;color:#222}
-  .div-line{width:100%;height:1px;background:#e0e0e0;margin-bottom:32px}
-  .label{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-  .valor-big{font-size:36px;font-weight:800;color:${d.marcaCor};margin:32px 0 8px}
-  .info-row{display:flex;gap:40px;margin-bottom:32px}
-  .info-block{} .info-val{font-size:13px;font-weight:600;color:#222;margin-top:2px}
-  .cli-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}
-  .cli-end{font-size:12px;color:#666}
-  .serv-box{background:#f9f9f9;border-radius:8px;padding:16px;margin-bottom:24px}
-  .serv-tipo{font-size:13px;font-weight:600;color:#222}
-  .rodape{font-size:9px;color:#bbb;text-align:center;padding-top:24px;border-top:1px solid #eee}
-  </style></head><body>
-  <div class="no-print" style="margin-bottom:24px">${d.btnPrint}</div>
+  ${d.fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:40px;max-width:680px;margin:0 auto} ${d.printCss}
+  .topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .logo-area{display:flex;align-items:center;gap:10px}
+  .logo-dot{width:32px;height:32px;border-radius:50%;background:${d.marcaCor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;overflow:hidden;flex-shrink:0}
+  .marca-nm{font-size:16px;font-weight:700;color:#111} .marca-sl{font-size:9px;color:#aaa;margin-top:1px}
+  .orc-pill{background:${d.marcaCor}18;border:1px solid ${d.marcaCor}44;border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:${d.marcaCor}}
+  .orc-cod{font-size:9px;color:#aaa;text-align:right;margin-top:3px;font-family:monospace}
+  .divider{width:100%;height:1px;background:#eee;margin:12px 0 16px}
+  .cli-nm{font-size:17px;font-weight:700;color:#111;margin-bottom:3px} .cli-inf{font-size:11px;color:#777;margin-bottom:2px}
+  ${_pdfCssServico(d.marcaCor,tc)}</style></head><body>
+  <div class="no-print" style="margin-bottom:20px">${d.btnPrint}</div>
   <div class="topo">
-    <div style="display:flex;align-items:center;gap:10px">
-      ${d.marcaLogo?`<img class="logo-min" src="${d.marcaLogo}">`:''}
-      <div class="marca-min">${d.marcaNome}</div>
+    <div class="logo-area">
+      <div class="logo-dot">${d.marcaLogo?`<img src="${d.marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:d.marcaNome.charAt(0)}</div>
+      <div><div class="marca-nm">${d.marcaNome}</div>${d.marcaSlogan?`<div class="marca-sl">${d.marcaSlogan}</div>`:''}</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px">Orçamento</div>
-      <div style="font-size:12px;color:#555;font-family:monospace">${d.crmId}</div>
+      <div class="orc-pill">Orçamento</div>
+      <div class="orc-cod">${d.crmId} · ${new Date().toLocaleDateString('pt-BR')}</div>
     </div>
   </div>
-  <div class="div-line"></div>
-  <div class="cli-nome">${d.nome}</div>
-  <div class="cli-end">${d.end}</div>
-  ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
-  ${d.cpf?`<div class="cli-end" style="margin-top:2px;margin-bottom:32px">🪪 CPF/CNPJ: ${d.cpf}</div>`:`<div style="margin-bottom:32px"></div>`}
-  <div class="serv-box">
-    <div class="label">Serviço</div>
-    <div class="serv-tipo">${d.tipo}</div>
-  </div>
-  <div class="valor-big">${d.valorFmt}</div>
-  <div class="info-row">
-    <div class="info-block"><div class="label">Permanência</div><div class="info-val">${d.tipoPrazoLabel}</div></div>
-    <div class="info-block"><div class="label">Dias úteis</div><div class="info-val">${d.tipoPrazoDias} dias</div></div>
-  </div>
-  <div class="info-row">
-    <div class="info-block"><div class="label">Válido até</div><div class="info-val">${d.validFmt}</div></div>
-    <div class="info-block"><div class="label">Data</div><div class="info-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
-  </div>
-  ${d.obs?`<div style="font-size:11px;color:#555;background:#fffbe6;border:1px solid #fde68a;border-radius:6px;padding:12px;margin-bottom:24px">📝 ${d.obs}</div>`:''}
-  <div class="rodape">CaçambaSP · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
-  </body></html>`;
+  <div class="divider"></div>
+  <div class="cli-nm">${d.nome}</div>
+  <div class="cli-inf">📍 ${d.end}</div>
+  ${d.tel?`<div class="cli-inf">📞 ${d.tel}</div>`:''}
+  ${d.cpf?`<div class="cli-inf" style="margin-bottom:16px">🪪 CPF/CNPJ: ${d.cpf}</div>`:`<div style="margin-bottom:16px"></div>`}
+  ${_pdfBlocoServico(d,tc)}
+  ${d.rodape}</body></html>`;
 }
 
-// ── Tema D — Bold / Cabeçalho cheio ──
+// ── Tema D — Bold cabeçalho cheio ──
 function _pdfTemaD(d){
-  const txtCor = _corContraste(d.marcaCor);
+  const tc=_corContraste(d.marcaCor);
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${d.crmId}</title>
-  ${d.fontLink}<style>
-  *{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:680px;margin:0 auto} ${d.printCss}
-  .header{background:${d.marcaCor};padding:28px 32px;display:flex;align-items:center;justify-content:space-between}
-  .h-esq{display:flex;align-items:center;gap:14px}
-  .h-logo{width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .h-nome{font-size:20px;font-weight:800;color:${txtCor}} .h-slogan{font-size:10px;color:${txtCor};opacity:.8;margin-top:2px}
-  .h-dir{text-align:right} .h-orc{font-size:22px;font-weight:800;color:${txtCor}} .h-cod{font-size:11px;color:${txtCor};opacity:.8;font-family:monospace}
-  .body{padding:28px 32px}
-  .cli-card{border:2px solid #eee;border-radius:10px;padding:16px 20px;margin-bottom:20px}
-  .cli-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-  .cli-nm{font-size:16px;font-weight:700} .cli-end{font-size:11px;color:#666;margin-top:3px}
-  .serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:20px}
-  .serv-header{background:${d.marcaCor};padding:8px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px}
-  .sh-lbl{font-size:10px;font-weight:700;color:${txtCor};text-transform:uppercase;letter-spacing:.4px}
-  .serv-row{padding:14px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center}
-  .sr-tipo{font-size:13px;font-weight:600} .sr-prazo{font-size:12px;color:#555;text-align:center} .sr-val{font-size:20px;font-weight:800;color:${d.marcaCor};text-align:right}
-  .meta{display:flex;gap:24px;margin-bottom:20px}
-  .meta-b{} .meta-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-  .meta-val{font-size:13px;font-weight:600;color:#222}
-  .rodape{border-top:1px solid #eee;padding:14px 32px;font-size:9px;color:#aaa;text-align:center}
-  </style></head><body>
-  <div class="no-print" style="padding:16px 32px">${d.btnPrint}</div>
-  <div class="header">
-    <div class="h-esq">
-      <div class="h-logo">${d.marcaLogo?`<img src="${d.marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
-      <div><div class="h-nome">${d.marcaNome}</div>${d.marcaSlogan?`<div class="h-slogan">${d.marcaSlogan}</div>`:''}</div>
+  ${d.fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:700px;margin:0 auto} ${d.printCss}
+  .hd{background:${d.marcaCor};padding:24px 30px;display:flex;align-items:center;justify-content:space-between}
+  .hd-esq{display:flex;align-items:center;gap:14px}
+  .hd-logo{width:54px;height:54px;background:rgba(255,255,255,.2);border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+  .hd-nm{font-size:20px;font-weight:800;color:${tc}} .hd-sl{font-size:10px;color:${tc};opacity:.75;margin-top:2px}
+  .hd-dir{text-align:right} .hd-orc{font-size:20px;font-weight:800;color:${tc};letter-spacing:1px}
+  .hd-cod{font-size:10px;color:${tc};opacity:.75;font-family:monospace;margin-top:2px}
+  .body{padding:24px 30px}
+  .cli-card{border:2px solid #eee;border-radius:10px;padding:14px 18px;margin-bottom:18px}
+  .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  .cli-nm{font-size:16px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:3px}
+  .rodape-d{border-top:1px solid #eee;padding:12px 30px;font-size:9px;color:#bbb;text-align:center}
+  ${_pdfCssServico(d.marcaCor,tc)}</style></head><body>
+  <div class="no-print" style="padding:14px 30px">${d.btnPrint}</div>
+  <div class="hd">
+    <div class="hd-esq">
+      <div class="hd-logo">${d.marcaLogo?`<img src="${d.marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
+      <div><div class="hd-nm">${d.marcaNome}</div>${d.marcaSlogan?`<div class="hd-sl">${d.marcaSlogan}</div>`:''}</div>
     </div>
-    <div class="h-dir"><div class="h-orc">ORÇAMENTO</div><div class="h-cod">${d.crmId}</div><div class="h-cod">${new Date().toLocaleDateString('pt-BR')}</div></div>
+    <div class="hd-dir"><div class="hd-orc">ORÇAMENTO</div><div class="hd-cod">${d.crmId}</div><div class="hd-cod">${new Date().toLocaleDateString('pt-BR')}</div></div>
   </div>
   <div class="body">
     <div class="cli-card">
       <div class="cli-lbl">Destinado a</div>
       <div class="cli-nm">${d.nome}</div>
-      <div class="cli-end">${d.end}</div>
-      ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
-      ${d.cpf?`<div class="cli-end" style="margin-top:2px">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
+      <div class="cli-inf">📍 ${d.end}</div>
+      ${d.tel?`<div class="cli-inf">📞 ${d.tel}</div>`:''}
+      ${d.cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
     </div>
-    <div class="serv-card">
-      <div class="serv-header">
-        <div class="sh-lbl">Serviço</div>
-        <div class="sh-lbl" style="text-align:center">Prazo</div>
-        <div class="sh-lbl" style="text-align:right">Valor</div>
-      </div>
-      <div class="serv-row">
-        <div class="sr-tipo">${d.tipo}</div>
-        <div class="sr-val">${d.valorFmt}</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px">
-      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Permanência</div><div style="font-size:14px;font-weight:800;color:#111">${d.tipoPrazoLabel}</div></div>
-      <div style="background:${d.marcaCor}15;border:1px solid ${d.marcaCor}44;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:${d.marcaCor};text-transform:uppercase;margin-bottom:4px">Dias úteis</div><div style="font-size:16px;font-weight:800;color:${d.marcaCor}">${d.tipoPrazoDias}</div><div style="font-size:10px;color:#888">dias</div></div>
-    </div>
-    <div class="meta">
-      <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${d.validFmt}</div></div>
-      <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
-    </div>
-    ${d.obs?`<div style="background:#fffbe6;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:11px;color:#555;margin-bottom:16px">📝 ${d.obs}</div>`:''}
+    ${_pdfBlocoServico(d,tc)}
   </div>
-  <div class="rodape">CaçambaSP · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
+  <div class="rodape-d">${d.marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
   </body></html>`;
 }
-
 // ── Roteador de tema ──
 function _abrirPDFPorTema(d){
   const mapa = {A:_pdfTemaA, B:_pdfTemaB, C:_pdfTemaC, D:_pdfTemaD};

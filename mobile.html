@@ -4055,18 +4055,14 @@ function renderOrcMob() {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Permanência rua (dias úteis)</label>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Via pública (dias úteis)</label>
             <input type="number" id="om_perm_rua" value="${o.orc_perm_rua||3}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Permanência canteiro (dias úteis)</label>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Canteiro de obras (dias úteis)</label>
             <input type="number" id="om_perm_canteiro" value="${o.orc_perm_canteiro||5}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Prazo locação (dias)</label>
-            <input type="number" id="om_prazo" value="${o.orc_prazo||7}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
           </div>
         </div>
 
@@ -4087,18 +4083,17 @@ async function _salvarDadosOrcMob() {
   const id = _orcMobId; if(!id) return;
   const valor    = parseFloat(document.getElementById('om_valor')?.value||0)||null;
   const validade = document.getElementById('om_validade')?.value||null;
-  const prazo    = parseInt(document.getElementById('om_prazo')?.value||7);
   const permRua  = parseInt(document.getElementById('om_perm_rua')?.value||3);
   const permCant = parseInt(document.getElementById('om_perm_canteiro')?.value||5);
   const obs      = document.getElementById('om_obs')?.value||'';
   const tipo     = document.getElementById('om_tipo')?.value||'';
   try {
     await api('ordens?id=eq.'+id,'PATCH',{
-      orc_valor:valor, orc_validade:validade, orc_prazo:prazo,
+      orc_valor:valor, orc_validade:validade,
       orc_perm_rua:permRua, orc_perm_canteiro:permCant, obs, tipo
     }, tok());
     const idx = _ordens.findIndex(x=>x.id===id);
-    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs,tipo});
+    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs,tipo});
     toast('Dados salvos','ok');
     return true;
   } catch(e) { toast('Erro ao salvar','err'); return false; }
@@ -4109,142 +4104,204 @@ async function gerarOrcMobPDF() {
   const o = _ordens.find(x=>x.id===_orcMobId);
   if(!o) return;
   const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
-  const marcaCor  = vend?.marca_cor||'#2563EB';
-  const marcaNome = vend?.marca_nome||'CaçambaSP';
-  const marcaLogo = vend?.marca_logo_url||'';
-  const marcaSlogan = vend?.marca_slogan||'';
-  const txtCor = '#ffffff';
+  const marcaCor   = vend?.marca_cor||'#f5a623';
+  const marcaNome  = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo  = vend?.marca_logo_url||'';
+  const marcaSlogan= vend?.marca_slogan||'';
+  const marcaTema  = vend?.marca_tema||'A';
+  const nome    = o.nome||'—';
+  const end     = [o.logradouro,o.bairro,o.cidade||'São Paulo'].filter(Boolean).join(', ');
+  const tel     = o.cel||'';
+  const cpf     = o.cpf||'';
+  const tipo    = document.getElementById('om_tipo')?.value||o.tipo||'—';
+  const valor   = parseFloat(document.getElementById('om_valor')?.value||0)||null;
+  const validade= document.getElementById('om_validade')?.value||null;
+  const permRua = parseInt(document.getElementById('om_perm_rua')?.value||3);
+  const permCant= parseInt(document.getElementById('om_perm_canteiro')?.value||5);
+  const obs     = document.getElementById('om_obs')?.value||'';
+  const crmId   = o.crm_id||'';
+  const valorFmt= valor?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  const validFmt= validade?new Date(validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
+  const fontLink= `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
+  const printCss= `@media print{.no-print{display:none!important} body{padding:0}}`;
+  const btnPrint= `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
+  const logoHtml= marcaLogo?`<img src="${marcaLogo}" style="height:44px;object-fit:contain;margin-bottom:4px"><br>`:'';
+  const rodape  = `<div style="border-top:1px solid #eee;padding-top:12px;font-size:9px;color:#aaa;text-align:center;margin-top:16px">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>`;
 
-  const nome     = o.nome||'—';
-  const end      = [o.logradouro,o.bairro,o.cidade||'São Paulo'].filter(Boolean).join(', ');
-  const tel      = o.cel||'';
-  const cpf      = o.cpf||'';
-  const tipo     = document.getElementById('om_tipo')?.value||o.tipo||'—';
-  const valor    = parseFloat(document.getElementById('om_valor')?.value||0)||null;
-  const validade = document.getElementById('om_validade')?.value||null;
-  const prazo    = parseInt(document.getElementById('om_prazo')?.value||7);
-  const permRua  = parseInt(document.getElementById('om_perm_rua')?.value||3);
-  const permCant = parseInt(document.getElementById('om_perm_canteiro')?.value||5);
-  const obs      = document.getElementById('om_obs')?.value||'';
-  const crmId    = o.crm_id||'';
-  const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-  const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-  const dataHoje = new Date().toLocaleDateString('pt-BR');
-  const logoHtml = marcaLogo ? `<img src="${marcaLogo}" style="height:52px;object-fit:contain">` : '';
-  const obsHtml  = obs ? `<div style="background:#fffbe6;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:11px;color:#555;margin-bottom:16px">📝 Resíduo: ${obs}</div>` : '';
+  function _corContraste(hex){
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return (r*.299+g*.587+b*.114)>150?'#000':'#fff';
+  }
 
-  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-  <title>Orçamento ${crmId}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:720px;margin:0 auto}
-    @media print{.no-print{display:none!important} body{max-width:100%}}
-    .header{background:${marcaCor};padding:28px 32px;display:flex;align-items:center;justify-content:space-between}
-    .h-esq{display:flex;align-items:center;gap:14px}
-    .h-logo{width:60px;height:60px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-    .h-nome{font-size:22px;font-weight:800;color:${txtCor}}
-    .h-slogan{font-size:11px;color:${txtCor};opacity:.8;margin-top:3px}
-    .h-dir{text-align:right}
-    .h-orc{font-size:24px;font-weight:800;color:${txtCor};letter-spacing:2px}
-    .h-cod{font-size:11px;color:${txtCor};opacity:.8;font-family:monospace;margin-top:3px}
-    .body{padding:28px 32px}
-    .cli-card{border:2px solid #eee;border-radius:10px;padding:16px 20px;margin-bottom:20px}
-    .cli-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
-    .cli-nm{font-size:17px;font-weight:800;color:#111}
-    .cli-info{font-size:12px;color:#555;margin-top:4px;display:flex;align-items:center;gap:6px}
-    .serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:20px}
-    .serv-hd{background:${marcaCor};padding:9px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px}
-    .sh-lbl{font-size:10px;font-weight:700;color:${txtCor};text-transform:uppercase;letter-spacing:.4px}
-    .serv-row{padding:14px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center}
-    .sr-tipo{font-size:13px;font-weight:600;color:#222}
-    .sr-prazo{font-size:12px;color:#555;text-align:center;white-space:nowrap}
-    .sr-val{font-size:22px;font-weight:800;color:${marcaCor};text-align:right}
-    .cond-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-    .cond-box{background:#f8f8f8;border-radius:8px;padding:12px 14px;text-align:center}
-    .cond-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-    .cond-val{font-size:15px;font-weight:800;color:#111}
-    .cond-sub{font-size:10px;color:#888;margin-top:2px}
-    .meta{display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap}
-    .meta-b{background:#f8f8f8;border-radius:8px;padding:10px 16px}
-    .meta-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-    .meta-val{font-size:13px;font-weight:700;color:#222}
-    .rodape{border-top:1px solid #eee;padding:14px 32px;font-size:9px;color:#aaa;text-align:center}
-    .btn-print{display:inline-flex;align-items:center;gap:6px;padding:11px 22px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px}
-  </style></head><body>
-  <div class="no-print" style="padding:16px 32px">
-    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
-  </div>
-  <div class="header">
-    <div class="h-esq">
-      <div class="h-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
-      <div>
-        <div class="h-nome">${marcaNome}</div>
-        ${marcaSlogan?`<div class="h-slogan">${marcaSlogan}</div>`:''}
-      </div>
-    </div>
-    <div class="h-dir">
-      <div class="h-orc">ORÇAMENTO</div>
-      <div class="h-cod">${crmId}</div>
-      <div class="h-cod">${dataHoje}</div>
-    </div>
-  </div>
-  <div class="body">
-    <div class="cli-card">
-      <div class="cli-lbl">Destinado a</div>
-      <div class="cli-nm">${nome}</div>
-      <div class="cli-info">📍 ${end}</div>
-      ${tel?`<div class="cli-info">📞 ${tel}</div>`:''}
-      ${cpf?`<div class="cli-info">🪪 CPF/CNPJ: ${cpf}</div>`:''}
-    </div>
-
+  function _bloco(tc){
+    return `
     <div class="serv-card">
-      <div class="serv-hd">
-        <div class="sh-lbl">Serviço</div>
-        <div class="sh-lbl" style="text-align:center">Locação</div>
-        <div class="sh-lbl" style="text-align:right">Valor</div>
-      </div>
+      <div class="serv-hd"><div class="sh-lbl">Descrição do serviço</div><div class="sh-lbl sh-val">Valor</div></div>
       <div class="serv-row">
-        <div class="sr-tipo">📦 1 caçamba 4m³ · ${tipo}</div>
-        <div class="sr-prazo">${prazo} dias</div>
+        <div><div class="sr-desc">📦 1 caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}</div></div>
         <div class="sr-val">${valorFmt}</div>
       </div>
     </div>
-
-    <div class="cond-grid">
-      <div class="cond-box">
-        <div class="cond-lbl">Permanência na Rua</div>
-        <div class="cond-val">${permRua}</div>
-        <div class="cond-sub">dias úteis</div>
-      </div>
-      <div class="cond-box">
-        <div class="cond-lbl">Permanência no Canteiro</div>
-        <div class="cond-val">${permCant}</div>
-        <div class="cond-sub">dias úteis</div>
-      </div>
-      <div class="cond-box" style="background:${marcaCor}15;border:1px solid ${marcaCor}44">
-        <div class="cond-lbl" style="color:${marcaCor}">Prazo Total</div>
-        <div class="cond-val" style="color:${marcaCor}">${prazo}</div>
-        <div class="cond-sub">dias corridos</div>
-      </div>
+    <div class="perm-grid">
+      <div class="perm-box"><div class="perm-lbl">Permanência na rua</div><div class="perm-val">${permRua}</div><div class="perm-sub">dias úteis</div></div>
+      <div class="perm-box"><div class="perm-lbl">Permanência no canteiro</div><div class="perm-val">${permCant}</div><div class="perm-sub">dias úteis</div></div>
     </div>
-
-    <div class="meta">
+    <div class="meta-row">
       <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${validFmt}</div></div>
-      <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${dataHoje}</div></div>
+      <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
       <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${crmId}</div></div>
-    </div>
+    </div>`;
+  }
 
-    ${obsHtml}
-  </div>
-  <div class="rodape">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
-  </body></html>`;
+  function _cssSrv(mc,tc){
+    return `.serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:18px}
+    .serv-hd{background:${mc};padding:8px 16px;display:flex;justify-content:space-between;align-items:center}
+    .sh-lbl{font-size:10px;font-weight:700;color:${tc};text-transform:uppercase;letter-spacing:.4px}.sh-val{text-align:right}
+    .serv-row{padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .sr-desc{font-size:13px;font-weight:700;color:#222;margin-bottom:3px}.sr-detail{font-size:11px;color:#777}
+    .sr-val{font-size:22px;font-weight:800;color:${mc};white-space:nowrap}
+    .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .perm-box{background:#f8f8f8;border-radius:8px;padding:10px 14px;text-align:center}
+    .perm-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .perm-val{font-size:20px;font-weight:800;color:#111}.perm-sub{font-size:9px;color:#bbb;margin-top:1px}
+    .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+    .meta-b{background:#f8f8f8;border-radius:8px;padding:8px 12px}
+    .meta-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+    .meta-val{font-size:12px;font-weight:700;color:#222}`;
+  }
 
+  const temas = {
+    A: () => {
+      const tc='#fff';
+      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
+      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:700px;margin:0 auto} ${printCss}
+      .cab{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${marcaCor}}
+      .mn{font-size:20px;font-weight:800;color:${marcaCor}} .sl{font-size:10px;color:#aaa;margin-top:2px}
+      .ot{font-size:18px;font-weight:800;color:${marcaCor};text-align:right} .oc{font-size:10px;color:#888;text-align:right}
+      .cli{background:#f7f7f7;border-radius:8px;padding:12px 16px;margin-bottom:18px}
+      .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+      .cli-nm{font-size:15px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:2px}
+      ${_cssSrv(marcaCor,tc)}</style></head><body>
+      <div class="no-print">${btnPrint}</div>
+      <div class="cab">
+        <div>${logoHtml}<div class="mn">${marcaNome}</div>${marcaSlogan?`<div class="sl">${marcaSlogan}</div>`:''}</div>
+        <div><div class="ot">ORÇAMENTO</div><div class="oc">${crmId}</div><div class="oc">${new Date().toLocaleDateString('pt-BR')}</div></div>
+      </div>
+      <div class="cli">
+        <div class="cli-lbl">Para</div><div class="cli-nm">${nome}</div>
+        <div class="cli-inf">📍 ${end}</div>
+        ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}
+        ${cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${cpf}</div>`:''}
+      </div>
+      ${_bloco(tc)}${rodape}</body></html>`;
+    },
+    B: () => {
+      const tc='#fff';
+      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
+      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;margin:0;display:flex;min-height:100vh} ${printCss}
+      .sidebar{width:190px;background:#1a1a2e;padding:26px 16px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+      .main{flex:1;padding:26px;max-width:520px}
+      .s-logo{width:50px;height:50px;background:rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:6px}
+      .s-nm{font-size:14px;font-weight:800;color:${marcaCor}} .s-sl{font-size:9px;color:rgba(255,255,255,.45);margin-top:2px}
+      .s-item{background:rgba(255,255,255,.07);border-radius:7px;padding:8px 10px}
+      .s-lbl{font-size:8px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+      .s-val{font-size:11px;font-weight:700;color:#fff}
+      .orc-ttl{font-size:22px;font-weight:800;color:${marcaCor};margin-bottom:3px}
+      .orc-cod{font-size:10px;color:#aaa;font-family:monospace;margin-bottom:20px}
+      .cli-box{background:${marcaCor}18;border-left:3px solid ${marcaCor};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
+      .cli-nm{font-size:14px;font-weight:700;color:#111} .cli-inf{font-size:10px;color:#666;margin-top:2px}
+      ${_cssSrv(marcaCor,tc)}</style></head><body>
+      <div class="sidebar">
+        <div>
+          <div class="s-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
+          <div class="s-nm">${marcaNome}</div>${marcaSlogan?`<div class="s-sl">${marcaSlogan}</div>`:''}
+        </div>
+        <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${permRua} dias úteis</div></div>
+        <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${permCant} dias úteis</div></div>
+        <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${validFmt}</div></div>
+        <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorFmt}</div></div>
+      </div>
+      <div class="main">
+        <div class="no-print" style="margin-bottom:14px">${btnPrint}</div>
+        <div class="orc-ttl">ORÇAMENTO</div>
+        <div class="orc-cod">${crmId} · ${new Date().toLocaleDateString('pt-BR')}</div>
+        <div class="cli-box">
+          <div class="cli-nm">${nome}</div><div class="cli-inf">📍 ${end}</div>
+          ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}${cpf?`<div class="cli-inf">🪪 ${cpf}</div>`:''}
+        </div>
+        ${_bloco(tc)}${rodape}
+      </div></body></html>`;
+    },
+    C: () => {
+      const tc='#fff';
+      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
+      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:40px;max-width:680px;margin:0 auto} ${printCss}
+      .topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+      .logo-area{display:flex;align-items:center;gap:10px}
+      .logo-dot{width:32px;height:32px;border-radius:50%;background:${marcaCor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;overflow:hidden;flex-shrink:0}
+      .marca-nm{font-size:16px;font-weight:700;color:#111} .marca-sl{font-size:9px;color:#aaa;margin-top:1px}
+      .orc-pill{background:${marcaCor}18;border:1px solid ${marcaCor}44;border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:${marcaCor}}
+      .orc-cod{font-size:9px;color:#aaa;text-align:right;margin-top:3px;font-family:monospace}
+      .divider{width:100%;height:1px;background:#eee;margin:12px 0 16px}
+      .cli-nm{font-size:17px;font-weight:700;color:#111;margin-bottom:3px} .cli-inf{font-size:11px;color:#777;margin-bottom:2px}
+      ${_cssSrv(marcaCor,tc)}</style></head><body>
+      <div class="no-print" style="margin-bottom:20px">${btnPrint}</div>
+      <div class="topo">
+        <div class="logo-area">
+          <div class="logo-dot">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:marcaNome.charAt(0)}</div>
+          <div><div class="marca-nm">${marcaNome}</div>${marcaSlogan?`<div class="marca-sl">${marcaSlogan}</div>`:''}</div>
+        </div>
+        <div style="text-align:right"><div class="orc-pill">Orçamento</div><div class="orc-cod">${crmId} · ${new Date().toLocaleDateString('pt-BR')}</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="cli-nm">${nome}</div><div class="cli-inf">📍 ${end}</div>
+      ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}
+      ${cpf?`<div class="cli-inf" style="margin-bottom:16px">🪪 CPF/CNPJ: ${cpf}</div>`:`<div style="margin-bottom:16px"></div>`}
+      ${_bloco(tc)}${rodape}</body></html>`;
+    },
+    D: () => {
+      const tc=_corContraste(marcaCor);
+      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
+      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:700px;margin:0 auto} ${printCss}
+      .hd{background:${marcaCor};padding:24px 30px;display:flex;align-items:center;justify-content:space-between}
+      .hd-esq{display:flex;align-items:center;gap:14px}
+      .hd-logo{width:54px;height:54px;background:rgba(255,255,255,.2);border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+      .hd-nm{font-size:20px;font-weight:800;color:${tc}} .hd-sl{font-size:10px;color:${tc};opacity:.75;margin-top:2px}
+      .hd-dir{text-align:right} .hd-orc{font-size:20px;font-weight:800;color:${tc};letter-spacing:1px}
+      .hd-cod{font-size:10px;color:${tc};opacity:.75;font-family:monospace;margin-top:2px}
+      .body{padding:24px 30px}
+      .cli-card{border:2px solid #eee;border-radius:10px;padding:14px 18px;margin-bottom:18px}
+      .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+      .cli-nm{font-size:16px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:3px}
+      .rodape-d{border-top:1px solid #eee;padding:12px 30px;font-size:9px;color:#bbb;text-align:center}
+      ${_cssSrv(marcaCor,tc)}</style></head><body>
+      <div class="no-print" style="padding:14px 30px">${btnPrint}</div>
+      <div class="hd">
+        <div class="hd-esq">
+          <div class="hd-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
+          <div><div class="hd-nm">${marcaNome}</div>${marcaSlogan?`<div class="hd-sl">${marcaSlogan}</div>`:''}</div>
+        </div>
+        <div class="hd-dir"><div class="hd-orc">ORÇAMENTO</div><div class="hd-cod">${crmId}</div><div class="hd-cod">${new Date().toLocaleDateString('pt-BR')}</div></div>
+      </div>
+      <div class="body">
+        <div class="cli-card">
+          <div class="cli-lbl">Destinado a</div><div class="cli-nm">${nome}</div>
+          <div class="cli-inf">📍 ${end}</div>
+          ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}${cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${cpf}</div>`:''}
+        </div>
+        ${_bloco(tc)}
+      </div>
+      <div class="rodape-d">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
+      </body></html>`;
+    }
+  };
+
+  const fn = temas[marcaTema] || temas['A'];
+  const html = fn();
   const win = window.open('','_blank');
   if(win){ win.document.write(html); win.document.close(); }
   else toast('Permita popups para abrir o PDF','warn');
 }
-
 async function salvarEEnviarOrcMob() {
   const ok = await _salvarDadosOrcMob();
   if(!ok) return;
@@ -4256,7 +4313,6 @@ async function salvarEEnviarOrcMob() {
   const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const validade = document.getElementById('om_validade')?.value||null;
   const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-  const prazo = document.getElementById('om_prazo')?.value||'7';
   const permRua = document.getElementById('om_perm_rua')?.value||'3';
   const permCant = document.getElementById('om_perm_canteiro')?.value||'5';
   const tipo = document.getElementById('om_tipo')?.value||o.tipo||'';
@@ -4273,7 +4329,6 @@ Segue o orçamento solicitado:
 💰 *Valor: ${valorFmt}*
 📅 Permanência na rua: *${permRua} dias úteis*
 🏗️ Permanência no canteiro: *${permCant} dias úteis*
-⏱️ Prazo total: *${prazo} dias*
 ✅ Proposta válida até: *${validFmt}*
 
 Qualquer dúvida estamos à disposição! 😊`;
