@@ -986,6 +986,8 @@ let _nfAcrescimo = 40;
 let _limiteDiurno = '09:00';
 let _limiteNoturno = '16:00';
 let _autoId = null;
+let COBR_DIAS_ALERTA = 3;   // amarelo — atenção (sobrescrito pela config Supabase)
+let COBR_DIAS_CRITICO = 7;  // vermelho — crítico (sobrescrito pela config Supabase)
 let _novaTemNF = null;
 let _novaFornSug = null;
 let _toggleMode = 'pendentes'; // 'pendentes' | 'tudo'
@@ -1984,16 +1986,18 @@ async function loadApp() {
         : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc','GET',null,tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
-      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno)','GET',null,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
     ]);
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
     _usuarios = dbUsrs||[];
     if(dbCfg?.length) {
       dbCfg.forEach(row => {
-        if(row.chave==='nf_acrescimo')   _nfAcrescimo   = parseFloat(row.valor)||40;
-        if(row.chave==='limite_diurno')  _limiteDiurno  = row.valor||'09:00';
-        if(row.chave==='limite_noturno') _limiteNoturno = row.valor||'16:00';
+        if(row.chave==='nf_acrescimo')    _nfAcrescimo    = parseFloat(row.valor)||40;
+        if(row.chave==='limite_diurno')   _limiteDiurno   = row.valor||'09:00';
+        if(row.chave==='limite_noturno')  _limiteNoturno  = row.valor||'16:00';
+        if(row.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA = parseInt(row.valor)||3;
+        if(row.chave==='cobr_dias_critico') COBR_DIAS_CRITICO = parseInt(row.valor)||7;
       });
     }
     setLoad(90,'Iniciando...');
