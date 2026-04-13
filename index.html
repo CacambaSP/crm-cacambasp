@@ -1102,6 +1102,7 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
         <button class="btn btn-sm" onclick="copiarConfirmacao()" title="Copiar texto de confirmação para enviar ao cliente" style="background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25)">📋 Confirmação</button>
         <button class="btn btn-sm" id="detailRemFornBtn" onclick="trocarFornecedor(_detailId)" style="display:none;background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3)">🔄 Remover Fornecedor</button>
+        <button class="btn btn-sm" id="detailRemarcarBtn" onclick="abrirRemarcar(_detailId)" style="display:none;background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📅 Remarcar</button>
         <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
@@ -1585,6 +1586,8 @@ async function _executarRemocaoFornecedor(id, c, nomeForn){
     document.getElementById('d_forn').textContent='-';
     const remFornBtn=document.getElementById('detailRemFornBtn');
     if(remFornBtn) remFornBtn.style.display='none';
+    const remarcarBtn3=document.getElementById('detailRemarcarBtn');
+    if(remarcarBtn3) remarcarBtn3.style.display='none';
     _renderFornSugestao(c);
   }
   try{
@@ -2317,11 +2320,11 @@ function cardHTML(c,color){
       <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
         <button class="cb-blue" style="width:100%;text-align:center" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">Atribuir Fornecedor</button>
       </div>`:''}
-      ${precisaConfirmar&&!badgeExpirou?`
+      ${c.col==='entrega'?`
       <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
-        <div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>
+        ${precisaConfirmar&&!badgeExpirou?`<div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>`:''}
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>
+          ${precisaConfirmar&&!badgeExpirou?`<button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>`:''}
           <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
           <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
           <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
@@ -3087,6 +3090,8 @@ function fillDetail(c){
   // Botão remover fornecedor: visível só se tem forn atribuído e forn não foi pago
   const remFornBtn=document.getElementById('detailRemFornBtn');
   if(remFornBtn) remFornBtn.style.display=(c.forn_id&&!c.forn_pago)?'inline-flex':'none';
+  const remarcarBtn=document.getElementById('detailRemarcarBtn');
+  if(remarcarBtn) remarcarBtn.style.display=(c.col==='entrega'||c.col==='ag_entrega')?'inline-flex':'none';
 }
 
 // ── Helper: matching fornecedor×bairro×cidade ──
@@ -3493,6 +3498,8 @@ async function _atribuirFornecedor(fornId){
   document.getElementById('d_forn').textContent = f.nome;
   const remFornBtn = document.getElementById('detailRemFornBtn');
   if(remFornBtn) remFornBtn.style.display = (c.forn_id&&!c.forn_pago)?'inline-flex':'none';
+  const remarcarBtn2=document.getElementById('detailRemarcarBtn');
+  if(remarcarBtn2) remarcarBtn2.style.display=(c.col==='entrega'||c.col==='ag_entrega')?'inline-flex':'none';
   _renderFornSugestao(c);
   renderBoard();
   try{
