@@ -438,6 +438,35 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── EDIT FORM (reutiliza form-group do nova ordem) ── */
 .edit-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 100px}
+/* ── Alertas S30 ── */
+.alerta-sec{margin-bottom:16px}
+.alerta-sec-hd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:6px 0 8px;border-bottom:2px solid var(--bor);margin-bottom:8px}
+.alerta-cnt{margin-left:auto;background:var(--r);color:#fff;font-size:10px;padding:1px 7px;border-radius:20px}
+.alerta-inad{color:var(--r)}
+.alerta-crit{color:#f6a053}
+.alerta-atencao{color:#e6b84a}
+.alerta-orc{color:var(--acc)}
+.alerta-entrega{color:#818cf8}
+.alerta-card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s}
+.alerta-card:active{opacity:.8}
+.alerta-card-inad{border-left:3px solid var(--r)}
+.alerta-card-crit{border-left:3px solid #f6a053}
+.alerta-card-atencao{border-left:3px solid #e6b84a}
+.alerta-card-orc{border-left:3px solid var(--acc)}
+.alerta-card-entrega{border-left:3px solid #818cf8}
+.alerta-card-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:8px}
+.alerta-nome{font-size:14px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+.alerta-val{font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0}
+.alerta-card-bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.alerta-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.alerta-tag-inad{background:var(--r2);color:var(--r)}
+.alerta-tag-crit{background:rgba(221,107,32,.12);color:#f6a053}
+.alerta-tag-atencao{background:rgba(214,158,46,.12);color:#e6b84a}
+.alerta-tag-orc{background:var(--acc2);color:var(--acc)}
+.alerta-tag-entrega{background:var(--b2);color:#818cf8}
+.alerta-sub{font-size:11px;color:var(--mut2)}
+.alerta-dias{font-size:11px;color:var(--mut2);margin-left:auto}
+.alerta-actions{display:flex;gap:6px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -534,6 +563,7 @@ input,select,textarea,button{font-family:var(--font)}
 
   <!-- VIEW: ALERTAS -->
   <div class="view" id="view-alertas">
+    <div style="padding:10px 14px 4px;font-size:12px;color:var(--mut2)" id="alertasSubtitle"></div>
     <div class="scroll-area" id="alertasContent"></div>
   </div>
 
@@ -2058,7 +2088,7 @@ function buildBottomNav() {
       </button>
       <button class="bnb" id="bnb-alertas" onclick="setView('alertas')">
         <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="bnb-lbl">Avisos</div>
-        <div class="bnb-badge" id="badge-alert"></div>
+        <div class="bnb-badge" id="badge-alert2"></div>
       </button>`;
   }
   atualizarAlertBadge();
@@ -2240,26 +2270,45 @@ function diasAberto(o) {
   if(isNaN(dt.getTime())) return 0;
   return Math.max(0, Math.floor((Date.now() - dt.getTime()) / 86400000));
 }
+// alias usado pela nova renderAlertas
+function diasEmAberto(o){ return diasAberto(o); }
 
-function atualizarAlertBadge() {
-  const hoje = new Date().toDateString();
-  const semRec = _ordens.filter(o => {
-    if(o.pago || o.col==='concluido' || o.col==='orcamento') return false;
-    return !o.pago && (o.col==='pagar'||o.col==='faltapg') && !(parseFloat(o.rec||0)>0);
-  }).length;
-  const count = semRec + _ordens.filter(o => {
-    if(o.pago || o.col==='concluido') return false;
-    const cobrado = o.cobrado_em ? new Date(o.cobrado_em).toDateString() : null;
-    if(cobrado === hoje) return false;
-    return diasAberto(o) >= 3;
-  }).length;
-  ['badge-alert'].forEach(id=>{
+function foiCobradoHoje(c){
+  if(!c.cobrado_em) return false;
+  const d = new Date(c.cobrado_em);
+  const hoje = new Date();
+  return d.getFullYear()===hoje.getFullYear() && d.getMonth()===hoje.getMonth() && d.getDate()===hoje.getDate();
+}
+
+function deveConfirmarEntrega(c){
+  if(c.col!=='entrega'||c.entrega_confirmada) return false;
+  return !!c.forn_id;
+}
+
+function badgeEntregaExpirado(c){
+  const hr=getHoraEntrega(c); if(!hr) return false;
+  return new Date()>=new Date(hr.getTime()+24*60*60*1000);
+}
+
+function _atualizarAlertasBadge() {
+  const ordens = _ordens || [];
+  const inadimp = ordens.filter(c=>c.col==='inadimp').length;
+  const criticos = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).length;
+  const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
+  const entregaConf = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
+  const cobrPend = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
+  const total = inadimp + criticos + orcPend + entregaConf + cobrPend;
+  ['badge-alert','badge-alert2'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
-    el.textContent = count||'';
-    el.style.display = count?'block':'none';
+    el.textContent = total > 99 ? '99+' : total;
+    el.style.display = total ? 'block' : 'none';
   });
+  return {inadimp, criticos, orcPend, entregaConf, cobrPend, total};
 }
+// alias para compatibilidade
+function atualizarAlertBadge(){ _atualizarAlertasBadge(); }
 
 // ── MODO SIMPLES / DETALHES ──
 function toggleModoSimples() {
@@ -3177,63 +3226,154 @@ function renderFinanceiro() {
   document.getElementById('finContent').innerHTML = h;
 }
 
-// ── RENDER ALERTAS ──
-function renderAlertas() {
+// ── RENDER ALERTAS ── (S30 — 5 seções)
+function renderAlertas(){
   setTopbar('Alertas','');
-  const hoje = new Date().toDateString();
-  const ordens = isAdmin() ? _ordens : _ordens.filter(o=>o.usuario_id===uid());
-  const pendentes = ordens.filter(o=>{
-    if(o.pago||o.col==='concluido') return false;
-    const cobrado = o.cobrado_em ? new Date(o.cobrado_em).toDateString():null;
-    if(cobrado===hoje) return false;
-    return diasAberto(o)>=3;
-  }).sort((a,b)=>diasAberto(b)-diasAberto(a));
-  const semForn = ordens.filter(o=>!o.forn_id&&o.col!=='concluido'&&o.col!=='orcamento'&&o.col==='contratar');
-  let h='';
-  if(pendentes.length) {
-    h+=`<div class="sec-lbl">💰 Cobrança pendente (${pendentes.length})</div>`;
-    pendentes.forEach(o=>{
-      const d=diasAberto(o);
-      const tipo=d>=7?'urg':'warn';
-      const tel=(o.cel||'').replace(/\D/g,'');
-      h+=`<div class="action-card" onclick="abrirDetalhe('${o.id}')">
-        <div class="ac-row">
-          <div class="ac-main">
-            <div class="ac-name"><span class="ac-urgency">${d>=7?'🚨':'⚠️'} ${d}d</span>${o.nome||'—'}</div>
-            <div class="ac-addr">${o.bairro||''}</div>
-          </div>
-          <div class="ac-val">R$ ${fmt(o.rec)}</div>
-        </div>
-        <div class="ac-actions">
-          <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Registrar</button>
-          <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
-          <button class="ac-btn ac-btn-wa" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
-          ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
-        </div>
-      </div>`;
-    });
+  const el = document.getElementById('alertasContent');
+  if(!el) return;
+  const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
+
+  const ordens = _ordens || [];
+  const listaInad = ordens.filter(c=>c.col==='inadimp').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaCrit = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobr = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const listaOrc = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const listaEntrega = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c));
+
+  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
+
+  const sub = document.getElementById('alertasSubtitle');
+  if(sub) sub.textContent = total===0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
+
+  if(total===0){
+    el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
+      <div style="font-size:48px">✅</div>
+      <div style="font-size:16px;font-weight:600;color:var(--txt)">Tudo em dia!</div>
+      <div style="font-size:13px;text-align:center">Nenhum alerta pendente no momento.</div>
+    </div>`;
+    return;
   }
-  if(semForn.length) {
-    h+=`<div class="sec-lbl">🚛 Sem fornecedor (${semForn.length})</div>`;
-    semForn.forEach(o=>{
-      h+=`<div class="action-card" onclick="abrirDetalhe('${o.id}')">
-        <div class="ac-row">
-          <div class="ac-main">
-            <div class="ac-name">${o.nome||'—'}</div>
-            <div class="ac-addr">${o.logradouro||''} · ${o.bairro||''}</div>
-            ${o.data?`<div style="font-size:11px;color:var(--mut);margin-top:2px">📅 ${dateF(o.data)}</div>`:''}
+
+  const fmtCard = (c) => {
+    const dias = diasEmAberto(c);
+    const nome = c.nome||c.cliente||'—';
+    const val = c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+    const bairro = c.bairro||'';
+    return {dias, nome, val, bairro};
+  };
+
+  let html = '<div style="padding:0 14px 20px">';
+
+  // Seção 1: Inadimplentes
+  if(listaInad.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
+      ${listaInad.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
           </div>
-          <div class="ac-val">R$ ${fmt(o.rec)}</div>
-        </div>
-        <div class="ac-actions">
-          <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">Contratar</button>
-        </div>
-      </div>`;
-    });
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Pago</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
-  if(!h) h=`<div class="empty-state"><div class="empty-ico">✅</div><div class="empty-title">Nenhum alerta</div><div class="empty-desc">Tudo em dia!</div></div>`;
-  document.getElementById('alertasContent').innerHTML = h;
-  atualizarAlertBadge();
+
+  // Seção 2: Críticos
+  if(listaCrit.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d sem pagar <span class="alerta-cnt">${listaCrit.length}</span></div>
+      ${listaCrit.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 3: Atenção
+  if(listaCobr.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d sem pagar <span class="alerta-cnt">${listaCobr.length}</span></div>
+      ${listaCobr.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 4: Orçamentos
+  if(listaOrc.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-orc">📄 Orçamentos aguardando <span class="alerta-cnt">${listaOrc.length}</span></div>
+      ${listaOrc.map(c=>{
+        const nome=c.nome||c.cliente||'—';
+        const val=c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+        const bairro=c.bairro||'';
+        const dt=(c.created_at||c.data||'').slice(0,10).split('-').reverse().join('/');
+        return `<div class="alerta-card alerta-card-orc" onclick="setView('orc')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-orc">📋 Orçamento</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dt}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 5: Entregas a confirmar
+  if(listaEntrega.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas aguardando confirmação <span class="alerta-cnt">${listaEntrega.length}</span></div>
+      ${listaEntrega.map(c=>{
+        const nome=c.nome||c.cliente||'—';
+        const bairro=c.bairro||'';
+        const hr=getHoraEntrega(c);
+        const hrStr=hr?hr.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—';
+        return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">⏰ ${hrStr}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-entrega">🚚 Confirmar entrega</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // ── RENDER NOVA ORDEM ──
