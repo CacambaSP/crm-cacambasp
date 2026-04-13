@@ -1252,8 +1252,8 @@ async function selecionarFornecedor(fornId) {
   const o = _ordens.find(x=>x.id===_detalheId); if(!o) return;
   const f = _forns.find(x=>x.id===fornId); if(!f) return;
   closeModal('atribuirFornModal');
-  // autoColFornNomeado: se estava em contratar, vai para ag_entrega
-  const novaCol = o.col==='contratar' ? 'ag_entrega' : o.col;
+  // autoColFornNomeado: move contratar→ag_entrega se tem fornecedor
+  const novaCol = (o.col==='contratar' && fornId) ? 'ag_entrega' : o.col;
   // Preencher cst com precoForn somente se cst ainda não foi definido
   const s = _af_compativeis.find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
   const precoForn = s ? (s.preco_cli>0?s.preco_cli:s.preco) : 0;
@@ -3537,12 +3537,23 @@ function aplicarFornSug() {
 
 async function nextCrmId() {
   const ano = new Date().getFullYear();
+  const anoStr = String(ano);
   const prefix = 'LC'+ano;
-  const rows = await api(`ordens?crm_id=like.${prefix}*&select=crm_id&order=crm_id.desc&limit=1`,"GET",null,tok());
-  if(!rows?.length) return prefix+'0001';
-  const last = rows[0].crm_id||'';
-  const num = parseInt(last.replace(prefix,''))||0;
-  return prefix+(num+1).toString().padStart(4,'0');
+  try {
+    // Busca TODOS os crm_ids do ano (LC e ORC) — garante que o número nunca se repete
+    const rows = await api(`ordens?crm_id=like.*${anoStr}*&select=crm_id`,"GET",null,tok());
+    const maxNum = (rows||[]).reduce((max,row) => {
+      const id = (row.crm_id||'');
+      const idx = id.indexOf(anoStr);
+      if(idx === -1) return max;
+      const n = parseInt(id.slice(idx + anoStr.length))||0;
+      return n > max ? n : max;
+    }, 0);
+    return prefix + (maxNum+1).toString().padStart(4,'0');
+  } catch(e) {
+    console.warn('nextCrmId fallback', e);
+    return prefix + '0001';
+  }
 }
 
 async function salvarNovaOrdem() {
@@ -3613,9 +3624,12 @@ async function converterOrcamento(id) {
   if(!ok) return;
   try {
     const now = new Date().toISOString();
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'contratar', orc_convertido_em:now},tok());
-    o.col='contratar'; o.orc_convertido_em=now;
-    toast('▶️ Convertido em pedido!','ok');
+    const novoCrmId = await nextCrmId();
+    // Se já tem fornecedor atribuído, entra direto em ag_entrega
+    const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:novoCrmId, orc_convertido_em:now},tok());
+    o.col=colInicial; o.crm_id=novoCrmId; o.orc_convertido_em=now;
+    toast('▶️ Ordem '+novoCrmId+' criada!','ok');
     renderCurrentView();
   } catch(e){ toast('Erro','err'); }
 }

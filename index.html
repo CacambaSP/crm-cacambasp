@@ -1522,7 +1522,8 @@ function badgeEntregaExpirado(c){
 }
 
 function autoColFornNomeado(c){
-  if(c.col==='contratar') c.col='ag_entrega';
+  // Move para ag_entrega se ainda está em contratar E tem fornecedor
+  if(c.col==='contratar' && c.forn_id) c.col='ag_entrega';
 }
 
 function autoColPagamento(c){
@@ -1632,20 +1633,26 @@ const uid=()=>crypto.randomUUID();
 const nextCrmId=async(prefixo='LC')=>{
   const ano=new Date().getFullYear();
   const base=prefixo+ano;
+  const anoStr=String(ano);
   try{
-    // Filtra EXATAMENTE pelo prefixo correto (LC ou ORC) — evita conflito entre os dois
-    const dados=await api('ordens?select=crm_id&crm_id=like.'+base+'*');
-    const filtrados=(dados||[]).filter(row=>(row.crm_id||'').startsWith(base));
-    if(filtrados.length){
-      const maxNum=filtrados.reduce((max,row)=>{
-        const sufixo=(row.crm_id||'').slice(base.length);
-        const n=parseInt(sufixo)||0;
-        return n>max?n:max;
-      },0);
-      const num=maxNum+1;
-      if(prefixo==='LC'){_pixSeq=num;localStorage.setItem('crm_pixseq',_pixSeq);}
-      return base+String(num).padStart(4,'0');
-    }
+    // Busca TODOS os crm_ids do ano (LC e ORC) para garantir que o número nunca se repete
+    const dados=await api('ordens?select=crm_id&crm_id=like.*'+anoStr+'*');
+    const filtrados=(dados||[]).filter(row=>{
+      const id=(row.crm_id||'');
+      // Extrai o número do sufixo independente do prefixo (LC ou ORC)
+      return id.includes(anoStr);
+    });
+    const maxNum=filtrados.reduce((max,row)=>{
+      const id=(row.crm_id||'');
+      const idx=id.indexOf(anoStr);
+      if(idx===-1) return max;
+      const sufixo=id.slice(idx+anoStr.length);
+      const n=parseInt(sufixo)||0;
+      return n>max?n:max;
+    },0);
+    const num=maxNum+1;
+    if(prefixo==='LC'){_pixSeq=num;localStorage.setItem('crm_pixseq',_pixSeq);}
+    return base+String(num).padStart(4,'0');
   }catch(e){ console.warn('nextCrmId fallback localStorage',e); }
   _pixSeq++;localStorage.setItem('crm_pixseq',_pixSeq);
   return base+String(_pixSeq).padStart(4,'0');
@@ -8528,8 +8535,10 @@ async function confirmarConverterOrc(id){
   if(!ok) return;
   const novoCrmId = await nextCrmId('LC');
   const agora = nowISO();
+  // Se já tem fornecedor atribuído, entra direto em ag_entrega; senão, contratar
+  const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
   const patch = {
-    col: 'contratar',
+    col: colInicial,
     crm_id: novoCrmId,
     orc_convertido_em: agora
   };
