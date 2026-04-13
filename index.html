@@ -9342,14 +9342,23 @@ function renderOrcGerador(id){
           <div class="fi"><label>Cliente</label><input type="text" id="orc_g_nome" value="${o?.nome||''}" placeholder="Nome do cliente" oninput="atualizarPreviewPDF()"></div>
           <div class="fi"><label>Endereço</label><input type="text" id="orc_g_end" value="${[o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', ')}" placeholder="Endereço completo" oninput="atualizarPreviewPDF()"></div>
           <div class="fi"><label>Tipo de Resíduo / Serviço</label><input type="text" id="orc_g_tipo" value="${o?.tipo||''}" placeholder="Ex: 1 caçamba entulho" oninput="atualizarPreviewPDF()"></div>
-          <div class="fi-row">
-            <div class="fi"><label>Prazo de locação (dias)</label><input type="number" id="orc_g_prazo" value="${o?.orc_prazo||7}" min="1" placeholder="7" oninput="atualizarPreviewPDF()"></div>
-            <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi">
+            <label>Tipo de prazo</label>
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <label style="flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;cursor:pointer;transition:background .15s" id="orc_g_tipo_rua_lbl">
+                <input type="radio" name="orc_g_tipo_prazo" id="orc_g_tipo_rua" value="rua" ${(o?.orc_perm_canteiro||0)>0&&(o?.orc_perm_rua||0)===0?'':'checked'} onchange="orcSelTipoPrazo()" style="accent-color:var(--acc);width:15px;height:15px">
+                <div><div style="font-size:12px;font-weight:700">Via pública</div><div style="font-size:10px;color:var(--mut2)">3 dias úteis</div></div>
+              </label>
+              <label style="flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;cursor:pointer;transition:background .15s" id="orc_g_tipo_cant_lbl">
+                <input type="radio" name="orc_g_tipo_prazo" id="orc_g_tipo_cant" value="canteiro" ${(o?.orc_perm_canteiro||0)>0&&(o?.orc_perm_rua||0)===0?'checked':''} onchange="orcSelTipoPrazo()" style="accent-color:var(--acc);width:15px;height:15px">
+                <div><div style="font-size:12px;font-weight:700">Canteiro de obras</div><div style="font-size:10px;color:var(--mut2)">5 dias úteis</div></div>
+              </label>
+            </div>
           </div>
-          <div class="fi-row">
-            <div class="fi"><label>Permanência na rua (dias úteis)</label><input type="number" id="orc_g_perm_rua" value="${o?.orc_perm_rua||3}" min="1" oninput="atualizarPreviewPDF()"></div>
-            <div class="fi"><label>Permanência no canteiro (dias úteis)</label><input type="number" id="orc_g_perm_canteiro" value="${o?.orc_perm_canteiro||5}" min="1" oninput="atualizarPreviewPDF()"></div>
-          </div>
+          <input type="hidden" id="orc_g_perm_rua" value="${o?.orc_perm_rua||3}">
+          <input type="hidden" id="orc_g_perm_canteiro" value="${o?.orc_perm_canteiro||0}">
+          <input type="hidden" id="orc_g_prazo" value="${o?.orc_prazo||3}">
           <div class="fi-row">
             <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
             <div class="fi"><label>Telefone / WhatsApp</label><input type="text" id="orc_g_tel" value="${o?.cel||''}" placeholder="(11) 99999-9999" oninput="atualizarPreviewPDF()"></div>
@@ -9391,10 +9400,10 @@ function renderOrcGerador(id){
           </div>
           <!-- Serviço -->
           <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
-            <thead><tr style="background:${marcaCor}"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#fff;font-weight:700">SERVIÇO</th><th style="padding:6px 8px;text-align:center;font-size:9px;color:#fff;font-weight:700">PRAZO</th><th style="padding:6px 8px;text-align:right;font-size:9px;color:#fff;font-weight:700">VALOR</th></tr></thead>
+            <thead><tr style="background:${marcaCor}"><th style="padding:6px 8px;text-align:left;font-size:9px;color:#fff;font-weight:700">SERVIÇO</th><th style="padding:6px 8px;text-align:right;font-size:9px;color:#fff;font-weight:700">VALOR</th></tr></thead>
             <tbody><tr style="border-bottom:1px solid #eee">
               <td style="padding:8px;font-size:10px" id="prev_tipo">${o?.tipo||'—'}</td>
-              <td style="padding:8px;text-align:center;font-size:10px" id="prev_prazo">${o?.orc_prazo||7} dias</td>
+
               <td style="padding:8px;text-align:right;font-weight:800;font-size:13px;color:${marcaCor}" id="prev_valor">${o?.orc_valor?'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
             </tr></tbody>
           </table>
@@ -9422,10 +9431,6 @@ function atualizarPreviewPDF(){
     const validadeFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
     elValidade.textContent = 'Válido até: '+validadeFmt;
   }
-
-  const prazo = document.getElementById('orc_g_prazo')?.value||'7';
-  const elPrazo = document.getElementById('prev_prazo');
-  if(elPrazo) elPrazo.textContent = prazo+' dias';
 
   const tipo = document.getElementById('orc_g_tipo')?.value||'';
   const elTipo = document.getElementById('prev_tipo');
@@ -9485,7 +9490,11 @@ function _pdfDados(o, campos){
   const validade  = campos?.validade  || o?.orc_validade  || null;
   const prazo     = campos?.prazo     != null ? campos.prazo : (o?.orc_prazo || 7);
   const permRua   = campos?.permRua   != null ? campos.permRua   : (o?.orc_perm_rua   || 3);
-  const permCant  = campos?.permCant  != null ? campos.permCant  : (o?.orc_perm_canteiro || 5);
+  const permCant  = campos?.permCant  != null ? campos.permCant  : (o?.orc_perm_canteiro || 0);
+  // Determina tipo de prazo: canteiro se permCant > 0 e permRua === 0, senão via pública
+  const isCanteiro = campos?.isCanteiro != null ? campos.isCanteiro : (permCant > 0 && permRua === 0);
+  const tipoPrazoLabel = isCanteiro ? 'Canteiro de obras' : 'Via pública';
+  const tipoPrazoDias  = isCanteiro ? permCant : permRua;
   const obs       = campos?.obs       != null ? campos.obs  : (o?.obs || '');
   const tel       = campos?.tel       || o?.cel || '';
   const cpf       = campos?.cpf       || o?.cpf || '';
@@ -9499,7 +9508,7 @@ function _pdfDados(o, campos){
   const btnPrint  = `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#000;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
   const printCss  = `@media print{body{padding:16px} .no-print{display:none!important}}`;
   const fontLink  = `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
-  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,valor,validade,prazo,permRua,permCant,obs,tel,cpf,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
+  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,valor,validade,prazo,permRua,permCant,isCanteiro,tipoPrazoLabel,tipoPrazoDias,obs,tel,cpf,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
 }
 
 // ── Tema A — Clássico / Corporativo ──
@@ -9525,13 +9534,8 @@ function _pdfTemaA(d){
     ${d.tel?`<div style="font-size:11px;color:#555;margin-top:2px">📞 ${d.tel}</div>`:''}
     ${d.cpf?`<div style="font-size:11px;color:#555;margin-top:2px">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
   </div>
-  <table><thead><tr><th style="text-align:left">Descrição do Serviço</th><th style="text-align:center">Prazo</th><th style="text-align:right">Valor</th></tr></thead>
-  <tbody><tr><td>${d.tipo}</td><td style="text-align:center">${d.prazo} dias</td><td class="vc">${d.valorFmt}</td></tr></tbody></table>
-  <div style="display:flex;gap:12px;margin-bottom:10px">
-    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Perm. Rua</div><div style="font-size:13px;font-weight:800">${d.permRua}</div><div style="font-size:9px;color:#888">dias úteis</div></div>
-    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Perm. Canteiro</div><div style="font-size:13px;font-weight:800">${d.permCant}</div><div style="font-size:9px;color:#888">dias úteis</div></div>
-    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Prazo Total</div><div style="font-size:13px;font-weight:800;color:${d.marcaCor}">${d.prazo}</div><div style="font-size:9px;color:#888">dias</div></div>
-  </div>
+  <table><thead><tr><th style="text-align:left">Descrição do Serviço</th><th style="text-align:center">Permanência</th><th style="text-align:right">Valor</th></tr></thead>
+  <tbody><tr><td>${d.tipo}</td><td style="text-align:center">${d.tipoPrazoLabel}<br><span style="font-size:9px;color:#888">${d.tipoPrazoDias} dias úteis</span></td><td class="vc">${d.valorFmt}</td></tr></tbody></table>
   <div style="font-size:10px;color:#888;margin-bottom:8px">📅 Proposta válida até: <strong>${d.validFmt}</strong></div>
   ${d.obsHtml}${d.rodape}</body></html>`;
 }
@@ -9564,9 +9568,7 @@ function _pdfTemaB(d){
       <div class="s-nome">${d.marcaNome}</div>
       ${d.marcaSlogan?`<div class="s-slogan">${d.marcaSlogan}</div>`:''}
     </div>
-    <div class="s-item"><div class="s-lbl">Perm. Rua</div><div class="s-val">${d.permRua} dias úteis</div></div>
-    <div class="s-item"><div class="s-lbl">Perm. Canteiro</div><div class="s-val">${d.permCant} dias úteis</div></div>
-    <div class="s-item"><div class="s-lbl">Prazo Total</div><div class="s-val">${d.prazo} dias</div></div>
+    <div class="s-item"><div class="s-lbl">Permanência</div><div class="s-val">${d.tipoPrazoLabel} · ${d.tipoPrazoDias} dias úteis</div></div>
     <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${d.validFmt}</div></div>
     <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:15px">${d.valorFmt}</div></div>
   </div>
@@ -9630,9 +9632,8 @@ function _pdfTemaC(d){
   </div>
   <div class="valor-big">${d.valorFmt}</div>
   <div class="info-row">
-    <div class="info-block"><div class="label">Perm. Rua</div><div class="info-val">${d.permRua} dias úteis</div></div>
-    <div class="info-block"><div class="label">Perm. Canteiro</div><div class="info-val">${d.permCant} dias úteis</div></div>
-    <div class="info-block"><div class="label">Prazo Total</div><div class="info-val">${d.prazo} dias</div></div>
+    <div class="info-block"><div class="label">Permanência</div><div class="info-val">${d.tipoPrazoLabel}</div></div>
+    <div class="info-block"><div class="label">Dias úteis</div><div class="info-val">${d.tipoPrazoDias} dias</div></div>
   </div>
   <div class="info-row">
     <div class="info-block"><div class="label">Válido até</div><div class="info-val">${d.validFmt}</div></div>
@@ -9692,14 +9693,12 @@ function _pdfTemaD(d){
       </div>
       <div class="serv-row">
         <div class="sr-tipo">${d.tipo}</div>
-        <div class="sr-prazo">${d.prazo} dias</div>
         <div class="sr-val">${d.valorFmt}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
-      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Perm. Rua</div><div style="font-size:16px;font-weight:800;color:#111">${d.permRua}</div><div style="font-size:10px;color:#888">dias úteis</div></div>
-      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Perm. Canteiro</div><div style="font-size:16px;font-weight:800;color:#111">${d.permCant}</div><div style="font-size:10px;color:#888">dias úteis</div></div>
-      <div style="background:${d.marcaCor}15;border:1px solid ${d.marcaCor}44;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:${d.marcaCor};text-transform:uppercase;margin-bottom:4px">Prazo Total</div><div style="font-size:16px;font-weight:800;color:${d.marcaCor}">${d.prazo}</div><div style="font-size:10px;color:#888">dias corridos</div></div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Permanência</div><div style="font-size:14px;font-weight:800;color:#111">${d.tipoPrazoLabel}</div></div>
+      <div style="background:${d.marcaCor}15;border:1px solid ${d.marcaCor}44;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:${d.marcaCor};text-transform:uppercase;margin-bottom:4px">Dias úteis</div><div style="font-size:16px;font-weight:800;color:${d.marcaCor}">${d.tipoPrazoDias}</div><div style="font-size:10px;color:#888">dias</div></div>
     </div>
     <div class="meta">
       <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${d.validFmt}</div></div>
@@ -9725,9 +9724,10 @@ async function gerarPDFOrcamento(){
   const id      = _orcGeradorId;
   const valor   = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
   const validade= document.getElementById('orc_g_validade')?.value||null;
-  const prazo   = parseInt(document.getElementById('orc_g_prazo')?.value||7);
-  const permRua = parseInt(document.getElementById('orc_g_perm_rua')?.value||3);
-  const permCant= parseInt(document.getElementById('orc_g_perm_canteiro')?.value||5);
+  const isCanteiro = document.getElementById('orc_g_tipo_cant')?.checked || false;
+  const permRua = isCanteiro ? 0 : 3;
+  const permCant= isCanteiro ? 5 : 0;
+  const prazo   = isCanteiro ? 5 : 3;
   const obs     = document.getElementById('orc_g_obs')?.value||'';
   const tel     = document.getElementById('orc_g_tel')?.value||'';
   const cpf     = document.getElementById('orc_g_cpf')?.value||'';
@@ -9746,7 +9746,7 @@ async function gerarPDFOrcamento(){
     nome   : document.getElementById('orc_g_nome')?.value || o?.nome,
     end    : document.getElementById('orc_g_end')?.value  || [o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', '),
     tipo   : document.getElementById('orc_g_tipo')?.value || o?.tipo,
-    tel, cpf, valor, validade, prazo, permRua, permCant, obs
+    tel, cpf, valor, validade, prazo, permRua, permCant, isCanteiro, obs
   };
   const d = _pdfDados(o, campos);
   _abrirPDFPorTema(d);
@@ -9762,12 +9762,15 @@ function baixarPDFDireto(id){
 async function salvarDadosOrcEEnviarWA(id){
   const valor    = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
   const validade = document.getElementById('orc_g_validade')?.value||null;
-  const prazo    = parseInt(document.getElementById('orc_g_prazo')?.value||7);
+  const isCanteiro = document.getElementById('orc_g_tipo_cant')?.checked || false;
+  const permRua  = isCanteiro ? 0 : 3;
+  const permCant = isCanteiro ? 5 : 0;
+  const prazo    = isCanteiro ? 5 : 3;
   const obs      = document.getElementById('orc_g_obs')?.value||'';
   try{
-    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},tok());
+    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
     const idx=ordens.findIndex(x=>x.id===id);
-    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
+    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
     toast('Dados salvos','ok');
   }catch(e){ toast('Erro ao salvar','err'); return; }
   enviarWaOrc(id);
@@ -9783,13 +9786,24 @@ function enviarWaOrc(id){
   const waResposta  = marcaTelRaw.length>=10 ? marcaTelRaw : '551142378757';
   const valor    = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'a confirmar';
   const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-  const prazo    = o.orc_prazo||7;
+  const isCant   = (o.orc_perm_canteiro||0) > 0 && (o.orc_perm_rua||0) === 0;
+  const tipoPrazo= isCant ? `Canteiro de obras · 5 dias úteis` : `Via pública · 3 dias úteis`;
   const endFmt   = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
-  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento da *${marcaNome}*:\n\n📋 *Orçamento:* ${o.crm_id||''}\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${endFmt}\n📅 *Prazo de locação:* ${prazo} dias\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Qualquer dúvida, fale comigo aqui pelo WhatsApp! 😊\n\n_${marcaNome}${marcaSlogan?' · '+marcaSlogan:''}_`;
+  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento da *${marcaNome}*:\n\n📋 *Orçamento:* ${o.crm_id||''}\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${endFmt}\n📅 *Permanência:* ${tipoPrazo}\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Qualquer dúvida, fale comigo aqui pelo WhatsApp! 😊\n\n_${marcaNome}${marcaSlogan?' · '+marcaSlogan:''}_`;
   const cel = (o.cel||'').replace(/\D/g,'');
   const celLimpo = cel.startsWith('55') && cel.length>=12 ? cel.slice(2) : cel;
   const numCliente = '55'+celLimpo;
   window.open('https://wa.me/'+numCliente+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function orcSelTipoPrazo(){
+  const isCant = document.getElementById('orc_g_tipo_cant')?.checked;
+  const lRua  = document.getElementById('orc_g_tipo_rua_lbl');
+  const lCant = document.getElementById('orc_g_tipo_cant_lbl');
+  if(lRua)  lRua.style.background  = isCant ? '' : 'var(--acc2)';
+  if(lRua)  lRua.style.borderColor = isCant ? 'var(--bor)' : 'var(--acc)';
+  if(lCant) lCant.style.background = isCant ? 'var(--acc2)' : '';
+  if(lCant) lCant.style.borderColor= isCant ? 'var(--acc)' : 'var(--bor)';
 }
 </script>
 
