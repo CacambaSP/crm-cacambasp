@@ -3893,7 +3893,7 @@ async function voltarOrcamentoDetail(){
     const o=ordens.find(x=>x.id===_detailId);
     if(o) o.col='orcamento';
     closeDetail();
-    renderKanban();
+    renderBoard(); renderStats(); _atualizarOrcBadge();
     toast('↩ Ordem movida para Orçamento','ok');
   }catch(e){toast('Erro ao mover ordem','err');}
 }
