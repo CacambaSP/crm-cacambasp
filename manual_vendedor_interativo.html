@@ -443,6 +443,7 @@ tbody td:first-child { color: var(--txt); font-weight: 600; }
     <a href="#alertas"   class="nav-item" data-section="alertas">   <span class="nav-ico">🔔</span> Alertas</a>
     <a href="#pagamento" class="nav-item" data-section="pagamento"> <span class="nav-ico">💰</span> Registrar Pagamentos</a>
     <a href="#celular"   class="nav-item" data-section="celular">   <span class="nav-ico">📱</span> App Mobile</a>
+    <a href="#marca"     class="nav-item" data-section="marca">     <span class="nav-ico">🏷️</span> Personalizar Marca</a>
     <a href="#dicas"     class="nav-item" data-section="dicas">     <span class="nav-ico">💡</span> Dicas e Atalhos</a>
   </nav>
 
@@ -782,10 +783,95 @@ tbody td:first-child { color: var(--txt); font-weight: 600; }
       </div>
     </section>
 
-    <!-- 10. DICAS -->
-    <section class="section" id="dicas">
+    <!-- 10. PERSONALIZAR MARCA -->
+    <section class="section" id="marca">
       <div class="section-header">
         <div class="section-num">10</div>
+        <div>
+          <div class="section-title">🏷️ Personalizar sua Marca</div>
+          <div class="section-sub">Logo, nome, cor, WhatsApp e link do formulário</div>
+        </div>
+      </div>
+
+      <p style="color:var(--mut2);font-size:14px;margin-bottom:16px;line-height:1.6">
+        Cada vendedor pode ter uma <b>marca própria</b> — o cliente vê seu nome, logo e cor no orçamento, sem saber que é o sistema CaçambaSP. Configure em <b>Menu lateral → Perfil</b>.
+      </p>
+
+      <div class="grid-2">
+        <div class="feat-card">
+          <div class="feat-ico">🖼️</div>
+          <div class="feat-title">Logo da Marca</div>
+          <div class="feat-desc">Upload da sua logo (PNG, JPG ou WebP, máx 2MB). Aparece no PDF do orçamento e na tela de rastreio do cliente.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">🏢</div>
+          <div class="feat-title">Nome da Marca</div>
+          <div class="feat-desc">Exemplo: <b style="color:var(--acc)">CaçambaZone</b> ou <b style="color:var(--acc)">CaçambaFácil SP</b>. Aparece no cabeçalho do PDF e nas mensagens WA.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">📞</div>
+          <div class="feat-title">WhatsApp da Marca</div>
+          <div class="feat-desc">Número no formato <b style="color:var(--acc)">5511999999999</b> (com 55 + DDD, sem espaços ou traços). Usado nos orçamentos e no formulário de cadastro.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico">🎨</div>
+          <div class="feat-title">Cor Principal</div>
+          <div class="feat-desc">Escolha a cor do cabeçalho do PDF. Afeta todos os temas. Clique no seletor de cor e escolha qualquer tom.</div>
+        </div>
+      </div>
+
+      <div style="margin:20px 0">
+        <h3 style="font-family:var(--disp);font-size:14px;font-weight:700;color:var(--azul);margin-bottom:12px">📄 Tema do Orçamento PDF</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Tema</th><th>Estilo</th><th>Ideal para</th></tr></thead>
+            <tbody>
+              <tr><td>A — Clássico</td><td>Cabeçalho limpo, tabela tradicional</td><td>Empresas formais, PJ</td></tr>
+              <tr><td>B — Moderno</td><td>Barra lateral colorida, sidebar com dados</td><td>Construtoras, obras grandes</td></tr>
+              <tr><td>C — Minimalista</td><td>Layout clean, valor em destaque</td><td>Clientes residenciais</td></tr>
+              <tr><td>D — Bold</td><td>Cabeçalho cheio, blocos de condições</td><td>Apresentação profissional completa</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="margin:20px 0">
+        <h3 style="font-family:var(--disp);font-size:14px;font-weight:700;color:var(--azul);margin-bottom:12px">🔗 Link do Formulário de Cadastro</h3>
+        <p style="color:var(--mut2);font-size:13px;line-height:1.6;margin-bottom:12px">
+          Cada vendedor tem um link único de captação de leads. Quando o cliente preenche, a ordem já cai automaticamente no seu Kanban.
+        </p>
+        <div style="background:var(--card);border:1px solid var(--acc3);border-radius:10px;padding:12px 16px;font-family:monospace;font-size:12px;color:var(--acc);word-break:break-all;margin-bottom:10px">
+          cacambasp-crm.vercel.app/cadastro.html?v=<span style="color:var(--mut2)">[seu-id]</span>
+        </div>
+        <div class="steps">
+          <div class="step"><div class="step-n">1</div><div class="step-txt">Vá em <b>Menu → Perfil</b></div></div>
+          <div class="step"><div class="step-n">2</div><div class="step-txt">Role até a seção <b>🔗 Link do formulário de cadastro</b></div></div>
+          <div class="step"><div class="step-n">3</div><div class="step-txt">Clique em <b>📋 Copiar link</b> e compartilhe com seus clientes (WhatsApp, Instagram, site...)</div></div>
+          <div class="step"><div class="step-n">4</div><div class="step-txt">O cliente preenche nome, endereço e tipo de resíduo — a ordem aparece automaticamente no seu Kanban</div></div>
+        </div>
+      </div>
+
+      <div style="margin:20px 0">
+        <h3 style="font-family:var(--disp);font-size:14px;font-weight:700;color:var(--azul);margin-bottom:12px">✏️ Como salvar as configurações</h3>
+        <div class="steps">
+          <div class="step"><div class="step-n">1</div><div class="step-txt">Acesse <b>Menu lateral → Perfil</b> (ícone do usuário no canto inferior)</div></div>
+          <div class="step"><div class="step-n">2</div><div class="step-txt">Preencha os campos: Nome da marca, WhatsApp, Slogan (opcional)</div></div>
+          <div class="step"><div class="step-n">3</div><div class="step-txt">Clique em <b>📁 Escolher imagem</b> para fazer upload da sua logo</div></div>
+          <div class="step"><div class="step-n">4</div><div class="step-txt">Escolha a cor principal clicando no seletor colorido</div></div>
+          <div class="step"><div class="step-n">5</div><div class="step-txt">Selecione o tema do PDF (clique para ver o preview)</div></div>
+          <div class="step"><div class="step-n">6</div><div class="step-txt">Clique em <b>💾 Salvar identidade da marca</b></div></div>
+        </div>
+      </div>
+
+      <div class="callout tip"><span class="callout-ico">💡</span><div>O slogan aparece abaixo do nome no PDF. Exemplo: <b>"Rápido, fácil e sem complicação"</b> ou <b>"A caçamba que chega na hora certa"</b>.</div></div>
+      <div class="callout info"><span class="callout-ico">ℹ️</span><div>Formato do WhatsApp: <b>5511999999999</b> — sempre com 55 (Brasil) + DDD + número, sem espaços, parênteses ou traços.</div></div>
+      <div class="callout warn"><span class="callout-ico">⚠️</span><div>Logo máximo 2MB. Se a imagem não aparecer no preview, reduza o tamanho ou converta para JPG.</div></div>
+    </section>
+
+    <!-- 11. DICAS -->
+    <section class="section" id="dicas">
+      <div class="section-header">
+        <div class="section-num">11</div>
         <div>
           <div class="section-title">💡 Dicas e Atalhos</div>
           <div class="section-sub">Truques para usar o sistema mais rápido</div>
