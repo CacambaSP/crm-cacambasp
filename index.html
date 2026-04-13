@@ -100,6 +100,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .nb.act::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;background:var(--acc);border-radius:2px}
 .nb-ico{width:16px;text-align:center;font-size:14px;flex-shrink:0}
 .nb-badge{margin-left:auto;background:var(--r);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center}
+.nb-vend-badges{display:flex;gap:3px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.nb-vend-dot{font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;cursor:pointer;position:relative;transition:opacity .15s}
+.nb-vend-dot[title]:hover::after{content:attr(title);position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 4px);background:rgba(0,0,0,.85);color:#fff;font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:6px;pointer-events:none;z-index:999}
 .sb-bot{padding:12px 10px;border-top:1px solid var(--bor)}
 .user-chip{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--rad3);cursor:pointer;transition:.15s}
 .user-chip:hover{background:rgba(255,255,255,.04)}
@@ -539,15 +542,15 @@ input[type=checkbox]:checked::after{
       <div class="sb-nav">
         <div class="sb-section">Principal</div>
         <button class="nb act" id="nav-funil" onclick="setViewMob('funil')"><span class="nb-ico">📋</span> Funil<span class="nb-badge" id="inadBadge" style="display:none">0</span></button>
-        <button class="nb" id="nav-orc" onclick="setViewMob('orc')"><span class="nb-ico">📄</span> Orçamentos<span class="nb-badge" id="orcBadge" style="display:none">0</span></button>
+        <button class="nb" id="nav-orc" onclick="setViewMob('orc')"><span class="nb-ico">📄</span> Orçamentos<span id="orcVendBadges" class="nb-vend-badges"></span></button>
         <button class="nb" id="nav-financeiro" onclick="setViewMob('financeiro')"><span class="nb-ico">💳</span> Financeiro</button>
         <button class="nb" id="nav-dash" onclick="setViewMob('dash')"><span class="nb-ico">📊</span> Dashboard</button>
         <button class="nb" id="nav-hist" onclick="setViewMob('hist')"><span class="nb-ico">🏆</span> Histórico</button>
         <div class="sb-section">Financeiro</div>
         <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nb-ico">🔄</span> Conciliação</button>
         <button class="nb" id="nav-pgforn" onclick="setViewMob('pgforn')"><span class="nb-ico">💰</span> Pagar Fornecedor</button>
-        <button class="nb" id="nav-cobr" onclick="setViewMob('cobr')"><span class="nb-ico">📲</span> Cobrança Auto<span class="nb-badge" id="cobrBadge" style="display:none">0</span></button>
-        <button class="nb" id="nav-alertas" onclick="setViewMob('alertas')"><span class="nb-ico">🔔</span> Alertas<span class="nb-badge" id="alertasSbBadge" style="display:none">0</span></button>
+        <button class="nb" id="nav-cobr" onclick="setViewMob('cobr')"><span class="nb-ico">📲</span> Cobrança Auto<span id="cobrVendBadges" class="nb-vend-badges"></span></button>
+        <button class="nb" id="nav-alertas" onclick="setViewMob('alertas')"><span class="nb-ico">🔔</span> Alertas<span id="alertasVendBadges" class="nb-vend-badges"></span></button>
         <button class="nb admin-only" id="nav-rel" onclick="setViewMob('rel')"><span class="nb-ico">📈</span> Relatórios</button>
         <button class="nb admin-only" id="nav-nf" onclick="setViewMob('nf')"><span class="nb-ico">🧾</span> Notas Fiscais</button>
         <div class="sb-section">Cadastros</div>
@@ -565,7 +568,7 @@ input[type=checkbox]:checked::after{
             <div class="user-rl" id="sbRole">—</div>
           </div>
         </div>
-        <button class="sb-logout" onclick="doLogout()">↪ Sair</button>
+        <button class="sb-logout" onclick="confirmarSair()">↪ Sair</button>
       </div>
     </nav>
     <div class="mob-overlay" id="mobOverlay" onclick="closeMobSidebar()"></div>
@@ -593,6 +596,7 @@ input[type=checkbox]:checked::after{
           </select>
           <input type="date" id="filterDe" onchange="doFilter()" title="Data início">
           <input type="date" id="filterAte" onchange="doFilter()" title="Data fim">
+          <button class="btn btn-sm" id="btnMinhasOrdens" onclick="toggleMinhasOrdens()" title="Mostrar só minhas ordens">👤 Minhas</button>
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
           <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" style="color:var(--mut2)" title="Alternar visão simples/detalhada">👁 Simples</button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
@@ -1825,7 +1829,12 @@ function showLogin(){
   if(lp){ lp.style.cssText='display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px'; }
 }
 
+async function confirmarSair(){
+  const ok = await showConfirm({ico:'↪',title:'Sair do sistema?',body:'Sua sessão será encerrada.',ok:'Sair',okClass:'btn-r',cancel:'Cancelar'});
+  if(ok) doLogout();
+}
 function doLogout(){
+  _saidoIntencional = true;
   localStorage.removeItem('crm_session');
   clearInterval(_autoRefreshId); clearInterval(_tokenRefreshId);
   _autoRefreshId=null; _tokenRefreshId=null;
@@ -1834,6 +1843,13 @@ function doLogout(){
   document.getElementById('appPage').style.display='none';
   const lp=document.getElementById('loginPage');lp.style.display='flex';
 }
+let _saidoIntencional = false;
+window.addEventListener('beforeunload', function(e){
+  if(_currentUser && !_saidoIntencional){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // ── LOAD APP ──
 function setLoadProg(pct,txt){
@@ -2138,14 +2154,79 @@ function initFilters(){
   forns.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;fs.appendChild(o);});
   if(ov) fs.value=ov;
   const fv=document.getElementById('filterVend');
-  const vv=fv.value;
   fv.innerHTML='<option value="">Todos vendedores</option>';
   [...new Set(ordens.map(c=>c.usuario_id).filter(Boolean))].forEach(uid=>{
     const u=usuarios.find(x=>x.id===uid);
     if(!u) return;
     const o=document.createElement('option');o.value=uid;o.textContent=u.nome||u.email||'Usuário';fv.appendChild(o);
   });
-  if(vv) fv.value=vv;
+  // Restaurar filtro persistido: "minhas", outro vendedor específico, ou todos
+  const savedVendId = localStorage.getItem('crm_filtro_vend_id');
+  if(_minhasOrdens){
+    _aplicarMinhasOrdens();
+  } else if(savedVendId){
+    fv.value = savedVendId;
+    doFilter();
+  } else {
+    _aplicarMinhasOrdens();
+  }
+}
+// ── FILTRO MINHAS ORDENS (persistente) ──
+let _minhasOrdens = localStorage.getItem('crm_filtro_minhas') !== '0'; // padrão = ativo
+function _aplicarMinhasOrdens(){
+  const btn = document.getElementById('btnMinhasOrdens');
+  const sel = document.getElementById('filterVend');
+  if(_minhasOrdens && _currentUser?.user?.id){
+    if(sel) sel.value = _currentUser.user.id;
+    if(btn){ btn.style.background='rgba(245,158,11,.2)'; btn.style.color='var(--acc)'; btn.style.borderColor='rgba(245,158,11,.4)'; }
+  } else {
+    if(sel && sel.value === (_currentUser?.user?.id||'')) sel.value = '';
+    if(btn){ btn.style.background=''; btn.style.color='var(--mut2)'; btn.style.borderColor=''; }
+  }
+  doFilter();
+}
+function toggleMinhasOrdens(){
+  _minhasOrdens = !_minhasOrdens;
+  localStorage.setItem('crm_filtro_minhas', _minhasOrdens ? '1' : '0');
+  _aplicarMinhasOrdens();
+}
+function filtrarPorVendedor(uid, nomeVend){
+  // Clique no badge de outro vendedor no menu lateral → aplica filtro no Kanban e persiste
+  const sel = document.getElementById('filterVend');
+  const meuid = _currentUser?.user?.id;
+  if(sel){
+    if(uid === '__todos__'){
+      // Limpar filtro de vendedor
+      sel.value = '';
+      _minhasOrdens = false;
+      localStorage.setItem('crm_filtro_minhas', '0');
+      localStorage.removeItem('crm_filtro_vend_id');
+      localStorage.removeItem('crm_filtro_vend_nome');
+    } else if(uid === meuid){
+      // Meu badge — ativa "Minhas"
+      sel.value = uid;
+      _minhasOrdens = true;
+      localStorage.setItem('crm_filtro_minhas', '1');
+      localStorage.removeItem('crm_filtro_vend_id');
+      localStorage.removeItem('crm_filtro_vend_nome');
+    } else {
+      // Badge de outro vendedor
+      sel.value = uid;
+      _minhasOrdens = false;
+      localStorage.setItem('crm_filtro_minhas', '0');
+      localStorage.setItem('crm_filtro_vend_id', uid);
+      localStorage.setItem('crm_filtro_vend_nome', nomeVend);
+    }
+  }
+  // Atualizar visual do botão Minhas
+  const btn = document.getElementById('btnMinhasOrdens');
+  if(btn){
+    if(_minhasOrdens){ btn.style.background='rgba(245,158,11,.2)'; btn.style.color='var(--acc)'; btn.style.borderColor='rgba(245,158,11,.4)'; }
+    else { btn.style.background=''; btn.style.color='var(--mut2)'; btn.style.borderColor=''; }
+  }
+  doFilter();
+  // Navegar para o Funil para ver o resultado
+  setView('funil');
 }
 function debounceFilter(){clearTimeout(_filterTimer);_filterTimer=setTimeout(doFilter,180);}
 function doFilter(){
@@ -2193,6 +2274,11 @@ function clearFilter(){
   ['searchInput','filterForn','filterVend','filterPago','filterDe','filterAte'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
+  // Desativar "Minhas Ordens" ao limpar tudo
+  _minhasOrdens = false;
+  localStorage.setItem('crm_filtro_minhas','0');
+  const btn=document.getElementById('btnMinhasOrdens');
+  if(btn){btn.style.background='';btn.style.color='var(--mut2)';btn.style.borderColor='';}
   _filteredOrdens=null;
   document.getElementById('filterInd').style.display='none';
   renderBoard(); renderStats();
@@ -2224,10 +2310,86 @@ function renderInadBadge(){
   _atualizarCobrBadge();
   _atualizarAlertasBadge();
 }
+// Paleta de cores por índice de vendedor
+const _VEND_CORES = [
+  {bg:'rgba(239,68,68,.18)',color:'#ef4444',bor:'rgba(239,68,68,.4)'},   // vermelho
+  {bg:'rgba(245,158,11,.18)',color:'#f59e0b',bor:'rgba(245,158,11,.4)'}, // laranja
+  {bg:'rgba(99,102,241,.18)',color:'#818cf8',bor:'rgba(99,102,241,.4)'}, // índigo
+  {bg:'rgba(16,185,129,.18)',color:'#10b981',bor:'rgba(16,185,129,.4)'}, // verde
+  {bg:'rgba(236,72,153,.18)',color:'#ec4899',bor:'rgba(236,72,153,.4)'}, // rosa
+  {bg:'rgba(14,165,233,.18)',color:'#38bdf8',bor:'rgba(14,165,233,.4)'}, // azul
+];
+// Mapa estável de vendedor → cor (gerado uma vez por sessão)
+let _vendCorMap = {};
+function _getVendCor(uid){
+  if(!_vendCorMap[uid]){
+    const idx = Object.keys(_vendCorMap).length % _VEND_CORES.length;
+    _vendCorMap[uid] = _VEND_CORES[idx];
+  }
+  return _vendCorMap[uid];
+}
+function _renderVendBadges(containerId, counts){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const meuid = _currentUser?.user?.id;
+  const meu = counts.find(function(x){return x.uid===meuid;});
+  const outros = counts.filter(function(x){return x.uid!==meuid && x.n>0;});
+  const savedVendId = localStorage.getItem('crm_filtro_vend_id');
+  const spans = [];
+  if(meu && meu.n>0){
+    const cor = _getVendCor(meu.uid);
+    const s = document.createElement('span');
+    s.className = 'nb-vend-dot';
+    s.title = 'Voce: '+meu.n;
+    s.textContent = meu.n;
+    s.style.cssText = 'background:'+cor.bg+';color:'+cor.color+';border:1px solid '+cor.bor+';cursor:pointer;';
+    if(_minhasOrdens) s.style.outline = '2px solid '+cor.color;
+    s.onclick = (function(uid,nome){return function(e){e.stopPropagation();filtrarPorVendedor(uid,nome);};})(meu.uid, meu.nome);
+    spans.push(s);
+  }
+  if(isAdmin()){
+    outros.forEach(function(o){
+      const cor = _getVendCor(o.uid);
+      const nome = o.nome.split(' ')[0];
+      const s = document.createElement('span');
+      s.className = 'nb-vend-dot';
+      s.title = nome+': '+o.n;
+      s.textContent = o.n;
+      const isAtivo = !_minhasOrdens && savedVendId===o.uid;
+      s.style.cssText = 'background:'+cor.bg+';color:'+cor.color+';border:1px solid '+cor.bor+';cursor:pointer;opacity:'+(isAtivo?'1':'.7')+';';
+      if(isAtivo) s.style.outline = '2px solid '+cor.color;
+      s.onclick = (function(uid,nome2){return function(e){e.stopPropagation();filtrarPorVendedor(uid,nome2);};})(o.uid, o.nome);
+      spans.push(s);
+    });
+    if(outros.length>0){
+      const s = document.createElement('span');
+      s.className = 'nb-vend-dot';
+      s.title = 'Ver todos';
+      s.textContent = 'all';
+      const todosAtivo = !_minhasOrdens && !savedVendId;
+      s.style.cssText = 'background:rgba(255,255,255,.06);color:var(--mut2);border:1px solid var(--bor);cursor:pointer;';
+      if(todosAtivo) s.style.outline = '1px solid var(--acc)';
+      s.onclick = function(e){e.stopPropagation();filtrarPorVendedor('__todos__','');};
+      spans.push(s);
+    }
+  }
+  el.innerHTML = '';
+  spans.forEach(function(s){el.appendChild(s);});
+  el.style.display = spans.length ? 'flex' : 'none';
+}
 function _atualizarCobrBadge(){
-  const n=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
+  const pendFn = o => !o.pago&&o.col!=='concluido'&&o.col!=='orcamento'&&o.rec>0&&diasEmAberto(o)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(o);
+  const pend = ordens.filter(pendFn);
+  // Agrupar por vendedor
+  const uids = [...new Set(pend.map(o=>o.usuario_id).filter(Boolean))];
+  const counts = uids.map(uid=>{
+    const u = usuarios.find(x=>x.id===uid);
+    return {uid, nome:u?.nome||'?', n:pend.filter(o=>o.usuario_id===uid).length};
+  });
+  // Manter o badge original (para compatibilidade)
   const b=document.getElementById('cobrBadge');
-  if(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';}
+  if(b){b.style.display='none';}
+  _renderVendBadges('cobrVendBadges', counts);
 }
 
 // ── KANBAN ──
@@ -4448,12 +4610,17 @@ function renderCobrancaAuto(){
   if(!el) return;
 
   // Ordens ativas sem pagamento do cliente
-  const todos = ordens.filter(c =>
+  const meuid = _currentUser?.user?.id;
+  const todosGlobal = ordens.filter(c =>
     !c.pago &&
     c.col !== 'concluido' &&
     c.rec > 0
   ).map(c => ({ ...c, dias: diasEmAberto(c) }))
     .sort((a,b) => b.dias - a.dias);
+
+  // Minhas ordens vs ordens de outros (só admin vê outros)
+  const todos       = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
+  const todosOutros = isAdmin() ? todosGlobal.filter(c => c.usuario_id !== meuid) : [];
 
   // Separa cobrados hoje (não entram nos contadores de alerta)
   const cobradosHoje = todos.filter(c => foiCobradoHoje(c));
@@ -4507,8 +4674,32 @@ function renderCobrancaAuto(){
     </div>
     ${cobradosHoje.map(c => _cobrarRow(c,'ok')).join('')}` : ''}
 
-    ${!todos.length ? '<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhum pagamento pendente!</div>' : ''}
+    ${!todos.length ? '<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Nenhuma pendência sua no momento!</div>' : ''}
     ${todos.length && !pendentes.length && cobradosHoje.length ? '<div style="text-align:center;padding:20px;color:var(--g);font-weight:600">✅ Todos já foram cobrados hoje!</div>' : ''}
+
+    ${todosOutros.length ? `
+    <div style="margin-top:20px;border-top:2px dashed var(--bor);padding-top:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+        📌 Outros vendedores — ${todosOutros.length} pendente${todosOutros.length>1?'s':''}
+      </div>
+      ${todosOutros.filter(c=>!foiCobradoHoje(c)).map(c=>{
+        const uVend = usuarios.find(u=>u.id===c.usuario_id);
+        const nomeVend = uVend?.nome||'Vendedor';
+        const cor = c.dias>=COBR_DIAS_CRITICO?'var(--r)':c.dias>=COBR_DIAS_ALERTA?'var(--acc)':'var(--mut2)';
+        const bg  = c.dias>=COBR_DIAS_CRITICO?'var(--r2)':c.dias>=COBR_DIAS_ALERTA?'var(--acc2)':'var(--card)';
+        const bor = c.dias>=COBR_DIAS_CRITICO?'var(--r3)':c.dias>=COBR_DIAS_ALERTA?'var(--acc3)':'var(--bor)';
+        return `<div style="background:${bg};border:1px solid ${bor};border-radius:var(--rad2);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;opacity:.85" onclick="openDetail('${c.id}')">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${c.logradouro||c.nome||'-'}${c.bairro?' · <span style=\"color:var(--acc);font-size:11px\">'+c.bairro+'</span>':''}</div>
+            <div style="font-size:11px;color:var(--mut2);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="color:var(--b);font-weight:600">👤 ${nomeVend}</span>
+              <span style="color:${cor};font-weight:700">⏱️ ${c.dias}d em aberto</span>
+              <span>R$ ${fmt(c.rec)}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
   `;
 }
 
@@ -8732,27 +8923,48 @@ function _atualizarOrcBadge(){
   const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
   const pendentes = ordens.filter(o=>o.col==='orcamento' && !lidos.includes(o.id));
   const badge = document.getElementById('orcBadge');
-  if(badge){
-    badge.textContent = pendentes.length;
-    badge.style.display = pendentes.length > 0 ? 'inline-flex' : 'none';
-  }
+  if(badge) badge.style.display='none';
+  const uids = [...new Set(pendentes.map(o=>o.usuario_id).filter(Boolean))];
+  const counts = uids.map(uid=>{
+    const u = usuarios.find(x=>x.id===uid);
+    return {uid, nome:u?.nome||'?', n:pendentes.filter(o=>o.usuario_id===uid).length};
+  });
+  // Orçamentos sem usuario_id (cadastro externo)
+  const semVend = pendentes.filter(o=>!o.usuario_id).length;
+  if(semVend>0) counts.push({uid:'__ext__', nome:'Externo', n:semVend});
+  if(!_vendCorMap['__ext__']) _vendCorMap['__ext__'] = _VEND_CORES[5];
+  _renderVendBadges('orcVendBadges', counts);
 }
 
 // ── ALERTAS ──
 function _atualizarAlertasBadge(){
-  const inadimp = ordens.filter(c=>c.col==='inadimp').length;
-  const criticos = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).length;
   const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-  const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
-  const entregaConf = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
-  const cobrPend = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
+  const alertaFn = c => {
+    const inad = c.col==='inadimp';
+    const crit = !c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c);
+    const cobr = !c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c);
+    const entrega = deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c);
+    return inad||crit||cobr||entrega;
+  };
+  const inadimp    = ordens.filter(c=>c.col==='inadimp').length;
+  const criticos   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).length;
+  const orcPend    = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
+  const entregaConf= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
+  const cobrPend   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
   const total = inadimp + criticos + orcPend + entregaConf + cobrPend;
   // Badge no bottom nav
   const bnbB = document.getElementById('alertasBnbBadge');
   if(bnbB){ bnbB.textContent=total>99?'99+':total; bnbB.classList.toggle('show',total>0); }
-  // Badge no sidebar
+  // Badge sidebar: mini-badges por vendedor
   const sbB = document.getElementById('alertasSbBadge');
-  if(sbB){ sbB.textContent=total>99?'99+':total; sbB.style.display=total>0?'inline-flex':'none'; }
+  if(sbB) sbB.style.display='none';
+  const alertaOrdens = ordens.filter(alertaFn);
+  const uids = [...new Set(alertaOrdens.map(o=>o.usuario_id).filter(Boolean))];
+  const counts = uids.map(uid=>{
+    const u = usuarios.find(x=>x.id===uid);
+    return {uid, nome:u?.nome||'?', n:alertaOrdens.filter(o=>o.usuario_id===uid).length};
+  });
+  _renderVendBadges('alertasVendBadges', counts);
   return {inadimp, criticos, orcPend, entregaConf, cobrPend, total};
 }
 
@@ -8761,18 +8973,27 @@ function renderAlertas(){
   if(!el) return;
   const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
 
+  const _meuid = _currentUser?.user?.id;
+  const _minhas = c => !_meuid || c.usuario_id === _meuid;
+  const _outros  = c => isAdmin() && _meuid && c.usuario_id !== _meuid;
+
   // Inadimplentes
-  const listaInad = ordens.filter(c=>c.col==='inadimp').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  // Críticos (não inadimp, mas acima do threshold)
-  const listaCrit = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  // Cobranças (atenção, acima de alerta mas abaixo de crítico)
-  const listaCobr = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaInad     = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaInadOut  = ordens.filter(c=>c.col==='inadimp'&&_outros(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  // Críticos
+  const listaCrit     = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCritOut  = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  // Cobranças atenção
+  const listaCobr     = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobrOut  = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
   // Orçamentos não lidos
   const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
   const listaOrc = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   // Entregas aguardando confirmação
-  const listaEntrega = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c));
+  const listaEntrega = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
+  const listaEntregaOut = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
 
+  const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
   const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
 
   const sub = document.getElementById('alertasSubtitle');
@@ -8916,6 +9137,41 @@ function renderAlertas(){
           </div>
         </div>`;
       }).join('')}
+    </div>`;
+  }
+
+  // ── Seção "outros vendedores" para admin ──
+  if(totalOutros > 0){
+    const _nomeVend = (ordem) => {
+      const u = usuarios.find(u=>u.id===ordem.usuario_id);
+      return u?.nome||'Vendedor';
+    };
+    const _rowOutro = (o, emoji) => {
+      const dias = diasEmAberto(o);
+      const cor = dias>=COBR_DIAS_CRITICO?'var(--r)':dias>=COBR_DIAS_ALERTA?'var(--acc)':'var(--mut2)';
+      const bg  = dias>=COBR_DIAS_CRITICO?'var(--r2)':dias>=COBR_DIAS_ALERTA?'var(--acc2)':'var(--card)';
+      const bor = dias>=COBR_DIAS_CRITICO?'var(--r3)':dias>=COBR_DIAS_ALERTA?'var(--acc3)':'var(--bor)';
+      return `<div class="alerta-card" style="background:${bg};border:1px solid ${bor};opacity:.8;cursor:pointer" onclick="openDetail('${o.id}')">
+        <div class="alerta-card-top">
+          <span class="alerta-nome">${o.logradouro||o.nome||'—'}</span>
+          <span class="alerta-val" style="color:${cor}">${dias}d</span>
+        </div>
+        <div class="alerta-card-bot">
+          <span class="alerta-tag" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.25)">👤 ${_nomeVend(o)}</span>
+          ${o.bairro?`<span class="alerta-sub">${o.bairro}</span>`:''}
+          <span class="alerta-sub">R$ ${Number(o.rec||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+        </div>
+      </div>`;
+    };
+
+    html += `<div class="alerta-sec" style="margin-top:16px;border-top:2px dashed var(--bor);padding-top:16px">
+      <div class="alerta-sec-hd" style="background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.25);color:#818cf8">
+        📌 Outros vendedores <span class="alerta-cnt" style="background:rgba(99,102,241,.2);color:#818cf8">${totalOutros}</span>
+      </div>
+      ${listaInadOut.map(o=>_rowOutro(o,'🚫')).join('')}
+      ${listaCritOut.map(o=>_rowOutro(o,'🚨')).join('')}
+      ${listaCobrOut.map(o=>_rowOutro(o,'⚠️')).join('')}
+      ${listaEntregaOut.map(o=>_rowOutro(o,'🚚')).join('')}
     </div>`;
   }
 
