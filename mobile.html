@@ -567,6 +567,11 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="scroll-area" id="alertasContent"></div>
   </div>
 
+  <!-- VIEW: ORÇAMENTO GERADOR -->
+  <div class="view" id="view-orc-mob">
+    <div class="scroll-area" id="orcMobContent"></div>
+  </div>
+
   <!-- VIEW: FORNECEDORES (admin) -->
   <div class="view" id="view-fornecedores">
     <div class="scroll-area" id="fornsContent"></div>
@@ -2121,7 +2126,7 @@ function setView(v, pushStack=true) {
   const fab = document.getElementById('fabNova');
   fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos'||v==='fornecedores') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos'||v==='fornecedores'||v==='orc-mob') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
@@ -2157,6 +2162,7 @@ function renderCurrentView() {
     case 'equipe':    renderEquipe(); break;
     case 'financeiro': renderFinanceiro(); break;
     case 'alertas':   renderAlertas(); break;
+    case 'orc-mob':   renderOrcMob(); break;
     case 'pagamentos': renderPagamentos(); break;
     case 'fornecedores': renderFornecedores(); break;
     case 'nova':      renderNova(); break;
@@ -3716,6 +3722,9 @@ function renderDetalhe(id) {
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
   </div>`:''}
+  ${o.col==='orcamento'?`<div style="padding:0 0 8px">
+    <button style="width:100%;padding:12px;background:rgba(99,102,241,.2);border:1px solid #6366f1;border-radius:var(--rad2);color:#c7d2fe;font-size:14px;font-weight:700;cursor:pointer" onclick="abrirOrcMob('${o.id}')">📄 Gerar Orçamento PDF</button>
+  </div>`:''}
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 16px">
     <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
   </div>`:''}`;
@@ -3965,6 +3974,299 @@ function enviarTracking(id) {
 
 // ── INIT ──
 window.addEventListener('load', restoreSession);
+
+// ══════════════════════════════════════════════
+// GERADOR DE ORÇAMENTO PDF — mobile S31
+// ══════════════════════════════════════════════
+
+let _orcMobId = null;
+
+function abrirOrcMob(id) {
+  _orcMobId = id;
+  setView('orc-mob');
+}
+
+function renderOrcMob() {
+  const el = document.getElementById('orcMobContent');
+  if(!el) return;
+  const o = _orcMobId ? _ordens.find(x=>x.id===_orcMobId) : null;
+  if(!o){ el.innerHTML='<div class="empty-state"><div class="empty-ico">❌</div><div class="empty-title">Ordem não encontrada</div></div>'; return; }
+
+  setTopbar('Orçamento PDF', o.crm_id||'');
+
+  const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
+  const marcaCor = vend?.marca_cor||'#2563EB';
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo = vend?.marca_logo_url||'';
+  const marcaSlogan = vend?.marca_slogan||'';
+
+  // Validade padrão: hoje + 5 dias
+  const hoje = new Date();
+  const dataValPad = new Date(hoje.getTime()+5*24*60*60*1000).toISOString().split('T')[0];
+
+  const endereco = [o.logradouro, o.bairro, o.cidade||'São Paulo'].filter(Boolean).join(', ');
+  const telFmt = o.cel||'';
+  const cpfFmt = o.cpf||'';
+
+  el.innerHTML = `
+    <div style="padding:14px 14px 32px">
+
+      <!-- Cabeçalho info da ordem -->
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Dados da Ordem</div>
+        <div style="font-size:12px;font-family:var(--mono);color:var(--acc);margin-bottom:6px">${o.crm_id||'—'}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">${o.nome||'—'}</div>
+        <div style="font-size:11px;color:var(--mut2);margin-top:2px">${endereco||'—'}</div>
+        ${telFmt?`<div style="font-size:11px;color:var(--mut2);margin-top:2px">📞 ${telFmt}</div>`:''}
+        ${cpfFmt?`<div style="font-size:11px;color:var(--mut2);margin-top:2px">🪪 ${cpfFmt}</div>`:''}
+      </div>
+
+      <!-- Campos editáveis -->
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⚙️ Configurar Orçamento</div>
+
+        <div style="margin-bottom:10px">
+          <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Tipo de Serviço / Resíduo</label>
+          <input type="text" id="om_tipo" value="${o.tipo||'Nova entrega de caçamba 4m³'}" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Valor (R$)</label>
+            <input type="number" id="om_valor" value="${o.orc_valor||o.rec||''}" step="0.01" placeholder="0,00" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Válido até</label>
+            <input type="date" id="om_validade" value="${o.orc_validade||dataValPad}" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Permanência rua (dias úteis)</label>
+            <input type="number" id="om_perm_rua" value="${o.orc_perm_rua||3}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Permanência canteiro (dias úteis)</label>
+            <input type="number" id="om_perm_canteiro" value="${o.orc_perm_canteiro||5}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Prazo locação (dias)</label>
+            <input type="number" id="om_prazo" value="${o.orc_prazo||7}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Observações</label>
+          <textarea id="om_obs" rows="3" placeholder="Condições, informações adicionais..." style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box;resize:vertical">${o.obs||''}</textarea>
+        </div>
+      </div>
+
+      <!-- Botões de ação -->
+      <button onclick="gerarOrcMobPDF()" style="width:100%;padding:14px;background:#2563EB;border:none;border-radius:var(--rad2);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">📄 Abrir PDF / Imprimir</button>
+      <button onclick="salvarEEnviarOrcMob()" style="width:100%;padding:13px;background:rgba(37,211,102,.15);border:1px solid #25d366;border-radius:var(--rad2);color:#25d366;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">💬 Salvar e Enviar WhatsApp</button>
+      <button onclick="setView('detalhe')" style="width:100%;padding:12px;background:transparent;border:1px solid var(--bor);border-radius:var(--rad2);color:var(--mut2);font-size:13px;font-weight:600;cursor:pointer">← Voltar</button>
+    </div>`;
+}
+
+async function _salvarDadosOrcMob() {
+  const id = _orcMobId; if(!id) return;
+  const valor    = parseFloat(document.getElementById('om_valor')?.value||0)||null;
+  const validade = document.getElementById('om_validade')?.value||null;
+  const prazo    = parseInt(document.getElementById('om_prazo')?.value||7);
+  const permRua  = parseInt(document.getElementById('om_perm_rua')?.value||3);
+  const permCant = parseInt(document.getElementById('om_perm_canteiro')?.value||5);
+  const obs      = document.getElementById('om_obs')?.value||'';
+  const tipo     = document.getElementById('om_tipo')?.value||'';
+  try {
+    await api('ordens?id=eq.'+id,'PATCH',{
+      orc_valor:valor, orc_validade:validade, orc_prazo:prazo,
+      orc_perm_rua:permRua, orc_perm_canteiro:permCant, obs, tipo
+    }, tok());
+    const idx = _ordens.findIndex(x=>x.id===id);
+    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs,tipo});
+    toast('Dados salvos','ok');
+    return true;
+  } catch(e) { toast('Erro ao salvar','err'); return false; }
+}
+
+async function gerarOrcMobPDF() {
+  await _salvarDadosOrcMob();
+  const o = _ordens.find(x=>x.id===_orcMobId);
+  if(!o) return;
+  const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
+  const marcaCor  = vend?.marca_cor||'#2563EB';
+  const marcaNome = vend?.marca_nome||'CaçambaSP';
+  const marcaLogo = vend?.marca_logo_url||'';
+  const marcaSlogan = vend?.marca_slogan||'';
+  const txtCor = '#ffffff';
+
+  const nome     = o.nome||'—';
+  const end      = [o.logradouro,o.bairro,o.cidade||'São Paulo'].filter(Boolean).join(', ');
+  const tel      = o.cel||'';
+  const cpf      = o.cpf||'';
+  const tipo     = document.getElementById('om_tipo')?.value||o.tipo||'—';
+  const valor    = parseFloat(document.getElementById('om_valor')?.value||0)||null;
+  const validade = document.getElementById('om_validade')?.value||null;
+  const prazo    = parseInt(document.getElementById('om_prazo')?.value||7);
+  const permRua  = parseInt(document.getElementById('om_perm_rua')?.value||3);
+  const permCant = parseInt(document.getElementById('om_perm_canteiro')?.value||5);
+  const obs      = document.getElementById('om_obs')?.value||'';
+  const crmId    = o.crm_id||'';
+  const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const logoHtml = marcaLogo ? `<img src="${marcaLogo}" style="height:52px;object-fit:contain">` : '';
+  const obsHtml  = obs ? `<div style="background:#fffbe6;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:11px;color:#555;margin-bottom:16px">📝 Resíduo: ${obs}</div>` : '';
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Orçamento ${crmId}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:720px;margin:0 auto}
+    @media print{.no-print{display:none!important} body{max-width:100%}}
+    .header{background:${marcaCor};padding:28px 32px;display:flex;align-items:center;justify-content:space-between}
+    .h-esq{display:flex;align-items:center;gap:14px}
+    .h-logo{width:60px;height:60px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .h-nome{font-size:22px;font-weight:800;color:${txtCor}}
+    .h-slogan{font-size:11px;color:${txtCor};opacity:.8;margin-top:3px}
+    .h-dir{text-align:right}
+    .h-orc{font-size:24px;font-weight:800;color:${txtCor};letter-spacing:2px}
+    .h-cod{font-size:11px;color:${txtCor};opacity:.8;font-family:monospace;margin-top:3px}
+    .body{padding:28px 32px}
+    .cli-card{border:2px solid #eee;border-radius:10px;padding:16px 20px;margin-bottom:20px}
+    .cli-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+    .cli-nm{font-size:17px;font-weight:800;color:#111}
+    .cli-info{font-size:12px;color:#555;margin-top:4px;display:flex;align-items:center;gap:6px}
+    .serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:20px}
+    .serv-hd{background:${marcaCor};padding:9px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px}
+    .sh-lbl{font-size:10px;font-weight:700;color:${txtCor};text-transform:uppercase;letter-spacing:.4px}
+    .serv-row{padding:14px 16px;display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center}
+    .sr-tipo{font-size:13px;font-weight:600;color:#222}
+    .sr-prazo{font-size:12px;color:#555;text-align:center;white-space:nowrap}
+    .sr-val{font-size:22px;font-weight:800;color:${marcaCor};text-align:right}
+    .cond-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+    .cond-box{background:#f8f8f8;border-radius:8px;padding:12px 14px;text-align:center}
+    .cond-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .cond-val{font-size:15px;font-weight:800;color:#111}
+    .cond-sub{font-size:10px;color:#888;margin-top:2px}
+    .meta{display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap}
+    .meta-b{background:#f8f8f8;border-radius:8px;padding:10px 16px}
+    .meta-lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .meta-val{font-size:13px;font-weight:700;color:#222}
+    .rodape{border-top:1px solid #eee;padding:14px 32px;font-size:9px;color:#aaa;text-align:center}
+    .btn-print{display:inline-flex;align-items:center;gap:6px;padding:11px 22px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px}
+  </style></head><body>
+  <div class="no-print" style="padding:16px 32px">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  <div class="header">
+    <div class="h-esq">
+      <div class="h-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
+      <div>
+        <div class="h-nome">${marcaNome}</div>
+        ${marcaSlogan?`<div class="h-slogan">${marcaSlogan}</div>`:''}
+      </div>
+    </div>
+    <div class="h-dir">
+      <div class="h-orc">ORÇAMENTO</div>
+      <div class="h-cod">${crmId}</div>
+      <div class="h-cod">${dataHoje}</div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="cli-card">
+      <div class="cli-lbl">Destinado a</div>
+      <div class="cli-nm">${nome}</div>
+      <div class="cli-info">📍 ${end}</div>
+      ${tel?`<div class="cli-info">📞 ${tel}</div>`:''}
+      ${cpf?`<div class="cli-info">🪪 CPF/CNPJ: ${cpf}</div>`:''}
+    </div>
+
+    <div class="serv-card">
+      <div class="serv-hd">
+        <div class="sh-lbl">Serviço</div>
+        <div class="sh-lbl" style="text-align:center">Locação</div>
+        <div class="sh-lbl" style="text-align:right">Valor</div>
+      </div>
+      <div class="serv-row">
+        <div class="sr-tipo">📦 1 caçamba 4m³ · ${tipo}</div>
+        <div class="sr-prazo">${prazo} dias</div>
+        <div class="sr-val">${valorFmt}</div>
+      </div>
+    </div>
+
+    <div class="cond-grid">
+      <div class="cond-box">
+        <div class="cond-lbl">Permanência na Rua</div>
+        <div class="cond-val">${permRua}</div>
+        <div class="cond-sub">dias úteis</div>
+      </div>
+      <div class="cond-box">
+        <div class="cond-lbl">Permanência no Canteiro</div>
+        <div class="cond-val">${permCant}</div>
+        <div class="cond-sub">dias úteis</div>
+      </div>
+      <div class="cond-box" style="background:${marcaCor}15;border:1px solid ${marcaCor}44">
+        <div class="cond-lbl" style="color:${marcaCor}">Prazo Total</div>
+        <div class="cond-val" style="color:${marcaCor}">${prazo}</div>
+        <div class="cond-sub">dias corridos</div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${validFmt}</div></div>
+      <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${dataHoje}</div></div>
+      <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${crmId}</div></div>
+    </div>
+
+    ${obsHtml}
+  </div>
+  <div class="rodape">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('Permita popups para abrir o PDF','warn');
+}
+
+async function salvarEEnviarOrcMob() {
+  const ok = await _salvarDadosOrcMob();
+  if(!ok) return;
+  const id = _orcMobId; if(!id) return;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  if(!tel){ toast('Sem telefone cadastrado','warn'); return; }
+  const valor = parseFloat(document.getElementById('om_valor')?.value||0)||null;
+  const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const validade = document.getElementById('om_validade')?.value||null;
+  const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const prazo = document.getElementById('om_prazo')?.value||'7';
+  const permRua = document.getElementById('om_perm_rua')?.value||'3';
+  const permCant = document.getElementById('om_perm_canteiro')?.value||'5';
+  const tipo = document.getElementById('om_tipo')?.value||o.tipo||'';
+  const end = [o.logradouro,o.bairro].filter(Boolean).join(', ');
+  const msg = `Olá ${o.nome||''}! 👋
+
+Segue o orçamento solicitado:
+
+📦 1 caçamba 4m³
+🪣 ${tipo}
+📍 ${end}
+📋 OS: ${o.crm_id||''}
+
+💰 *Valor: ${valorFmt}*
+📅 Permanência na rua: *${permRua} dias úteis*
+🏗️ Permanência no canteiro: *${permCant} dias úteis*
+⏱️ Prazo total: *${prazo} dias*
+✅ Proposta válida até: *${validFmt}*
+
+Qualquer dúvida estamos à disposição! 😊`;
+
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+
 </script>
 </body>
 </html>

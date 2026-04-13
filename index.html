@@ -8998,8 +8998,16 @@ function renderOrcGerador(id){
             <div class="fi"><label>Prazo de locação (dias)</label><input type="number" id="orc_g_prazo" value="${o?.orc_prazo||7}" min="1" placeholder="7" oninput="atualizarPreviewPDF()"></div>
             <div class="fi"><label>Válido até</label><input type="date" id="orc_g_validade" value="${o?.orc_validade||dataValPad}" oninput="atualizarPreviewPDF()"></div>
           </div>
-          <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
-          <div class="fi"><label>Observações</label><textarea id="orc_g_obs" rows="3" placeholder="Informações adicionais, condições..." oninput="atualizarPreviewPDF()">${o?.obs||''}</textarea></div>
+          <div class="fi-row">
+            <div class="fi"><label>Permanência na rua (dias úteis)</label><input type="number" id="orc_g_perm_rua" value="${o?.orc_perm_rua||3}" min="1" oninput="atualizarPreviewPDF()"></div>
+            <div class="fi"><label>Permanência no canteiro (dias úteis)</label><input type="number" id="orc_g_perm_canteiro" value="${o?.orc_perm_canteiro||5}" min="1" oninput="atualizarPreviewPDF()"></div>
+          </div>
+          <div class="fi-row">
+            <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
+            <div class="fi"><label>Telefone / WhatsApp</label><input type="text" id="orc_g_tel" value="${o?.cel||''}" placeholder="(11) 99999-9999" oninput="atualizarPreviewPDF()"></div>
+          </div>
+          <div class="fi"><label>CPF / CNPJ</label><input type="text" id="orc_g_cpf" value="${o?.cpf||''}" placeholder="000.000.000-00" oninput="atualizarPreviewPDF()"></div>
+          <div class="fi"><label>Observações / Resíduo</label><textarea id="orc_g_obs" rows="3" placeholder="Informações adicionais, condições..." oninput="atualizarPreviewPDF()">${o?.obs||''}</textarea></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-acc" onclick="gerarPDFOrcamento()">📄 Gerar PDF</button>
@@ -9128,7 +9136,11 @@ function _pdfDados(o, campos){
   const valor     = campos?.valor     != null ? campos.valor : (o?.orc_valor ? parseFloat(o.orc_valor) : null);
   const validade  = campos?.validade  || o?.orc_validade  || null;
   const prazo     = campos?.prazo     != null ? campos.prazo : (o?.orc_prazo || 7);
+  const permRua   = campos?.permRua   != null ? campos.permRua   : (o?.orc_perm_rua   || 3);
+  const permCant  = campos?.permCant  != null ? campos.permCant  : (o?.orc_perm_canteiro || 5);
   const obs       = campos?.obs       != null ? campos.obs  : (o?.obs || '');
+  const tel       = campos?.tel       || o?.cel || '';
+  const cpf       = campos?.cpf       || o?.cpf || '';
   const crmId     = o?.crm_id || '';
   const valorFmt  = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const validFmt  = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
@@ -9139,7 +9151,7 @@ function _pdfDados(o, campos){
   const btnPrint  = `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#000;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
   const printCss  = `@media print{body{padding:16px} .no-print{display:none!important}}`;
   const fontLink  = `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
-  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,valor,validade,prazo,obs,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
+  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,valor,validade,prazo,permRua,permCant,obs,tel,cpf,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
 }
 
 // ── Tema A — Clássico / Corporativo ──
@@ -9162,9 +9174,16 @@ function _pdfTemaA(d){
   <div class="sec"><div class="sec-lbl">Para</div>
     <div style="font-size:14px;font-weight:700">${d.nome}</div>
     <div style="font-size:11px;color:#555;margin-top:2px">${d.end}</div>
+    ${d.tel?`<div style="font-size:11px;color:#555;margin-top:2px">📞 ${d.tel}</div>`:''}
+    ${d.cpf?`<div style="font-size:11px;color:#555;margin-top:2px">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
   </div>
   <table><thead><tr><th style="text-align:left">Descrição do Serviço</th><th style="text-align:center">Prazo</th><th style="text-align:right">Valor</th></tr></thead>
   <tbody><tr><td>${d.tipo}</td><td style="text-align:center">${d.prazo} dias</td><td class="vc">${d.valorFmt}</td></tr></tbody></table>
+  <div style="display:flex;gap:12px;margin-bottom:10px">
+    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Perm. Rua</div><div style="font-size:13px;font-weight:800">${d.permRua}</div><div style="font-size:9px;color:#888">dias úteis</div></div>
+    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Perm. Canteiro</div><div style="font-size:13px;font-weight:800">${d.permCant}</div><div style="font-size:9px;color:#888">dias úteis</div></div>
+    <div style="flex:1;background:#f7f7f7;border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:3px">Prazo Total</div><div style="font-size:13px;font-weight:800;color:${d.marcaCor}">${d.prazo}</div><div style="font-size:9px;color:#888">dias</div></div>
+  </div>
   <div style="font-size:10px;color:#888;margin-bottom:8px">📅 Proposta válida até: <strong>${d.validFmt}</strong></div>
   ${d.obsHtml}${d.rodape}</body></html>`;
 }
@@ -9197,7 +9216,9 @@ function _pdfTemaB(d){
       <div class="s-nome">${d.marcaNome}</div>
       ${d.marcaSlogan?`<div class="s-slogan">${d.marcaSlogan}</div>`:''}
     </div>
-    <div class="s-item"><div class="s-lbl">Prazo</div><div class="s-val">${d.prazo} dias</div></div>
+    <div class="s-item"><div class="s-lbl">Perm. Rua</div><div class="s-val">${d.permRua} dias úteis</div></div>
+    <div class="s-item"><div class="s-lbl">Perm. Canteiro</div><div class="s-val">${d.permCant} dias úteis</div></div>
+    <div class="s-item"><div class="s-lbl">Prazo Total</div><div class="s-val">${d.prazo} dias</div></div>
     <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${d.validFmt}</div></div>
     <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:15px">${d.valorFmt}</div></div>
   </div>
@@ -9208,6 +9229,8 @@ function _pdfTemaB(d){
     <div class="cli-box">
       <div class="cli-nm">${d.nome}</div>
       <div class="cli-end">${d.end}</div>
+      ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
+      ${d.cpf?`<div class="cli-end" style="margin-top:2px">🪪 ${d.cpf}</div>`:''}
     </div>
     <table>
       <thead><tr><th>Serviço</th><th style="text-align:right">Valor</th></tr></thead>
@@ -9250,14 +9273,20 @@ function _pdfTemaC(d){
   </div>
   <div class="div-line"></div>
   <div class="cli-nome">${d.nome}</div>
-  <div class="cli-end" style="margin-bottom:32px">${d.end}</div>
+  <div class="cli-end">${d.end}</div>
+  ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
+  ${d.cpf?`<div class="cli-end" style="margin-top:2px;margin-bottom:32px">🪪 CPF/CNPJ: ${d.cpf}</div>`:`<div style="margin-bottom:32px"></div>`}
   <div class="serv-box">
     <div class="label">Serviço</div>
     <div class="serv-tipo">${d.tipo}</div>
   </div>
   <div class="valor-big">${d.valorFmt}</div>
   <div class="info-row">
-    <div class="info-block"><div class="label">Prazo de locação</div><div class="info-val">${d.prazo} dias</div></div>
+    <div class="info-block"><div class="label">Perm. Rua</div><div class="info-val">${d.permRua} dias úteis</div></div>
+    <div class="info-block"><div class="label">Perm. Canteiro</div><div class="info-val">${d.permCant} dias úteis</div></div>
+    <div class="info-block"><div class="label">Prazo Total</div><div class="info-val">${d.prazo} dias</div></div>
+  </div>
+  <div class="info-row">
     <div class="info-block"><div class="label">Válido até</div><div class="info-val">${d.validFmt}</div></div>
     <div class="info-block"><div class="label">Data</div><div class="info-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
   </div>
@@ -9304,6 +9333,8 @@ function _pdfTemaD(d){
       <div class="cli-lbl">Destinado a</div>
       <div class="cli-nm">${d.nome}</div>
       <div class="cli-end">${d.end}</div>
+      ${d.tel?`<div class="cli-end" style="margin-top:3px">📞 ${d.tel}</div>`:''}
+      ${d.cpf?`<div class="cli-end" style="margin-top:2px">🪪 CPF/CNPJ: ${d.cpf}</div>`:''}
     </div>
     <div class="serv-card">
       <div class="serv-header">
@@ -9316,6 +9347,11 @@ function _pdfTemaD(d){
         <div class="sr-prazo">${d.prazo} dias</div>
         <div class="sr-val">${d.valorFmt}</div>
       </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Perm. Rua</div><div style="font-size:16px;font-weight:800;color:#111">${d.permRua}</div><div style="font-size:10px;color:#888">dias úteis</div></div>
+      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Perm. Canteiro</div><div style="font-size:16px;font-weight:800;color:#111">${d.permCant}</div><div style="font-size:10px;color:#888">dias úteis</div></div>
+      <div style="background:${d.marcaCor}15;border:1px solid ${d.marcaCor}44;border-radius:8px;padding:12px;text-align:center"><div style="font-size:9px;font-weight:700;color:${d.marcaCor};text-transform:uppercase;margin-bottom:4px">Prazo Total</div><div style="font-size:16px;font-weight:800;color:${d.marcaCor}">${d.prazo}</div><div style="font-size:10px;color:#888">dias corridos</div></div>
     </div>
     <div class="meta">
       <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${d.validFmt}</div></div>
@@ -9342,13 +9378,17 @@ async function gerarPDFOrcamento(){
   const valor   = parseFloat(document.getElementById('orc_g_valor')?.value||0)||null;
   const validade= document.getElementById('orc_g_validade')?.value||null;
   const prazo   = parseInt(document.getElementById('orc_g_prazo')?.value||7);
+  const permRua = parseInt(document.getElementById('orc_g_perm_rua')?.value||3);
+  const permCant= parseInt(document.getElementById('orc_g_perm_canteiro')?.value||5);
   const obs     = document.getElementById('orc_g_obs')?.value||'';
+  const tel     = document.getElementById('orc_g_tel')?.value||'';
+  const cpf     = document.getElementById('orc_g_cpf')?.value||'';
 
   if(id){
     try{
-      await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs},tok());
+      await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
       const idx=ordens.findIndex(x=>x.id===id);
-      if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,obs});
+      if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
       toast('Dados salvos','ok');
     }catch(e){ toast('Erro ao salvar','err'); }
   }
@@ -9358,7 +9398,7 @@ async function gerarPDFOrcamento(){
     nome   : document.getElementById('orc_g_nome')?.value || o?.nome,
     end    : document.getElementById('orc_g_end')?.value  || [o?.logradouro,o?.bairro,o?.cidade].filter(Boolean).join(', '),
     tipo   : document.getElementById('orc_g_tipo')?.value || o?.tipo,
-    valor, validade, prazo, obs
+    tel, cpf, valor, validade, prazo, permRua, permCant, obs
   };
   const d = _pdfDados(o, campos);
   _abrirPDFPorTema(d);
