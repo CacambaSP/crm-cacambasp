@@ -8105,20 +8105,51 @@ async function salvarUsr(){
 
   if(id){
     // EDITAR — atualiza perfil e opcionalmente senha
+    // Passo 1: salvar nome + nivel (REST direto — sem CORS)
     try{
       await api('perfis?id=eq.'+id,'PATCH',{nome,nivel},tok());
-      const u=usuarios.find(x=>x.id===id);
-      if(u){u.nome=nome;u.nivel=nivel;}
-      // Altera senha se informada
-      if(pass){
-        await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
+    }catch(e){
+      const msg=(e?.message||String(e)||'');
+      if(msg.includes('42501')||msg.toLowerCase().includes('permission')||msg.toLowerCase().includes('policy')){
+        showErr('❌ Sem permissão para editar este perfil (política RLS do Supabase).');
+      } else {
+        showErr('Erro ao atualizar: '+(msg.slice(0,100)||'verifique o console'));
+      }
+      console.error('salvarUsr erro:',e);
+      return;
+    }
+    const u=usuarios.find(x=>x.id===id);
+    if(u){u.nome=nome;u.nivel=nivel;}
+    // Passo 2: alterar senha se informada (Edge Function — CORS separado)
+    if(pass){
+      try{
+        const pr=await fetch(SUPA_URL+'/functions/v1/criar-usuario',{
           method:'PATCH',
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok(),'apikey':SUPA_KEY},
           body:JSON.stringify({userId:id,password:pass})
-        });
+        }).then(r=>r.json());
+        if(pr?.error) toast('⚠️ Perfil salvo, mas erro ao alterar senha: '+(pr.error||'').slice(0,60),'err');
+        else toast('✅ Usuário e senha atualizados!');
+      }catch(corsErr){
+        // CORS ou rede — perfil já foi salvo, só senha falhou
+        toast('⚠️ Perfil salvo. Senha não alterada (erro CORS na Edge Function).','err');
+        console.warn('CORS ao alterar senha:',corsErr);
       }
-      closeModal('usrModal');renderUsrs();toast('✅ Usuário atualizado!');
-    }catch(e){showErr('Erro ao atualizar');}
+    } else {
+      toast('✅ Usuário atualizado!');
+    }
+    // Passo 3: recarregar do banco e verificar
+    try{
+      const att=await api('perfis?order=criado_em.asc',undefined,undefined,tok());
+      if(att?.length) usuarios=att;
+      const uConf=usuarios.find(x=>x.id===id);
+      if(uConf && uConf.nivel!==nivel){
+        closeModal('usrModal');renderUsrs();
+        toast('⚠️ Nível não foi alterado — política RLS pode estar bloqueando.','err');
+        return;
+      }
+    }catch(_){}
+    closeModal('usrModal');renderUsrs();
     return;
   }
 
