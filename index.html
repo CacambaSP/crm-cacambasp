@@ -1175,12 +1175,9 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
-      <div class="fi" style="max-width:300px">
+      <div class="fi" style="max-width:240px">
         <label>Nº Nota Fiscal</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF" style="flex:1">
-          <button id="d_nf_cancelar_btn" onclick="cancelarNFDetalhe()" style="display:none;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Cancelar NF</button>
-        </div>
+        <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
       </div>
     </div>
@@ -1454,6 +1451,7 @@ const COLS = [
   {id:'pagar',      label:'Pagar Fornecedor',      color:'#6366f1'},
   {id:'baixar',     label:'Baixar',                color:'#f472b6'},
   {id:'inadimp',    label:'Inadimplentes',         color:'#ef4444'},
+  {id:'orcamento',  label:'📄 Orçamento',          color:'#a78bfa', hidden:true},
 ];
 
 // ── ESTADO ──
@@ -2438,7 +2436,7 @@ function renderBoard(){
   const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   const board=document.getElementById('board');
   board.innerHTML='';
-  COLS.forEach(col=>{
+  COLS.filter(col=>!col.hidden).forEach(col=>{
     const cc=src.filter(c=>c.col===col.id);
     const tv=cc.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
     // Urgência máxima na coluna contratar
@@ -2687,11 +2685,16 @@ function updateSelBar(){
         <button class="btn btn-sm" onclick="_selCards.clear();renderBoard();updateSelBar()">✕ Limpar</button>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <select class="btn btn-sm" style="cursor:pointer" onchange="selMoverColuna(this.value);this.value=''">
-          <option value="">📦 Mover para...</option>
-          ${_colsInteligentes([..._selCards]).map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
-          ${isAdmin()?`<optgroup label="── Todas ──">${COLS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}</optgroup>`:''}
-        </select>
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-sm" style="cursor:pointer;min-width:140px;justify-content:space-between;gap:6px" onclick="event.stopPropagation();_toggleMoverDrop()">📦 Mover para... <span>▾</span></button>
+          <div id="_moverDrop" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;background:var(--card);border:1px solid var(--bor);border-radius:10px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:999;overflow:hidden">
+            <div style="padding:4px">
+              <div onclick="selMoverColuna('orcamento');_toggleMoverDrop(false)" style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt)" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">📄 Orçamento</div>
+              ${_colsInteligentes([..._selCards]).filter(c=>c.id!=='orcamento').map(c=>`<div onclick="selMoverColuna('${c.id}');_toggleMoverDrop(false)" style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt)" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">${c.label}</div>`).join('')}
+              ${isAdmin()?`<div style="padding:4px 12px;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;border-top:1px solid var(--bor)">Todas</div>${COLS.filter(c=>!c.hidden).map(c=>`<div onclick="selMoverColuna('${c.id}');_toggleMoverDrop(false)" style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--mut2)" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">${c.label}</div>`).join('')}`:''}
+            </div>
+          </div>
+        </div>
         <button class="btn btn-sm btn-wa" onclick="selCobrarAgrupado()">📲 Cobrar agrupado</button>
         ${[..._selCards].some(id=>{const c=ordens.find(x=>x.id===id);return c&&c.col==='contratar'&&!c.forn_id;})?'<button class="btn btn-sm btn-b" onclick="selAtribuirFornLote(event)">🚛 Atribuir forn.</button>':''}
         <button class="btn btn-sm" style="background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.3)" onclick="selNFLote()">🧾 Nº NF</button>
@@ -2737,7 +2740,8 @@ async function selMoverColuna(colId){
       return n.length>0; // tem dígitos além de zeros
     });
     if(comNFReal.length){
-      toast('⚠️ '+comNFReal.length+' ordem(ns) com NF emitida — cancele a NF junto à prefeitura antes de mover','warn');
+      const nomes=comNFReal.map(id=>ordens.find(x=>x.id===id)?.crm_id||id).join(', ');
+      toast('🚫 NF emitida em: '+nomes+' — não é possível mover para Orçamento com NF emitida','warn');
       return;
     }
   }
@@ -2822,6 +2826,21 @@ async function selDeletarLote(){
 }
 
 // ── Atribuir fornecedor em lote ──
+function _toggleMoverDrop(forcar){
+  const d=document.getElementById('_moverDrop');
+  if(!d) return;
+  const abrir = forcar !== undefined ? forcar : d.style.display==='none';
+  d.style.display = abrir ? 'block' : 'none';
+  if(abrir){
+    // Fechar ao clicar fora
+    setTimeout(()=>document.addEventListener('click',function _closeDrop(){
+      const dd=document.getElementById('_moverDrop');
+      if(dd) dd.style.display='none';
+      document.removeEventListener('click',_closeDrop);
+    }),0);
+  }
+}
+
 function selAtribuirFornLote(e){
   const ids = [..._selCards].filter(id=>{
     const c=ordens.find(x=>x.id===id);
@@ -3434,12 +3453,6 @@ function fillDetail(c){
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
   }
   document.getElementById('d_nf').value=c.nf_num||'';
-  // Botão cancelar NF: só aparece quando tem número real (diferente de vazio/000/0000)
-  const _nfCancelBtn=document.getElementById('d_nf_cancelar_btn');
-  if(_nfCancelBtn){
-    const _nfVal=(c.nf_num||'').replace(/^0+/,'');
-    _nfCancelBtn.style.display=_nfVal.length>0?'block':'none';
-  }
   // Parcial
   const parcialWrap=document.getElementById('d_parcial_wrap');
   if(parcialWrap){
@@ -4272,7 +4285,13 @@ async function voltarOrcamentoDetail(){
   if(!_detailId) return;
   const c=ordens.find(x=>x.id===_detailId);
   if(!c) return;
-  const ok=await showConfirm({ico:'↩',title:'Voltar para Orçamento',body:'A ordem '+( c.crm_id||'')+'  será movida de volta para Orçamentos.',ok:'↩ Confirmar',okClass:'btn-b'});
+  // Bloquear se tem NF com número real
+  const nfVal=(c.nf_num||'').replace(/^0+/,'');
+  if(nfVal.length>0){
+    toast('🚫 NF '+c.nf_num+' emitida — não é possível mover para Orçamento com NF emitida','warn');
+    return;
+  }
+  const ok=await showConfirm({ico:'↩',title:'Voltar para Orçamento',body:'A ordem '+(c.crm_id||'')+' será movida de volta para Orçamentos.',ok:'↩ Confirmar',okClass:'btn-b'});
   if(!ok) return;
   try{
     await api('ordens?id=eq.'+_detailId,'PATCH',{col:'orcamento'},tok());
