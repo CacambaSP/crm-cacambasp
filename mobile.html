@@ -4169,10 +4169,10 @@ async function _salvarDadosOrcMob() {
   try {
     await api('ordens?id=eq.'+id,'PATCH',{
       orc_valor:valor, orc_validade:validade,
-      orc_perm_rua:permRua, orc_perm_canteiro:permCant, obs, tipo
+      orc_perm_rua:permRua, orc_perm_canteiro:permCant, obs
     }, tok());
     const idx = _ordens.findIndex(x=>x.id===id);
-    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs,tipo});
+    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
     toast('Dados salvos','ok');
     return true;
   } catch(e) { toast('Erro ao salvar','err'); return false; }

@@ -1102,7 +1102,7 @@ input[type=checkbox]:checked::after{
       </div>
       <button class="btn btn-xs btn-b" id="detailOrcBtn" onclick="voltarOrcamentoDetail()" title="Mover para Orçamento" style="margin-right:4px;display:none">↩ Orçamento</button>
       <button class="btn btn-xs btn-wa" id="detailWaOrcBtn" onclick="enviarWaOrc(_detailId)" title="Enviar orçamento pelo WhatsApp" style="margin-right:4px;display:none">💬 WA</button>
-      <button class="btn btn-xs btn-acc" id="detailGerarPdfBtn" onclick="abrirOrcGerador(_detailId)" title="Gerar PDF do orçamento" style="margin-right:4px;display:none">📄 PDF</button>
+      <button class="btn btn-xs btn-acc" id="detailGerarPdfBtn" onclick="closeDetail();setView('orc');setTimeout(()=>abrirOrcGerador(_detailId),150)" title="Gerar PDF do orçamento" style="margin-right:4px;display:none">📄 PDF</button>
       <button class="btn btn-xs" id="detailArchBtn" onclick="arquivarDoDetail()" title="Arquivar/Desarquivar" style="margin-right:4px">🏆</button>
       <button class="mx" onclick="closeDetail()">✕</button>
     </div>
