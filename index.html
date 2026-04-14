@@ -789,7 +789,12 @@ input[type=checkbox]:checked::after{
               <div class="ph-title">📲 Cobrança Automática</div>
               <div class="ph-sub">Ordens com pagamento pendente</div>
             </div>
-            <button class="btn btn-sm" onclick="renderCobrancaAuto()">↻ Atualizar</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="cobrFiltroVend" onchange="renderCobrancaAuto()" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+                <option value="">Todos os vendedores</option>
+              </select>
+              <button class="btn btn-sm" onclick="renderCobrancaAuto()">↻ Atualizar</button>
+            </div>
           </div>
           <!-- Config dias -->
           <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -908,7 +913,12 @@ input[type=checkbox]:checked::after{
               <div class="ph-title">🔔 Alertas</div>
               <div class="ph-sub" id="alertasSubtitle">Pendências que precisam de atenção</div>
             </div>
-            <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="alertasFiltroVend" onchange="renderAlertas()" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+                <option value="">Todos os vendedores</option>
+              </select>
+              <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
+            </div>
           </div>
           <div id="alertasContent"></div>
         </div>
@@ -1107,7 +1117,7 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
         <button class="btn btn-sm" onclick="copiarConfirmacao()" title="Copiar texto de confirmação para enviar ao cliente" style="background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25)">📋 Confirmação</button>
         <button class="btn btn-sm" id="detailRemFornBtn" onclick="trocarFornecedor(_detailId)" style="display:none;background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3)">🔄 Remover Fornecedor</button>
-        <button class="btn btn-sm" id="detailRemarcarBtn" onclick="abrirRemarcar(_detailId)" style="display:none;background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📅 Remarcar</button>
+        <button class="btn btn-sm" id="detailRemarcarBtn" onclick="remarcarEntrega(_detailId)" style="display:none;background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📅 Remarcar</button>
         <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
       </div>
     </div>
@@ -2393,52 +2403,8 @@ function _atualizarCobrBadge(){
   _renderVendBadges('cobrVendBadges', counts);
 }
 
-// ── Seleção múltipla de cards (coluna contratar) ──
-let _cardsSelecionados = new Set();
-function _toggleCardSel(e, id){
-  e.stopPropagation();
-  if(_cardsSelecionados.has(id)){ _cardsSelecionados.delete(id); }
-  else { _cardsSelecionados.add(id); }
-  _atualizarBarraSel();
-}
-function _limparSelCards(){
-  _cardsSelecionados.clear();
-  _atualizarBarraSel();
-}
-function _atualizarBarraSel(){
-  const n = _cardsSelecionados.size;
-  document.querySelectorAll('.card-sel-check').forEach(cb=>{
-    const id = cb.dataset.id;
-    cb.checked = _cardsSelecionados.has(id);
-    cb.closest('.card').classList.toggle('card-selecionado', _cardsSelecionados.has(id));
-  });
-  const barra = document.getElementById('barraSelCards');
-  if(!barra) return;
-  if(n === 0){ barra.style.display='none'; return; }
-  barra.style.display='flex';
-  const t = barra.querySelector('.barra-sel-txt');
-  if(t) t.textContent = n + ' selecionado' + (n>1?'s':'');
-}
-async function _atribuirFornLote(e){
-  if(!_cardsSelecionados.size){ toast('Nenhum card selecionado','warn'); return; }
-  const ids = [..._cardsSelecionados];
-  const primeiroId = ids[0];
-  const orig = window._atribuirFornecedorCard;
-  window._atribuirFornecedorCard = async function(oid, fid){
-    window._atribuirFornecedorCard = orig;
-    let ok=0, err=0;
-    for(const id of ids){
-      try{ await orig(id, fid); ok++; } catch(ex){ err++; }
-    }
-    _limparSelCards();
-    toast('Fornecedor atribuído para '+ok+' ordem(ns)'+(err?' · '+err+' erro(s)':''), ok>0?'ok':'warn');
-  };
-  abrirPopupForn(e, primeiroId);
-}
-
 // ── KANBAN ──
 function renderBoard(){
-  _cardsSelecionados.clear();
   const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   const board=document.getElementById('board');
   board.innerHTML='';
@@ -2456,11 +2422,6 @@ function renderBoard(){
         <div class="col-name">${col.label}</div>
         <div class="col-cnt">${cc.length}${isAdmin()&&tv?' · R$'+fmts(tv):''}</div>
       </div>
-      ${col.id==='contratar'?`<div id="barraSelCards" style="display:none;align-items:center;gap:8px;padding:6px 10px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:8px;margin-bottom:6px">
-        <span class="barra-sel-txt" style="flex:1;font-size:12px;font-weight:700;color:#818cf8"></span>
-        <button class="cb-blue" style="font-size:11px;padding:4px 10px" onclick="_atribuirFornLote(event)">🚛 Atribuir fornecedor</button>
-        <button onclick="_limparSelCards()" style="background:none;border:none;color:var(--mut2);cursor:pointer;font-size:14px;padding:2px 4px">✕</button>
-      </div>`:''}
       <div class="col-cards" id="col_${col.id}"
         ondragover="event.preventDefault();event.currentTarget.classList.add('drag-over')"
         ondrop="oDrop(event,'${col.id}')"
@@ -2519,7 +2480,6 @@ function cardHTML(c,color){
     onclick="onCardClick(event,'${c.id}')">
     <div style="${maskStyle}"></div>
     <div class="card-bar" style="background:${barColor}"></div>
-    ${c.col==='contratar'&&!c.forn_id?`<input type="checkbox" class="card-sel-check" data-id="${c.id}" onclick="_toggleCardSel(event,'${c.id}')" style="position:absolute;top:8px;left:8px;z-index:5;width:16px;height:16px;accent-color:#6366f1;cursor:pointer">`:''}
     <div class="card-body">
     ${isAdmin()?`<div class="card-del" onclick="event.stopPropagation();confirmarDeletar('${c.id}')">🗑</div>`:''}
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
@@ -2703,6 +2663,8 @@ function updateSelBar(){
           ${isAdmin()?`<optgroup label="── Todas ──">${COLS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}</optgroup>`:''}
         </select>
         <button class="btn btn-sm btn-wa" onclick="selCobrarAgrupado()">📲 Cobrar agrupado</button>
+        ${[..._selCards].some(id=>{const c=ordens.find(x=>x.id===id);return c&&c.col==='contratar'&&!c.forn_id;})?'<button class="btn btn-sm btn-b" onclick="selAtribuirFornLote(event)">🚛 Atribuir forn.</button>':''}
+        <button class="btn btn-sm" style="background:rgba(14,165,233,.15);color:#38bdf8;border-color:rgba(14,165,233,.3)" onclick="selRemarcarLote()">📅 Remarcar data</button>
         <button class="btn btn-sm btn-acc" onclick="selArquivarLote()">🏆 Arquivar</button>
         ${isAdmin()?'<button class="btn btn-sm btn-r" onclick="selDeletarLote()">🗑 Excluir</button>':''}
       </div>`;
@@ -2812,6 +2774,61 @@ async function selDeletarLote(){
     setSyncDot('ok');
     toast('🗑 '+n+' ordem'+(n!==1?'ns':'')+' excluída'+(n!==1?'s':'')+'!');
   }catch(e){setSyncDot('err');toast('Erro ao excluir','err');}
+}
+
+// ── Atribuir fornecedor em lote ──
+function selAtribuirFornLote(e){
+  const ids = [..._selCards].filter(id=>{
+    const c=ordens.find(x=>x.id===id);
+    return c&&c.col==='contratar'&&!c.forn_id;
+  });
+  if(!ids.length){toast('Nenhuma ordem na coluna "Contratar" selecionada','warn');return;}
+  const primeiroId = ids[0];
+  const orig = window._atribuirFornecedorCard;
+  window._atribuirFornecedorCard = async function(oid, fid){
+    window._atribuirFornecedorCard = orig;
+    let ok=0, err=0;
+    for(const id of ids){
+      try{ await orig(id, fid); ok++; } catch(ex){ err++; }
+    }
+    _selCards.clear(); renderBoard(); updateSelBar();
+    toast('Fornecedor atribuído para '+ok+' ordem(ns)'+(err?' · '+err+' erro(s)':''), ok>0?'ok':'warn');
+  };
+  abrirPopupForn(e, primeiroId);
+}
+
+// ── Remarcar data em lote ──
+async function selRemarcarLote(){
+  if(!_selCards.size){toast('Nenhuma ordem selecionada','warn');return;}
+  const ids=[..._selCards];
+  const novaData = await new Promise(resolve=>{
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+    el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:12px;padding:20px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">📅 Remarcar ${ids.length} ordem(ns)</div>
+      <input type="date" id="_remarcarDataInput" style="width:100%;background:var(--bg);border:1px solid var(--bor);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        <button onclick="this.closest('div[style*=fixed]').remove();window._remarcarResolve(null)" style="background:var(--bg2);border:1px solid var(--bor);border-radius:6px;padding:6px 14px;color:var(--mut2);cursor:pointer;font-size:12px">Cancelar</button>
+        <button onclick="window._remarcarResolve(document.getElementById('_remarcarDataInput').value);this.closest('div[style*=fixed]').remove()" style="background:var(--acc);border:none;border-radius:6px;padding:6px 14px;color:#fff;cursor:pointer;font-size:12px;font-weight:700">Confirmar</button>
+      </div>
+    </div>`;
+    window._remarcarResolve=resolve;
+    document.body.appendChild(el);
+  });
+  if(!novaData) return;
+  let ok=0,err=0;
+  setSyncDot('sync');
+  for(const id of ids){
+    const c=ordens.find(x=>x.id===id);
+    if(!c) continue;
+    try{
+      await api('ordens?id=eq.'+id,'PATCH',{data:novaData},tok());
+      c.data=novaData; ok++;
+    }catch(ex){err++;}
+  }
+  setSyncDot(err?'err':'ok');
+  _selCards.clear(); renderBoard(); updateSelBar();
+  toast('Data atualizada para '+ok+' ordem(ns)'+(err?' · '+err+' erro(s)':''), ok>0?'ok':'warn');
 }
 
 // ── NOVA/EDITAR ORDEM ──
@@ -4669,6 +4686,9 @@ function renderCobrancaAuto(){
   const el = document.getElementById('cobrancaAutoConteudo');
   if(!el) return;
 
+  _popularFiltroVend('cobrFiltroVend');
+  const filtroVend = document.getElementById('cobrFiltroVend')?.value||'';
+
   // Ordens ativas sem pagamento do cliente
   const meuid = _currentUser?.user?.id;
   const todosGlobal = ordens.filter(c =>
@@ -4678,9 +4698,18 @@ function renderCobrancaAuto(){
   ).map(c => ({ ...c, dias: diasEmAberto(c) }))
     .sort((a,b) => b.dias - a.dias);
 
-  // Minhas ordens vs ordens de outros (só admin vê outros)
-  const todos       = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
-  const todosOutros = isAdmin() ? todosGlobal.filter(c => c.usuario_id !== meuid) : [];
+  // Filtro por usuário
+  let todos, todosOutros;
+  if(!isAdmin()){
+    todos = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
+    todosOutros = [];
+  } else if(filtroVend){
+    todos = todosGlobal.filter(c => c.usuario_id === filtroVend);
+    todosOutros = [];
+  } else {
+    todos       = todosGlobal.filter(c => c.usuario_id === meuid || !meuid);
+    todosOutros = todosGlobal.filter(c => c.usuario_id !== meuid);
+  }
 
   // Separa cobrados hoje (não entram nos contadores de alerta)
   const cobradosHoje = todos.filter(c => foiCobradoHoje(c));
@@ -9035,9 +9064,19 @@ function renderAlertas(){
   if(!el) return;
   const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
 
+  _popularFiltroVend('alertasFiltroVend');
+  const filtroVend = document.getElementById('alertasFiltroVend')?.value||'';
+
   const _meuid = _currentUser?.user?.id;
-  const _minhas = c => !_meuid || c.usuario_id === _meuid;
-  const _outros  = c => isAdmin() && _meuid && c.usuario_id !== _meuid;
+  const _minhas = c => {
+    if(!isAdmin()) return !_meuid || c.usuario_id === _meuid;
+    if(filtroVend) return c.usuario_id === filtroVend;
+    return !_meuid || c.usuario_id === _meuid;
+  };
+  const _outros = c => {
+    if(!isAdmin() || filtroVend) return false;
+    return isAdmin() && _meuid && c.usuario_id !== _meuid;
+  };
 
   // Inadimplentes
   const listaInad     = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
@@ -9268,11 +9307,11 @@ function renderAlertas(){
   el.innerHTML = html;
 }
 
-// ── Popular filtro de vendedor ──
-function _popularFiltroVendOrc(){
-  if(!isAdmin()) return;
-  const sel = document.getElementById('orcFiltroVend');
+// ── Popular filtro de vendedor (reutilizável) ──
+function _popularFiltroVend(selectId){
+  const sel = document.getElementById(selectId);
   if(!sel) return;
+  if(!isAdmin()){ sel.style.display='none'; return; }
   const valAtual = sel.value;
   sel.innerHTML = '<option value="">Todos os vendedores</option>';
   usuarios.forEach(u=>{
@@ -9282,8 +9321,9 @@ function _popularFiltroVendOrc(){
     sel.appendChild(opt);
   });
   if(valAtual) sel.value = valAtual;
-  sel.style.display = isAdmin() ? 'inline-block' : 'none';
+  sel.style.display = 'inline-block';
 }
+function _popularFiltroVendOrc(){ _popularFiltroVend('orcFiltroVend'); }
 
 // ── Sub-aba Pendentes ──
 function debounceOrc(){ clearTimeout(_orcDebTimer); _orcDebTimer = setTimeout(renderOrcPend, 200); }
