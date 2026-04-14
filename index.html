@@ -1101,6 +1101,8 @@ input[type=checkbox]:checked::after{
         <div class="mh-sub" id="d_sub">—</div>
       </div>
       <button class="btn btn-xs btn-b" id="detailOrcBtn" onclick="voltarOrcamentoDetail()" title="Mover para Orçamento" style="margin-right:4px;display:none">↩ Orçamento</button>
+      <button class="btn btn-xs btn-wa" id="detailWaOrcBtn" onclick="enviarWaOrc(_detailId)" title="Enviar orçamento pelo WhatsApp" style="margin-right:4px;display:none">💬 WA</button>
+      <button class="btn btn-xs btn-acc" id="detailGerarPdfBtn" onclick="abrirOrcGerador(_detailId)" title="Gerar PDF do orçamento" style="margin-right:4px;display:none">📄 PDF</button>
       <button class="btn btn-xs" id="detailArchBtn" onclick="arquivarDoDetail()" title="Arquivar/Desarquivar" style="margin-right:4px">🏆</button>
       <button class="mx" onclick="closeDetail()">✕</button>
     </div>
@@ -3412,6 +3414,10 @@ function fillDetail(c){
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
   const orcBtn=document.getElementById('detailOrcBtn');
   if(orcBtn) orcBtn.style.display=(c.col!=='concluido'&&c.col!=='orcamento')?'':'none';
+  const _waOrcBtn=document.getElementById('detailWaOrcBtn');
+  if(_waOrcBtn) _waOrcBtn.style.display=c.col==='orcamento'?'':'none';
+  const _pdfOrcBtn=document.getElementById('detailGerarPdfBtn');
+  if(_pdfOrcBtn) _pdfOrcBtn.style.display=c.col==='orcamento'?'':'none';
   // financeiro
   _fillStatusBlocks(c);
   if(isAdmin()){
@@ -9966,9 +9972,9 @@ async function gerarPDFOrcamento(){
 
   if(id){
     try{
-      await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
+      await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
       const idx=ordens.findIndex(x=>x.id===id);
-      if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
+      if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
       toast('Dados salvos','ok');
     }catch(e){ toast('Erro ao salvar','err'); }
   }
@@ -10000,9 +10006,9 @@ async function salvarDadosOrcEEnviarWA(id){
   const prazo    = isCanteiro ? 5 : 3;
   const obs      = document.getElementById('orc_g_obs')?.value||'';
   try{
-    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
+    await api('ordens?id=eq.'+id,'PATCH',{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs},tok());
     const idx=ordens.findIndex(x=>x.id===id);
-    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_prazo:prazo,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
+    if(idx>=0) Object.assign(ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
     toast('Dados salvos','ok');
   }catch(e){ toast('Erro ao salvar','err'); return; }
   enviarWaOrc(id);

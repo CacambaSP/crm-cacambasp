@@ -1136,37 +1136,42 @@ function _fornMatchBairro(f, bairro, cidade) {
   if(!regioes.length) return {match:'geral', reg:null, preco:0};
   if(!bairro) return {match:'geral', reg:null, preco:0};
   // Buscar compatível por bairro
+  const cNorm = (cidade||'').toLowerCase().trim();
   const reg = regioes.find(r=>{
-    // Filtrar por cidade se definida
-    if(r.cidade&&cidade&&_norm(r.cidade)!==_norm(cidade)) return false;
-    const b = r.bairro||r.regiao||r.nome||'';
-    return _bairroMatch(b, bairro);
+    const rb = r.bairro||r.regiao||r.nome||'';
+    if(!rb) return false;
+    if(!_bairroMatch(rb, bairro)) return false;
+    // Filtro cidade: só bloqueia se AMBOS têm cidade E são diferentes
+    const rc = (r.cidade||'').toLowerCase().trim();
+    if(rc && cNorm && rc !== cNorm) return false;
+    // Se região não tem cidade mas bairro bateu → compatível mesmo assim
+    return true;
   });
   if(reg) return {match:'compativel', reg, preco:parseFloat(reg.preco||0)};
-  // Verificar se tem alguma região sem filtro de cidade (atende geral)
-  const geral = regioes.find(r=>!r.bairro&&!r.regiao&&!r.nome);
-  if(geral) return {match:'geral', reg:geral, preco:parseFloat(geral.preco||0)};
-  return null;
+  // Sem match de bairro → geral
+  return {match:'geral', reg:null, preco:0};
 }
 
 // ── HELPER WHATSAPP FORNECEDOR ──
 function _waFornAbrir(f, texto) {
   const waLink = (f.wa_link||'').trim();
-  if(!waLink){ toast('Fornecedor sem WhatsApp cadastrado','warn'); return; }
   const enc = encodeURIComponent(texto);
   if(waLink.startsWith('http')) {
-    // Link de grupo WA não aceita ?text= — copia o texto e abre o link
+    // Link de grupo — abre direto, copia texto para colar
     if(texto) {
       navigator.clipboard.writeText(texto).then(() => {
         toast('✅ Texto copiado! Cole no WhatsApp após abrir.','ok', 4000);
-      }).catch(() => {
-        toast('Abra o WhatsApp e cole a mensagem manualmente.','warn', 4000);
-      });
+      }).catch(() => {});
     }
     setTimeout(() => window.open(waLink, '_blank'), 400);
+    // Se tem tel cadastrado, abre número direto também
+    const tel = (f.tel||'').replace(/\D/g,'');
+    if(tel) setTimeout(() => window.open('https://wa.me/55'+tel+'?text='+enc,'_blank'), 800);
   } else {
-    const tel = waLink.replace(/\D/g,'');
-    window.open('https://wa.me/55'+tel+'?text='+enc, '_blank');
+    // Tenta wa_link como número, senão cai para f.tel
+    const num = waLink ? waLink.replace(/\D/g,'') : (f.tel||'').replace(/\D/g,'');
+    if(!num){ toast('Fornecedor sem WhatsApp cadastrado','warn'); return; }
+    window.open('https://wa.me/55'+num+'?text='+enc, '_blank');
   }
 }
 
@@ -2021,7 +2026,8 @@ async function loadApp() {
           ? 'ordens?order=criado_em.desc'
           : 'ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc';
         const novo = await api(path,'GET',null,tok());
-        if(novo && JSON.stringify(novo.map(o=>o.id+o.pago+o.col)) !== JSON.stringify(_ordens.map(o=>o.id+o.pago+o.col))){
+        const _snapMob=o=>o.id+o.col+o.pago+(o.forn_id||'')+(o.nf_num||'')+(o.data||'')+(o.forn_pago?'1':'0')+(o.rec||'0');
+        if(novo && JSON.stringify(novo.map(_snapMob)) !== JSON.stringify(_ordens.map(_snapMob))){
           _ordens = novo;
           renderCurrentView();
         }
