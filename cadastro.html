@@ -523,12 +523,14 @@ async function enviarCadastro(){
         cep,
         tipo: qtd > 1 ? tipo + ' (' + (i+1) + '/' + qtd + ')' : tipo,
         data,
-        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + (_cadTemNF?'[NF solicitada] ':'') + obs,
+        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + obs,
         rec: 0, cst: 0,
         pago: false, pago_em: null, pago_valor: null, pago_obs: null,
         forn_id: null,
         forn_pago: false, forn_pago_em: null, forn_pago_valor: null,
         grp_id: '',
+        nf_num: _cadTemNF ? '000' : '',
+        nf_taxa: _cadTemNF ? 11 : 0,
         usuario_id: VEND_UID,
         criado_em: new Date(Date.now() + i * 1000).toISOString()
       };

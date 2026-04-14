@@ -1041,6 +1041,32 @@ input[type=checkbox]:checked::after{
         </div>
       </div>
       <div id="o_forn_sug" style="display:none"></div>
+      <div class="fi-row">
+        <div class="fi">
+          <label>Quantidade de caçambas</label>
+          <select id="o_qtd">
+            <option value="1">1 caçamba</option>
+            <option value="2">2 caçambas</option>
+            <option value="3">3 caçambas</option>
+            <option value="4">4 caçambas</option>
+            <option value="5">5 caçambas</option>
+            <option value="6">6 caçambas</option>
+          </select>
+        </div>
+        <div class="fi">
+          <label>Tipo de resíduo</label>
+          <select id="o_residuo">
+            <option value="">Não informado</option>
+            <option>Entulho de obra</option>
+            <option>Madeira</option>
+            <option>Móveis e objetos</option>
+            <option>Misto (entulho + outros)</option>
+            <option>Gesso</option>
+            <option>Ferro / Metal</option>
+            <option>Outros</option>
+          </select>
+        </div>
+      </div>
       <div class="fi"><label>Observação</label><textarea id="o_obs"></textarea></div>
     </div>
     <div class="mtab-p" id="otab-financeiro">
@@ -1149,9 +1175,12 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
-      <div class="fi" style="max-width:240px">
+      <div class="fi" style="max-width:300px">
         <label>Nº Nota Fiscal</label>
-        <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF" style="flex:1">
+          <button id="d_nf_cancelar_btn" onclick="cancelarNFDetalhe()" style="display:none;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Cancelar NF</button>
+        </div>
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
       </div>
     </div>
@@ -2039,8 +2068,9 @@ async function _pollOrdens(forcar){
       ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
       : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok());
     if(!novos){setSyncDot('err');return;}
-    const antes=JSON.stringify(ordens.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor));
-    const depois=JSON.stringify(novos.map(c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor));
+    const _snap=c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor+(c.nf_num||'')+(c.data||'')+(c.nome||'')+(c.forn_pago?'1':'0')+(c.obs||'').slice(0,20);
+    const antes=JSON.stringify(ordens.map(_snap));
+    const depois=JSON.stringify(novos.map(_snap));
     setSyncDot('ok');
     if(antes!==depois||forcar){
       const qtdAntes=ordens.length;
@@ -2664,6 +2694,7 @@ function updateSelBar(){
         </select>
         <button class="btn btn-sm btn-wa" onclick="selCobrarAgrupado()">📲 Cobrar agrupado</button>
         ${[..._selCards].some(id=>{const c=ordens.find(x=>x.id===id);return c&&c.col==='contratar'&&!c.forn_id;})?'<button class="btn btn-sm btn-b" onclick="selAtribuirFornLote(event)">🚛 Atribuir forn.</button>':''}
+        <button class="btn btn-sm" style="background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.3)" onclick="selNFLote()">🧾 Nº NF</button>
         <button class="btn btn-sm" style="background:rgba(14,165,233,.15);color:#38bdf8;border-color:rgba(14,165,233,.3)" onclick="selRemarcarLote()">📅 Remarcar data</button>
         <button class="btn btn-sm btn-acc" onclick="selArquivarLote()">🏆 Arquivar</button>
         ${isAdmin()?'<button class="btn btn-sm btn-r" onclick="selDeletarLote()">🗑 Excluir</button>':''}
@@ -2679,8 +2710,9 @@ function _colsInteligentes(ids){
   if(!sels.length) return COLS;
   const cols=new Set();
   sels.forEach(c=>{
-    // Sempre pode mover para inadimp manualmente
+    // Sempre pode mover para inadimp e orçamento
     cols.add('inadimp');
+    cols.add('orcamento');
     // Tem fornecedor → pode confirmar entrega ou ir para entrega
     if(c.forn_id){cols.add('ag_entrega');cols.add('entrega');}
     // Sem fornecedor → contratar
@@ -2696,6 +2728,19 @@ function _colsInteligentes(ids){
 async function selMoverColuna(colId){
   if(!colId||!_selCards.size)return;
   const ids=[..._selCards];
+  // Bloquear mover para orçamento se alguma ordem tem NF real (diferente de vazio/000/0000)
+  if(colId==='orcamento'){
+    const comNFReal=ids.filter(id=>{
+      const c=ordens.find(x=>x.id===id);
+      if(!c||!c.nf_num) return false;
+      const n=c.nf_num.replace(/^0+/,'');
+      return n.length>0; // tem dígitos além de zeros
+    });
+    if(comNFReal.length){
+      toast('⚠️ '+comNFReal.length+' ordem(ns) com NF emitida — cancele a NF junto à prefeitura antes de mover','warn');
+      return;
+    }
+  }
   const colLabel=COLS.find(c=>c.id===colId)?.label||colId;
   ids.forEach(id=>{const c=ordens.find(x=>x.id===id);if(c)c.col=colId;});
   _selCards.clear();renderBoard();updateSelBar();renderStats();renderFinanceiro();
@@ -2797,6 +2842,48 @@ function selAtribuirFornLote(e){
   abrirPopupForn(e, primeiroId);
 }
 
+// ── NF em lote ──
+async function selNFLote(){
+  if(!_selCards.size){toast('Nenhuma ordem selecionada','warn');return;}
+  const ids=[..._selCards];
+  const novoNum = await new Promise(resolve=>{
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+    el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:12px;padding:20px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">🧾 Nº NF para ${ids.length} ordem(ns)</div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:12px">Use 000 para marcar NF solicitada (sem número ainda)</div>
+      <input type="text" id="_nfLoteInput" placeholder="Ex: 12345 ou 000" style="width:100%;background:var(--bg);border:1px solid var(--bor);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--txt);outline:none;box-sizing:border-box;font-family:var(--mono)">
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        <button onclick="this.closest('div[style*=fixed]').remove();window._nfLoteResolve(null)" style="background:var(--bg2);border:1px solid var(--bor);border-radius:6px;padding:6px 14px;color:var(--mut2);cursor:pointer;font-size:12px">Cancelar</button>
+        <button onclick="window._nfLoteResolve(document.getElementById('_nfLoteInput').value.trim());this.closest('div[style*=fixed]').remove()" style="background:var(--g);border:none;border-radius:6px;padding:6px 14px;color:#fff;cursor:pointer;font-size:12px;font-weight:700">Aplicar</button>
+      </div>
+    </div>`;
+    window._nfLoteResolve=resolve;
+    document.body.appendChild(el);
+    setTimeout(()=>document.getElementById('_nfLoteInput')?.focus(),100);
+  });
+  if(novoNum===null||novoNum==='') return;
+  let ok=0,err=0;
+  setSyncDot('sync');
+  for(const id of ids){
+    const c=ordens.find(x=>x.id===id);
+    if(!c) continue;
+    const eraVazia=!c.nf_num;
+    const patch={nf_num:novoNum};
+    // Se estava vazia e agora tem NF → somar acréscimo
+    if(novoNum&&eraVazia&&_nfAcrescimo>0&&(parseFloat(c.rec)||0)>0){
+      const novoRec=(parseFloat(c.rec)||0)+_nfAcrescimo;
+      c.rec=novoRec; patch.rec=novoRec;
+    }
+    c.nf_num=novoNum;
+    try{ await api('ordens?id=eq.'+id,'PATCH',patch,tok()); ok++; }
+    catch(ex){ err++; }
+  }
+  setSyncDot(err?'err':'ok');
+  _selCards.clear(); renderBoard(); updateSelBar();
+  toast('🧾 NF '+novoNum+' aplicada para '+ok+' ordem(ns)'+(err?' · '+err+' erro(s)':''), ok>0?'ok':'warn');
+}
+
 // ── Remarcar data em lote ──
 async function selRemarcarLote(){
   if(!_selCards.size){toast('Nenhuma ordem selecionada','warn');return;}
@@ -2837,6 +2924,8 @@ function openNovaOrdem(){
   document.getElementById('ordemModalTitle').textContent='Nova Ordem';
   document.getElementById('ordemModalIco').textContent='➕';
   ['o_nome','o_cel','o_cpf','o_email','o_end','o_bairro','o_cidade','o_cep','o_obs','o_nf'].forEach(id=>document.getElementById(id).value='');
+  const _qtdEl=document.getElementById('o_qtd');if(_qtdEl)_qtdEl.value='1';
+  const _resEl=document.getElementById('o_residuo');if(_resEl)_resEl.value='';
   _ordemTemNF=null;
   const _nfSim=document.getElementById('o_nf_sim');const _nfNao=document.getElementById('o_nf_nao');
   if(_nfSim)_nfSim.className='btn';if(_nfNao)_nfNao.className='btn';
@@ -3043,6 +3132,10 @@ function modalFornLimpar(){
 let _ordemTemNF=null;
 function escolherNF(sim){
   _ordemTemNF=sim;
+  // Pré-preencher nf com 000 quando escolhe Sim (editável)
+  const nfInput=document.getElementById('o_nf');
+  if(nfInput&&sim&&!nfInput.value) nfInput.value='000';
+  if(nfInput&&!sim) nfInput.value='';
   const btnSim=document.getElementById('o_nf_sim');
   const btnNao=document.getElementById('o_nf_nao');
   const info=document.getElementById('o_nf_escolhido');
@@ -3214,23 +3307,38 @@ async function salvarOrdem(){
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     // NOVA
-    const crmId=await nextCrmId('LC');
-    const novaOrdem={
-      id:uid(),crm_id:crmId,col:'contratar',
-      nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
-      logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
-      cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
-      tipo:document.getElementById('o_tipo').value,data:document.getElementById('o_data').value,
-      obs:document.getElementById('o_obs').value.trim(),
-      rec:_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec,cst,forn_id:fornId,
-      pago:false,pago_em:null,pago_valor:null,pago_obs:null,
-      forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
-      nf_num:_ordemTemNF?document.getElementById('o_nf').value.trim():'',
-      nf_taxa:_ordemTemNF?_taxaNF:0,
-      usuario_id:_currentUser?.user?.id,
-      criado_em:nowISO()
-    };
-    ordens.push(novaOrdem);
+    const qtd=parseInt(document.getElementById('o_qtd')?.value||'1')||1;
+    const residuo=document.getElementById('o_residuo')?.value||'';
+    const obsBase=document.getElementById('o_obs').value.trim();
+    const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
+    const recComNF=_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec;
+    for(let qi=0;qi<qtd;qi++){
+      const crmId=await nextCrmId('LC');
+      const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
+      const tipoOrdem=document.getElementById('o_tipo').value+(qtd>1?' ('+(qi+1)+'/'+qtd+')':'');
+      const novaOrdem={
+        id:uid(),crm_id:crmId,col:'contratar',
+        nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
+        logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
+        cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
+        tipo:tipoOrdem,data:document.getElementById('o_data').value,
+        obs:obsOrdem,
+        rec:recComNF,cst,forn_id:fornId,
+        pago:false,pago_em:null,pago_valor:null,pago_obs:null,
+        forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
+        nf_num:nfNumBase,
+        nf_taxa:_ordemTemNF?_taxaNF:0,
+        usuario_id:_currentUser?.user?.id,
+        criado_em:new Date(Date.now()+qi*1000).toISOString()
+      };
+      ordens.push(novaOrdem);
+      try{
+        setSyncDot('sync');
+        await api('ordens','POST',novaOrdem,tok());
+        setSyncDot('ok');
+        addLog(novaOrdem.id,'Criado','Nova ordem manual'+(qtd>1?' ('+(qi+1)+'/'+qtd+')':''));
+      }catch(e){setSyncDot('err');toast('Erro ao salvar ordem '+(qi+1),'err');}
+    }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
     closeModal('ordemModal');
     // Scroll para mostrar o card novo
@@ -3326,6 +3434,12 @@ function fillDetail(c){
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
   }
   document.getElementById('d_nf').value=c.nf_num||'';
+  // Botão cancelar NF: só aparece quando tem número real (diferente de vazio/000/0000)
+  const _nfCancelBtn=document.getElementById('d_nf_cancelar_btn');
+  if(_nfCancelBtn){
+    const _nfVal=(c.nf_num||'').replace(/^0+/,'');
+    _nfCancelBtn.style.display=_nfVal.length>0?'block':'none';
+  }
   // Parcial
   const parcialWrap=document.getElementById('d_parcial_wrap');
   if(parcialWrap){
@@ -5860,6 +5974,30 @@ function gerarOS(tipo){
 }
 
 // ── NF DEBOUNCE ──
+async function cancelarNFDetalhe(){
+  const c=ordens.find(x=>x.id===_detailId);if(!c)return;
+  const nfAtual=c.nf_num||'';
+  const nfVal=nfAtual.replace(/^0+/,'');
+  if(!nfVal){toast('Esta NF já está cancelada (000)','warn');return;}
+  const ok=await showConfirm({
+    ico:'🧾',
+    title:'Cancelar Nota Fiscal',
+    body:'Você já cancelou a NF <strong>'+nfAtual+'</strong> junto à prefeitura?<br><br><span style="color:var(--mut2);font-size:11px">O número será alterado para 000. O acréscimo no valor do cliente permanece.</span>',
+    ok:'✅ Sim, já cancelei',okClass:'btn-acc',
+    cancel:'Voltar'
+  });
+  if(!ok)return;
+  c.nf_num='000';
+  document.getElementById('d_nf').value='000';
+  const _nfCancelBtn=document.getElementById('d_nf_cancelar_btn');
+  if(_nfCancelBtn) _nfCancelBtn.style.display='none';
+  try{
+    await api('ordens?id=eq.'+c.id,'PATCH',{nf_num:'000'},tok());
+    addLog(c.id,'NF cancelada','NF '+nfAtual+' → 000');
+    toast('🧾 NF alterada para 000 — pode mover para orçamento','ok');
+  }catch(e){toast('Erro ao salvar','err');}
+}
+
 function salvarNFDebounce(){
   clearTimeout(_nfTimer);
   _nfTimer=setTimeout(async()=>{
