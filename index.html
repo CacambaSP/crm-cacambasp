@@ -7812,48 +7812,110 @@ function _relCancelados(nm){
   </tr>`).join('')}</tbody></table></div>`;
 }
 function _relEvolucao(){
-  // Últimos 6 meses de receita, custo e margem
   const now=new Date();
+  // Filtro por fornecedor selecionado
+  const filtroForn=document.getElementById('evolFiltroForn')?.value||'';
   const meses=[];
   for(let i=5;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const m=d.getMonth()+1; const a=d.getFullYear();
-    const src=ordens.filter(c=>{if(!c.data)return false;const dt=new Date(c.data+'T12:00:00');return dt.getMonth()+1===m&&dt.getFullYear()===a;});
-    const rec=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-    const cst=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-    meses.push({label:MESES[d.getMonth()].slice(0,3)+'/'+String(a).slice(2),rec,cst,mg:rec-cst,qtd:src.length});
+    let src=ordens.filter(c=>{
+      if(!c.data)return false;
+      const dt=new Date(c.data+'T12:00:00');
+      return dt.getMonth()+1===m&&dt.getFullYear()===a&&c.col!=='orcamento'&&c.col!=='concluido';
+    });
+    if(filtroForn) src=src.filter(c=>c.forn_id===filtroForn);
+    const rec    =src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const cst    =src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+    const recPago=src.filter(c=>c.pago).reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const cstPago=src.filter(c=>c.forn_pago).reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+    meses.push({label:MESES[d.getMonth()].slice(0,3)+'/'+String(a).slice(2),rec,cst,recPago,cstPago,mg:recPago-cstPago,qtd:src.length});
   }
+  const totRec    =meses.reduce((s,m)=>s+m.rec,0);
+  const totRecPago=meses.reduce((s,m)=>s+m.recPago,0);
+  const totCst    =meses.reduce((s,m)=>s+m.cst,0);
+  const totCstPago=meses.reduce((s,m)=>s+m.cstPago,0);
+  const faltaRec  =totRec-totRecPago;
+  const faltaPag  =totCst-totCstPago;
+  const mgReal    =totRecPago-totCstPago;
+  const pctReal   =totRec>0?Math.round(totRecPago/totRec*100):0;
+  const pctMg     =totRecPago>0?Math.round(mgReal/totRecPago*100):0;
   const maxVal=Math.max(...meses.map(m=>m.rec),1);
   const barH=120;
-  return `<div class="rel-section">📈 Evolução últimos 6 meses</div>
+  // Select de fornecedor
+  const fornOpts=forns.map(f=>`<option value="${f.id}"${filtroForn===f.id?' selected':''}>${f.nome}</option>`).join('');
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <div class="rel-section" style="margin:0">📈 Evolução últimos 6 meses</div>
+    <select id="evolFiltroForn" onchange="renderRel()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 10px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+      <option value="">Todos os fornecedores</option>${fornOpts}
+    </select>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Receita clientes</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">Previsto</span><span style="color:var(--txt);font-weight:600">R$ ${fmt(totRec)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">Recebido</span><span style="color:var(--acc);font-weight:700">R$ ${fmt(totRecPago)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:6px;border-top:1px solid var(--bor);margin-top:4px"><span style="color:var(--mut2)">Falta receber</span><span style="color:var(--r);font-weight:700">R$ ${fmt(faltaRec)}</span></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Custo fornecedores</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">Previsto</span><span style="color:var(--txt);font-weight:600">R$ ${fmt(totCst)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">Pago</span><span style="color:var(--r);font-weight:700">R$ ${fmt(totCstPago)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:6px;border-top:1px solid var(--bor);margin-top:4px"><span style="color:var(--mut2)">Falta pagar</span><span style="color:#f59e0b;font-weight:700">R$ ${fmt(faltaPag)}</span></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Margem realizada</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">Recebido − Pago</span><span style="color:var(--g);font-weight:700">R$ ${fmt(mgReal)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--mut2)">% da rec. recebida</span><span style="color:var(--txt);font-weight:600">${pctMg}%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:6px;border-top:1px solid var(--bor);margin-top:4px"><span style="color:var(--mut2)">Realização</span><span style="color:var(--mut2);font-weight:600">${pctReal}% do previsto</span></div>
+    </div>
+  </div>
   <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:20px;margin-bottom:16px">
+    <div style="display:flex;gap:16px;margin-bottom:12px;font-size:11px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;background:var(--acc);border-radius:2px;margin-right:4px;opacity:.3"></span>Receita prevista</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:var(--acc);border-radius:2px;margin-right:4px"></span>Recebido</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:var(--r);border-radius:2px;margin-right:4px;opacity:.3"></span>Custo previsto</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:var(--r);border-radius:2px;margin-right:4px"></span>Pago forn.</span>
+    </div>
     <div style="display:flex;align-items:flex-end;gap:8px;height:${barH+40}px;padding-bottom:28px;position:relative">
       ${meses.map(m=>{
-        const hRec=Math.round((m.rec/maxVal)*barH);
-        const hCst=Math.round((m.cst/maxVal)*barH);
+        const hRec =Math.round((m.rec/maxVal)*barH);
+        const hRecP=Math.round((m.recPago/maxVal)*barH);
+        const hCst =Math.round((m.cst/maxVal)*barH);
+        const hCstP=Math.round((m.cstPago/maxVal)*barH);
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative">
-          <div style="display:flex;align-items:flex-end;gap:2px;height:${barH}px">
-            <div title="Receita R$ ${fmt(m.rec)}" style="width:14px;height:${Math.max(hRec,2)}px;background:var(--acc);border-radius:3px 3px 0 0;opacity:.9;cursor:pointer"></div>
-            <div title="Custo R$ ${fmt(m.cst)}" style="width:14px;height:${Math.max(hCst,2)}px;background:var(--r);border-radius:3px 3px 0 0;opacity:.7;cursor:pointer"></div>
+          <div style="display:flex;align-items:flex-end;gap:1px;height:${barH}px;position:relative">
+            <div style="display:flex;flex-direction:column;justify-content:flex-end;height:${barH}px;position:relative">
+              <div title="Receita prevista R$ ${fmt(m.rec)}" style="width:12px;height:${Math.max(hRec,2)}px;background:var(--acc);opacity:.28;border-radius:3px 3px 0 0;position:absolute;bottom:0;left:0"></div>
+              <div title="Recebido R$ ${fmt(m.recPago)}" style="width:7px;height:${Math.max(hRecP,2)}px;background:var(--acc);border-radius:2px 2px 0 0;position:absolute;bottom:0;left:2px"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:flex-end;height:${barH}px;position:relative;margin-left:4px">
+              <div title="Custo previsto R$ ${fmt(m.cst)}" style="width:12px;height:${Math.max(hCst,2)}px;background:var(--r);opacity:.25;border-radius:3px 3px 0 0;position:absolute;bottom:0;left:0"></div>
+              <div title="Pago forn. R$ ${fmt(m.cstPago)}" style="width:7px;height:${Math.max(hCstP,2)}px;background:var(--r);border-radius:2px 2px 0 0;position:absolute;bottom:0;left:2px"></div>
+            </div>
           </div>
           <div style="font-size:9px;color:var(--mut2);text-align:center;position:absolute;bottom:0">${m.label}</div>
         </div>`;
       }).join('')}
     </div>
-    <div style="display:flex;gap:16px;margin-top:8px;font-size:11px">
-      <span><span style="display:inline-block;width:10px;height:10px;background:var(--acc);border-radius:2px;margin-right:4px"></span>Receita</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:var(--r);border-radius:2px;margin-right:4px"></span>Custo</span>
-    </div>
   </div>
   <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
-    <th>Mês</th><th class="r">Ordens</th><th class="r">Receita</th><th class="r">Custo</th><th class="r">Margem</th><th class="r">%</th>
-  </tr></thead><tbody>${meses.map(m=>{const pct=m.rec>0?Math.round(m.mg/m.rec*100):0;return`<tr>
+    <th>Mês</th><th class="r">Ordens</th>
+    <th class="r">Prev.</th><th class="r" style="color:var(--acc)">Recebido</th><th class="r" style="color:var(--r)">Falta rec.</th>
+    <th class="r">Custo prev.</th><th class="r" style="color:var(--r)">Pago forn.</th><th class="r" style="color:#f59e0b">Falta pagar</th>
+    <th class="r" style="color:var(--g)">Margem real</th>
+  </tr></thead><tbody>${meses.map(m=>{
+    const fR=m.rec-m.recPago, fP=m.cst-m.cstPago;
+    return`<tr>
     <td style="font-weight:600">${m.label}</td>
     <td class="r" style="color:var(--mut2)">${m.qtd}</td>
-    <td class="r" style="color:var(--acc)">R$ ${fmt(m.rec)}</td>
-    <td class="r" style="color:var(--r)">R$ ${fmt(m.cst)}</td>
+    <td class="r" style="color:var(--mut2)">R$ ${fmt(m.rec)}</td>
+    <td class="r" style="color:var(--acc);font-weight:700">R$ ${fmt(m.recPago)}</td>
+    <td class="r" style="color:var(--r)">R$ ${fmt(fR)}</td>
+    <td class="r" style="color:var(--mut2)">R$ ${fmt(m.cst)}</td>
+    <td class="r" style="color:var(--r);font-weight:700">R$ ${fmt(m.cstPago)}</td>
+    <td class="r" style="color:#f59e0b">R$ ${fmt(fP)}</td>
     <td class="r" style="color:${m.mg>=0?'var(--g)':'var(--r)'};font-weight:700">R$ ${fmt(m.mg)}</td>
-    <td class="r" style="color:var(--mut2)">${pct}%</td>
   </tr>`;}).join('')}</tbody></table></div>`;
 }
 
