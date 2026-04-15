@@ -7208,6 +7208,7 @@ function _relPgtosForn(){
   const fCodigo=document.getElementById('pgfCodigo')?.value||'';
   const fStatus=document.getElementById('pgfStatus')?.value||'pago';
   const fTipoData=document.getElementById('pgfTipoData')?.value||'pagto';
+  const fDataLabel=fDataIni&&fDataFim&&fDataIni===fDataFim?fDataIni.slice(8,10)+'/'+fDataIni.slice(5,7)+'/'+fDataIni.slice(0,4):(fDataIni||fDataFim)?(fDataIni?fDataIni.slice(8,10)+'/'+fDataIni.slice(5,7):'?')+' – '+(fDataFim?fDataFim.slice(8,10)+'/'+fDataFim.slice(5,7):'?'):'';
 
   // Base: todas as ordens com fornecedor
   let lista = ordens.filter(c=>c.forn_id);
@@ -7290,8 +7291,15 @@ function _relPgtosForn(){
         <option value="pendente"${fStatus==='pendente'?' selected':''}>⏳ Pendentes</option>
         <option value="todos"${fStatus==='todos'?' selected':''}>Todos</option>
       </select>
-      <button onclick="document.getElementById('pgfQ').value='';document.getElementById('pgfCodigo').value='';document.getElementById('pgfForn').value='';document.getElementById('pgfStatus').value='pago';renderRel()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
-      <button onclick="document.getElementById('pgfStatus').value='pago';renderRel()" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--acc);cursor:pointer;font-family:var(--font)">📅 Hoje</button>
+      <select id="pgfTipoData" onchange="renderRel()" style="${inputStyle}">
+        <option value="pagto"${fTipoData==='pagto'?' selected':''}>📅 Dt Pagto</option>
+        <option value="ordem"${fTipoData==='ordem'?' selected':''}>🗓️ Dt Ordem</option>
+      </select>
+      <input id="pgfDataIni" type="date" value="${fDataIni}" onchange="renderRel()" title="De:" style="${inputStyle}">
+      <span style="font-size:11px;color:var(--mut2)">até</span>
+      <input id="pgfDataFim" type="date" value="${fDataFim}" onchange="renderRel()" title="Até:" style="${inputStyle}">
+      <button onclick="const h='${hoje}';document.getElementById('pgfDataIni').value=h;document.getElementById('pgfDataFim').value=h;renderRel()" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--acc);cursor:pointer;font-family:var(--font);white-space:nowrap">📅 Hoje</button>
+      <button onclick="document.getElementById('pgfQ').value='';document.getElementById('pgfCodigo').value='';document.getElementById('pgfForn').value='';document.getElementById('pgfStatus').value='pago';document.getElementById('pgfDataIni').value='';document.getElementById('pgfDataFim').value='';document.getElementById('pgfTipoData').value='pagto';renderRel()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
     </div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
