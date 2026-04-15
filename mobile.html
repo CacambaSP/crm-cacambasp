@@ -1726,7 +1726,6 @@ async function confirmarCancelar() {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
-    if(!o.forn_pago && o.forn_id){upd.forn_id=null;upd.cst=null;}
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o, upd);
     closeModal('cancelarModal');
@@ -2316,14 +2315,16 @@ function _atualizarAlertasBadge() {
   const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
   const entregaConf = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
   const cobrPend = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
-  const total = inadimp + criticos + orcPend + entregaConf + cobrPend;
+  const semForn = ordens.filter(c=>c.col==='contratar'&&!c.forn_id).length;
+  const fornNaoPago = ordens.filter(c=>!c.forn_pago&&c.forn_id&&['baixar','pagar','faltapg'].includes(c.col)&&diasEmAberto(c)>=15).length;
+  const total = inadimp + criticos + orcPend + entregaConf + cobrPend + semForn + fornNaoPago;
   ['badge-alert','badge-alert2'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
     el.textContent = total > 99 ? '99+' : total;
     el.style.display = total ? 'block' : 'none';
   });
-  return {inadimp, criticos, orcPend, entregaConf, cobrPend, total};
+  return {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, fornNaoPago, total};
 }
 // alias para compatibilidade
 function atualizarAlertBadge(){ _atualizarAlertasBadge(); }
@@ -3072,61 +3073,15 @@ async function fpConfirmarDados() {
 // ── ABA PAGAMENTOS FORNECEDOR ──
 function renderPagamentos() {
   setTopbar('Pagamentos Fornecedor','');
-  const q=(document.getElementById('pgfMobQ')?.value||'').toLowerCase().trim();
-  const fForn=document.getElementById('pgfMobForn')?.value||'';
-  const fStatus=document.getElementById('pgfMobStatus')?.value||'pago';
-  const fDataIni=document.getElementById('pgfMobDataIni')?.value||'';
-  const fDataFim=document.getElementById('pgfMobDataFim')?.value||'';
-
-  let pagas = _ordens.filter(o=>o.forn_id);
-  if(fStatus==='pago') pagas=pagas.filter(o=>o.forn_pago);
-  else if(fStatus==='pendente') pagas=pagas.filter(o=>!o.forn_pago);
-  if(fForn) pagas=pagas.filter(o=>o.forn_id===fForn);
-  if(fDataIni) pagas=pagas.filter(o=>(o.forn_pago_em||'').slice(0,10)>=fDataIni);
-  if(fDataFim) pagas=pagas.filter(o=>(o.forn_pago_em||'').slice(0,10)<=fDataFim);
-  if(q) pagas=pagas.filter(o=>
-    (o.crm_id||'').toLowerCase().includes(q)||
-    (o.nome||'').toLowerCase().includes(q)||
-    (o.logradouro||'').toLowerCase().includes(q)||
-    (o.bairro||'').toLowerCase().includes(q)||
-    (o.forn_pg_ref||'').toLowerCase().includes(q)||
-    (_forns.find(f=>f.id===o.forn_id)?.nome||'').toLowerCase().includes(q)
-  );
-  pagas.sort((a,b)=>new Date(b.forn_pago_em||b.data||0)-new Date(a.forn_pago_em||a.data||0));
-
-  const hoje=new Date().toISOString().slice(0,10);
-  const iStyle='background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none;font-family:var(--font);width:100%';
-  const fornOpts=_forns.map(f=>`<option value="${f.id}"${fForn===f.id?' selected':''}>${f.nome}</option>`).join('');
-
-  const filtrosHtml=`<div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--sur);border-bottom:1px solid var(--bor)">
-    <input id="pgfMobQ" type="text" placeholder="🔍 Nome, endereço, CRM, código..." value="${q}" oninput="renderPagamentos()" style="${iStyle}">
-    <div style="display:flex;gap:8px">
-      <select id="pgfMobForn" onchange="renderPagamentos()" style="${iStyle};flex:2">
-        <option value="">Todos fornecedores</option>${fornOpts}
-      </select>
-      <select id="pgfMobStatus" onchange="renderPagamentos()" style="${iStyle};flex:1">
-        <option value="pago"${fStatus==='pago'?' selected':''}>✅ Pagos</option>
-        <option value="pendente"${fStatus==='pendente'?' selected':''}>⏳ Pendentes</option>
-        <option value="todos"${fStatus==='todos'?' selected':''}>Todos</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="pgfMobDataIni" type="date" value="${fDataIni}" onchange="renderPagamentos()" style="${iStyle};flex:1">
-      <span style="color:var(--mut);font-size:12px">até</span>
-      <input id="pgfMobDataFim" type="date" value="${fDataFim}" onchange="renderPagamentos()" style="${iStyle};flex:1">
-      <button onclick="document.getElementById('pgfMobDataIni').value='${hoje}';document.getElementById('pgfMobDataFim').value='${hoje}';renderPagamentos()" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--acc);cursor:pointer;white-space:nowrap">📅 Hoje</button>
-      <button onclick="document.getElementById('pgfMobQ').value='';document.getElementById('pgfMobForn').value='';document.getElementById('pgfMobStatus').value='pago';document.getElementById('pgfMobDataIni').value='';document.getElementById('pgfMobDataFim').value='';renderPagamentos()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut);cursor:pointer">✕</button>
-    </div>
-  </div>`;
-
+  const pagas = _ordens.filter(o=>o.forn_pago && o.forn_pago_em).sort((a,b)=>new Date(b.forn_pago_em)-new Date(a.forn_pago_em));
   if(!pagas.length) {
-    document.getElementById('pagamentosContent').innerHTML = filtrosHtml+`<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outros filtros.</div></div>`;
+    document.getElementById('pagamentosContent').innerHTML = `<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum pagamento</div><div class="empty-desc">Os pagamentos a fornecedores aparecerão aqui.</div></div>`;
     return;
   }
   // Agrupar por etiqueta/referência (forn_pg_ref) para mostrar lotes
   const lotes = {};
   pagas.forEach(o => {
-    const key = o.forn_pago?(o.forn_pg_ref||'__sem_ref__'):('__pend__'+o.id);
+    const key = o.forn_pg_ref||'__sem_ref__';
     if(!lotes[key]) lotes[key] = [];
     lotes[key].push(o);
   });
@@ -3169,7 +3124,7 @@ function renderPagamentos() {
       </div>
     </div>`;
   });
-  document.getElementById('pagamentosContent').innerHTML = filtrosHtml + h;
+  document.getElementById('pagamentosContent').innerHTML = h;
 }
 
 function renderEquipe() {
@@ -3295,7 +3250,7 @@ function renderAlertas(){
   setTopbar('Alertas','');
   const el = document.getElementById('alertasContent');
   if(!el) return;
-  const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
+  const {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, fornNaoPago} = _atualizarAlertasBadge();
 
   const meuid = uid();
   const ordens = _ordens || [];
@@ -3322,9 +3277,11 @@ function renderAlertas(){
   const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   const listaEntrega   = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
   const listaEntregaOut= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
+  const listaSemForn   = ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&_minhas(c));
+  const listaFornNaoPago = ordens.filter(c=>!c.forn_pago&&c.forn_id&&['baixar','pagar','faltapg'].includes(c.col)&&diasEmAberto(c)>=15&&_minhas(c));
 
   const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
-  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length;
+  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length + listaFornNaoPago.length;
 
   const sub = document.getElementById('alertasSubtitle');
   if(sub) sub.textContent = total===0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
@@ -3375,7 +3332,8 @@ function renderAlertas(){
           </div>
           <div class="alerta-actions">
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Pago</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
           </div>
         </div>`;
       }).join('')}
@@ -3397,6 +3355,7 @@ function renderAlertas(){
           <div class="alerta-actions">
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
           </div>
         </div>`;
       }).join('')}
@@ -3417,6 +3376,8 @@ function renderAlertas(){
           </div>
           <div class="alerta-actions">
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
           </div>
         </div>`;
       }).join('')}
@@ -3432,12 +3393,17 @@ function renderAlertas(){
         const val=c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
         const bairro=c.bairro||'';
         const dt=(c.created_at||c.data||'').slice(0,10).split('-').reverse().join('/');
-        return `<div class="alerta-card alerta-card-orc" onclick="setView('orc')">
+        return `<div class="alerta-card alerta-card-orc" onclick="abrirDetalhe('${c.id}')">
           <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
           <div class="alerta-card-bot">
             <span class="alerta-tag alerta-tag-orc">📋 Orçamento</span>
             ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
             <span class="alerta-dias">${dt}</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();converterOrcamento('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Converter</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirCancelar('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">❌ Cancelar</button>
           </div>
         </div>`;
       }).join('')}
@@ -3460,7 +3426,58 @@ function renderAlertas(){
             ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
           </div>
           <div class="alerta-actions">
-            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();confirmarEntrega('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar entrega</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 6: Sem fornecedor
+  if(listaSemForn.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="color:#f59e0b">🚛 Sem fornecedor atribuído <span class="alerta-cnt">${listaSemForn.length}</span></div>
+      ${listaSemForn.map(c=>{
+        const nome=c.nome||'—';
+        const end=(c.logradouro||c.bairro||'');
+        const dt=(c.data||'').slice(0,10).split('-').reverse().join('/');
+        return `<div class="alerta-card" style="border-left:3px solid #f59e0b" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="font-size:11px;color:var(--mut2)">${dt}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(245,158,11,.12);color:#b45309">🚛 Contratar forn.</span>
+            ${end?`<span class="alerta-sub">${end}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirAtribuirForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,158,11,.12);color:#b45309;border-color:rgba(245,158,11,.4)">🚛 Atribuir forn.</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 7: Fornecedor não pago (+15 dias)
+  if(listaFornNaoPago.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="color:#ef4444">💸 Fornecedor não pago +15d <span class="alerta-cnt">${listaFornNaoPago.length}</span></div>
+      ${listaFornNaoPago.map(c=>{
+        const forn=_forns.find(f=>f.id===c.forn_id);
+        const nome=c.nome||'—';
+        const nomeForn=forn?.nome||'Fornecedor';
+        const cst=c.cst?`R$ ${Number(c.cst).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+        const dias=diasEmAberto(c);
+        const end=(c.logradouro||c.bairro||'');
+        return `<div class="alerta-card" style="border-left:3px solid #ef4444" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="color:#ef4444">${cst}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(239,68,68,.1);color:#dc2626">💸 ${nomeForn}</span>
+            ${end?`<span class="alerta-sub">${end}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">💸 Pagar forn.</button>
           </div>
         </div>`;
       }).join('')}
@@ -3772,9 +3789,7 @@ async function voltarOrcamento(id) {
   });
   if(!ok) return;
   try {
-    const _pOrc={col:'orcamento', orc_convertido_em:null};
-    if(!o.forn_pago && o.forn_id){_pOrc.forn_id=null;_pOrc.cst=null;o.forn_id=null;o.cst=null;}
-    await api(`ordens?id=eq.${id}`,'PATCH',_pOrc,tok());
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'orcamento', orc_convertido_em:null},tok());
     o.col='orcamento'; o.orc_convertido_em=null;
     toast('↩️ Voltou para Orçamentos','ok');
     goBack();
@@ -3926,10 +3941,7 @@ async function arquivarOrdem(id) {
   const ok = await showConfirm({ico:'📦',title:'Arquivar ordem?',body:'Move para concluído. Pode reabrir depois.',ok:'Arquivar',okClass:'acc'});
   if(!ok) return;
   try {
-    const _pArq={col:'concluido'};
-    const _oArq=_ordens.find(x=>x.id===id);
-    if(_oArq&&!_oArq.forn_pago&&_oArq.forn_id){_pArq.forn_id=null;_pArq.cst=null;_oArq.forn_id=null;_oArq.cst=null;}
-    await api(`ordens?id=eq.${id}`,'PATCH',_pArq,tok());
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'concluido'},tok());
     const o=_ordens.find(x=>x.id===id); if(o) o.col='concluido';
     toast('Ordem arquivada','ok');
     goBack();
