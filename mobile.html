@@ -1726,6 +1726,7 @@ async function confirmarCancelar() {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
+    if(!o.forn_pago && o.forn_id){upd.forn_id=null;upd.cst=null;}
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o, upd);
     closeModal('cancelarModal');
@@ -3071,15 +3072,61 @@ async function fpConfirmarDados() {
 // ── ABA PAGAMENTOS FORNECEDOR ──
 function renderPagamentos() {
   setTopbar('Pagamentos Fornecedor','');
-  const pagas = _ordens.filter(o=>o.forn_pago && o.forn_pago_em).sort((a,b)=>new Date(b.forn_pago_em)-new Date(a.forn_pago_em));
+  const q=(document.getElementById('pgfMobQ')?.value||'').toLowerCase().trim();
+  const fForn=document.getElementById('pgfMobForn')?.value||'';
+  const fStatus=document.getElementById('pgfMobStatus')?.value||'pago';
+  const fDataIni=document.getElementById('pgfMobDataIni')?.value||'';
+  const fDataFim=document.getElementById('pgfMobDataFim')?.value||'';
+
+  let pagas = _ordens.filter(o=>o.forn_id);
+  if(fStatus==='pago') pagas=pagas.filter(o=>o.forn_pago);
+  else if(fStatus==='pendente') pagas=pagas.filter(o=>!o.forn_pago);
+  if(fForn) pagas=pagas.filter(o=>o.forn_id===fForn);
+  if(fDataIni) pagas=pagas.filter(o=>(o.forn_pago_em||'').slice(0,10)>=fDataIni);
+  if(fDataFim) pagas=pagas.filter(o=>(o.forn_pago_em||'').slice(0,10)<=fDataFim);
+  if(q) pagas=pagas.filter(o=>
+    (o.crm_id||'').toLowerCase().includes(q)||
+    (o.nome||'').toLowerCase().includes(q)||
+    (o.logradouro||'').toLowerCase().includes(q)||
+    (o.bairro||'').toLowerCase().includes(q)||
+    (o.forn_pg_ref||'').toLowerCase().includes(q)||
+    (_forns.find(f=>f.id===o.forn_id)?.nome||'').toLowerCase().includes(q)
+  );
+  pagas.sort((a,b)=>new Date(b.forn_pago_em||b.data||0)-new Date(a.forn_pago_em||a.data||0));
+
+  const hoje=new Date().toISOString().slice(0,10);
+  const iStyle='background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--txt);outline:none;font-family:var(--font);width:100%';
+  const fornOpts=_forns.map(f=>`<option value="${f.id}"${fForn===f.id?' selected':''}>${f.nome}</option>`).join('');
+
+  const filtrosHtml=`<div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--sur);border-bottom:1px solid var(--bor)">
+    <input id="pgfMobQ" type="text" placeholder="🔍 Nome, endereço, CRM, código..." value="${q}" oninput="renderPagamentos()" style="${iStyle}">
+    <div style="display:flex;gap:8px">
+      <select id="pgfMobForn" onchange="renderPagamentos()" style="${iStyle};flex:2">
+        <option value="">Todos fornecedores</option>${fornOpts}
+      </select>
+      <select id="pgfMobStatus" onchange="renderPagamentos()" style="${iStyle};flex:1">
+        <option value="pago"${fStatus==='pago'?' selected':''}>✅ Pagos</option>
+        <option value="pendente"${fStatus==='pendente'?' selected':''}>⏳ Pendentes</option>
+        <option value="todos"${fStatus==='todos'?' selected':''}>Todos</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="pgfMobDataIni" type="date" value="${fDataIni}" onchange="renderPagamentos()" style="${iStyle};flex:1">
+      <span style="color:var(--mut);font-size:12px">até</span>
+      <input id="pgfMobDataFim" type="date" value="${fDataFim}" onchange="renderPagamentos()" style="${iStyle};flex:1">
+      <button onclick="document.getElementById('pgfMobDataIni').value='${hoje}';document.getElementById('pgfMobDataFim').value='${hoje}';renderPagamentos()" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--acc);cursor:pointer;white-space:nowrap">📅 Hoje</button>
+      <button onclick="document.getElementById('pgfMobQ').value='';document.getElementById('pgfMobForn').value='';document.getElementById('pgfMobStatus').value='pago';document.getElementById('pgfMobDataIni').value='';document.getElementById('pgfMobDataFim').value='';renderPagamentos()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut);cursor:pointer">✕</button>
+    </div>
+  </div>`;
+
   if(!pagas.length) {
-    document.getElementById('pagamentosContent').innerHTML = `<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum pagamento</div><div class="empty-desc">Os pagamentos a fornecedores aparecerão aqui.</div></div>`;
+    document.getElementById('pagamentosContent').innerHTML = filtrosHtml+`<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outros filtros.</div></div>`;
     return;
   }
   // Agrupar por etiqueta/referência (forn_pg_ref) para mostrar lotes
   const lotes = {};
   pagas.forEach(o => {
-    const key = o.forn_pg_ref||'__sem_ref__';
+    const key = o.forn_pago?(o.forn_pg_ref||'__sem_ref__'):('__pend__'+o.id);
     if(!lotes[key]) lotes[key] = [];
     lotes[key].push(o);
   });
@@ -3122,7 +3169,7 @@ function renderPagamentos() {
       </div>
     </div>`;
   });
-  document.getElementById('pagamentosContent').innerHTML = h;
+  document.getElementById('pagamentosContent').innerHTML = filtrosHtml + h;
 }
 
 function renderEquipe() {
@@ -3725,7 +3772,9 @@ async function voltarOrcamento(id) {
   });
   if(!ok) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'orcamento', orc_convertido_em:null},tok());
+    const _pOrc={col:'orcamento', orc_convertido_em:null};
+    if(!o.forn_pago && o.forn_id){_pOrc.forn_id=null;_pOrc.cst=null;o.forn_id=null;o.cst=null;}
+    await api(`ordens?id=eq.${id}`,'PATCH',_pOrc,tok());
     o.col='orcamento'; o.orc_convertido_em=null;
     toast('↩️ Voltou para Orçamentos','ok');
     goBack();
@@ -3877,7 +3926,10 @@ async function arquivarOrdem(id) {
   const ok = await showConfirm({ico:'📦',title:'Arquivar ordem?',body:'Move para concluído. Pode reabrir depois.',ok:'Arquivar',okClass:'acc'});
   if(!ok) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'concluido'},tok());
+    const _pArq={col:'concluido'};
+    const _oArq=_ordens.find(x=>x.id===id);
+    if(_oArq&&!_oArq.forn_pago&&_oArq.forn_id){_pArq.forn_id=null;_pArq.cst=null;_oArq.forn_id=null;_oArq.cst=null;}
+    await api(`ordens?id=eq.${id}`,'PATCH',_pArq,tok());
     const o=_ordens.find(x=>x.id===id); if(o) o.col='concluido';
     toast('Ordem arquivada','ok');
     goBack();
