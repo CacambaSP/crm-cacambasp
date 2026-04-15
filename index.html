@@ -7250,10 +7250,11 @@ function _relPgtosForn(){
   lista.sort((a,b)=>{
     let va,vb;
     if(col==='crm'){va=a.crm_id||'';vb=b.crm_id||'';}
+    else if(col==='data'){va=a.data||'';vb=b.data||'';}
     else if(col==='nome'){va=(a.nome||'').toLowerCase();vb=(b.nome||'').toLowerCase();}
     else if(col==='forn'){va=(forns.find(f=>f.id===a.forn_id)?.nome||'').toLowerCase();vb=(forns.find(f=>f.id===b.forn_id)?.nome||'').toLowerCase();}
     else if(col==='valor'){va=parseFloat(a.forn_pago_valor||a.cst)||0;vb=parseFloat(b.forn_pago_valor||b.cst)||0;}
-    else{va=(a.forn_pago_em||a.data||'');vb=(b.forn_pago_em||b.data||'');}
+    else{va=(a.forn_pago_em||'');vb=(b.forn_pago_em||'');}
     if(va<vb)return dir==='asc'?-1:1;
     if(va>vb)return dir==='asc'?1:-1;
     return 0;
@@ -7289,15 +7290,8 @@ function _relPgtosForn(){
         <option value="pendente"${fStatus==='pendente'?' selected':''}>⏳ Pendentes</option>
         <option value="todos"${fStatus==='todos'?' selected':''}>Todos</option>
       </select>
-      <select id="pgfTipoData" onchange="renderRel()" style="${inputStyle}">
-        <option value="pagto"${fTipoData==='pagto'?' selected':''}>📅 Data pagto forn.</option>
-        <option value="ordem"${fTipoData==='ordem'?' selected':''}>🗓️ Data da ordem</option>
-      </select>
-      <input id="pgfDataIni" type="date" value="${fDataIni}" onchange="renderRel()" title="De:" style="${inputStyle}">
-      <span style="font-size:11px;color:var(--mut2)">até</span>
-      <input id="pgfDataFim" type="date" value="${fDataFim}" onchange="renderRel()" title="Até:" style="${inputStyle}">
-      <button onclick="document.getElementById('pgfQ').value='';document.getElementById('pgfCodigo').value='';document.getElementById('pgfForn').value='';document.getElementById('pgfStatus').value='pago';document.getElementById('pgfDataIni').value='';document.getElementById('pgfDataFim').value='';document.getElementById('pgfTipoData').value='pagto';renderRel()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
-      <button onclick="document.getElementById('pgfDataIni').value='${hoje}';document.getElementById('pgfDataFim').value='${hoje}';document.getElementById('pgfStatus').value='pago';renderRel()" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--acc);cursor:pointer;font-family:var(--font)">📅 Hoje</button>
+      <button onclick="document.getElementById('pgfQ').value='';document.getElementById('pgfCodigo').value='';document.getElementById('pgfForn').value='';document.getElementById('pgfStatus').value='pago';renderRel()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
+      <button onclick="document.getElementById('pgfStatus').value='pago';renderRel()" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--acc);cursor:pointer;font-family:var(--font)">📅 Hoje</button>
     </div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -7307,19 +7301,21 @@ function _relPgtosForn(){
   </div>
   ${!lista.length?`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum resultado encontrado</div>`:`
   <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
-    ${th('crm','CRM')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('valor','Valor','r')} ${th('forn_pago_em','Data Pagto')} <th>Código</th><th>Status</th>
+    ${th('crm','CRM')} ${th('data','Dt Ordem')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('forn_pago_em','Dt Pagto')} ${th('valor','Valor','r')} <th>Código</th><th>Status</th>
   </tr></thead><tbody>${lista.map(c=>{
     const forn=forns.find(f=>f.id===c.forn_id);
+    const dataOrdem=c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
     const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
     const cod=c.forn_pg_ref||'—';
     const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
     const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
     return`<tr>
-      <td style="font-family:var(--mono);font-size:11px"><span onclick="event.stopPropagation();_detailId='${c.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
-      <td style="font-weight:600;max-width:200px">${c.nome||'-'} <span style="font-size:10px;color:var(--mut2);font-weight:400">${c.data?'· '+c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):''}</span><br><span style="font-size:10px;color:var(--mut2)">${end}</span></td>
-      <td style="font-size:11px;color:var(--mut2)">${forn?forn.nome:'-'}</td>
-      <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
+      <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();_detailId='${c.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
+      <td style="font-size:11px;white-space:nowrap;color:var(--mut2)">${dataOrdem}</td>
+      <td style="font-weight:600;max-width:200px">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${end}</span></td>
+      <td style="font-size:11px;color:var(--mut2);white-space:nowrap">${forn?forn.nome:'-'}</td>
       <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
+      <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
       <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}</td>
       <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
