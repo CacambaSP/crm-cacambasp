@@ -728,6 +728,7 @@ input[type=checkbox]:checked::after{
             <button class="rel-tab" onclick="setRelTab('cancelados')" data-tab="cancelados">❌ Cancelados</button>
             <button class="rel-tab" onclick="setRelTab('agenda_dia')" data-tab="agenda_dia">📅 Agenda do Dia</button>
             <button class="rel-tab" onclick="setRelTab('recibo')" data-tab="recibo">🧾 Recibo</button>
+            <button class="rel-tab" onclick="setRelTab('pgtosforn')" data-tab="pgtosforn">🔍 Pgtos Forn.</button>
             <button class="rel-tab admin-only" onclick="setRelTab('analytics')" data-tab="analytics">🔬 Analytics</button>
           </div>
           <div id="relConteudo"></div>
@@ -7188,8 +7189,132 @@ function renderRel(){
   else if(_relTab==='cancelados') el.innerHTML=_relCancelados(nomeMes);
   else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia(document.getElementById('agendaDiaFiltro')?.value||'');
   else if(_relTab==='recibo') el.innerHTML=_relRecibo();
+  else if(_relTab==='pgtosforn') el.innerHTML=_relPgtosForn();
   else if(_relTab==='analytics'){ _relAnalytics(el); }
 }
+// ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
+let _pgfSort={col:'forn_pago_em',dir:'desc'};
+function _relPgtosFornSort(col){
+  if(_pgfSort.col===col) _pgfSort.dir=_pgfSort.dir==='asc'?'desc':'asc';
+  else{_pgfSort.col=col;_pgfSort.dir='desc';}
+  renderRel();
+}
+function _relPgtosForn(){
+  // Pega filtros
+  const q=(document.getElementById('pgfQ')?.value||'').toLowerCase().trim();
+  const fForn=document.getElementById('pgfForn')?.value||'';
+  const fDataIni=document.getElementById('pgfDataIni')?.value||'';
+  const fDataFim=document.getElementById('pgfDataFim')?.value||'';
+  const fCodigo=document.getElementById('pgfCodigo')?.value||'';
+  const fStatus=document.getElementById('pgfStatus')?.value||'pago';
+
+  // Base: todas as ordens com fornecedor
+  let lista = ordens.filter(c=>c.forn_id);
+
+  // Filtro status
+  if(fStatus==='pago') lista=lista.filter(c=>c.forn_pago);
+  else if(fStatus==='pendente') lista=lista.filter(c=>!c.forn_pago);
+  // 'todos' = sem filtro
+
+  // Filtro fornecedor
+  if(fForn) lista=lista.filter(c=>c.forn_id===fForn);
+
+  // Filtro código de pagamento
+  if(fCodigo.trim()) lista=lista.filter(c=>(c.forn_pg_ref||'').toLowerCase().includes(fCodigo.toLowerCase().trim()));
+
+  // Filtro data de pagamento
+  if(fDataIni) lista=lista.filter(c=>(c.forn_pago_em||'').slice(0,10)>=fDataIni);
+  if(fDataFim) lista=lista.filter(c=>(c.forn_pago_em||'').slice(0,10)<=fDataFim);
+
+  // Busca geral: CRM, nome, endereço, bairro, cidade, código
+  if(q) lista=lista.filter(c=>
+    (c.crm_id||'').toLowerCase().includes(q)||
+    (c.nome||'').toLowerCase().includes(q)||
+    (c.logradouro||'').toLowerCase().includes(q)||
+    (c.bairro||'').toLowerCase().includes(q)||
+    (c.cidade||'').toLowerCase().includes(q)||
+    (c.forn_pg_ref||'').toLowerCase().includes(q)||
+    (forns.find(f=>f.id===c.forn_id)?.nome||'').toLowerCase().includes(q)
+  );
+
+  // Ordenação
+  const col=_pgfSort.col, dir=_pgfSort.dir;
+  lista.sort((a,b)=>{
+    let va,vb;
+    if(col==='crm'){va=a.crm_id||'';vb=b.crm_id||'';}
+    else if(col==='nome'){va=(a.nome||'').toLowerCase();vb=(b.nome||'').toLowerCase();}
+    else if(col==='forn'){va=(forns.find(f=>f.id===a.forn_id)?.nome||'').toLowerCase();vb=(forns.find(f=>f.id===b.forn_id)?.nome||'').toLowerCase();}
+    else if(col==='valor'){va=parseFloat(a.forn_pago_valor||a.cst)||0;vb=parseFloat(b.forn_pago_valor||b.cst)||0;}
+    else{va=(a.forn_pago_em||a.data||'');vb=(b.forn_pago_em||b.data||'');}
+    if(va<vb)return dir==='asc'?-1:1;
+    if(va>vb)return dir==='asc'?1:-1;
+    return 0;
+  });
+
+  // KPIs
+  const totalPago=lista.filter(c=>c.forn_pago).reduce((s,c)=>s+(parseFloat(c.forn_pago_valor||c.cst)||0),0);
+  const totalPend=lista.filter(c=>!c.forn_pago).reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+  const qtdPago=lista.filter(c=>c.forn_pago).length;
+  const qtdPend=lista.filter(c=>!c.forn_pago).length;
+
+  const fornOpts=forns.map(f=>`<option value="${f.id}"${fForn===f.id?' selected':''}>${f.nome}</option>`).join('');
+  const arr=(c)=>_pgfSort.col===c?(_pgfSort.dir==='asc'?'↑':'↓'):'↕';
+  const th=(c,lbl,cls='')=>`<th class="${cls}" onclick="_relPgtosFornSort('${c}')" style="cursor:pointer;user-select:none;white-space:nowrap">${lbl} <span style="font-size:9px;opacity:.6">${arr(c)}</span></th>`;
+
+  const inputStyle='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)';
+
+  const hoje=new Date().toISOString().slice(0,10);
+
+  return `
+  <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🔍 Buscar pagamentos a fornecedores</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="pgfForn" onchange="renderRel()" style="${inputStyle}">
+        <option value="">Todos os fornecedores</option>${fornOpts}
+      </select>
+      <select id="pgfStatus" onchange="renderRel()" style="${inputStyle}">
+        <option value="pago"${fStatus==='pago'?' selected':''}>✅ Pagos</option>
+        <option value="pendente"${fStatus==='pendente'?' selected':''}>⏳ Pendentes</option>
+        <option value="todos"${fStatus==='todos'?' selected':''}>Todos</option>
+      </select>
+      <input id="pgfDataIni" type="date" value="${fDataIni}" onchange="renderRel()" title="Data pagto de:" style="${inputStyle}">
+      <span style="font-size:11px;color:var(--mut2)">até</span>
+      <input id="pgfDataFim" type="date" value="${fDataFim}" onchange="renderRel()" title="Data pagto até:" style="${inputStyle}">
+      <button onclick="document.getElementById('pgfQ').value='';document.getElementById('pgfCodigo').value='';document.getElementById('pgfForn').value='';document.getElementById('pgfStatus').value='pago';document.getElementById('pgfDataIni').value='';document.getElementById('pgfDataFim').value='';renderRel()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
+      <button onclick="document.getElementById('pgfDataIni').value='${hoje}';document.getElementById('pgfDataFim').value='${hoje}';document.getElementById('pgfStatus').value='pago';renderRel()" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--acc);cursor:pointer;font-family:var(--font)">📅 Hoje</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    ${qtdPago>0?_kpi(qtdPago+' pagos','R$ '+fmt(totalPago),'var(--g)','fornecedor pago'):''}
+    ${qtdPend>0?_kpi(qtdPend+' pendentes','R$ '+fmt(totalPend),'var(--r)','a pagar'):''}
+    ${_kpi('Total','R$ '+fmt(totalPago+totalPend),'var(--acc)',(qtdPago+qtdPend)+' ordens')}
+  </div>
+  ${!lista.length?`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum resultado encontrado</div>`:`
+  <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
+    ${th('crm','CRM')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('valor','Valor','r')} ${th('forn_pago_em','Data Pagto')} <th>Código</th><th>Status</th>
+  </tr></thead><tbody>${lista.map(c=>{
+    const forn=forns.find(f=>f.id===c.forn_id);
+    const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
+    const cod=c.forn_pg_ref||'—';
+    const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
+    const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
+    return`<tr>
+      <td style="font-family:var(--mono);font-size:11px"><span onclick="event.stopPropagation();_detailId='${c.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
+      <td style="font-weight:600;max-width:200px">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${end}</span></td>
+      <td style="font-size:11px;color:var(--mut2)">${forn?forn.nome:'-'}</td>
+      <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
+      <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
+      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}</td>
+      <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
+    </tr>`;
+  }).join('')}</tbody></table></div>`}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function _relAgendaDia(dataParam){
   const hoje = new Date().toISOString().slice(0,10);
   const dataFiltro = dataParam || hoje;
