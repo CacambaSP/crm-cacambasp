@@ -1684,7 +1684,7 @@ async function cancelarOrdem(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
   c.col='concluido';c.concluido_em=nowISO();c.cancel_motivo=motivo||'Cancelado';
   renderBoard();renderStats();
-  try{await api('ordens?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:c.concluido_em,cancel_motivo:c.cancel_motivo},tok());addLog(id,'Cancelado',motivo||'');toast('🗑️ Ordem cancelada e arquivada');}
+  try{const _patchCanc={col:'concluido',concluido_em:c.concluido_em,cancel_motivo:c.cancel_motivo};if(!c.forn_pago&&c.forn_id){_patchCanc.forn_id=null;_patchCanc.cst=null;c.forn_id=null;c.cst=null;}await api('ordens?id=eq.'+id,'PATCH',_patchCanc,tok());addLog(id,'Cancelado',motivo||'');toast('🗑️ Ordem cancelada e arquivada');}
   catch(e){toast('Erro ao cancelar','err');}
 }
 let _detailId=null, _dragId=null, _pixCardId=null, _pixPayload='', _pixId='';
@@ -2593,7 +2593,9 @@ async function oDrop(e,colId){
     c.col=colId; renderBoard(); renderStats(); renderFinanceiro();
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+c.id,'PATCH',{col:colId},tok());
+      const _pdrop={col:colId};
+      if(['orcamento','concluido','cancelado'].includes(colId)&&!c.forn_pago&&c.forn_id){_pdrop.forn_id=null;_pdrop.cst=null;c.forn_id=null;c.cst=null;}
+      await api('ordens?id=eq.'+c.id,'PATCH',_pdrop,tok());
       setSyncDot('ok');
       const colLabel=COLS.find(x=>x.id===colId)?.label||colId;
       toast('📦 Movido para '+colLabel);
@@ -2648,7 +2650,9 @@ async function oTouchEnd(e){
     c.col=colId; renderBoard(); renderStats(); renderFinanceiro();
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+c.id,'PATCH',{col:colId},tok());
+      const _ptouch={col:colId};
+      if(['orcamento','concluido','cancelado'].includes(colId)&&!c.forn_pago&&c.forn_id){_ptouch.forn_id=null;_ptouch.cst=null;c.forn_id=null;c.cst=null;}
+      await api('ordens?id=eq.'+c.id,'PATCH',_ptouch,tok());
       setSyncDot('ok');
       const colLabel=COLS.find(x=>x.id===colId)?.label||colId;
       toast('📦 Movido para '+colLabel);
@@ -2753,7 +2757,16 @@ async function selMoverColuna(colId){
   _selCards.clear();renderBoard();updateSelBar();renderStats();renderFinanceiro();
   try{
     setSyncDot('sync');
-    await Promise.all(ids.map(id=>api('ordens?id=eq.'+id,'PATCH',{col:colId},tok())));
+    const deveLibForn=['orcamento','concluido','cancelado'].includes(colId);
+    await Promise.all(ids.map(id=>{
+      const c=ordens.find(x=>x.id===id);
+      const patch={col:colId};
+      if(deveLibForn&&c&&!c.forn_pago&&c.forn_id){
+        patch.forn_id=null;patch.cst=null;
+        if(c){c.forn_id=null;c.cst=null;}
+      }
+      return api('ordens?id=eq.'+id,'PATCH',patch,tok());
+    }));
     setSyncDot('ok');
     ids.forEach(id=>addLog(id,'Movido','→ '+colLabel));
     toast('📦 '+ids.length+' ordem(ns) movida(s) para '+colLabel);
@@ -2802,7 +2815,12 @@ async function selArquivarLote(){
   _selCards.clear();renderBoard();updateSelBar();renderStats();renderFinanceiro();renderInadBadge();
   try{
     setSyncDot('sync');
-    await Promise.all(ids.map(id=>api('ordens?id=eq.'+id,'PATCH',{col:'concluido',concluido_em:agora},tok())));
+    await Promise.all(ids.map(id=>{
+      const c=ordens.find(x=>x.id===id);
+      const patch={col:'concluido',concluido_em:agora};
+      if(c&&!c.forn_pago&&c.forn_id){patch.forn_id=null;patch.cst=null;c.forn_id=null;c.cst=null;}
+      return api('ordens?id=eq.'+id,'PATCH',patch,tok());
+    }));
     setSyncDot('ok');
     ids.forEach(id=>addLog(id,'Arquivado',''));
     toast('🏆 '+n+' ordem'+(n!==1?'ns':'')+' arquivada'+(n!==1?'s':'')+'!');
@@ -4301,8 +4319,10 @@ async function voltarOrcamentoDetail(){
   const ok=await showConfirm({ico:'↩',title:'Voltar para Orçamento',body:'A ordem '+(c.crm_id||'')+' será movida de volta para Orçamentos.',ok:'↩ Confirmar',okClass:'btn-b'});
   if(!ok) return;
   try{
-    await api('ordens?id=eq.'+_detailId,'PATCH',{col:'orcamento'},tok());
     const o=ordens.find(x=>x.id===_detailId);
+    const _porc={col:'orcamento'};
+    if(o&&!o.forn_pago&&o.forn_id){_porc.forn_id=null;_porc.cst=null;o.forn_id=null;o.cst=null;}
+    await api('ordens?id=eq.'+_detailId,'PATCH',_porc,tok());
     if(o) o.col='orcamento';
     closeDetail();
     renderBoard(); renderStats(); _atualizarOrcBadge();
