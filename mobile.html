@@ -3470,6 +3470,332 @@ async function uploadAvatar(input) {
   } catch(e) { toast('Erro ao enviar: '+e.message,'err'); }
 }
 
+function renderFinanceiro() {
+  setTopbar('Financeiro','');
+  const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
+  const rec  = ativas.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+  const custo= ativas.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  const pago = ativas.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
+  const pend = rec-pago;
+  let h=`<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-v" style="color:var(--acc)">R$ ${fmt(rec)}</div><div class="kpi-l">Total a receber</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--g)">R$ ${fmt(pago)}</div><div class="kpi-l">Recebido</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--r)">R$ ${fmt(pend)}</div><div class="kpi-l">Pendente</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--b)">R$ ${fmt(rec-custo)}</div><div class="kpi-l">Margem bruta</div></div>
+  </div>`;
+  const urgentes = ativas.filter(o=>!o.pago&&diasAberto(o)>=3).sort((a,b)=>diasAberto(b)-diasAberto(a));
+  if(urgentes.length) {
+    h+=`<div class="sec-lbl">⚠️ A receber (${urgentes.length})</div>`;
+    urgentes.slice(0,15).forEach(o=>{
+      const d=diasAberto(o);
+      const _tipo_fin = d>=7?'urg':'warn';
+      h+=`<div class="order-card ${_tipo_fin}" onclick="abrirDetalhe('${o.id}')">
+        <div class="card-bar ${_tipo_fin}"></div>
+        <div class="card-body-inner">
+          <div class="card-header">
+            <div class="card-name" style="margin-left:0">${o.nome||'—'}</div>
+            <div class="card-val" style="${d>=7?'color:#A32D2D':'color:#BA7517'}">R$ ${fmt(o.rec)}</div>
+          </div>
+          <div class="card-addr" style="margin-left:0">${o.bairro||''} · ${d}d em aberto</div>
+          <div class="card-divider"></div>
+          <div class="card-actions">
+            <button class="card-btn ${d>=7?'cb-red':'cb-yellow'}" onclick="event.stopPropagation();enviarWA('${o.id}')">Cobrar</button>
+            <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')"><svg style="width:14px;height:14px;fill:#25D366;flex-shrink:0" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.862L.054 23.25a.75.75 0 0 0 .916.916l5.453-1.474A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.713 9.713 0 0 1-4.964-1.362l-.355-.212-3.681.995.987-3.607-.232-.372A9.718 9.718 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg> WA</button>
+            <button class="card-btn cb-green" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Pago</button>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('finContent').innerHTML = h;
+}
+
+// ── RENDER ALERTAS ── (S30 — 5 seções)
+function renderAlertas(){
+  setTopbar('Alertas','');
+  const el = document.getElementById('alertasContent');
+  if(!el) return;
+  const {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, fornNaoPago} = _atualizarAlertasBadge();
+
+  const meuid = uid();
+  const ordens = _ordens || [];
+
+  // Filtro de vendedor (admin only)
+  const filtroVend = _filtroAlertaMobVend;
+  const _minhas = c => {
+    if(!isAdmin()) return !meuid || c.usuario_id === meuid;
+    if(filtroVend) return c.usuario_id === filtroVend;
+    return !meuid || c.usuario_id === meuid;
+  };
+  const _outros = c => {
+    if(!isAdmin() || filtroVend) return false;
+    return meuid && c.usuario_id !== meuid;
+  };
+
+  const listaInad      = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaInadOut   = ordens.filter(c=>c.col==='inadimp'&&_outros(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const listaCrit      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCritOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobr      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const listaCobrOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+  const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const listaEntrega   = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
+  const listaEntregaOut= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
+  const listaSemForn   = ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&_minhas(c));
+  const listaFornNaoPago = ordens.filter(c=>!c.forn_pago&&c.forn_id&&['baixar','pagar','faltapg'].includes(c.col)&&diasEmAberto(c)>=15&&_minhas(c));
+
+  const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
+  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length + listaFornNaoPago.length;
+
+  const sub = document.getElementById('alertasSubtitle');
+  if(sub) sub.textContent = total===0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
+
+  // Pills de filtro por vendedor (admin only)
+  let pillsHtml = '';
+  if(isAdmin() && _usuarios.length > 0){
+    const todos_ativos = !filtroVend;
+    const meuNome = _usuarios.find(u=>u.id===meuid)?.nome || 'Minhas';
+    pillsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 4px">
+      <button onclick="_setFiltroAlertaMob('')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${todos_ativos?'var(--acc)':'var(--bor)'};background:${todos_ativos?'var(--acc2)':'var(--card)'};color:${todos_ativos?'var(--acc)':'var(--mut2)'};cursor:pointer">Todos</button>
+      <button onclick="_setFiltroAlertaMob('${meuid}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===meuid?'var(--acc)':'var(--bor)'};background:${filtroVend===meuid?'var(--acc2)':'var(--card)'};color:${filtroVend===meuid?'var(--acc)':'var(--mut2)'};cursor:pointer">👤 ${meuNome}</button>
+      ${_usuarios.filter(u=>u.id!==meuid).map(u=>`<button onclick="_setFiltroAlertaMob('${u.id}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===u.id?'var(--acc)':'var(--bor)'};background:${filtroVend===u.id?'var(--acc2)':'var(--card)'};color:${filtroVend===u.id?'var(--acc)':'var(--mut2)'};cursor:pointer">${u.nome}</button>`).join('')}
+    </div>`;
+  }
+
+  if(total===0){
+    el.innerHTML= pillsHtml + `<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
+      <div style="font-size:48px">✅</div>
+      <div style="font-size:16px;font-weight:600;color:var(--txt)">Tudo em dia!</div>
+      <div style="font-size:13px;text-align:center">Nenhum alerta pendente no momento.</div>
+    </div>`;
+    return;
+  }
+
+  const fmtCard = (c) => {
+    const dias = diasEmAberto(c);
+    const nome = c.nome||c.cliente||'—';
+    const val = c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+    const bairro = c.bairro||'';
+    return {dias, nome, val, bairro};
+  };
+
+  let html = pillsHtml + '<div style="padding:0 14px 20px">';
+
+  // Seção 1: Inadimplentes
+  if(listaInad.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
+      ${listaInad.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 2: Críticos
+  if(listaCrit.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d sem pagar <span class="alerta-cnt">${listaCrit.length}</span></div>
+      ${listaCrit.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 3: Atenção
+  if(listaCobr.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d sem pagar <span class="alerta-cnt">${listaCobr.length}</span></div>
+      ${listaCobr.map(c=>{
+        const {dias,nome,val,bairro}=fmtCard(c);
+        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 4: Orçamentos
+  if(listaOrc.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-orc">📄 Orçamentos aguardando <span class="alerta-cnt">${listaOrc.length}</span></div>
+      ${listaOrc.map(c=>{
+        const nome=c.nome||c.cliente||'—';
+        const val=c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+        const bairro=c.bairro||'';
+        const dt=(c.created_at||c.data||'').slice(0,10).split('-').reverse().join('/');
+        return `<div class="alerta-card alerta-card-orc" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-orc">📋 Orçamento</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dt}</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();converterOrcamento('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Converter</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirCancelar('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">❌ Cancelar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 5: Entregas a confirmar
+  if(listaEntrega.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas aguardando confirmação <span class="alerta-cnt">${listaEntrega.length}</span></div>
+      ${listaEntrega.map(c=>{
+        const nome=c.nome||c.cliente||'—';
+        const bairro=c.bairro||'';
+        const hr=getHoraEntrega(c);
+        const hrStr=hr?hr.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—';
+        return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">⏰ ${hrStr}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-entrega">🚚 Confirmar entrega</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();confirmarEntrega('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar entrega</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 6: Sem fornecedor
+  if(listaSemForn.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="color:#f59e0b">🚛 Sem fornecedor atribuído <span class="alerta-cnt">${listaSemForn.length}</span></div>
+      ${listaSemForn.map(c=>{
+        const nome=c.nome||'—';
+        const end=(c.logradouro||c.bairro||'');
+        const dt=(c.data||'').slice(0,10).split('-').reverse().join('/');
+        return `<div class="alerta-card" style="border-left:3px solid #f59e0b" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="font-size:11px;color:var(--mut2)">${dt}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(245,158,11,.12);color:#b45309">🚛 Contratar forn.</span>
+            ${end?`<span class="alerta-sub">${end}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirAtribuirForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,158,11,.12);color:#b45309;border-color:rgba(245,158,11,.4)">🚛 Atribuir forn.</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção 7: Fornecedor não pago (+15 dias)
+  if(listaFornNaoPago.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="color:#ef4444">💸 Fornecedor não pago +15d <span class="alerta-cnt">${listaFornNaoPago.length}</span></div>
+      ${listaFornNaoPago.map(c=>{
+        const forn=_forns.find(f=>f.id===c.forn_id);
+        const nome=c.nome||'—';
+        const nomeForn=forn?.nome||'Fornecedor';
+        const cst=c.cst?`R$ ${Number(c.cst).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
+        const dias=diasEmAberto(c);
+        const end=(c.logradouro||c.bairro||'');
+        return `<div class="alerta-card" style="border-left:3px solid #ef4444" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="color:#ef4444">${cst}</span></div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(239,68,68,.1);color:#dc2626">💸 ${nomeForn}</span>
+            ${end?`<span class="alerta-sub">${end}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">💸 Pagar forn.</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Seção "Outros vendedores" — só admin sem filtro ativo
+  if(isAdmin() && !filtroVend && totalOutros > 0){
+    html += `<div style="border-top:2px dashed var(--bor);margin:16px 0 10px;padding-top:4px">
+      <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;padding:0 0 8px">📌 Outros vendedores (${totalOutros})</div>`;
+
+    if(listaInadOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInadOut.length}</span></div>
+      ${listaInadOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${dias}d${vn?` · ${vn}`:''}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaCritOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos <span class="alerta-cnt">${listaCritOut.length}</span></div>
+      ${listaCritOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-crit">🚨 ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaCobrOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-atenc">⚠️ Atenção <span class="alerta-cnt">${listaCobrOut.length}</span></div>
+      ${listaCobrOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-atenc" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-atenc">⚠️ ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    if(listaEntregaOut.length) html += `<div class="alerta-sec">
+      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas a confirmar <span class="alerta-cnt">${listaEntregaOut.length}</span></div>
+      ${listaEntregaOut.map(c=>{ const nome=c.nome||'—'; const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">🚚</span></div>
+        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-entrega">Confirmar entrega</span><span class="alerta-dias">${vn}</span></div>
+      </div>`; }).join('')}</div>`;
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function _setFiltroAlertaMob(uid){
+  _filtroAlertaMobVend = uid;
+  renderAlertas();
+}
+
+// ── RENDER NOVA ORDEM ──
+
 function renderOrcMob() {
   const el = document.getElementById('orcMobContent');
   if(!el) return;
