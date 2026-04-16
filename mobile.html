@@ -3208,12 +3208,71 @@ function _renderPgfMobLista() {
 }
 
 function renderEquipe() {
-  setTopbar('Equipe — Performance','');
-  const mes = new Date().getMonth();
-  const ano = new Date().getFullYear();
+  setTopbar('Equipe','');
   const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  const AVATARS_URL = SUPA_URL+'/storage/v1/object/public/avatars/';
 
-  // Modelo de comissão por usuário (baseado no nome)
+  // Admin vê todos; operador vê só a si mesmo
+  const lista = isAdmin()
+    ? _usuarios
+    : _usuarios.filter(u => u.id === uid());
+
+  if(!lista.length) {
+    document.getElementById('equipeContent').innerHTML = `<div class="empty-state"><div class="empty-ico">👥</div><div class="empty-title">Sem usuários</div></div>`;
+    return;
+  }
+
+  const h = `<div style="padding:16px 14px 8px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">
+    ${lista.length} membro${lista.length!==1?'s':''}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 14px 20px">
+    ${lista.map(u => {
+      const cor = colors[u.nome.charCodeAt(0)%colors.length];
+      const av = u.avatar_url ? `<img src="${AVATARS_URL}${u.id}" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:${cor}">${u.nome[0]?.toUpperCase()||'?'}</span>`
+        : `<span style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:${cor}">${u.nome[0]?.toUpperCase()||'?'}</span>`;
+      const isMe = u.id === uid();
+      return `<div onclick="renderDashUsuario('${u.id}')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;background:var(--sur);border:1px solid ${isMe?'var(--acc3)':'var(--bor)'};border-radius:16px;transition:.15s;active:opacity:.8">
+        <div style="width:64px;height:64px;border-radius:16px;background:${cor}22;border:2px solid ${cor}33;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ${av}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--txt);text-align:center;line-height:1.3">${u.nome.split(' ')[0]}</div>
+        ${isMe?`<div style="font-size:10px;color:var(--acc);font-weight:700">● eu</div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  document.getElementById('equipeContent').innerHTML = h;
+}
+
+function renderDashUsuario(userId) {
+  const u = _usuarios.find(x=>x.id===userId);
+  if(!u) return;
+  // Permissão: admin vê todos, operador só o próprio
+  if(!isAdmin() && userId !== uid()) return;
+
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  const cor = colors[u.nome.charCodeAt(0)%colors.length];
+  const AVATARS_URL = SUPA_URL+'/storage/v1/object/public/avatars/';
+  const isMe = userId === uid();
+
+  setTopbar(u.nome.split(' ')[0], `<button onclick="renderEquipe()" style="background:none;border:none;color:var(--acc);font-size:13px;font-weight:700;cursor:pointer;padding:0">← Voltar</button>`);
+
+  const now = new Date();
+  const mes = now.getMonth(), ano = now.getFullYear();
+  const mesNome = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][mes];
+
+  const todas = _ordens.filter(o=>o.usuario_id===userId && o.col!=='orcamento');
+  const doMes = todas.filter(o=>{ const d=new Date(o.criado_em||o.data||''); return d.getMonth()===mes&&d.getFullYear()===ano; });
+  const ativas = todas.filter(o=>o.col!=='concluido');
+
+  // KPIs mês
+  const recMes   = doMes.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
+  const cstMes   = doMes.filter(o=>o.forn_pago).reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  const mgMes    = recMes - cstMes;
+  const pendMes  = doMes.filter(o=>!o.pago&&o.col!=='concluido').length;
+  const inadMes  = doMes.filter(o=>!o.pago&&diasAberto(o)>=COBR_DIAS_CRITICO&&o.col!=='concluido'&&o.col!=='orcamento').length;
+
+  // Comissão
   function calcComissao(nome, ordens) {
     const totalRec = ordens.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
     const totalCst = ordens.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.cst||0),0);
@@ -3223,1347 +3282,161 @@ function renderEquipe() {
     if(n.includes('ricardo')) return { label:'R$15 por ordem paga', val: ordens.filter(o=>o.pago).length * 15 };
     if(n.includes('claudia')) return { label:'R$1.000 + 50% lucro', val: 1000 + lucroLiq * 0.5 };
     if(n.includes('sandra'))  return { label:'R$300 + 40% lucro',  val:  300 + lucroLiq * 0.4 };
-    if(n.includes('douglas')) return { label:'R$10 por ordem',     val: ordens.length * 10 };
+    if(n.includes('douglas')) return { label:'R$10 por ordem', val: ordens.length * 10 };
     return { label:'—', val: 0 };
   }
+  const com = calcComissao(u.nome, doMes);
 
-  const vendsMap = {};
-  _usuarios.forEach(u => { vendsMap[u.id] = { nome:u.nome, ordens:[], ordens_mes:[] }; });
-  _ordens.forEach(o => {
-    if(!vendsMap[o.usuario_id]) return;
-    vendsMap[o.usuario_id].ordens.push(o);
-    const d = new Date(o.criado_em||o.data||'');
-    if(d.getMonth()===mes && d.getFullYear()===ano) vendsMap[o.usuario_id].ordens_mes.push(o);
-  });
+  // Funil ativo
+  const COLS = [
+    {id:'contratar',l:'Contratar',c:'#f5a623'},
+    {id:'ag_entrega',l:'Ag.Entrega',c:'#6366f1'},
+    {id:'entrega',l:'Entrega OK',c:'#06b6d4'},
+    {id:'pagar',l:'Cobrar',c:'#ef4444'},
+    {id:'faltapg',l:'Falta Pagar',c:'#ef4444'},
+    {id:'baixar',l:'Baixar',c:'#22c55e'},
+    {id:'inadimp',l:'Inadimp.',c:'#ef4444'},
+  ];
 
-  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  let h = `<div style="padding:10px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">📅 ${meses[mes]}/${ano}</div>`;
+  // Alertas pessoais
+  const alertas = ativas.filter(o=>!o.pago&&diasAberto(o)>=COBR_DIAS_CRITICO&&o.col!=='orcamento').slice(0,5);
+  const semForn = ativas.filter(o=>o.col==='contratar'&&!o.forn_id).slice(0,5);
 
-  Object.entries(vendsMap).forEach(([id, v]) => {
-    const cor = colors[v.nome.charCodeAt(0)%colors.length];
-    const mine = id === uid();
-    const om = v.ordens_mes;
-    const totalRec = om.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
-    const pendentes = om.filter(o=>!o.pago).length;
-    const inadimp = om.filter(o=>!o.pago && diasAberto(o)>=5).length;
-    const com = calcComissao(v.nome, om);
+  // Últimas 8 ordens ativas
+  const recentes = [...ativas].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||'')).slice(0,8);
 
-    h += `<div class="eq-card">
-      <div class="eq-header">
-        <div class="eq-av" style="background:${cor}22;color:${cor}">${v.nome[0]?.toUpperCase()||'?'}</div>
-        <div class="eq-info">
-          <div class="eq-name">${v.nome}${mine?' <span style="font-size:10px;color:var(--acc)">● eu</span>':''}</div>
-          <div class="eq-sub">${om.length} ordem${om.length!==1?'s':''} no mês · ${v.ordens.length} total</div>
-        </div>
+  const av = u.avatar_url
+    ? `<img src="${AVATARS_URL}${u.id}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:${cor}">${u.nome[0]?.toUpperCase()||'?'}</span>`
+    : `<span style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:${cor}">${u.nome[0]?.toUpperCase()||'?'}</span>`;
+
+  let h = `
+  <!-- Header usuário -->
+  <div style="display:flex;flex-direction:column;align-items:center;padding:20px 16px 16px;gap:12px;border-bottom:1px solid var(--bor)">
+    <div style="position:relative">
+      <div style="width:80px;height:80px;border-radius:50%;background:${cor}22;border:3px solid ${cor}44;overflow:hidden;display:flex;align-items:center;justify-content:center">
+        ${av}
       </div>
-      <div class="eq-stats">
-        <div class="eq-stat">
-          <div class="eq-stat-v" style="color:var(--g)">R$ ${fmt(totalRec)}</div>
-          <div class="eq-stat-l">Recebido</div>
-        </div>
-        <div class="eq-stat">
-          <div class="eq-stat-v" style="color:${pendentes>0?'var(--acc)':'var(--mut)'}">${pendentes}</div>
-          <div class="eq-stat-l">Pendentes</div>
-        </div>
-        <div class="eq-stat">
-          <div class="eq-stat-v" style="color:${inadimp>0?'var(--r)':'var(--mut)'}">${inadimp}</div>
-          <div class="eq-stat-l">Atrasadas</div>
-        </div>
-      </div>
-      <div class="eq-comissao">
-        <div>
-          <div class="eq-com-label">💰 Comissão estimada</div>
-          <div style="font-size:10px;color:var(--mut);margin-top:2px">${com.label}</div>
-        </div>
-        <div class="eq-com-val">R$ ${fmt(com.val)}</div>
-      </div>
-    </div>`;
-  });
+      ${isMe?`<label for="avatarInput" style="position:absolute;bottom:-2px;right:-2px;width:26px;height:26px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;border:2px solid var(--bg)">📷
+        <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadAvatar(this)">
+      </label>`:''}
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:18px;font-weight:800;color:var(--txt)">${u.nome}</div>
+      <div style="font-size:12px;color:var(--mut);margin-top:2px">${u.nivel||'operador'} · ${todas.length} ordens no total</div>
+    </div>
+  </div>
 
-  document.getElementById('equipeContent').innerHTML = h || `<div class="empty-state"><div class="empty-ico">👥</div><div class="empty-title">Sem dados</div></div>`;
-}
+  <!-- KPIs do mês -->
+  <div style="padding:12px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">📅 ${mesNome}/${ano}</div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 14px 12px">
+    <div style="background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--g);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Receita</div>
+      <div style="font-size:20px;font-weight:800;color:var(--g);margin-top:4px">R$ ${fmt(recMes)}</div>
+      <div style="font-size:10px;color:var(--mut);margin-top:2px">${doMes.filter(o=>o.pago).length} pagas</div>
+    </div>
+    <div style="background:var(--b2);border:1px solid var(--b3);border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--b);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Margem</div>
+      <div style="font-size:20px;font-weight:800;color:var(--b);margin-top:4px">R$ ${fmt(mgMes)}</div>
+      <div style="font-size:10px;color:var(--mut);margin-top:2px">${doMes.length} ordens</div>
+    </div>
+    <div style="background:${pendMes>0?'rgba(245,166,35,.1)':'var(--sur)'};border:1px solid ${pendMes>0?'rgba(245,166,35,.3)':'var(--bor)'};border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:${pendMes>0?'#f5a623':'var(--mut)'};font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pendentes</div>
+      <div style="font-size:20px;font-weight:800;color:${pendMes>0?'#f5a623':'var(--mut)'};margin-top:4px">${pendMes}</div>
+      <div style="font-size:10px;color:var(--mut);margin-top:2px">a cobrar</div>
+    </div>
+    <div style="background:${inadMes>0?'rgba(239,68,68,.1)':'var(--sur)'};border:1px solid ${inadMes>0?'rgba(239,68,68,.3)':'var(--bor)'};border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:${inadMes>0?'var(--r)':'var(--mut)'};font-weight:700;text-transform:uppercase;letter-spacing:.4px">Atrasadas</div>
+      <div style="font-size:20px;font-weight:800;color:${inadMes>0?'var(--r)':'var(--mut)'};margin-top:4px">${inadMes}</div>
+      <div style="font-size:10px;color:var(--mut);margin-top:2px">críticas</div>
+    </div>
+  </div>
 
+  <!-- Comissão -->
+  <div style="margin:0 14px 12px;background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:12px;color:var(--g);font-weight:700">💰 Comissão estimada</div>
+      <div style="font-size:10px;color:var(--mut);margin-top:2px">${com.label}</div>
+    </div>
+    <div style="font-size:22px;font-weight:800;color:var(--g)">R$ ${fmt(com.val)}</div>
+  </div>
 
-// ── RENDER FINANCEIRO ──
-function renderFinanceiro() {
-  setTopbar('Financeiro','');
-  const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
-  const rec  = ativas.reduce((s,o)=>s+parseFloat(o.rec||0),0);
-  const custo= ativas.reduce((s,o)=>s+parseFloat(o.cst||0),0);
-  const pago = ativas.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
-  const pend = rec-pago;
-  let h=`<div class="kpi-grid">
-    <div class="kpi"><div class="kpi-v" style="color:var(--acc)">R$ ${fmt(rec)}</div><div class="kpi-l">Total a receber</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--g)">R$ ${fmt(pago)}</div><div class="kpi-l">Recebido</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--r)">R$ ${fmt(pend)}</div><div class="kpi-l">Pendente</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--b)">R$ ${fmt(rec-custo)}</div><div class="kpi-l">Margem bruta</div></div>
-  </div>`;
-  const urgentes = ativas.filter(o=>!o.pago&&diasAberto(o)>=3).sort((a,b)=>diasAberto(b)-diasAberto(a));
-  if(urgentes.length) {
-    h+=`<div class="sec-lbl">⚠️ A receber (${urgentes.length})</div>`;
-    urgentes.slice(0,15).forEach(o=>{
-      const d=diasAberto(o);
-      const _tipo_fin = d>=7?'urg':'warn';
-      h+=`<div class="order-card ${_tipo_fin}" onclick="abrirDetalhe('${o.id}')">
-        <div class="card-bar ${_tipo_fin}"></div>
-        <div class="card-body-inner">
-          <div class="card-header">
-            <div class="card-name" style="margin-left:0">${o.nome||'—'}</div>
-            <div class="card-val" style="${d>=7?'color:#A32D2D':'color:#BA7517'}">R$ ${fmt(o.rec)}</div>
-          </div>
-          <div class="card-addr" style="margin-left:0">${o.bairro||''} · ${d}d em aberto</div>
-          <div class="card-divider"></div>
-          <div class="card-actions">
-            <button class="card-btn ${d>=7?'cb-red':'cb-yellow'}" onclick="event.stopPropagation();enviarWA('${o.id}')">Cobrar</button>
-            <button class="card-btn cb-wa" onclick="event.stopPropagation();enviarWA('${o.id}')"><svg style="width:14px;height:14px;fill:#25D366;flex-shrink:0" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.862L.054 23.25a.75.75 0 0 0 .916.916l5.453-1.474A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.713 9.713 0 0 1-4.964-1.362l-.355-.212-3.681.995.987-3.607-.232-.372A9.718 9.718 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg> WA</button>
-            <button class="card-btn cb-green" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Pago</button>
-          </div>
-        </div>
+  <!-- Funil -->
+  <div style="padding:4px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">📋 Funil atual</div>
+  <div style="display:flex;gap:6px;padding:6px 14px 12px;overflow-x:auto">
+    ${COLS.map(col=>{
+      const qtd = ativas.filter(o=>o.col===col.id).length;
+      if(!qtd) return '';
+      return `<div style="flex-shrink:0;background:${col.c}18;border:1px solid ${col.c}44;border-radius:10px;padding:8px 12px;text-align:center;min-width:64px">
+        <div style="font-size:18px;font-weight:800;color:${col.c}">${qtd}</div>
+        <div style="font-size:10px;color:var(--mut);margin-top:2px;font-weight:600">${col.l}</div>
       </div>`;
-    });
-  }
-  document.getElementById('finContent').innerHTML = h;
-}
+    }).join('')}
+  </div>
 
-// ── RENDER ALERTAS ── (S30 — 5 seções)
-function renderAlertas(){
-  setTopbar('Alertas','');
-  const el = document.getElementById('alertasContent');
-  if(!el) return;
-  const {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, fornNaoPago} = _atualizarAlertasBadge();
+  <!-- Alertas -->
+  ${alertas.length?`
+  <div style="padding:4px 14px 4px;font-size:11px;font-weight:700;color:var(--r);text-transform:uppercase;letter-spacing:.6px">⚠️ Críticas (${alertas.length})</div>
+  ${alertas.map(o=>`<div onclick="abrirDetalhe('${o.id}')" style="margin:0 14px 6px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 12px;cursor:pointer">
+    <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.crm_id||''} · ${o.nome||'—'}</div>
+    <div style="font-size:11px;color:var(--mut);margin-top:2px">${diasAberto(o)} dias em aberto · R$ ${fmt(o.rec)}</div>
+  </div>`).join('')}`:''}
 
-  const meuid = uid();
-  const ordens = _ordens || [];
+  <!-- Sem fornecedor -->
+  ${semForn.length?`
+  <div style="padding:4px 14px 4px;font-size:11px;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:.6px">🚛 Sem fornecedor (${semForn.length})</div>
+  ${semForn.map(o=>`<div onclick="abrirDetalhe('${o.id}')" style="margin:0 14px 6px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 12px;cursor:pointer">
+    <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.crm_id||''} · ${o.nome||'—'}</div>
+    <div style="font-size:11px;color:var(--mut);margin-top:2px">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+  </div>`).join('')}`:''}
 
-  // Filtro de vendedor (admin only)
-  const filtroVend = _filtroAlertaMobVend;
-  const _minhas = c => {
-    if(!isAdmin()) return !meuid || c.usuario_id === meuid;
-    if(filtroVend) return c.usuario_id === filtroVend;
-    return !meuid || c.usuario_id === meuid;
-  };
-  const _outros = c => {
-    if(!isAdmin() || filtroVend) return false;
-    return meuid && c.usuario_id !== meuid;
-  };
-
-  const listaInad      = ordens.filter(c=>c.col==='inadimp'&&_minhas(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const listaInadOut   = ordens.filter(c=>c.col==='inadimp'&&_outros(c)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const listaCrit      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const listaCritOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.col!=='inadimp'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const listaCobr      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const listaCobrOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-  const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
-  const listaEntrega   = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
-  const listaEntregaOut= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
-  const listaSemForn   = ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&_minhas(c));
-  const listaFornNaoPago = ordens.filter(c=>!c.forn_pago&&c.forn_id&&['baixar','pagar','faltapg'].includes(c.col)&&diasEmAberto(c)>=15&&_minhas(c));
-
-  const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
-  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length + listaFornNaoPago.length;
-
-  const sub = document.getElementById('alertasSubtitle');
-  if(sub) sub.textContent = total===0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
-
-  // Pills de filtro por vendedor (admin only)
-  let pillsHtml = '';
-  if(isAdmin() && _usuarios.length > 0){
-    const todos_ativos = !filtroVend;
-    const meuNome = _usuarios.find(u=>u.id===meuid)?.nome || 'Minhas';
-    pillsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 4px">
-      <button onclick="_setFiltroAlertaMob('')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${todos_ativos?'var(--acc)':'var(--bor)'};background:${todos_ativos?'var(--acc2)':'var(--card)'};color:${todos_ativos?'var(--acc)':'var(--mut2)'};cursor:pointer">Todos</button>
-      <button onclick="_setFiltroAlertaMob('${meuid}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===meuid?'var(--acc)':'var(--bor)'};background:${filtroVend===meuid?'var(--acc2)':'var(--card)'};color:${filtroVend===meuid?'var(--acc)':'var(--mut2)'};cursor:pointer">👤 ${meuNome}</button>
-      ${_usuarios.filter(u=>u.id!==meuid).map(u=>`<button onclick="_setFiltroAlertaMob('${u.id}')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid ${filtroVend===u.id?'var(--acc)':'var(--bor)'};background:${filtroVend===u.id?'var(--acc2)':'var(--card)'};color:${filtroVend===u.id?'var(--acc)':'var(--mut2)'};cursor:pointer">${u.nome}</button>`).join('')}
-    </div>`;
-  }
-
-  if(total===0){
-    el.innerHTML= pillsHtml + `<div style="display:flex;flex-direction:column;align-items:center;padding:48px 20px;color:var(--mut2);gap:12px">
-      <div style="font-size:48px">✅</div>
-      <div style="font-size:16px;font-weight:600;color:var(--txt)">Tudo em dia!</div>
-      <div style="font-size:13px;text-align:center">Nenhum alerta pendente no momento.</div>
-    </div>`;
-    return;
-  }
-
-  const fmtCard = (c) => {
-    const dias = diasEmAberto(c);
-    const nome = c.nome||c.cliente||'—';
-    const val = c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
-    const bairro = c.bairro||'';
-    return {dias, nome, val, bairro};
-  };
-
-  let html = pillsHtml + '<div style="padding:0 14px 20px">';
-
-  // Seção 1: Inadimplentes
-  if(listaInad.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
-      ${listaInad.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-            <span class="alerta-dias">${dias}d em aberto</span>
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 2: Críticos
-  if(listaCrit.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d sem pagar <span class="alerta-cnt">${listaCrit.length}</span></div>
-      ${listaCrit.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 3: Atenção
-  if(listaCobr.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d sem pagar <span class="alerta-cnt">${listaCobr.length}</span></div>
-      ${listaCobr.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 4: Orçamentos
-  if(listaOrc.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-orc">📄 Orçamentos aguardando <span class="alerta-cnt">${listaOrc.length}</span></div>
-      ${listaOrc.map(c=>{
-        const nome=c.nome||c.cliente||'—';
-        const val=c.rec?`R$ ${Number(c.rec).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
-        const bairro=c.bairro||'';
-        const dt=(c.created_at||c.data||'').slice(0,10).split('-').reverse().join('/');
-        return `<div class="alerta-card alerta-card-orc" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-orc">📋 Orçamento</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-            <span class="alerta-dias">${dt}</span>
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();converterOrcamento('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Converter</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirCancelar('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">❌ Cancelar</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 5: Entregas a confirmar
-  if(listaEntrega.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas aguardando confirmação <span class="alerta-cnt">${listaEntrega.length}</span></div>
-      ${listaEntrega.map(c=>{
-        const nome=c.nome||c.cliente||'—';
-        const bairro=c.bairro||'';
-        const hr=getHoraEntrega(c);
-        const hrStr=hr?hr.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—';
-        return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">⏰ ${hrStr}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-entrega">🚚 Confirmar entrega</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
-            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();confirmarEntrega('${c.id}')" style="font-size:11px;padding:4px 10px">✅ Confirmar entrega</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 6: Sem fornecedor
-  if(listaSemForn.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd" style="color:#f59e0b">🚛 Sem fornecedor atribuído <span class="alerta-cnt">${listaSemForn.length}</span></div>
-      ${listaSemForn.map(c=>{
-        const nome=c.nome||'—';
-        const end=(c.logradouro||c.bairro||'');
-        const dt=(c.data||'').slice(0,10).split('-').reverse().join('/');
-        return `<div class="alerta-card" style="border-left:3px solid #f59e0b" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="font-size:11px;color:var(--mut2)">${dt}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag" style="background:rgba(245,158,11,.12);color:#b45309">🚛 Contratar forn.</span>
-            ${end?`<span class="alerta-sub">${end}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirAtribuirForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,158,11,.12);color:#b45309;border-color:rgba(245,158,11,.4)">🚛 Atribuir forn.</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção 7: Fornecedor não pago (+15 dias)
-  if(listaFornNaoPago.length){
-    html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd" style="color:#ef4444">💸 Fornecedor não pago +15d <span class="alerta-cnt">${listaFornNaoPago.length}</span></div>
-      ${listaFornNaoPago.map(c=>{
-        const forn=_forns.find(f=>f.id===c.forn_id);
-        const nome=c.nome||'—';
-        const nomeForn=forn?.nome||'Fornecedor';
-        const cst=c.cst?`R$ ${Number(c.cst).toLocaleString('pt-BR',{minimumFractionDigits:2})}`:'—';
-        const dias=diasEmAberto(c);
-        const end=(c.logradouro||c.bairro||'');
-        return `<div class="alerta-card" style="border-left:3px solid #ef4444" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val" style="color:#ef4444">${cst}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag" style="background:rgba(239,68,68,.1);color:#dc2626">💸 ${nomeForn}</span>
-            ${end?`<span class="alerta-sub">${end}</span>`:''}
-            <span class="alerta-dias">${dias}d em aberto</span>
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(239,68,68,.1);color:#dc2626;border-color:rgba(239,68,68,.3)">💸 Pagar forn.</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Seção "Outros vendedores" — só admin sem filtro ativo
-  if(isAdmin() && !filtroVend && totalOutros > 0){
-    html += `<div style="border-top:2px dashed var(--bor);margin:16px 0 10px;padding-top:4px">
-      <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;padding:0 0 8px">📌 Outros vendedores (${totalOutros})</div>`;
-
-    if(listaInadOut.length) html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInadOut.length}</span></div>
-      ${listaInadOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
-        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${dias}d${vn?` · ${vn}`:''}</span></div>
-      </div>`; }).join('')}</div>`;
-
-    if(listaCritOut.length) html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-crit">🚨 Críticos <span class="alerta-cnt">${listaCritOut.length}</span></div>
-      ${listaCritOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
-        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-crit">🚨 ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
-      </div>`; }).join('')}</div>`;
-
-    if(listaCobrOut.length) html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-atenc">⚠️ Atenção <span class="alerta-cnt">${listaCobrOut.length}</span></div>
-      ${listaCobrOut.map(c=>{ const {dias,nome,val,bairro}=fmtCard(c); const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-atenc" onclick="abrirDetalhe('${c.id}')">
-        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-atenc">⚠️ ${dias}d</span>${bairro?`<span class="alerta-sub">${bairro}</span>`:''}<span class="alerta-dias">${vn}</span></div>
-      </div>`; }).join('')}</div>`;
-
-    if(listaEntregaOut.length) html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-entrega">🚚 Entregas a confirmar <span class="alerta-cnt">${listaEntregaOut.length}</span></div>
-      ${listaEntregaOut.map(c=>{ const nome=c.nome||'—'; const vn=_usuarios.find(u=>u.id===c.usuario_id)?.nome||''; return `<div class="alerta-card alerta-card-entrega" onclick="abrirDetalhe('${c.id}')">
-        <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">🚚</span></div>
-        <div class="alerta-card-bot"><span class="alerta-tag alerta-tag-entrega">Confirmar entrega</span><span class="alerta-dias">${vn}</span></div>
-      </div>`; }).join('')}</div>`;
-
-    html += '</div>';
-  }
-
-  html += '</div>';
-  el.innerHTML = html;
-}
-
-function _setFiltroAlertaMob(uid){
-  _filtroAlertaMobVend = uid;
-  renderAlertas();
-}
-
-// ── RENDER NOVA ORDEM ──
-function renderNova() {
-  setTopbar('Nova Ordem','');
-  _novaTemNF = null;
-  _novaFornSug = null;
-  const vendedores = isAdmin() ? _usuarios.map(u=>`<option value="${u.id}"${u.id===uid()?' selected':''}>${u.nome}</option>`).join('') : '';
-  document.getElementById('novaForm').innerHTML = `
-    ${isAdmin()?`<div class="form-group"><div class="form-group-title">Responsável</div><div class="form-field"><label>Vendedor</label><select id="nv_user">${vendedores}</select></div></div>`:''}
-    <div class="form-group">
-      <div class="form-group-title">Cliente</div>
-      <div class="form-field"><label>Nome *</label><input type="text" id="nv_nome" placeholder="Nome completo" autocomplete="off"></div>
-      <div id="nv_nome_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;border:1px solid"></div>
-      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="nv_wh" placeholder="(11) 99999-9999" inputmode="tel" oninput="verificarCelular(this.value)"></div>
-      <div id="nv_inad_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;background:var(--r2);border:1px solid var(--r3);color:var(--r)"></div>
-      <div class="form-field"><label>CPF / CNPJ</label><input type="text" id="nv_cpf" placeholder="000.000.000-00" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Endereço</div>
-      <div class="form-field"><label>Rua e número *</label><input type="text" id="nv_rua" placeholder="Ex: Rua das Flores, 123"></div>
-      <div class="form-field highlight"><label>Bairro *</label><input type="text" id="nv_bairro" placeholder="Digite para sugestão de fornecedor" oninput="buscarFornSugestao(this.value)"></div>
-      <div class="form-field"><label>Cidade</label><input type="text" id="nv_cidade" placeholder="São Paulo" value="São Paulo"></div>
-    </div>
-    <div id="forn-sug-wrap"></div>
-    <div class="form-group">
-      <div class="form-group-title">Serviço</div>
-      <div class="form-field"><label>Quantidade de caçambas</label><div style="display:flex;align-items:center;gap:12px;padding:0 2px"><button type="button" onclick="nv_qtd.value=Math.max(1,parseInt(nv_qtd.value||1)-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">−</button><input type="number" id="nv_qtd" value="1" min="1" max="10" style="flex:1;text-align:center;font-size:20px;font-weight:800;color:var(--acc);background:transparent;border:none;outline:none"><button type="button" onclick="nv_qtd.value=Math.min(10,parseInt(nv_qtd.value||1)+1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">+</button></div></div>
-      <div class="form-field"><label>Tipo</label><select id="nv_tipo"><option>Locação</option><option>Troca</option><option>Retirada</option></select></div>
-      <div class="form-field"><label>Data entrega</label><input type="date" id="nv_data"></div>
-      <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="nv_rec" placeholder="0,00" step="0.01" inputmode="decimal"></div>
-      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="nv_cst" placeholder="0,00" step="0.01" inputmode="decimal"></div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Nota Fiscal *</div>
-      <div class="nf-choice">
-        <button class="nf-btn" id="btn-nf-sim" onclick="setNF(true)">🧾 Com NF</button>
-        <button class="nf-btn" id="btn-nf-nao" onclick="setNF(false)">✅ Sem NF</button>
+  <!-- Recentes -->
+  <div style="padding:4px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">📦 Ordens ativas (${ativas.length})</div>
+  ${recentes.map(o=>{
+    const colInfo = COLS.find(c=>c.id===o.col)||{l:o.col,c:'var(--mut)'};
+    return `<div onclick="abrirDetalhe('${o.id}')" style="margin:0 14px 6px;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.crm_id||''} · ${o.nome||'—'}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px">${o.logradouro||''} · ${o.bairro||''}</div>
       </div>
-    </div>
-    <div class="form-group">
-      <div class="form-group-title">Fornecedor</div>
-      <div class="form-field"><label>Fornecedor</label><select id="nv_forn"><option value="">— Selecionar —</option>${_forns.map(f=>`<option value="${f.id}">${f.nome}</option>`).join('')}</select></div>
-      <div class="form-field"><label>Observação</label><textarea id="nv_obs" placeholder="Observações..."></textarea></div>
-    </div>`;
-}
-
-// ── PREENCHIMENTO AUTOMÁTICO NOME POR CELULAR ──
-function verificarCelular(cel) {
-  const inadEl  = document.getElementById('nv_inad_aviso');
-  const nomeEl  = document.getElementById('nv_nome');
-  const avisoEl = document.getElementById('nv_nome_aviso');
-  const telLimpo = (cel||'').replace(/\D/g,'');
-
-  if(telLimpo.length < 8) {
-    if(inadEl)  inadEl.style.display='none';
-    if(avisoEl) avisoEl.style.display='none';
-    return;
-  }
-
-  const ordensDoTel = _ordens.filter(o =>
-    o.col!=='concluido' && o.col!=='orcamento' &&
-    (o.cel||'').replace(/\D/g,'') === telLimpo
-  );
-
-  // Inadimplência
-  const devedoras = ordensDoTel.filter(o=>!o.pago);
-  if(inadEl) {
-    if(devedoras.length) {
-      const total = devedoras.reduce((s,o)=>s+parseFloat(o.rec||0),0);
-      inadEl.style.display='block';
-      inadEl.innerHTML=`⚠️ Cliente com <strong>${devedoras.length} ordem${devedoras.length>1?'ns':''} em aberto</strong> — total R$ ${fmt(total)}`;
-    } else {
-      inadEl.style.display='none';
-    }
-  }
-
-  // Auto-preencher nome
-  if(!avisoEl || !nomeEl) return;
-  if(!ordensDoTel.length) { avisoEl.style.display='none'; return; }
-  const nomeCadastrado = ordensDoTel[0].nome||'';
-  if(!nomeCadastrado) { avisoEl.style.display='none'; return; }
-  const nomeDigitado = nomeEl.value.trim();
-
-  if(!nomeDigitado) {
-    nomeEl.value = nomeCadastrado;
-    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--g)';
-    avisoEl.innerHTML = `✅ Nome preenchido automaticamente: <strong>${nomeCadastrado}</strong>`;
-  } else if(nomeDigitado.toLowerCase() !== nomeCadastrado.toLowerCase()) {
-    const nomeEsc = nomeCadastrado.replace(/'/g,"\\'");
-    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--acc)';
-    avisoEl.innerHTML = `⚠️ Cadastrado como <strong>${nomeCadastrado}</strong> — <span style="text-decoration:underline;cursor:pointer;font-weight:700" onclick="document.getElementById('nv_nome').value='${nomeEsc}';document.getElementById('nv_nome_aviso').style.display='none'">Usar este nome?</span>`;
-  } else {
-    avisoEl.style.display='none';
-  }
-}
-
-
-
-function setNF(v) {
-  _novaTemNF = v;
-  document.getElementById('btn-nf-sim').className = 'nf-btn'+(v?' sel-sim':'');
-  document.getElementById('btn-nf-nao').className = 'nf-btn'+(!v?' sel-nao':'');
-}
-
-function mascaraCpfCnpj(el) {
-  let v = el.value.replace(/\D/g,'');
-  if(v.length<=11) v=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
-  else v=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
-  el.value=v;
-}
-
-function buscarFornSugestao(bairro) {
-  _novaFornSug = null;
-  const wrap = document.getElementById('forn-sug-wrap');
-  if(!bairro||bairro.length<3){wrap.innerHTML='';return;}
-  const b = bairro.trim().toLowerCase();
-  let melhor = null, melhorPreco = 0, melhorPrecoC = 0;
-  _forns.forEach(f=>{
-    if(!f.regioes) return;
-    const regioes = typeof f.regioes==='string'?JSON.parse(f.regioes):f.regioes;
-    const arr = Array.isArray(regioes)?regioes:[regioes];
-    arr.forEach(r=>{
-      if((r.bairro||'').toLowerCase()===b || (r.regiao||'').toLowerCase()===b) {
-        if(!melhor||(parseFloat(r.preco_cli||0)>0&&parseFloat(r.preco_cli||0)<melhorPrecoC||!melhorPrecoC)) {
-          melhor=f; melhorPreco=parseFloat(r.preco||0); melhorPrecoC=parseFloat(r.preco_cli||0);
-        }
-      }
-    });
-  });
-  if(melhor) {
-    _novaFornSug={forn:melhor,preco:melhorPreco,preco_cli:melhorPrecoC};
-    wrap.innerHTML=`<div class="forn-sug" onclick="aplicarFornSug()">
-      <div class="forn-sug-ico">🏢</div>
-      <div class="forn-sug-info">
-        <div class="forn-sug-name">Sugerido · ${bairro}</div>
-        <div class="forn-sug-desc">${melhor.nome} — toque para aplicar</div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10px;font-weight:700;color:${colInfo.c};background:${colInfo.c}18;border:1px solid ${colInfo.c}44;border-radius:20px;padding:2px 8px">${colInfo.l}</div>
+        ${o.rec?`<div style="font-size:11px;color:var(--acc);font-weight:700;margin-top:3px">R$ ${fmt(o.rec)}</div>`:''}
       </div>
-      <div class="forn-sug-price">R$ ${fmt(melhorPrecoC||melhorPreco)}</div>
     </div>`;
-  } else { wrap.innerHTML=''; }
+  }).join('')}
+  <div style="height:20px"></div>`;
+
+  document.getElementById('equipeContent').innerHTML = h;
 }
 
-function aplicarFornSug() {
-  if(!_novaFornSug) return;
-  document.getElementById('nv_forn').value = _novaFornSug.forn.id;
-  if(_novaFornSug.preco) document.getElementById('nv_cst').value = _novaFornSug.preco.toFixed(2);
-  if(_novaFornSug.preco_cli) document.getElementById('nv_rec').value = _novaFornSug.preco_cli.toFixed(2);
-  toast('Fornecedor aplicado!','ok');
-}
-
-async function nextCrmId() {
-  const ano = new Date().getFullYear();
-  const anoStr = String(ano);
-  const prefix = 'LC'+ano;
-  try {
-    // Busca TODOS os crm_ids do ano (LC e ORC) — garante que o número nunca se repete
-    const rows = await api(`ordens?crm_id=like.*${anoStr}*&select=crm_id`,"GET",null,tok());
-    const maxNum = (rows||[]).reduce((max,row) => {
-      const id = (row.crm_id||'');
-      const idx = id.indexOf(anoStr);
-      if(idx === -1) return max;
-      const n = parseInt(id.slice(idx + anoStr.length))||0;
-      return n > max ? n : max;
-    }, 0);
-    return prefix + (maxNum+1).toString().padStart(4,'0');
-  } catch(e) {
-    console.warn('nextCrmId fallback', e);
-    return prefix + '0001';
-  }
-}
-
-async function salvarNovaOrdem() {
-  const nome  = document.getElementById('nv_nome')?.value?.trim();
-  const wh    = document.getElementById('nv_wh')?.value?.trim();
-  const rua   = document.getElementById('nv_rua')?.value?.trim();
-  const bairro= document.getElementById('nv_bairro')?.value?.trim();
-  if(!nome||!wh||!rua||!bairro) { toast('Preencha os campos obrigatórios','err'); return; }
-  if(_novaTemNF===null) { toast('Selecione NF ou Sem NF','err'); return; }
-  const btn = document.getElementById('submitNovaBtn');
-  btn.disabled=true; btn.textContent='Salvando...';
-  try {
-    const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
-    const crm_id = await nextCrmId();
-    let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
-    if(_novaTemNF) recVal += _nfAcrescimo;
-    const body = {
-      id: uidGen(), crm_id,
-      usuario_id: uid2, nome,
-      cel: wh.replace(/\D/g,''),
-      cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
-      logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
-      tipo: document.getElementById('nv_tipo')?.value||'Locação',
-      data: document.getElementById('nv_data')?.value||null,
-      rec: recVal,
-      cst: parseFloat(document.getElementById('nv_cst')?.value||0),
-      forn_id: document.getElementById('nv_forn')?.value||null,
-      obs: document.getElementById('nv_obs')?.value?.trim()||null,
-      nf_num: _novaTemNF ? '1' : '',
-      nf_taxa: 0,
-      col: 'contratar', pago: false,
-      criado_em: nowISO()
-    };
-    const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
-    const ids_criados = [];
-    for(let q=0; q<qtd; q++) {
-      const crm_q = q===0 ? crm_id : await nextCrmId();
-      const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
-      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
-      const res = await api('ordens','POST',bodyQ,tok());
-      if(res?.[0]) _ordens.unshift(res[0]);
-      ids_criados.push(crm_q);
-    }
-    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
-    setView('inicio');
-  } catch(e) {
-    toast('Erro ao salvar: '+e.message,'err');
-  } finally { btn.disabled=false; btn.textContent='✅ Criar Ordem'; }
-}
-
-// ── ABRIR DETALHE ──
 function abrirDetalhe(id) {
   _detalheId = id;
   setView('detalhe');
 }
 
-// ── RENDER DETALHE ──
-async function converterOrcamento(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const ok = await showConfirm({
-    ico:'▶️',
-    title:'Converter em pedido?',
-    body:`${o.crm_id||''} — ${o.nome||''}\nA ordem vai para Contratar fornecedor.`,
-    ok:'▶️ Converter',
-    okClass:'acc',
-    cancel:'Cancelar'
-  });
-  if(!ok) return;
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2097152) { toast('Imagem muito grande (máx 2MB)','err'); return; }
+  toast('Enviando foto...','info');
   try {
-    const now = new Date().toISOString();
-    const novoCrmId = await nextCrmId();
-    // Se já tem fornecedor atribuído, entra direto em ag_entrega
-    const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:novoCrmId, orc_convertido_em:now},tok());
-    o.col=colInicial; o.crm_id=novoCrmId; o.orc_convertido_em=now;
-    toast('▶️ Ordem '+novoCrmId+' criada!','ok');
-    renderCurrentView();
-  } catch(e){ toast('Erro','err'); }
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = uid(); // usa o uid como nome do arquivo
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/avatars/${path}`, {
+      method: 'PUT',
+      headers: { 'Authorization':'Bearer '+tok(), 'Content-Type': file.type, 'x-upsert':'true' },
+      body: file
+    });
+    if(!res.ok) throw new Error(await res.text());
+    // Salvar avatar_url no perfil
+    await api(`perfis?id=eq.${uid()}`, 'PATCH', { avatar_url: path }, tok());
+    // Atualizar localmente
+    const me = _usuarios.find(u=>u.id===uid());
+    if(me) me.avatar_url = path;
+    if(_perfil) _perfil.avatar_url = path;
+    toast('✅ Foto atualizada!','ok');
+    renderDashUsuario(uid()); // re-render
+  } catch(e) { toast('Erro ao enviar: '+e.message,'err'); }
 }
 
-async function voltarOrcamento(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const ok = await showConfirm({
-    ico:'↩️',
-    title:'Voltar para Orçamento?',
-    body:`${o.crm_id||''} — ${o.nome||''}\nO card voltará para a aba de Orçamentos. O número LC é mantido.`,
-    ok:'↩️ Confirmar',
-    okClass:'acc',
-    cancel:'Cancelar'
-  });
-  if(!ok) return;
-  try {
-    const upd = {col:'orcamento', orc_convertido_em:null};
-    if(!o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    Object.assign(o, upd);
-    toast('↩️ Voltou para Orçamentos','ok');
-    goBack();
-  } catch(e){ toast('Erro ao mover para orçamento','err'); }
-}
 
-function renderDetalhe(id) {
-  const o = _ordens.find(x=>x.id===id);
-  if(!o) { setView('inicio'); return; }
-  setTopbar(o.crm_id||'Ordem', o.nome||'');
-  const forn = _forns.find(f=>f.id===o.forn_id);
-  const resp = _usuarios.find(u=>u.id===o.usuario_id);
-  const d = diasAberto(o);
-  const tel = (o.cel||'').replace(/\D/g,'');
-  let statusClass = o.pago?'pago':(d>=5?'urg':'pend');
-  let statusTxt = o.pago?'✅ Pago':(d>=5?`🔴 Atrasado ${d}d`:`⏳ Em aberto ${d}d`);
-  let statusDias = !o.pago && d>0 ? ` · ${d}d` : '';
-  let statusLabel = o.pago?'Pago':(d>=5?`Atrasado${statusDias}`:`Em aberto${statusDias}`);
-  let h = `<div class="status-block ${statusClass}">
-    <div class="sb-top">
-      <span class="sb-label">${statusLabel}</span>
-      <span class="sb-status">R$ ${fmt(o.rec)}${o.nf_num?' +NF':''}</span>
-    </div>
-    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">Registrar recebimento</button>`:
-      !_modoSimples?`<button class="sb-action" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid #ef4444;width:calc(100% - 28px);margin:0 14px 13px;padding:12px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer" onclick="desfazerPagoCli('${o.id}')">Desfazer pagamento</button>`:''}
-  </div>
-  <div class="detail-actions">
-    <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>WA Cliente</button>
-    <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>Gerar Pix</button>
-    ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</button>`}
-    <button class="detail-action da-forn" onclick="enviarWAForn('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>WA Forn.</button>
-    <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>Tracking</button>
-  </div>
-  ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`)}
-    ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
-    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
-    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
-  </div>`:''}
-  </div>
-  <div class="detail-section">
-    <div class="detail-section-title">Cliente</div>
-    <div class="detail-row"><div class="detail-key">Nome</div><div class="detail-val">${o.nome||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${tel?`<a class="phone-link" href="tel:+55${tel}">${o.cel}</a>`:'—'}</div></div>
-    ${o.cpf?`<div class="detail-row"><div class="detail-key">CPF/CNPJ</div><div class="detail-val">${o.cpf}</div></div>`:''}
-  </div>
-  <div class="detail-section">
-    <div class="detail-section-title">Serviço</div>
-    <div class="detail-row"><div class="detail-key">Endereço</div><div class="detail-val">${o.logradouro||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">Bairro</div><div class="detail-val">${o.bairro||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">Tipo</div><div class="detail-val">${o.tipo||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">Data</div><div class="detail-val">${dateF(o.data)}</div></div>
-    <div class="detail-row"><div class="detail-key">Fornecedor</div><div class="detail-val">${forn?.nome||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">Responsável</div><div class="detail-val">${resp?.nome||'—'}</div></div>
-    ${forn?.tel?`<div class="detail-row"><div class="detail-key">Tel. Forn.</div><div class="detail-val"><a class="phone-link" href="tel:+55${forn.tel.replace(/\D/g,'')}">${forn.tel}</a></div></div>`:''}
-    ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
-    ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
-  </div>`;
-  if(isAdmin()) {
-    h+=`<div class="detail-section">
-      <div class="detail-section-title">Financeiro</div>
-      <div class="detail-row"><div class="detail-key">Receita</div><div class="detail-val acc">R$ ${fmt(o.rec)}</div></div>
-      <div class="detail-row"><div class="detail-key">Custo forn.</div><div class="detail-val">R$ ${fmt(o.cst)}</div></div>
-      <div class="detail-row"><div class="detail-key">Margem</div><div class="detail-val" style="color:var(--g)">R$ ${fmt(parseFloat(o.rec||0)-parseFloat(o.cst||0))}</div></div>
-      <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pago?'✅ Sim':'❌ Não'}</div></div>
-      ${o.pago&&o.forn_pago?`<div style="text-align:center;padding:10px 0"><span style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:20px;padding:6px 16px;font-weight:700;font-size:13px">✅ Quitado</span></div>`:''}
-      ${o.forn_pago&&!_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3);margin-top:8px" onclick="estornarPagamentoForn('${o.id}')">↩️ Estornar pgto forn.</button>`:''}
-    </div>`;
-  }
-  if(o.col!=='concluido') {
-    const colunas=[
-      {id:'contratar',l:'Contratar'},{id:'ag_entrega',l:'Ag. Entrega'},{id:'entrega',l:'Entrega'},
-      {id:'pagar',l:'Pagar'},{id:'faltapg',l:'Falta Pg'},{id:'baixar',l:'Baixar'},{id:'inadimp',l:'Inadimp.'}
-    ];
-    h+=`<div class="detail-section">
-      <div class="detail-section-title">Etapa no funil</div>
-      <div style="display:flex;flex-wrap:wrap;gap:7px;padding:11px 14px 13px">
-        ${colunas.map(c=>`<button onclick="moverColuna('${o.id}','${c.id}')" style="padding:7px 13px;border-radius:20px;border:1px solid;font-size:12px;font-weight:700;cursor:pointer;background:${o.col===c.id?'#d97706':'rgba(255,255,255,.07)'};color:${o.col===c.id?'#ffffff':'#9ca3b8'};border-color:${o.col===c.id?'#f5a623':'rgba(255,255,255,.14)'}">${c.l}</button>`).join('')}
-      </div>
-    </div>`;
-  }
-  h+=`<div style="display:flex;gap:8px;padding:4px 0 4px">
-    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(255,255,255,.08);color:#d1d5db;border:1px solid rgba(255,255,255,.2)" onclick="duplicarOrdem('${o.id}')">Duplicar</button>
-    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="abrirEditar('${o.id}')">Editar</button>
-    ${o.col==='concluido'?`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="desarquivarOrdem('${o.id}')">Reabrir</button>`:`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid #ef4444" onclick="arquivarOrdem('${o.id}')">Arquivar</button>`}
-  </div>
-  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
-    <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
-  </div>`:''}
-  ${o.col==='orcamento'?`<div style="padding:0 0 8px">
-    <button style="width:100%;padding:12px;background:rgba(99,102,241,.2);border:1px solid #6366f1;border-radius:var(--rad2);color:#c7d2fe;font-size:14px;font-weight:700;cursor:pointer" onclick="abrirOrcMob('${o.id}')">📄 Gerar Orçamento PDF</button>
-  </div>`:''}
-  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 16px">
-    <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
-  </div>`:''}`;
-  document.getElementById('detalheContent').innerHTML = h;
-}
-
-// ── AÇÕES DA ORDEM ──
-async function moverColuna(id, colId) {
-  try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:colId},tok());
-    const o = _ordens.find(x=>x.id===id); if(o) o.col=colId;
-    renderDetalhe(id);
-    toast('Etapa atualizada','ok');
-  } catch(e){toast('Erro ao mover','err');}
-}
-
-async function duplicarOrdem(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  // Modal com 3 opções
-  const manterForn = await new Promise(res => {
-    const bg = document.getElementById('confirmModal');
-    document.getElementById('conf_ico').textContent   = '🔁';
-    document.getElementById('conf_title').textContent = 'Duplicar ordem?';
-    document.getElementById('conf_body').innerHTML    = 'Nova OS com os dados do cliente.<br>Data em branco para preencher na hora.';
-    const btns = bg.querySelector('.confirm-btns');
-    btns.innerHTML = `
-      <button class="btn" onclick="_dupResolve(null)">Cancelar</button>
-      <button class="btn acc" onclick="_dupResolve(false)">🔄 Trocar forn.</button>
-      <button class="btn acc" onclick="_dupResolve(true)">🚛 Manter forn.</button>`;
-    window._dupResolve = v => { bg.classList.remove('open'); btns.innerHTML=''; res(v); };
-    bg.classList.add('open');
-  });
-  if(manterForn === null) return; // cancelou
-  try {
-    const crm_id = await nextCrmId();
-    const body = {
-      ...o,
-      id: uidGen(), crm_id,
-      usuario_id: uid(),
-      col: manterForn ? 'ag_entrega' : 'contratar',
-      criado_em: nowISO(),
-      data: null,
-      forn_id: manterForn ? o.forn_id : null,
-      cobrado_em: null, cancel_motivo: null,
-      pago: false, pago_em: null, pago_valor: null, pago_obs: null,
-      forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
-      entrega_confirmada: false, orc_convertido_em: null,
-    };
-    const res = await api('ordens','POST',body,tok());
-    if(res?.[0]) _ordens.unshift(res[0]);
-    toast(`Ordem ${crm_id} criada!`,'ok');
-    setView('inicio');
-  } catch(e){toast('Erro ao duplicar','err');}
-}
-
-async function arquivarOrdem(id) {
-  const ok = await showConfirm({ico:'📦',title:'Arquivar ordem?',body:'Move para concluído. Pode reabrir depois.',ok:'Arquivar',okClass:'acc'});
-  if(!ok) return;
-  try {
-    const o=_ordens.find(x=>x.id===id);
-    const upd = {col:'concluido'};
-    if(o && !o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    if(o) Object.assign(o, upd);
-    toast('Ordem arquivada','ok');
-    goBack();
-  } catch(e){toast('Erro ao arquivar','err');}
-}
-
-async function desarquivarOrdem(id) {
-  try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'baixar'},tok());
-    const o=_ordens.find(x=>x.id===id); if(o) o.col='baixar';
-    toast('Ordem reaberta','ok');
-    renderDetalhe(id);
-  } catch(e){toast('Erro','err');}
-}
-
-async function quickPagarCard(id) {
-  _detalheId = id;
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
-  document.getElementById('pc_val').value = o.rec||'';
-  document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
-  document.getElementById('pc_obs').value = '';
-  openModal('pagarCliModal');
-}
-
-// ── PAGAR CLIENTE MODAL ──
-function abrirPagarCli(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  _detalheId = id;
-  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
-  document.getElementById('pc_val').value = o.rec||'';
-  document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
-  document.getElementById('pc_obs').value = '';
-  openModal('pagarCliModal');
-}
-
-async function confirmarPagoCli() {
-  const id = _detalheId;
-  const val = parseFloat(document.getElementById('pc_val').value||0);
-  const data = document.getElementById('pc_data').value;
-  const hora = document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
-  const pagoEmISO = data ? data+'T'+hora+':00' : nowISO();
-  const obs  = document.getElementById('pc_obs').value.trim();
-  if(!val) { toast('Informe o valor','err'); return; }
-  try {
-    const o = _ordens.find(x=>x.id===id);
-    const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
-    const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    if(o) Object.assign(o,upd);
-    closeModal('pagarCliModal');
-    toast('Pagamento registrado!','ok');
-    renderCurrentView();
-  } catch(e){toast('Erro: '+e.message,'err');}
-}
-
-async function desfazerPagoCli(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const ok = await showConfirm({
-    ico:'↩️',
-    title:'Desfazer pagamento?',
-    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento será revertido e a ordem voltará para Receber cliente.`,
-    ok:'↩️ Desfazer',
-    okClass:'acc',
-    cancel:'Cancelar'
-  });
-  if(!ok) return;
-  try {
-    const upd = {pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'pagar'};
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    Object.assign(o,upd);
-    toast('↩️ Pagamento desfeito','ok');
-    renderDetalhe(id);
-    renderCurrentView();
-  } catch(e){ toast('Erro','err'); }
-}
-
-async function estornarPagamentoForn(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const ok = await showConfirm({
-    ico:'↩️',
-    title:'Estornar pagamento forn.?',
-    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento do fornecedor será revertido.`,
-    ok:'↩️ Estornar',
-    okClass:'acc',
-    cancel:'Cancelar'
-  });
-  if(!ok) return;
-  try {
-    const upd = {forn_pago:false, forn_pago_em:null, forn_pago_valor:null, forn_pg_ref:null};
-    // Ajuste de coluna: se estava em baixar, volta para pagar
-    const o2 = _ordens.find(x=>x.id===id);
-    if(o2 && o2.col==='baixar') upd.col='pagar';
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    Object.assign(o,upd);
-    toast('↩️ Pgto forn. estornado','ok');
-    renderDetalhe(id);
-    renderCurrentView();
-  } catch(e){ toast('Erro','err'); }
-}
-
-// ── PIX ──
-function buildPixPayload(valor, txid, nome, cidade, chave) {
-  const f=(id,v)=>{const l=v.length.toString().padStart(2,'0');return id+l+v;};
-  const lpad=(s,n)=>s.substring(0,n).padEnd(n,' ').trim().substring(0,n);
-  const merchantAccountInfo = f('00','BR.GOV.BCB.PIX')+f('01',chave);
-  const body = f('00','01')+f('26',merchantAccountInfo)+f('52','0000')+f('53','986')+f('54',valor.toFixed(2))+f('58','BR')+f('59',lpad(nome,25))+f('60',lpad(cidade,15))+f('62',f('05',txid.substring(0,25)))+f('63','0000');
-  let crc=0xFFFF;
-  for(let i=0;i<body.length;i++){crc^=body.charCodeAt(i)<<8;for(let j=0;j<8;j++){if(crc&0x8000)crc=(crc<<1)^0x1021;else crc<<=1;crc&=0xFFFF;}}
-  return body.slice(0,-4)+crc.toString(16).toUpperCase().padStart(4,'0');
-}
-
-function abrirPix(id) {
-  track('btn_pix');
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  _pixOrdemId = id;
-  const valor = parseFloat(o.rec||0)+(o.nf_num&&!o.pago?_nfAcrescimo:0);
-  const txid = 'CACAMBA'+( o.cel||'00000000').replace(/\D/g,'').slice(-8);
-  _pixPayload = buildPixPayload(valor, txid, PIX_NAME, PIX_CITY, PIX_KEY);
-  document.getElementById('pix_valor_txt').textContent = 'R$ '+fmt(valor);
-  document.getElementById('pix_code').textContent = _pixPayload;
-  const qrWrap = document.getElementById('pix_qr_wrap');
-  qrWrap.innerHTML = '';
-  new QRCode(qrWrap,{text:_pixPayload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
-  openModal('pixModal');
-}
-
-async function copiarPix() {
-  try{await navigator.clipboard.writeText(_pixPayload);toast('Código copiado!','ok');}catch(e){toast('Copie manualmente','warn');}
-}
-
-function enviarPixWA() {
-  const o = _ordens.find(x=>x.id===_pixOrdemId);
-  if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
-  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-}
-
-// ── WHATSAPP ──
-function enviarWA(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
-  if(!tel){toast('Celular não cadastrado','warn');return;}
-  const d = diasAberto(o);
-  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
-  let msg;
-  if(o.col==='inadimp') {
-    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
-  } else if(d>=5) {
-    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
-  } else {
-    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
-  }
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-  // Marcar como cobrado hoje — todas as ordens do mesmo cel
-  const hoje = new Date().toISOString();
-  const celLimpo = tel;
-  _ordens.forEach(ord => {
-    if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
-      ord.cobrado_em = hoje;
-      api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
-    }
-  });
-  setTimeout(()=>renderCurrentView(), 500);
-}
-
-function enviarWAForn(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const forn = _forns.find(f=>f.id===o.forn_id);
-  if(!forn) { toast('Fornecedor não encontrado','warn'); return; }
-  if(!forn.wa_link && !forn.tel) { toast('Fornecedor sem WhatsApp/telefone','warn'); return; }
-  _abrirWAFornModal(o, forn, 'os');
-}
-
-function enviarTracking(id) {
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
-  if(!tel){toast('Celular não cadastrado','warn');return;}
-  if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
-  const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
-  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-}
-
-// ── INIT ──
-window.addEventListener('load', restoreSession);
-
-// ══════════════════════════════════════════════
-// GERADOR DE ORÇAMENTO PDF — mobile S31
-// ══════════════════════════════════════════════
-
-let _orcMobId = null;
-
-function abrirOrcMob(id) {
-  _orcMobId = id;
-  setView('orc-mob');
-}
-
-function renderOrcMob() {
-  const el = document.getElementById('orcMobContent');
-  if(!el) return;
-  const o = _orcMobId ? _ordens.find(x=>x.id===_orcMobId) : null;
-  if(!o){ el.innerHTML='<div class="empty-state"><div class="empty-ico">❌</div><div class="empty-title">Ordem não encontrada</div></div>'; return; }
-
-  setTopbar('Orçamento PDF', o.crm_id||'');
-
-  const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
-  const marcaCor = vend?.marca_cor||'#2563EB';
-  const marcaNome = vend?.marca_nome||'CaçambaSP';
-  const marcaLogo = vend?.marca_logo_url||'';
-  const marcaSlogan = vend?.marca_slogan||'';
-
-  // Validade padrão: hoje + 5 dias
-  const hoje = new Date();
-  const dataValPad = new Date(hoje.getTime()+5*24*60*60*1000).toISOString().split('T')[0];
-
-  const endereco = [o.logradouro, o.bairro, o.cidade||'São Paulo'].filter(Boolean).join(', ');
-  const telFmt = o.cel||'';
-  const cpfFmt = o.cpf||'';
-
-  el.innerHTML = `
-    <div style="padding:14px 14px 32px">
-
-      <!-- Cabeçalho info da ordem -->
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Dados da Ordem</div>
-        <div style="font-size:12px;font-family:var(--mono);color:var(--acc);margin-bottom:6px">${o.crm_id||'—'}</div>
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">${o.nome||'—'}</div>
-        <div style="font-size:11px;color:var(--mut2);margin-top:2px">${endereco||'—'}</div>
-        ${telFmt?`<div style="font-size:11px;color:var(--mut2);margin-top:2px">📞 ${telFmt}</div>`:''}
-        ${cpfFmt?`<div style="font-size:11px;color:var(--mut2);margin-top:2px">🪪 ${cpfFmt}</div>`:''}
-      </div>
-
-      <!-- Campos editáveis -->
-      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⚙️ Configurar Orçamento</div>
-
-        <div style="margin-bottom:10px">
-          <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Tipo de Serviço / Resíduo</label>
-          <input type="text" id="om_tipo" value="${o.tipo||'Nova entrega de caçamba 4m³'}" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Valor (R$)</label>
-            <input type="number" id="om_valor" value="${o.orc_valor||o.rec||''}" step="0.01" placeholder="0,00" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Válido até</label>
-            <input type="date" id="om_validade" value="${o.orc_validade||dataValPad}" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Via pública (dias úteis)</label>
-            <input type="number" id="om_perm_rua" value="${o.orc_perm_rua||3}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Canteiro de obras (dias úteis)</label>
-            <input type="number" id="om_perm_canteiro" value="${o.orc_perm_canteiro||5}" min="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 8px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-          </div>
-        </div>
-
-        <div style="margin-bottom:10px">
-          <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Observações</label>
-          <textarea id="om_obs" rows="3" placeholder="Condições, informações adicionais..." style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box;resize:vertical">${o.obs||''}</textarea>
-        </div>
-      </div>
-
-      <!-- Botões de ação -->
-      <button onclick="gerarOrcMobPDF()" style="width:100%;padding:14px;background:#2563EB;border:none;border-radius:var(--rad2);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">📄 Abrir PDF / Imprimir</button>
-      <button onclick="salvarEEnviarOrcMob()" style="width:100%;padding:13px;background:rgba(37,211,102,.15);border:1px solid #25d366;border-radius:var(--rad2);color:#25d366;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">💬 Salvar e Enviar WhatsApp</button>
-      <button onclick="setView('detalhe')" style="width:100%;padding:12px;background:transparent;border:1px solid var(--bor);border-radius:var(--rad2);color:var(--mut2);font-size:13px;font-weight:600;cursor:pointer">← Voltar</button>
-    </div>`;
-}
-
-async function _salvarDadosOrcMob() {
-  const id = _orcMobId; if(!id) return;
-  const valor    = parseFloat(document.getElementById('om_valor')?.value||0)||null;
-  const validade = document.getElementById('om_validade')?.value||null;
-  const permRua  = parseInt(document.getElementById('om_perm_rua')?.value||3);
-  const permCant = parseInt(document.getElementById('om_perm_canteiro')?.value||5);
-  const obs      = document.getElementById('om_obs')?.value||'';
-  const tipo     = document.getElementById('om_tipo')?.value||'';
-  try {
-    await api('ordens?id=eq.'+id,'PATCH',{
-      orc_valor:valor, orc_validade:validade,
-      orc_perm_rua:permRua, orc_perm_canteiro:permCant, obs
-    }, tok());
-    const idx = _ordens.findIndex(x=>x.id===id);
-    if(idx>=0) Object.assign(_ordens[idx],{orc_valor:valor,orc_validade:validade,orc_perm_rua:permRua,orc_perm_canteiro:permCant,obs});
-    toast('Dados salvos','ok');
-    return true;
-  } catch(e) { toast('Erro ao salvar','err'); return false; }
-}
-
-async function gerarOrcMobPDF() {
-  await _salvarDadosOrcMob();
-  const o = _ordens.find(x=>x.id===_orcMobId);
-  if(!o) return;
-  const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
-  const marcaCor   = vend?.marca_cor||'#f5a623';
-  const marcaNome  = vend?.marca_nome||'CaçambaSP';
-  const marcaLogo  = vend?.marca_logo_url||'';
-  const marcaSlogan= vend?.marca_slogan||'';
-  const marcaTema  = vend?.marca_tema||'A';
-  const nome    = o.nome||'—';
-  const end     = [o.logradouro,o.bairro,o.cidade||'São Paulo'].filter(Boolean).join(', ');
-  const tel     = o.cel||'';
-  const cpf     = o.cpf||'';
-  const tipo    = document.getElementById('om_tipo')?.value||o.tipo||'—';
-  const valor   = parseFloat(document.getElementById('om_valor')?.value||0)||null;
-  const validade= document.getElementById('om_validade')?.value||null;
-  const permRua = parseInt(document.getElementById('om_perm_rua')?.value||3);
-  const permCant= parseInt(document.getElementById('om_perm_canteiro')?.value||5);
-  const obs     = document.getElementById('om_obs')?.value||'';
-  const crmId   = o.crm_id||'';
-  const valorFmt= valor?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
-  const validFmt= validade?new Date(validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
-  const fontLink= `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
-  const printCss= `@media print{.no-print{display:none!important} body{padding:0}}`;
-  const btnPrint= `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
-  const logoHtml= marcaLogo?`<img src="${marcaLogo}" style="height:44px;object-fit:contain;margin-bottom:4px"><br>`:'';
-  const rodape  = `<div style="border-top:1px solid #eee;padding-top:12px;font-size:9px;color:#aaa;text-align:center;margin-top:16px">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>`;
-
-  function _corContraste(hex){
-    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-    return (r*.299+g*.587+b*.114)>150?'#000':'#fff';
-  }
-
-  function _bloco(tc){
-    return `
-    <div class="serv-card">
-      <div class="serv-hd"><div class="sh-lbl">Descrição do serviço</div><div class="sh-lbl sh-val">Valor</div></div>
-      <div class="serv-row">
-        <div><div class="sr-desc">📦 1 caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}</div></div>
-        <div class="sr-val">${valorFmt}</div>
-      </div>
-    </div>
-    <div class="perm-grid">
-      <div class="perm-box"><div class="perm-lbl">Permanência na rua</div><div class="perm-val">${permRua}</div><div class="perm-sub">dias úteis</div></div>
-      <div class="perm-box"><div class="perm-lbl">Permanência no canteiro</div><div class="perm-val">${permCant}</div><div class="perm-sub">dias úteis</div></div>
-    </div>
-    <div class="meta-row">
-      <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${validFmt}</div></div>
-      <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
-      <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${crmId}</div></div>
-    </div>`;
-  }
-
-  function _cssSrv(mc,tc){
-    return `.serv-card{background:#f4f4f4;border-radius:10px;overflow:hidden;margin-bottom:18px}
-    .serv-hd{background:${mc};padding:8px 16px;display:flex;justify-content:space-between;align-items:center}
-    .sh-lbl{font-size:10px;font-weight:700;color:${tc};text-transform:uppercase;letter-spacing:.4px}.sh-val{text-align:right}
-    .serv-row{padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-    .sr-desc{font-size:13px;font-weight:700;color:#222;margin-bottom:3px}.sr-detail{font-size:11px;color:#777}
-    .sr-val{font-size:22px;font-weight:800;color:${mc};white-space:nowrap}
-    .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-    .perm-box{background:#f8f8f8;border-radius:8px;padding:10px 14px;text-align:center}
-    .perm-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-    .perm-val{font-size:20px;font-weight:800;color:#111}.perm-sub{font-size:9px;color:#bbb;margin-top:1px}
-    .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-    .meta-b{background:#f8f8f8;border-radius:8px;padding:8px 12px}
-    .meta-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-    .meta-val{font-size:12px;font-weight:700;color:#222}`;
-  }
-
-  const temas = {
-    A: () => {
-      const tc='#fff';
-      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
-      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:32px;max-width:700px;margin:0 auto} ${printCss}
-      .cab{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${marcaCor}}
-      .mn{font-size:20px;font-weight:800;color:${marcaCor}} .sl{font-size:10px;color:#aaa;margin-top:2px}
-      .ot{font-size:18px;font-weight:800;color:${marcaCor};text-align:right} .oc{font-size:10px;color:#888;text-align:right}
-      .cli{background:#f7f7f7;border-radius:8px;padding:12px 16px;margin-bottom:18px}
-      .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-      .cli-nm{font-size:15px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:2px}
-      ${_cssSrv(marcaCor,tc)}</style></head><body>
-      <div class="no-print">${btnPrint}</div>
-      <div class="cab">
-        <div>${logoHtml}<div class="mn">${marcaNome}</div>${marcaSlogan?`<div class="sl">${marcaSlogan}</div>`:''}</div>
-        <div><div class="ot">ORÇAMENTO</div><div class="oc">${crmId}</div><div class="oc">${new Date().toLocaleDateString('pt-BR')}</div></div>
-      </div>
-      <div class="cli">
-        <div class="cli-lbl">Para</div><div class="cli-nm">${nome}</div>
-        <div class="cli-inf">📍 ${end}</div>
-        ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}
-        ${cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${cpf}</div>`:''}
-      </div>
-      ${_bloco(tc)}${rodape}</body></html>`;
-    },
-    B: () => {
-      const tc='#fff';
-      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
-      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;margin:0;display:flex;min-height:100vh} ${printCss}
-      .sidebar{width:190px;background:#1a1a2e;padding:26px 16px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
-      .main{flex:1;padding:26px;max-width:520px}
-      .s-logo{width:50px;height:50px;background:rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:6px}
-      .s-nm{font-size:14px;font-weight:800;color:${marcaCor}} .s-sl{font-size:9px;color:rgba(255,255,255,.45);margin-top:2px}
-      .s-item{background:rgba(255,255,255,.07);border-radius:7px;padding:8px 10px}
-      .s-lbl{font-size:8px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-      .s-val{font-size:11px;font-weight:700;color:#fff}
-      .orc-ttl{font-size:22px;font-weight:800;color:${marcaCor};margin-bottom:3px}
-      .orc-cod{font-size:10px;color:#aaa;font-family:monospace;margin-bottom:20px}
-      .cli-box{background:${marcaCor}18;border-left:3px solid ${marcaCor};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
-      .cli-nm{font-size:14px;font-weight:700;color:#111} .cli-inf{font-size:10px;color:#666;margin-top:2px}
-      ${_cssSrv(marcaCor,tc)}</style></head><body>
-      <div class="sidebar">
-        <div>
-          <div class="s-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
-          <div class="s-nm">${marcaNome}</div>${marcaSlogan?`<div class="s-sl">${marcaSlogan}</div>`:''}
-        </div>
-        <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${permRua} dias úteis</div></div>
-        <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${permCant} dias úteis</div></div>
-        <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${validFmt}</div></div>
-        <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorFmt}</div></div>
-      </div>
-      <div class="main">
-        <div class="no-print" style="margin-bottom:14px">${btnPrint}</div>
-        <div class="orc-ttl">ORÇAMENTO</div>
-        <div class="orc-cod">${crmId} · ${new Date().toLocaleDateString('pt-BR')}</div>
-        <div class="cli-box">
-          <div class="cli-nm">${nome}</div><div class="cli-inf">📍 ${end}</div>
-          ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}${cpf?`<div class="cli-inf">🪪 ${cpf}</div>`:''}
-        </div>
-        ${_bloco(tc)}${rodape}
-      </div></body></html>`;
-    },
-    C: () => {
-      const tc='#fff';
-      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
-      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:40px;max-width:680px;margin:0 auto} ${printCss}
-      .topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-      .logo-area{display:flex;align-items:center;gap:10px}
-      .logo-dot{width:32px;height:32px;border-radius:50%;background:${marcaCor};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;overflow:hidden;flex-shrink:0}
-      .marca-nm{font-size:16px;font-weight:700;color:#111} .marca-sl{font-size:9px;color:#aaa;margin-top:1px}
-      .orc-pill{background:${marcaCor}18;border:1px solid ${marcaCor}44;border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:${marcaCor}}
-      .orc-cod{font-size:9px;color:#aaa;text-align:right;margin-top:3px;font-family:monospace}
-      .divider{width:100%;height:1px;background:#eee;margin:12px 0 16px}
-      .cli-nm{font-size:17px;font-weight:700;color:#111;margin-bottom:3px} .cli-inf{font-size:11px;color:#777;margin-bottom:2px}
-      ${_cssSrv(marcaCor,tc)}</style></head><body>
-      <div class="no-print" style="margin-bottom:20px">${btnPrint}</div>
-      <div class="topo">
-        <div class="logo-area">
-          <div class="logo-dot">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:marcaNome.charAt(0)}</div>
-          <div><div class="marca-nm">${marcaNome}</div>${marcaSlogan?`<div class="marca-sl">${marcaSlogan}</div>`:''}</div>
-        </div>
-        <div style="text-align:right"><div class="orc-pill">Orçamento</div><div class="orc-cod">${crmId} · ${new Date().toLocaleDateString('pt-BR')}</div></div>
-      </div>
-      <div class="divider"></div>
-      <div class="cli-nm">${nome}</div><div class="cli-inf">📍 ${end}</div>
-      ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}
-      ${cpf?`<div class="cli-inf" style="margin-bottom:16px">🪪 CPF/CNPJ: ${cpf}</div>`:`<div style="margin-bottom:16px"></div>`}
-      ${_bloco(tc)}${rodape}</body></html>`;
-    },
-    D: () => {
-      const tc=_corContraste(marcaCor);
-      return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento ${crmId}</title>
-      ${fontLink}<style>*{box-sizing:border-box;margin:0;padding:0} body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;max-width:700px;margin:0 auto} ${printCss}
-      .hd{background:${marcaCor};padding:24px 30px;display:flex;align-items:center;justify-content:space-between}
-      .hd-esq{display:flex;align-items:center;gap:14px}
-      .hd-logo{width:54px;height:54px;background:rgba(255,255,255,.2);border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
-      .hd-nm{font-size:20px;font-weight:800;color:${tc}} .hd-sl{font-size:10px;color:${tc};opacity:.75;margin-top:2px}
-      .hd-dir{text-align:right} .hd-orc{font-size:20px;font-weight:800;color:${tc};letter-spacing:1px}
-      .hd-cod{font-size:10px;color:${tc};opacity:.75;font-family:monospace;margin-top:2px}
-      .body{padding:24px 30px}
-      .cli-card{border:2px solid #eee;border-radius:10px;padding:14px 18px;margin-bottom:18px}
-      .cli-lbl{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-      .cli-nm{font-size:16px;font-weight:700;color:#111} .cli-inf{font-size:11px;color:#666;margin-top:3px}
-      .rodape-d{border-top:1px solid #eee;padding:12px 30px;font-size:9px;color:#bbb;text-align:center}
-      ${_cssSrv(marcaCor,tc)}</style></head><body>
-      <div class="no-print" style="padding:14px 30px">${btnPrint}</div>
-      <div class="hd">
-        <div class="hd-esq">
-          <div class="hd-logo">${marcaLogo?`<img src="${marcaLogo}" style="width:100%;height:100%;object-fit:contain">`:'🏢'}</div>
-          <div><div class="hd-nm">${marcaNome}</div>${marcaSlogan?`<div class="hd-sl">${marcaSlogan}</div>`:''}</div>
-        </div>
-        <div class="hd-dir"><div class="hd-orc">ORÇAMENTO</div><div class="hd-cod">${crmId}</div><div class="hd-cod">${new Date().toLocaleDateString('pt-BR')}</div></div>
-      </div>
-      <div class="body">
-        <div class="cli-card">
-          <div class="cli-lbl">Destinado a</div><div class="cli-nm">${nome}</div>
-          <div class="cli-inf">📍 ${end}</div>
-          ${tel?`<div class="cli-inf">📞 ${tel}</div>`:''}${cpf?`<div class="cli-inf">🪪 CPF/CNPJ: ${cpf}</div>`:''}
-        </div>
-        ${_bloco(tc)}
-      </div>
-      <div class="rodape-d">${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com</div>
-      </body></html>`;
-    }
-  };
-
-  const fn = temas[marcaTema] || temas['A'];
-  const html = fn();
-  const win = window.open('','_blank');
-  if(win){ win.document.write(html); win.document.close(); }
-  else toast('Permita popups para abrir o PDF','warn');
-}
-async function salvarEEnviarOrcMob() {
-  const ok = await _salvarDadosOrcMob();
-  if(!ok) return;
-  const id = _orcMobId; if(!id) return;
-  const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
-  if(!tel){ toast('Sem telefone cadastrado','warn'); return; }
-  const valor = parseFloat(document.getElementById('om_valor')?.value||0)||null;
-  const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-  const validade = document.getElementById('om_validade')?.value||null;
-  const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-  const permRua = document.getElementById('om_perm_rua')?.value||'3';
-  const permCant = document.getElementById('om_perm_canteiro')?.value||'5';
-  const tipo = document.getElementById('om_tipo')?.value||o.tipo||'';
-  const end = [o.logradouro,o.bairro].filter(Boolean).join(', ');
-  const msg = `Olá ${o.nome||''}! 👋
-
-Segue o orçamento solicitado:
-
-📦 1 caçamba 4m³
-🪣 ${tipo}
-📍 ${end}
-📋 OS: ${o.crm_id||''}
-
-💰 *Valor: ${valorFmt}*
-📅 Permanência na rua: *${permRua} dias úteis*
-🏗️ Permanência no canteiro: *${permCant} dias úteis*
-✅ Proposta válida até: *${validFmt}*
-
-Qualquer dúvida estamos à disposição! 😊`;
-
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-</script>
-</body>
-</html>
