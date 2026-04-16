@@ -2808,7 +2808,10 @@ function selCobrarAgrupado(){
 async function selArquivarLote(){
   if(!_selCards.size)return;
   const ids=[..._selCards];const n=ids.length;
-  const ok=await showConfirm({ico:'🏆',title:'Arquivar '+n+' ordem'+(n!==1?'ns':''),body:'As ordens irão para o Histórico.',ok:'🏆 Arquivar',okClass:'btn-acc'});
+  const pendentes=ids.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&(!c.pago||!c.forn_pago);});
+  const avisoBody='As ordens irão para o Histórico.'
+    +(pendentes.length?`<br><br><span style="color:#f5a623;font-weight:700">⚠️ ${pendentes.length} ordem${pendentes.length!==1?'ns':''} ainda com pagamento pendente${pendentes.length!==1?'s':''}.</span>`:'');
+  const ok=await showConfirm({ico:'🏆',title:'Arquivar '+n+' ordem'+(n!==1?'ns':''),body:avisoBody,ok:'🏆 Arquivar',okClass:'btn-acc'});
   if(!ok)return;
   const agora=nowISO();
   ids.forEach(id=>{const c=ordens.find(x=>x.id===id);if(c){c.col='concluido';c.concluido_em=agora;}});
