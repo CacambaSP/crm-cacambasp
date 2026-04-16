@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CaçambaSP">
 <title>CaçambaSP</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <style>
 :root {
@@ -988,6 +988,9 @@ const PIX_CITY = 'SAO PAULO';
 // ── ESTADO ──
 let _user = null, _perfil = null, _ordens = [], _forns = [], _usuarios = [];
 let _filtroAlertaMobVend = ''; // uid do vendedor filtrado em Alertas ('' = padrão)
+function _isArquivoMorto(o){ return o.col==='concluido' && !!(o.cancel_motivo || (!o.pago && !o.forn_pago)); }
+function _isConcluido(o){ return o.col==='concluido' && !_isArquivoMorto(o); }
+
 let _currentView = 'inicio';
 let _viewStack = [];
 let _detalheId = null;
@@ -1638,7 +1641,7 @@ function pfAtualizarTotal() {
     return s + parseFloat(ord?.cst||0);
   }, 0);
   document.getElementById('pf_cst_display').textContent = 'R$ '+fmt(total);
-  document.getElementById('pf_val').value = total > 0 ? total.toFixed(2) : '';
+  document.getElementById('pf_val').value = total.toFixed(2); // sempre preenche — usuário edita se necessário
   const ids = selecionadas.map(id => _ordens.find(x=>x.id===id)?.crm_id).filter(Boolean);
   document.getElementById('pf_crm_id').textContent = ids.length <= 2 ? ids.join(', ') : ids.length+' ordens';
 }
@@ -1670,7 +1673,10 @@ async function confirmarPagoForn() {
     const ord = _ordens.find(x=>x.id===id); if(!ord) continue;
     const valOrd = ids.length > 1 ? parseFloat(ord.cst||0) : val;
     const cli = !!ord.pago;
-    const novaCol = cli ? 'baixar' : 'faltapg';
+    // Preserva col atual se já estiver em estado correto; senão move adequadamente
+    let novaCol = ord.col;
+    if(cli && !['baixar','concluido'].includes(ord.col)) novaCol = 'baixar';
+    else if(!cli && ord.col === 'pagar') novaCol = 'faltapg';
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
     try {
       await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
@@ -2074,17 +2080,14 @@ function initApp() {
   const nome = _perfil?.nome||'?';
   const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
   const av = document.getElementById('userAvatar');
-  if(av) {
-    av.textContent = nome[0]?.toUpperCase()||'?';
-    av.style.background = colors[nome.charCodeAt(0)%colors.length]+'33';
-    av.style.color = colors[nome.charCodeAt(0)%colors.length];
-  }
+  av.textContent = nome[0]?.toUpperCase()||'?';
+  av.style.background = colors[nome.charCodeAt(0)%colors.length]+'33';
+  av.style.color = colors[nome.charCodeAt(0)%colors.length];
   // Toggle bar só para admin
-  const tb = document.getElementById('toggleBar');
-  if(tb) tb.style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('toggleBar').style.display = isAdmin() ? 'flex' : 'none';
   buildBottomNav();
-  try { setView('inicio'); } catch(e) { console.error('setView inicio error:', e); }
-  try { history.pushState(null, '', location.href); } catch(e) {}
+  setView('inicio');
+  history.pushState(null, '', location.href);
   let _backDebounce = false;
   window.addEventListener('popstate', async function handleBack() {
     history.pushState(null, '', location.href);
@@ -2306,10 +2309,7 @@ async function verificarAutoEntregas() {
 
 function setTopbar(title, sub='') {
   document.getElementById('topbarTitle').textContent = title;
-  const subEl = document.getElementById('topbarSub');
-  // Se sub contém HTML (ex: botão Voltar), usar innerHTML
-  if(sub && sub.includes('<')) subEl.innerHTML = sub;
-  else subEl.textContent = sub;
+  document.getElementById('topbarSub').textContent = sub;
 }
 
 function diasAberto(o) {
@@ -2437,10 +2437,6 @@ function toggleGrupo(key) {
   chevron?.classList.toggle('open', !collapsed);
   if(header) header.classList.toggle('collapsed', collapsed);
 }
-
-// ── Helper arquivo morto ──
-function _isArquivoMorto(o){ return o.col==='concluido' && !!(o.cancel_motivo || (!o.pago && !o.forn_pago)); }
-function _isConcluido(o){ return o.col==='concluido' && !_isArquivoMorto(o); }
 
 // ── RENDER INÍCIO ──
 function renderInicio() {
@@ -2867,6 +2863,7 @@ function renderFornecedores() {
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
   const hoje = new Date().toISOString().slice(0,10);
 
+  // Filtrar: só fornecedores com ordens ativas, depois aplicar busca por texto
   const comOrdens = _forns.filter(f => _ordens.some(o => o.forn_id === f.id && cols.includes(o.col)));
   const q = (_fornsQuery||'').toLowerCase().trim();
   const lista = (q
@@ -2876,10 +2873,9 @@ function renderFornecedores() {
 
   setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total');
 
-  const searchBar = `<div style="padding:10px 14px 6px">
-    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..."
-      oninput="_fornsQuery=this.value;renderFornecedores()"
-      style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 14px;font-size:14px;color:var(--txt);outline:none;box-sizing:border-box">
+  const searchBar = `<div style="padding:10px 14px 4px">
+    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
+      style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
   </div>`;
 
   let h = '';
@@ -2888,54 +2884,56 @@ function renderFornecedores() {
     const cor = colors[idx % colors.length];
     const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
+    // Contar ordens ativas deste fornecedor
+    const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
     const ativas = _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col));
-    const hojeCount = ativas.filter(o => o.data === hoje).length;
-    const pendForn = _ordens.filter(o => o.forn_id === f.id && !o.forn_pago && (o.cst||0)>0 && o.col!=='orcamento').length;
+    const hoje = new Date().toISOString().slice(0,10);
+    const hoje_count = ativas.filter(o => o.data === hoje).length;
 
+    // Info de contato
+    const temWA = !!(f.wa_link || f.tel);
+
+    // Regiões resumidas
     let regioes = f.regioes;
     if(typeof regioes === 'string') { try { regioes = JSON.parse(regioes); } catch(e) { regioes = []; } }
     if(!Array.isArray(regioes)) regioes = [];
     const bairrosLabel = regioes.length
       ? regioes.slice(0,3).map(r=>r.bairro||r.regiao||r.nome||'').filter(Boolean).join(', ') + (regioes.length > 3 ? ` +${regioes.length-3}` : '')
-      : 'Todos os bairros';
+      : 'Atende qualquer bairro';
 
-    const temWA = !!(f.wa_link || f.tel);
-
-    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:5px 14px;overflow:hidden">
-
-      <!-- Linha principal -->
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
-        <div style="width:42px;height:42px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0">${ini}</div>
+    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
+      <!-- Header do card -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px">
+        <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">${ini}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.nome}</div>
-          <div style="font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bairrosLabel}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--txt)">${f.nome}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">${bairrosLabel}</div>
         </div>
-        <!-- Badges lado direito -->
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-          ${ativas.length ? `<div style="font-size:15px;font-weight:800;color:var(--acc);line-height:1">${ativas.length} <span style="font-size:10px;font-weight:600;color:var(--mut)">ativas</span></div>` : ''}
-          <div style="display:flex;gap:4px;align-items:center">
-            ${hojeCount ? `<span style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">📅 ${hojeCount}hj</span>` : ''}
-            ${pendForn ? `<span style="background:var(--r2);color:var(--r);border:1px solid var(--r3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">💸 ${pendForn}</span>` : ''}
-            ${temWA ? `<span style="background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">WA</span>` : ''}
-          </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${ativas.length ? `<div style="font-size:18px;font-weight:800;color:var(--acc)">${ativas.length}</div><div style="font-size:10px;color:var(--mut)">ativas</div>` : `<div style="font-size:11px;color:var(--mut2)">sem ordens</div>`}
         </div>
       </div>
 
-      <!-- Botões de ação compactos -->
-      <div style="display:flex;border-top:1px solid var(--bor)">
+      <!-- Chips de info -->
+      <div style="display:flex;gap:6px;padding:0 14px 10px;flex-wrap:wrap">
+        ${hoje_count ? `<span style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">📅 ${hoje_count} hoje</span>` : ''}
+        ${f.tel ? `<span style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--mut)">📞 ${f.tel}</span>` : ''}
+        ${f.wa_link ? `<span style="background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">WA ✓</span>` : ''}
+        ${regioes.length ? `<span style="background:var(--b2);color:#818cf8;border:1px solid var(--b3);border-radius:6px;padding:3px 9px;font-size:11px">${regioes.length} bairro${regioes.length!==1?'s':''}</span>` : ''}
+      </div>
+
+      <!-- Botões de ação -->
+      <div style="display:flex;gap:0;border-top:1px solid var(--bor)">
         <button onclick="abrirAgendaForn('${f.id}')"
-          style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--acc);font-size:12px;font-weight:700;cursor:pointer">
+          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
           📲 Agenda
         </button>
-        ${temWA
-          ? `<button onclick="abrirWAFornLivre('${f.id}')"
-              style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:12px;font-weight:700;cursor:pointer">
-              💬 WA
-            </button>`
-          : `<button disabled style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--mut2);font-size:12px;cursor:not-allowed">💬 WA</button>`
-        }
+        ${temWA ? `<button onclick="abrirWAFornLivre('${f.id}')"
+          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          💬 WA
+        </button>` : `<button disabled style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--mut2);font-size:13px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:6px">💬 Sem WA</button>`}
         <button onclick="abrirEditFornBairro('${f.id}')"
-          style="flex:1;padding:10px 4px;background:transparent;border:none;color:var(--mut);font-size:12px;font-weight:700;cursor:pointer">
+          style="flex:1;padding:12px 8px;background:transparent;border:none;color:var(--mut);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
           ⚙️ Editar
         </button>
       </div>
@@ -2944,14 +2942,13 @@ function renderFornecedores() {
 
   const semAgenda = !q && comOrdens.length === 0;
   const emptyMsg = semAgenda
-    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas.</div></div>`
+    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda hoje</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas no momento.</div></div>`
     : lista.length === 0
-      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div></div>`
+      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
       : '';
 
   document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || h);
 }
-
 
 // ── RENDER EQUIPE ──
 // ── PAGAR FORNECEDOR CONDENSADO ──
@@ -3091,14 +3088,18 @@ async function fpConfirmarDados() {
   try {
     for(const o of ordens) {
       const valOrd = parseFloat(o.cst||0);
+      let novaCol = o.col;
+      if(!!o.pago && !['baixar','concluido'].includes(o.col)) novaCol = 'baixar';
+      else if(!o.pago && o.col === 'pagar') novaCol = 'faltapg';
       await api(`ordens?id=eq.${o.id}`,'PATCH',{
         forn_pago:true,
         forn_pago_em:data+'T12:00:00.000Z',
         forn_pago_valor:valOrd,
-        forn_pg_ref:pgRef
+        forn_pg_ref:pgRef,
+        col:novaCol
       },tok());
       o.forn_pago=true; o.forn_pago_em=data+'T12:00:00.000Z';
-      o.forn_pago_valor=valOrd; o.forn_pg_ref=pgRef;
+      o.forn_pago_valor=valOrd; o.forn_pg_ref=pgRef; o.col=novaCol;
     }
     delete _fpStates[fid];
     _fpPendingFid = null;
@@ -3108,8 +3109,6 @@ async function fpConfirmarDados() {
 }
 
 // ── ABA PAGAMENTOS FORNECEDOR ──
-let _pgfMobQ='', _pgfMobForn='', _pgfMobStatus='todos', _pgfMobDtIni='', _pgfMobDtFim='';
-
 function renderPagamentos() {
   setTopbar('Pagamentos Fornecedor','');
   const todosComForn = _ordens.filter(o=>o.forn_id);
@@ -3440,36 +3439,6 @@ function renderDashUsuario(userId) {
   document.getElementById('equipeContent').innerHTML = h;
 }
 
-function abrirDetalhe(id) {
-  _detalheId = id;
-  setView('detalhe');
-}
-
-async function uploadAvatar(input) {
-  const file = input.files[0];
-  if(!file) return;
-  if(file.size > 2097152) { toast('Imagem muito grande (máx 2MB)','err'); return; }
-  toast('Enviando foto...','info');
-  try {
-    const ext = file.name.split('.').pop().toLowerCase();
-    const path = uid(); // usa o uid como nome do arquivo
-    const res = await fetch(`${SUPA_URL}/storage/v1/object/avatars/${path}`, {
-      method: 'PUT',
-      headers: { 'Authorization':'Bearer '+tok(), 'Content-Type': file.type, 'x-upsert':'true' },
-      body: file
-    });
-    if(!res.ok) throw new Error(await res.text());
-    // Salvar avatar_url no perfil
-    await api(`perfis?id=eq.${uid()}`, 'PATCH', { avatar_url: path }, tok());
-    // Atualizar localmente
-    const me = _usuarios.find(u=>u.id===uid());
-    if(me) me.avatar_url = path;
-    if(_perfil) _perfil.avatar_url = path;
-    toast('✅ Foto atualizada!','ok');
-    renderDashUsuario(uid()); // re-render
-  } catch(e) { toast('Erro ao enviar: '+e.message,'err'); }
-}
-
 function renderFinanceiro() {
   setTopbar('Financeiro','');
   const ativas = isAdmin() ? _ordens.filter(o=>o.col!=='concluido'&&o.col!=='orcamento') : _ordens.filter(o=>o.usuario_id===uid()&&o.col!=='concluido'&&o.col!=='orcamento');
@@ -3795,6 +3764,646 @@ function _setFiltroAlertaMob(uid){
 }
 
 // ── RENDER NOVA ORDEM ──
+function renderNova() {
+  setTopbar('Nova Ordem','');
+  _novaTemNF = null;
+  _novaFornSug = null;
+  const vendedores = isAdmin() ? _usuarios.map(u=>`<option value="${u.id}"${u.id===uid()?' selected':''}>${u.nome}</option>`).join('') : '';
+  document.getElementById('novaForm').innerHTML = `
+    ${isAdmin()?`<div class="form-group"><div class="form-group-title">Responsável</div><div class="form-field"><label>Vendedor</label><select id="nv_user">${vendedores}</select></div></div>`:''}
+    <div class="form-group">
+      <div class="form-group-title">Cliente</div>
+      <div class="form-field"><label>Nome *</label><input type="text" id="nv_nome" placeholder="Nome completo" autocomplete="off"></div>
+      <div id="nv_nome_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;border:1px solid"></div>
+      <div class="form-field"><label>WhatsApp *</label><input type="tel" id="nv_wh" placeholder="(11) 99999-9999" inputmode="tel" oninput="verificarCelular(this.value)"></div>
+      <div id="nv_inad_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;background:var(--r2);border:1px solid var(--r3);color:var(--r)"></div>
+      <div class="form-field"><label>CPF / CNPJ</label><input type="text" id="nv_cpf" placeholder="000.000.000-00" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Endereço</div>
+      <div class="form-field"><label>Rua e número *</label><input type="text" id="nv_rua" placeholder="Ex: Rua das Flores, 123"></div>
+      <div class="form-field highlight"><label>Bairro *</label><input type="text" id="nv_bairro" placeholder="Digite para sugestão de fornecedor" oninput="buscarFornSugestao(this.value)"></div>
+      <div class="form-field"><label>Cidade</label><input type="text" id="nv_cidade" placeholder="São Paulo" value="São Paulo"></div>
+    </div>
+    <div id="forn-sug-wrap"></div>
+    <div class="form-group">
+      <div class="form-group-title">Serviço</div>
+      <div class="form-field"><label>Quantidade de caçambas</label><div style="display:flex;align-items:center;gap:12px;padding:0 2px"><button type="button" onclick="nv_qtd.value=Math.max(1,parseInt(nv_qtd.value||1)-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">−</button><input type="number" id="nv_qtd" value="1" min="1" max="10" style="flex:1;text-align:center;font-size:20px;font-weight:800;color:var(--acc);background:transparent;border:none;outline:none"><button type="button" onclick="nv_qtd.value=Math.min(10,parseInt(nv_qtd.value||1)+1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:20px;cursor:pointer;flex-shrink:0">+</button></div></div>
+      <div class="form-field"><label>Tipo</label><select id="nv_tipo"><option>Locação</option><option>Troca</option><option>Retirada</option></select></div>
+      <div class="form-field"><label>Data entrega</label><input type="date" id="nv_data"></div>
+      <div class="form-field"><label>Valor cliente (R$)</label><input type="number" id="nv_rec" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+      <div class="form-field"><label>Custo fornecedor (R$)</label><input type="number" id="nv_cst" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Nota Fiscal *</div>
+      <div class="nf-choice">
+        <button class="nf-btn" id="btn-nf-sim" onclick="setNF(true)">🧾 Com NF</button>
+        <button class="nf-btn" id="btn-nf-nao" onclick="setNF(false)">✅ Sem NF</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-group-title">Fornecedor</div>
+      <div class="form-field"><label>Fornecedor</label><select id="nv_forn"><option value="">— Selecionar —</option>${_forns.map(f=>`<option value="${f.id}">${f.nome}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Observação</label><textarea id="nv_obs" placeholder="Observações..."></textarea></div>
+    </div>`;
+}
+
+// ── PREENCHIMENTO AUTOMÁTICO NOME POR CELULAR ──
+function verificarCelular(cel) {
+  const inadEl  = document.getElementById('nv_inad_aviso');
+  const nomeEl  = document.getElementById('nv_nome');
+  const avisoEl = document.getElementById('nv_nome_aviso');
+  const telLimpo = (cel||'').replace(/\D/g,'');
+
+  if(telLimpo.length < 8) {
+    if(inadEl)  inadEl.style.display='none';
+    if(avisoEl) avisoEl.style.display='none';
+    return;
+  }
+
+  const ordensDoTel = _ordens.filter(o =>
+    o.col!=='concluido' && o.col!=='orcamento' &&
+    (o.cel||'').replace(/\D/g,'') === telLimpo
+  );
+
+  // Inadimplência
+  const devedoras = ordensDoTel.filter(o=>!o.pago);
+  if(inadEl) {
+    if(devedoras.length) {
+      const total = devedoras.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+      inadEl.style.display='block';
+      inadEl.innerHTML=`⚠️ Cliente com <strong>${devedoras.length} ordem${devedoras.length>1?'ns':''} em aberto</strong> — total R$ ${fmt(total)}`;
+    } else {
+      inadEl.style.display='none';
+    }
+  }
+
+  // Auto-preencher nome
+  if(!avisoEl || !nomeEl) return;
+  if(!ordensDoTel.length) { avisoEl.style.display='none'; return; }
+  const nomeCadastrado = ordensDoTel[0].nome||'';
+  if(!nomeCadastrado) { avisoEl.style.display='none'; return; }
+  const nomeDigitado = nomeEl.value.trim();
+
+  if(!nomeDigitado) {
+    nomeEl.value = nomeCadastrado;
+    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--g)';
+    avisoEl.innerHTML = `✅ Nome preenchido automaticamente: <strong>${nomeCadastrado}</strong>`;
+  } else if(nomeDigitado.toLowerCase() !== nomeCadastrado.toLowerCase()) {
+    const nomeEsc = nomeCadastrado.replace(/'/g,"\\'");
+    avisoEl.style.cssText = 'display:block;margin:0 15px 10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--acc)';
+    avisoEl.innerHTML = `⚠️ Cadastrado como <strong>${nomeCadastrado}</strong> — <span style="text-decoration:underline;cursor:pointer;font-weight:700" onclick="document.getElementById('nv_nome').value='${nomeEsc}';document.getElementById('nv_nome_aviso').style.display='none'">Usar este nome?</span>`;
+  } else {
+    avisoEl.style.display='none';
+  }
+}
+
+
+
+function setNF(v) {
+  _novaTemNF = v;
+  document.getElementById('btn-nf-sim').className = 'nf-btn'+(v?' sel-sim':'');
+  document.getElementById('btn-nf-nao').className = 'nf-btn'+(!v?' sel-nao':'');
+}
+
+function mascaraCpfCnpj(el) {
+  let v = el.value.replace(/\D/g,'');
+  if(v.length<=11) v=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+  else v=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
+  el.value=v;
+}
+
+function buscarFornSugestao(bairro) {
+  _novaFornSug = null;
+  const wrap = document.getElementById('forn-sug-wrap');
+  if(!bairro||bairro.length<3){wrap.innerHTML='';return;}
+  const b = bairro.trim().toLowerCase();
+  let melhor = null, melhorPreco = 0, melhorPrecoC = 0;
+  _forns.forEach(f=>{
+    if(!f.regioes) return;
+    const regioes = typeof f.regioes==='string'?JSON.parse(f.regioes):f.regioes;
+    const arr = Array.isArray(regioes)?regioes:[regioes];
+    arr.forEach(r=>{
+      if((r.bairro||'').toLowerCase()===b || (r.regiao||'').toLowerCase()===b) {
+        if(!melhor||(parseFloat(r.preco_cli||0)>0&&parseFloat(r.preco_cli||0)<melhorPrecoC||!melhorPrecoC)) {
+          melhor=f; melhorPreco=parseFloat(r.preco||0); melhorPrecoC=parseFloat(r.preco_cli||0);
+        }
+      }
+    });
+  });
+  if(melhor) {
+    _novaFornSug={forn:melhor,preco:melhorPreco,preco_cli:melhorPrecoC};
+    wrap.innerHTML=`<div class="forn-sug" onclick="aplicarFornSug()">
+      <div class="forn-sug-ico">🏢</div>
+      <div class="forn-sug-info">
+        <div class="forn-sug-name">Sugerido · ${bairro}</div>
+        <div class="forn-sug-desc">${melhor.nome} — toque para aplicar</div>
+      </div>
+      <div class="forn-sug-price">R$ ${fmt(melhorPrecoC||melhorPreco)}</div>
+    </div>`;
+  } else { wrap.innerHTML=''; }
+}
+
+function aplicarFornSug() {
+  if(!_novaFornSug) return;
+  document.getElementById('nv_forn').value = _novaFornSug.forn.id;
+  if(_novaFornSug.preco) document.getElementById('nv_cst').value = _novaFornSug.preco.toFixed(2);
+  if(_novaFornSug.preco_cli) document.getElementById('nv_rec').value = _novaFornSug.preco_cli.toFixed(2);
+  toast('Fornecedor aplicado!','ok');
+}
+
+async function nextCrmId() {
+  const ano = new Date().getFullYear();
+  const anoStr = String(ano);
+  const prefix = 'LC'+ano;
+  try {
+    // Busca TODOS os crm_ids do ano (LC e ORC) — garante que o número nunca se repete
+    const rows = await api(`ordens?crm_id=like.*${anoStr}*&select=crm_id`,"GET",null,tok());
+    const maxNum = (rows||[]).reduce((max,row) => {
+      const id = (row.crm_id||'');
+      const idx = id.indexOf(anoStr);
+      if(idx === -1) return max;
+      const n = parseInt(id.slice(idx + anoStr.length))||0;
+      return n > max ? n : max;
+    }, 0);
+    return prefix + (maxNum+1).toString().padStart(4,'0');
+  } catch(e) {
+    console.warn('nextCrmId fallback', e);
+    return prefix + '0001';
+  }
+}
+
+async function salvarNovaOrdem() {
+  const nome  = document.getElementById('nv_nome')?.value?.trim();
+  const wh    = document.getElementById('nv_wh')?.value?.trim();
+  const rua   = document.getElementById('nv_rua')?.value?.trim();
+  const bairro= document.getElementById('nv_bairro')?.value?.trim();
+  if(!nome||!wh||!rua||!bairro) { toast('Preencha os campos obrigatórios','err'); return; }
+  if(_novaTemNF===null) { toast('Selecione NF ou Sem NF','err'); return; }
+  const btn = document.getElementById('submitNovaBtn');
+  btn.disabled=true; btn.textContent='Salvando...';
+  try {
+    const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
+    const crm_id = await nextCrmId();
+    let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
+    if(_novaTemNF) recVal += _nfAcrescimo;
+    const body = {
+      id: uidGen(), crm_id,
+      usuario_id: uid2, nome,
+      cel: wh.replace(/\D/g,''),
+      cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
+      logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
+      tipo: document.getElementById('nv_tipo')?.value||'Locação',
+      data: document.getElementById('nv_data')?.value||null,
+      rec: recVal,
+      cst: parseFloat(document.getElementById('nv_cst')?.value||0),
+      forn_id: document.getElementById('nv_forn')?.value||null,
+      obs: document.getElementById('nv_obs')?.value?.trim()||null,
+      nf_num: _novaTemNF ? '1' : '',
+      nf_taxa: 0,
+      col: 'contratar', pago: false,
+      criado_em: nowISO()
+    };
+    const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
+    const ids_criados = [];
+    for(let q=0; q<qtd; q++) {
+      const crm_q = q===0 ? crm_id : await nextCrmId();
+      const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
+      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
+      const res = await api('ordens','POST',bodyQ,tok());
+      if(res?.[0]) _ordens.unshift(res[0]);
+      ids_criados.push(crm_q);
+    }
+    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
+    setView('inicio');
+  } catch(e) {
+    toast('Erro ao salvar: '+e.message,'err');
+  } finally { btn.disabled=false; btn.textContent='✅ Criar Ordem'; }
+}
+
+// ── ABRIR DETALHE ──
+function abrirDetalhe(id) {
+  _detalheId = id;
+  setView('detalhe');
+}
+
+// ── RENDER DETALHE ──
+async function converterOrcamento(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'▶️',
+    title:'Converter em pedido?',
+    body:`${o.crm_id||''} — ${o.nome||''}\nA ordem vai para Contratar fornecedor.`,
+    ok:'▶️ Converter',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const now = new Date().toISOString();
+    const novoCrmId = await nextCrmId();
+    // Se já tem fornecedor atribuído, entra direto em ag_entrega
+    const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:novoCrmId, orc_convertido_em:now},tok());
+    o.col=colInicial; o.crm_id=novoCrmId; o.orc_convertido_em=now;
+    toast('▶️ Ordem '+novoCrmId+' criada!','ok');
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
+}
+
+async function voltarOrcamento(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Voltar para Orçamento?',
+    body:`${o.crm_id||''} — ${o.nome||''}\nO card voltará para a aba de Orçamentos. O número LC é mantido.`,
+    ok:'↩️ Confirmar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const patchV = {col:'orcamento', orc_convertido_em:null};
+    if(!o.forn_pago && o.forn_id){ patchV.forn_id=null; patchV.cst=null; }
+    await api(`ordens?id=eq.${id}`,'PATCH',patchV,tok());
+    Object.assign(o, patchV);
+    toast('↩️ Voltou para Orçamentos','ok');
+    goBack();
+  } catch(e){ toast('Erro ao mover para orçamento','err'); }
+}
+
+function renderDetalhe(id) {
+  const o = _ordens.find(x=>x.id===id);
+  if(!o) { setView('inicio'); return; }
+  setTopbar(o.crm_id||'Ordem', o.nome||'');
+  const forn = _forns.find(f=>f.id===o.forn_id);
+  const resp = _usuarios.find(u=>u.id===o.usuario_id);
+  const d = diasAberto(o);
+  const tel = (o.cel||'').replace(/\D/g,'');
+  let statusClass = o.pago?'pago':(d>=5?'urg':'pend');
+  let statusTxt = o.pago?'✅ Pago':(d>=5?`🔴 Atrasado ${d}d`:`⏳ Em aberto ${d}d`);
+  let statusDias = !o.pago && d>0 ? ` · ${d}d` : '';
+  let statusLabel = o.pago?'Pago':(d>=5?`Atrasado${statusDias}`:`Em aberto${statusDias}`);
+  let h = `<div class="status-block ${statusClass}">
+    <div class="sb-top">
+      <span class="sb-label">${statusLabel}</span>
+      <span class="sb-status">R$ ${fmt(o.rec)}${o.nf_num?' +NF':''}</span>
+    </div>
+    ${!o.pago?`<button class="sb-action cli" onclick="abrirPagarCli('${o.id}')">Registrar recebimento</button>`:
+      !_modoSimples?`<button class="sb-action" style="background:rgba(239,68,68,.2);color:#f87171;border:1px solid #ef4444;width:calc(100% - 28px);margin:0 14px 13px;padding:12px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer" onclick="desfazerPagoCli('${o.id}')">Desfazer pagamento</button>`:''}
+  </div>
+  <div class="detail-actions">
+    <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>WA Cliente</button>
+    <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>Gerar Pix</button>
+    ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</button>`}
+    <button class="detail-action da-forn" onclick="enviarWAForn('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>WA Forn.</button>
+    <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>Tracking</button>
+  </div>
+  ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`)}
+    ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
+    ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
+    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
+  </div>`:''}
+  </div>
+  <div class="detail-section">
+    <div class="detail-section-title">Cliente</div>
+    <div class="detail-row"><div class="detail-key">Nome</div><div class="detail-val">${o.nome||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${tel?`<a class="phone-link" href="tel:+55${tel}">${o.cel}</a>`:'—'}</div></div>
+    ${o.cpf?`<div class="detail-row"><div class="detail-key">CPF/CNPJ</div><div class="detail-val">${o.cpf}</div></div>`:''}
+  </div>
+  <div class="detail-section">
+    <div class="detail-section-title">Serviço</div>
+    <div class="detail-row"><div class="detail-key">Endereço</div><div class="detail-val">${o.logradouro||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Bairro</div><div class="detail-val">${o.bairro||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Tipo</div><div class="detail-val">${o.tipo||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Data</div><div class="detail-val">${dateF(o.data)}</div></div>
+    <div class="detail-row"><div class="detail-key">Fornecedor</div><div class="detail-val">${forn?.nome||'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">Responsável</div><div class="detail-val">${resp?.nome||'—'}</div></div>
+    ${forn?.tel?`<div class="detail-row"><div class="detail-key">Tel. Forn.</div><div class="detail-val"><a class="phone-link" href="tel:+55${forn.tel.replace(/\D/g,'')}">${forn.tel}</a></div></div>`:''}
+    ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
+    ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
+  </div>`;
+  if(isAdmin()) {
+    h+=`<div class="detail-section">
+      <div class="detail-section-title">Financeiro</div>
+      <div class="detail-row"><div class="detail-key">Receita</div><div class="detail-val acc">R$ ${fmt(o.rec)}</div></div>
+      <div class="detail-row"><div class="detail-key">Custo forn.</div><div class="detail-val">R$ ${fmt(o.cst)}</div></div>
+      <div class="detail-row"><div class="detail-key">Margem</div><div class="detail-val" style="color:var(--g)">R$ ${fmt(parseFloat(o.rec||0)-parseFloat(o.cst||0))}</div></div>
+      <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pago?'✅ Sim':'❌ Não'}</div></div>
+      ${o.pago&&o.forn_pago?`<div style="text-align:center;padding:10px 0"><span style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:20px;padding:6px 16px;font-weight:700;font-size:13px">✅ Quitado</span></div>`:''}
+      ${o.forn_pago&&!_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3);margin-top:8px" onclick="estornarPagamentoForn('${o.id}')">↩️ Estornar pgto forn.</button>`:''}
+    </div>`;
+  }
+  if(o.col!=='concluido') {
+    const colunas=[
+      {id:'contratar',l:'Contratar'},{id:'ag_entrega',l:'Ag. Entrega'},{id:'entrega',l:'Entrega'},
+      {id:'pagar',l:'Pagar'},{id:'faltapg',l:'Falta Pg'},{id:'baixar',l:'Baixar'},{id:'inadimp',l:'Inadimp.'}
+    ];
+    h+=`<div class="detail-section">
+      <div class="detail-section-title">Etapa no funil</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;padding:11px 14px 13px">
+        ${colunas.map(c=>`<button onclick="moverColuna('${o.id}','${c.id}')" style="padding:7px 13px;border-radius:20px;border:1px solid;font-size:12px;font-weight:700;cursor:pointer;background:${o.col===c.id?'#d97706':'rgba(255,255,255,.07)'};color:${o.col===c.id?'#ffffff':'#9ca3b8'};border-color:${o.col===c.id?'#f5a623':'rgba(255,255,255,.14)'}">${c.l}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+  h+=`<div style="display:flex;gap:8px;padding:4px 0 4px">
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(255,255,255,.08);color:#d1d5db;border:1px solid rgba(255,255,255,.2)" onclick="duplicarOrdem('${o.id}')">Duplicar</button>
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="abrirEditar('${o.id}')">Editar</button>
+    ${o.col==='concluido'?`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="desarquivarOrdem('${o.id}')">Reabrir</button>`:`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid #ef4444" onclick="arquivarOrdem('${o.id}')">Arquivar</button>`}
+  </div>
+  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
+    <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
+  </div>`:''}
+  ${o.col==='orcamento'?`<div style="padding:0 0 8px">
+    <button style="width:100%;padding:12px;background:rgba(99,102,241,.2);border:1px solid #6366f1;border-radius:var(--rad2);color:#c7d2fe;font-size:14px;font-weight:700;cursor:pointer" onclick="abrirOrcMob('${o.id}')">📄 Gerar Orçamento PDF</button>
+  </div>`:''}
+  ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 16px">
+    <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--r3);border-radius:var(--rad2);color:var(--r);font-size:13px;font-weight:700;cursor:pointer" onclick="abrirCancelar('${o.id}')">❌ Cancelar esta ordem</button>
+  </div>`:''}`;
+  document.getElementById('detalheContent').innerHTML = h;
+}
+
+// ── AÇÕES DA ORDEM ──
+async function moverColuna(id, colId) {
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:colId},tok());
+    const o = _ordens.find(x=>x.id===id); if(o) o.col=colId;
+    renderDetalhe(id);
+    toast('Etapa atualizada','ok');
+  } catch(e){toast('Erro ao mover','err');}
+}
+
+async function duplicarOrdem(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  // Modal com 3 opções
+  const manterForn = await new Promise(res => {
+    const bg = document.getElementById('confirmModal');
+    document.getElementById('conf_ico').textContent   = '🔁';
+    document.getElementById('conf_title').textContent = 'Duplicar ordem?';
+    document.getElementById('conf_body').innerHTML    = 'Nova OS com os dados do cliente.<br>Data em branco para preencher na hora.';
+    const btns = bg.querySelector('.confirm-btns');
+    btns.innerHTML = `
+      <button class="btn" onclick="_dupResolve(null)">Cancelar</button>
+      <button class="btn acc" onclick="_dupResolve(false)">🔄 Trocar forn.</button>
+      <button class="btn acc" onclick="_dupResolve(true)">🚛 Manter forn.</button>`;
+    window._dupResolve = v => { bg.classList.remove('open'); btns.innerHTML=''; res(v); };
+    bg.classList.add('open');
+  });
+  if(manterForn === null) return; // cancelou
+  try {
+    const crm_id = await nextCrmId();
+    const body = {
+      ...o,
+      id: uidGen(), crm_id,
+      usuario_id: uid(),
+      col: manterForn ? 'ag_entrega' : 'contratar',
+      criado_em: nowISO(),
+      data: null,
+      forn_id: manterForn ? o.forn_id : null,
+      cobrado_em: null, cancel_motivo: null,
+      pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+      forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
+      entrega_confirmada: false, orc_convertido_em: null,
+    };
+    const res = await api('ordens','POST',body,tok());
+    if(res?.[0]) _ordens.unshift(res[0]);
+    toast(`Ordem ${crm_id} criada!`,'ok');
+    setView('inicio');
+  } catch(e){toast('Erro ao duplicar','err');}
+}
+
+async function arquivarOrdem(id) {
+  const ok = await showConfirm({ico:'📦',title:'Arquivar ordem?',body:'Move para concluído. Pode reabrir depois.',ok:'Arquivar',okClass:'acc'});
+  if(!ok) return;
+  try {
+    const oA=_ordens.find(x=>x.id===id);
+    const patchA = {col:'concluido'};
+    if(oA && !oA.forn_pago && oA.forn_id){ patchA.forn_id=null; patchA.cst=null; }
+    await api(`ordens?id=eq.${id}`,'PATCH',patchA,tok());
+    if(oA) Object.assign(oA, patchA);
+    toast('Ordem arquivada','ok');
+    goBack();
+  } catch(e){toast('Erro ao arquivar','err');}
+}
+
+async function desarquivarOrdem(id) {
+  try {
+    await api(`ordens?id=eq.${id}`,'PATCH',{col:'baixar'},tok());
+    const o=_ordens.find(x=>x.id===id); if(o) o.col='baixar';
+    toast('Ordem reaberta','ok');
+    renderDetalhe(id);
+  } catch(e){toast('Erro','err');}
+}
+
+async function quickPagarCard(id) {
+  _detalheId = id;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
+  document.getElementById('pc_val').value = o.rec||'';
+  document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
+  document.getElementById('pc_obs').value = '';
+  openModal('pagarCliModal');
+}
+
+// ── PAGAR CLIENTE MODAL ──
+function abrirPagarCli(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _detalheId = id;
+  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
+  document.getElementById('pc_val').value = o.rec||'';
+  document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
+  document.getElementById('pc_obs').value = '';
+  openModal('pagarCliModal');
+}
+
+async function confirmarPagoCli() {
+  const id = _detalheId;
+  const val = parseFloat(document.getElementById('pc_val').value||0);
+  const data = document.getElementById('pc_data').value;
+  const hora = document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
+  const pagoEmISO = data ? data+'T'+hora+':00' : nowISO();
+  const obs  = document.getElementById('pc_obs').value.trim();
+  if(!val) { toast('Informe o valor','err'); return; }
+  try {
+    const o = _ordens.find(x=>x.id===id);
+    const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
+    const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    if(o) Object.assign(o,upd);
+    closeModal('pagarCliModal');
+    toast('Pagamento registrado!','ok');
+    renderCurrentView();
+  } catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function desfazerPagoCli(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Desfazer pagamento?',
+    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento será revertido e a ordem voltará para Receber cliente.`,
+    ok:'↩️ Desfazer',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const upd = {pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'pagar'};
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o,upd);
+    toast('↩️ Pagamento desfeito','ok');
+    renderDetalhe(id);
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
+}
+
+async function estornarPagamentoForn(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Estornar pagamento forn.?',
+    body:`${o.crm_id||''} — ${o.nome||''}<br><br>O pagamento do fornecedor será revertido.`,
+    ok:'↩️ Estornar',
+    okClass:'acc',
+    cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try {
+    const upd = {forn_pago:false, forn_pago_em:null, forn_pago_valor:null, forn_pg_ref:null};
+    // Ajuste de coluna: se estava em baixar, volta para pagar
+    const o2 = _ordens.find(x=>x.id===id);
+    if(o2 && o2.col==='baixar') upd.col='pagar';
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o,upd);
+    toast('↩️ Pgto forn. estornado','ok');
+    renderDetalhe(id);
+    renderCurrentView();
+  } catch(e){ toast('Erro','err'); }
+}
+
+// ── PIX ──
+function buildPixPayload(valor, txid, nome, cidade, chave) {
+  const f=(id,v)=>{const l=v.length.toString().padStart(2,'0');return id+l+v;};
+  const lpad=(s,n)=>s.substring(0,n).padEnd(n,' ').trim().substring(0,n);
+  const merchantAccountInfo = f('00','BR.GOV.BCB.PIX')+f('01',chave);
+  const body = f('00','01')+f('26',merchantAccountInfo)+f('52','0000')+f('53','986')+f('54',valor.toFixed(2))+f('58','BR')+f('59',lpad(nome,25))+f('60',lpad(cidade,15))+f('62',f('05',txid.substring(0,25)))+f('63','0000');
+  let crc=0xFFFF;
+  for(let i=0;i<body.length;i++){crc^=body.charCodeAt(i)<<8;for(let j=0;j<8;j++){if(crc&0x8000)crc=(crc<<1)^0x1021;else crc<<=1;crc&=0xFFFF;}}
+  return body.slice(0,-4)+crc.toString(16).toUpperCase().padStart(4,'0');
+}
+
+function abrirPix(id) {
+  track('btn_pix');
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  _pixOrdemId = id;
+  const valor = parseFloat(o.rec||0)+(o.nf_num&&!o.pago?_nfAcrescimo:0);
+  const txid = 'CACAMBA'+( o.cel||'00000000').replace(/\D/g,'').slice(-8);
+  _pixPayload = buildPixPayload(valor, txid, PIX_NAME, PIX_CITY, PIX_KEY);
+  document.getElementById('pix_valor_txt').textContent = 'R$ '+fmt(valor);
+  document.getElementById('pix_code').textContent = _pixPayload;
+  const qrWrap = document.getElementById('pix_qr_wrap');
+  qrWrap.innerHTML = '';
+  new QRCode(qrWrap,{text:_pixPayload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
+  openModal('pixModal');
+}
+
+async function copiarPix() {
+  try{await navigator.clipboard.writeText(_pixPayload);toast('Código copiado!','ok');}catch(e){toast('Copie manualmente','warn');}
+}
+
+function enviarPixWA() {
+  const o = _ordens.find(x=>x.id===_pixOrdemId);
+  if(!o) return;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+}
+
+// ── WHATSAPP ──
+function enviarWA(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  if(!tel){toast('Celular não cadastrado','warn');return;}
+  const d = diasAberto(o);
+  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
+  let msg;
+  if(o.col==='inadimp') {
+    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
+  } else if(d>=5) {
+    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+  } else {
+    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+  }
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+  // Marcar como cobrado hoje — todas as ordens do mesmo cel
+  const hoje = new Date().toISOString();
+  const celLimpo = tel;
+  _ordens.forEach(ord => {
+    if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
+      ord.cobrado_em = hoje;
+      api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
+    }
+  });
+  setTimeout(()=>renderCurrentView(), 500);
+}
+
+function enviarWAForn(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const forn = _forns.find(f=>f.id===o.forn_id);
+  if(!forn) { toast('Fornecedor não encontrado','warn'); return; }
+  if(!forn.wa_link && !forn.tel) { toast('Fornecedor sem WhatsApp/telefone','warn'); return; }
+  _abrirWAFornModal(o, forn, 'os');
+}
+
+function enviarTracking(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  if(!tel){toast('Celular não cadastrado','warn');return;}
+  if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
+  const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
+  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+}
+
+// ── INIT ──
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2097152) { toast('Imagem muito grande (máx 2MB)','err'); return; }
+  toast('Enviando foto...','info');
+  try {
+    const path = uid();
+    const res = await fetch(`${SUPA_URL}/storage/v1/object/avatars/${path}`, {
+      method: 'PUT',
+      headers: { 'Authorization':'Bearer '+tok(), 'Content-Type': file.type, 'x-upsert':'true' },
+      body: file
+    });
+    if(!res.ok) throw new Error(await res.text());
+    await api(`perfis?id=eq.${uid()}`, 'PATCH', { avatar_url: path }, tok());
+    const me = _usuarios.find(u=>u.id===uid());
+    if(me) me.avatar_url = path;
+    if(_perfil) _perfil.avatar_url = path;
+    toast('✅ Foto atualizada!','ok');
+    renderDashUsuario(uid());
+  } catch(e) { toast('Erro ao enviar: '+e.message,'err'); }
+}
+
+window.addEventListener('load', restoreSession);
+
+// ══════════════════════════════════════════════
+// GERADOR DE ORÇAMENTO PDF — mobile S31
+// ══════════════════════════════════════════════
+
+let _orcMobId = null;
+
+function abrirOrcMob(id) {
+  _orcMobId = id;
+  setView('orc-mob');
+}
 
 function renderOrcMob() {
   const el = document.getElementById('orcMobContent');
@@ -4132,96 +4741,7 @@ Qualquer dúvida estamos à disposição! 😊`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
-
-
-// ── PAGAR CLIENTE ──
-async function salvarNovaOrdem() {
-  const nome  = document.getElementById('nv_nome')?.value?.trim();
-  const wh    = document.getElementById('nv_wh')?.value?.trim();
-  const rua   = document.getElementById('nv_rua')?.value?.trim();
-  const bairro= document.getElementById('nv_bairro')?.value?.trim();
-  if(!nome||!wh||!rua||!bairro) { toast('Preencha os campos obrigatórios','err'); return; }
-  if(_novaTemNF===null) { toast('Selecione NF ou Sem NF','err'); return; }
-  const btn = document.getElementById('submitNovaBtn');
-  btn.disabled=true; btn.textContent='Salvando...';
-  try {
-    const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
-    const crm_id = await nextCrmId();
-    let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
-    if(_novaTemNF) recVal += _nfAcrescimo;
-    const body = {
-      id: uidGen(), crm_id,
-      usuario_id: uid2, nome,
-      cel: wh.replace(/\D/g,''),
-      cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
-      logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
-      tipo: document.getElementById('nv_tipo')?.value||'Locação',
-      data: document.getElementById('nv_data')?.value||null,
-      rec: recVal,
-      cst: parseFloat(document.getElementById('nv_cst')?.value||0),
-      forn_id: document.getElementById('nv_forn')?.value||null,
-      obs: document.getElementById('nv_obs')?.value?.trim()||null,
-      nf_num: _novaTemNF ? '1' : '',
-      nf_taxa: 0,
-      col: 'contratar', pago: false,
-      criado_em: nowISO()
-    };
-    const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
-    const ids_criados = [];
-    for(let q=0; q<qtd; q++) {
-      const crm_q = q===0 ? crm_id : await nextCrmId();
-      const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
-      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
-      const res = await api('ordens','POST',bodyQ,tok());
-      if(res?.[0]) _ordens.unshift(res[0]);
-      ids_criados.push(crm_q);
-    }
-    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
-    setView('inicio');
-  } catch(e) {
-    toast('Erro ao salvar: '+e.message,'err');
-  } finally { btn.disabled=false; btn.textContent='✅ Criar Ordem'; }
-}
-
-// ── ABRIR DETALHE ──
-
-async function confirmarPagoCli() {
-  const id = _detalheId;
-  const val = parseFloat(document.getElementById('pc_val').value||0);
-  const data = document.getElementById('pc_data').value;
-  const hora = document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
-  const pagoEmISO = data ? data+'T'+hora+':00' : nowISO();
-  const obs  = document.getElementById('pc_obs').value.trim();
-  if(!val) { toast('Informe o valor','err'); return; }
-  try {
-    const o = _ordens.find(x=>x.id===id);
-    const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
-    const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
-    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-    if(o) Object.assign(o,upd);
-    closeModal('pagarCliModal');
-    toast('Pagamento registrado!','ok');
-    renderCurrentView();
-  } catch(e){toast('Erro: '+e.message,'err');}
-}
-
-
-async function copiarPix() {
-  try{await navigator.clipboard.writeText(_pixPayload);toast('Código copiado!','ok');}catch(e){toast('Copie manualmente','warn');}
-}
-
-function enviarPixWA() {
-  const o = _ordens.find(x=>x.id===_pixOrdemId);
-  if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
-  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
-  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-}
-
-// ── WHATSAPP ──
-
-// ── INICIALIZAÇÃO ──
-document.addEventListener('DOMContentLoaded', () => { restoreSession(); });
 </script>
 </body>
 </html>
+document.addEventListener('DOMContentLoaded', () => { restoreSession(); });
