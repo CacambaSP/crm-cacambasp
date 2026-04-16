@@ -4133,6 +4133,93 @@ Qualquer dúvida estamos à disposição! 😊`;
 }
 
 
+
+// ── PAGAR CLIENTE ──
+async function salvarNovaOrdem() {
+  const nome  = document.getElementById('nv_nome')?.value?.trim();
+  const wh    = document.getElementById('nv_wh')?.value?.trim();
+  const rua   = document.getElementById('nv_rua')?.value?.trim();
+  const bairro= document.getElementById('nv_bairro')?.value?.trim();
+  if(!nome||!wh||!rua||!bairro) { toast('Preencha os campos obrigatórios','err'); return; }
+  if(_novaTemNF===null) { toast('Selecione NF ou Sem NF','err'); return; }
+  const btn = document.getElementById('submitNovaBtn');
+  btn.disabled=true; btn.textContent='Salvando...';
+  try {
+    const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
+    const crm_id = await nextCrmId();
+    let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
+    if(_novaTemNF) recVal += _nfAcrescimo;
+    const body = {
+      id: uidGen(), crm_id,
+      usuario_id: uid2, nome,
+      cel: wh.replace(/\D/g,''),
+      cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
+      logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
+      tipo: document.getElementById('nv_tipo')?.value||'Locação',
+      data: document.getElementById('nv_data')?.value||null,
+      rec: recVal,
+      cst: parseFloat(document.getElementById('nv_cst')?.value||0),
+      forn_id: document.getElementById('nv_forn')?.value||null,
+      obs: document.getElementById('nv_obs')?.value?.trim()||null,
+      nf_num: _novaTemNF ? '1' : '',
+      nf_taxa: 0,
+      col: 'contratar', pago: false,
+      criado_em: nowISO()
+    };
+    const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
+    const ids_criados = [];
+    for(let q=0; q<qtd; q++) {
+      const crm_q = q===0 ? crm_id : await nextCrmId();
+      const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
+      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
+      const res = await api('ordens','POST',bodyQ,tok());
+      if(res?.[0]) _ordens.unshift(res[0]);
+      ids_criados.push(crm_q);
+    }
+    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
+    setView('inicio');
+  } catch(e) {
+    toast('Erro ao salvar: '+e.message,'err');
+  } finally { btn.disabled=false; btn.textContent='✅ Criar Ordem'; }
+}
+
+// ── ABRIR DETALHE ──
+
+async function confirmarPagoCli() {
+  const id = _detalheId;
+  const val = parseFloat(document.getElementById('pc_val').value||0);
+  const data = document.getElementById('pc_data').value;
+  const hora = document.getElementById('pc_hora').value||new Date().toTimeString().slice(0,5);
+  const pagoEmISO = data ? data+'T'+hora+':00' : nowISO();
+  const obs  = document.getElementById('pc_obs').value.trim();
+  if(!val) { toast('Informe o valor','err'); return; }
+  try {
+    const o = _ordens.find(x=>x.id===id);
+    const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
+    const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    if(o) Object.assign(o,upd);
+    closeModal('pagarCliModal');
+    toast('Pagamento registrado!','ok');
+    renderCurrentView();
+  } catch(e){toast('Erro: '+e.message,'err');}
+}
+
+
+async function copiarPix() {
+  try{await navigator.clipboard.writeText(_pixPayload);toast('Código copiado!','ok');}catch(e){toast('Copie manualmente','warn');}
+}
+
+function enviarPixWA() {
+  const o = _ordens.find(x=>x.id===_pixOrdemId);
+  if(!o) return;
+  const tel = (o.cel||'').replace(/\D/g,'');
+  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+}
+
+// ── WHATSAPP ──
+
 // ── INICIALIZAÇÃO ──
 document.addEventListener('DOMContentLoaded', () => { restoreSession(); });
 </script>
