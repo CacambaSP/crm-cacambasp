@@ -3470,4 +3470,8 @@ async function uploadAvatar(input) {
   } catch(e) { toast('Erro ao enviar: '+e.message,'err'); }
 }
 
-
+// ── INICIALIZAÇÃO ──
+document.addEventListener('DOMContentLoaded', () => { restoreSession(); });
+</script>
+</body>
+</html>
