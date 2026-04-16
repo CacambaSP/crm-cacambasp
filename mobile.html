@@ -1726,6 +1726,7 @@ async function confirmarCancelar() {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
+    if(!o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o, upd);
     closeModal('cancelarModal');
@@ -3071,23 +3072,83 @@ async function fpConfirmarDados() {
 }
 
 // ── ABA PAGAMENTOS FORNECEDOR ──
+let _pgfMobQ='', _pgfMobForn='', _pgfMobStatus='todos', _pgfMobDtIni='', _pgfMobDtFim='';
+
 function renderPagamentos() {
   setTopbar('Pagamentos Fornecedor','');
-  const pagas = _ordens.filter(o=>o.forn_pago && o.forn_pago_em).sort((a,b)=>new Date(b.forn_pago_em)-new Date(a.forn_pago_em));
-  if(!pagas.length) {
-    document.getElementById('pagamentosContent').innerHTML = `<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum pagamento</div><div class="empty-desc">Os pagamentos a fornecedores aparecerão aqui.</div></div>`;
+  const todosComForn = _ordens.filter(o=>o.forn_id);
+  const fornIds = [...new Set(todosComForn.map(o=>o.forn_id))];
+  const fornOpts = fornIds.map(id=>{ const f=_forns.find(x=>x.id===id); return f?`<option value="${id}">${f.nome}</option>`:''; }).join('');
+  const hoje = new Date().toISOString().slice(0,10);
+  const filtroHtml = `<div style="padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--bor)">
+    <input id="pgfMobQ" type="search" placeholder="🔍 Buscar nome, endereço, CRM, código..." value="${_pgfMobQ}"
+      oninput="_pgfMobQ=this.value;_renderPgfMobLista()"
+      style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:13px;box-sizing:border-box">
+    <div style="display:flex;gap:6px">
+      <select id="pgfMobForn" onchange="_pgfMobForn=this.value;_renderPgfMobLista()"
+        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        <option value="">— Todos fornecedores —</option>${fornOpts}
+      </select>
+      <select id="pgfMobStatus" onchange="_pgfMobStatus=this.value;_renderPgfMobLista()"
+        style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        <option value="todos">Todos</option>
+        <option value="pagos">Pagos</option>
+        <option value="pendentes">Pendentes</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="pgfMobDtIni" type="date" value="${_pgfMobDtIni}" onchange="_pgfMobDtIni=this.value;_renderPgfMobLista()"
+        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+      <span style="color:var(--mut);font-size:11px">até</span>
+      <input id="pgfMobDtFim" type="date" value="${_pgfMobDtFim}" onchange="_pgfMobDtFim=this.value;_renderPgfMobLista()"
+        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+      <button onclick="_pgfMobDtIni=_pgfMobDtFim='${hoje}';document.getElementById('pgfMobDtIni').value='${hoje}';document.getElementById('pgfMobDtFim').value='${hoje}';_renderPgfMobLista()"
+        style="padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;cursor:pointer;white-space:nowrap">📅 Hoje</button>
+    </div>
+    <div id="pgfMobResumo" style="font-size:11px;color:var(--mut);padding:2px 0"></div>
+  </div>
+  <div id="pgfMobLista"></div>`;
+  document.getElementById('pagamentosContent').innerHTML = filtroHtml;
+  if(_pgfMobForn) document.getElementById('pgfMobForn').value = _pgfMobForn;
+  document.getElementById('pgfMobStatus').value = _pgfMobStatus;
+  _renderPgfMobLista();
+}
+
+function _renderPgfMobLista() {
+  const q = (_pgfMobQ||'').toLowerCase();
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  let ordens = _ordens.filter(o => {
+    if(_pgfMobStatus==='pagos' && !o.forn_pago) return false;
+    if(_pgfMobStatus==='pendentes' && (o.forn_pago || !o.forn_id)) return false;
+    if(_pgfMobStatus==='todos' && !o.forn_id) return false;
+    if(_pgfMobForn && o.forn_id!==_pgfMobForn) return false;
+    if(_pgfMobDtIni || _pgfMobDtFim) {
+      const dt = o.forn_pago_em ? o.forn_pago_em.slice(0,10) : (o.data?.slice(0,10)||'');
+      if(_pgfMobDtIni && dt < _pgfMobDtIni) return false;
+      if(_pgfMobDtFim && dt > _pgfMobDtFim) return false;
+    }
+    if(q) {
+      const forn = _forns.find(f=>f.id===o.forn_id);
+      const txt = [(forn?.nome||''),(o.nome||''),(o.end||''),(o.bairro||''),(o.crm_id||''),(o.forn_pg_ref||'')].join(' ').toLowerCase();
+      if(!txt.includes(q)) return false;
+    }
+    return true;
+  });
+  ordens.sort((a,b)=>{ const da=a.forn_pago_em||a.data||''; const db=b.forn_pago_em||b.data||''; return db.localeCompare(da); });
+  const totalPagos = ordens.filter(o=>o.forn_pago).reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
+  const totalPend  = ordens.filter(o=>!o.forn_pago).reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  const resumoEl = document.getElementById('pgfMobResumo');
+  if(resumoEl) resumoEl.textContent = `${ordens.length} ordem${ordens.length!==1?'s':''} · Pagos: R$ ${fmt(totalPagos)} · Pendentes: R$ ${fmt(totalPend)}`;
+  if(!ordens.length) {
+    document.getElementById('pgfMobLista').innerHTML = `<div class="empty-state"><div class="empty-ico">💰</div><div class="empty-title">Nenhum resultado</div></div>`;
     return;
   }
-  // Agrupar por etiqueta/referência (forn_pg_ref) para mostrar lotes
+  const pagos = ordens.filter(o=>o.forn_pago);
+  const pend  = ordens.filter(o=>!o.forn_pago);
   const lotes = {};
-  pagas.forEach(o => {
-    const key = o.forn_pg_ref||'__sem_ref__';
-    if(!lotes[key]) lotes[key] = [];
-    lotes[key].push(o);
-  });
-  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
-  let h = `<div style="padding:10px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">${pagas.length} pagamento${pagas.length!==1?'s':''} registrado${pagas.length!==1?'s':''}</div>`;
-  Object.entries(lotes).forEach(([ref, list]) => {
+  pagos.forEach(o=>{ const key=o.forn_pg_ref||'__sem_ref__'; if(!lotes[key]) lotes[key]=[]; lotes[key].push(o); });
+  let h = '';
+  Object.entries(lotes).forEach(([ref, list])=>{
     const forn = _forns.find(f=>f.id===list[0].forn_id);
     const nome = forn?.nome||'Fornecedor';
     const cor = colors[nome.charCodeAt(0)%colors.length];
@@ -3098,22 +3159,18 @@ function renderPagamentos() {
     const tag = partes[1]||'';
     const obs = partes[2]||'';
     const collapsed = _groupStates['pg-'+ref] !== false;
+    const safeRef = btoa(unescape(encodeURIComponent(ref))).replace(/[^a-zA-Z0-9]/g,'');
     h += `<div class="pg-card">
-      <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${btoa(ref).replace(/[^a-zA-Z0-9]/g,'')}')">
+      <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${safeRef}')">
         <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
           <div class="pg-forn">${nome}</div>
-          <div class="pg-meta">
-            <span>📅 ${data}</span>
-            <span>💳 ${forma}</span>
-            <span>${list.length} ordem${list.length!==1?'s':''}</span>
-            ${tag?`<span class="pg-tag">${tag}</span>`:''}
-          </div>
+          <div class="pg-meta"><span>📅 ${data}</span><span>💳 ${forma}</span><span>${list.length} ordem${list.length!==1?'s':''}</span>${tag?`<span class="pg-tag">${tag}</span>`:''}</div>
           ${obs?`<div style="font-size:11px;color:var(--mut);margin-top:3px">💬 ${obs}</div>`:''}
         </div>
         <div class="pg-val">R$ ${fmt(total)}</div>
       </div>
-      <div id="ag-body-pg-${btoa(ref).replace(/[^a-zA-Z0-9]/g,'')}" class="ag-body${collapsed?' collapsed':''}">
+      <div id="ag-body-pg-${safeRef}" class="ag-body${collapsed?' collapsed':''}">
         ${list.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--bor)">
           <div style="flex:1;min-width:0">
             <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.nome||'—'} · <span style="font-family:var(--mono);font-size:10px;color:var(--mut)">${o.crm_id||''}</span></div>
@@ -3124,7 +3181,25 @@ function renderPagamentos() {
       </div>
     </div>`;
   });
-  document.getElementById('pagamentosContent').innerHTML = h;
+  if(pend.length) {
+    h += `<div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:.5px">⏳ Pendentes (${pend.length})</div>`;
+    pend.forEach(o=>{
+      const forn = _forns.find(f=>f.id===o.forn_id);
+      const nome = forn?.nome||'Fornecedor';
+      const cor = colors[nome.charCodeAt(0)%colors.length];
+      h += `<div class="pg-card" style="border-left:3px solid #f5a623">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+          <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.crm_id||''} · ${o.nome||'—'}</div>
+            <div style="font-size:11px;color:var(--mut);margin-top:1px">${nome} · 📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:#f5a623">R$ ${fmt(o.cst)}</div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('pgfMobLista').innerHTML = h;
 }
 
 function renderEquipe() {
@@ -3789,8 +3864,10 @@ async function voltarOrcamento(id) {
   });
   if(!ok) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'orcamento', orc_convertido_em:null},tok());
-    o.col='orcamento'; o.orc_convertido_em=null;
+    const upd = {col:'orcamento', orc_convertido_em:null};
+    if(!o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    Object.assign(o, upd);
     toast('↩️ Voltou para Orçamentos','ok');
     goBack();
   } catch(e){ toast('Erro ao mover para orçamento','err'); }
@@ -3941,8 +4018,11 @@ async function arquivarOrdem(id) {
   const ok = await showConfirm({ico:'📦',title:'Arquivar ordem?',body:'Move para concluído. Pode reabrir depois.',ok:'Arquivar',okClass:'acc'});
   if(!ok) return;
   try {
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:'concluido'},tok());
-    const o=_ordens.find(x=>x.id===id); if(o) o.col='concluido';
+    const o=_ordens.find(x=>x.id===id);
+    const upd = {col:'concluido'};
+    if(o && !o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
+    await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    if(o) Object.assign(o, upd);
     toast('Ordem arquivada','ok');
     goBack();
   } catch(e){toast('Erro ao arquivar','err');}
