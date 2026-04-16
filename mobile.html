@@ -1955,7 +1955,7 @@ async function doLogin() {
 }
 
 async function restoreSession() {
-  const safety = setTimeout(()=>{ localStorage.removeItem('csm_session'); showLogin(); }, 6000);
+  const safety = setTimeout(()=>{ localStorage.removeItem('csm_session'); showLogin(); }, 15000);
   try {
     const s = localStorage.getItem('csm_session');
     if(!s){clearTimeout(safety);showLogin();return;}
@@ -1986,6 +1986,12 @@ async function doLogout() {
 
 // ── LOAD APP ──
 async function loadApp() {
+  // Timeout de segurança: se loadApp travar, redireciona para login
+  const _loadSafety = setTimeout(() => {
+    console.warn('loadApp timeout');
+    document.getElementById('loadTxt').textContent = 'Tempo esgotado. Tente novamente.';
+    setTimeout(() => { localStorage.removeItem('csm_session'); showLogin(); }, 1500);
+  }, 20000);
   try {
     if(!_user.user) _user.user = {id:_user.id||_user.user_id||'',email:_user.email||''};
     if(!_user.user.id && _user.sub) _user.user.id = _user.sub;
@@ -2012,6 +2018,7 @@ async function loadApp() {
         if(row.chave==='cobr_dias_critico') COBR_DIAS_CRITICO = parseInt(row.valor)||7;
       });
     }
+    clearTimeout(_loadSafety);
     setLoad(90,'Iniciando...');
     initApp();
     setLoad(100,'');
@@ -2037,8 +2044,10 @@ async function loadApp() {
       }catch(e){setSyncDot('err');}
     },15000);
   } catch(e) {
-    console.error(e);
-    document.getElementById('loadTxt').textContent='Erro ao carregar. Tente novamente.';
+    clearTimeout(_loadSafety);
+    console.error('loadApp error:', e);
+    document.getElementById('loadTxt').textContent = 'Erro ao carregar. Redirecionando...';
+    setTimeout(() => { localStorage.removeItem('csm_session'); showLogin(); }, 2000);
   }
 }
 
@@ -2277,7 +2286,10 @@ async function verificarAutoEntregas() {
 
 function setTopbar(title, sub='') {
   document.getElementById('topbarTitle').textContent = title;
-  document.getElementById('topbarSub').textContent = sub;
+  const subEl = document.getElementById('topbarSub');
+  // Se sub contém HTML (ex: botão Voltar), usar innerHTML
+  if(sub && sub.includes('<')) subEl.innerHTML = sub;
+  else subEl.textContent = sub;
 }
 
 function diasAberto(o) {
@@ -2835,7 +2847,6 @@ function renderFornecedores() {
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
   const hoje = new Date().toISOString().slice(0,10);
 
-  // Filtrar: só fornecedores com ordens ativas, depois aplicar busca por texto
   const comOrdens = _forns.filter(f => _ordens.some(o => o.forn_id === f.id && cols.includes(o.col)));
   const q = (_fornsQuery||'').toLowerCase().trim();
   const lista = (q
@@ -2845,9 +2856,10 @@ function renderFornecedores() {
 
   setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total');
 
-  const searchBar = `<div style="padding:10px 14px 4px">
-    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
-      style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
+  const searchBar = `<div style="padding:10px 14px 6px">
+    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..."
+      oninput="_fornsQuery=this.value;renderFornecedores()"
+      style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 14px;font-size:14px;color:var(--txt);outline:none;box-sizing:border-box">
   </div>`;
 
   let h = '';
@@ -2856,56 +2868,54 @@ function renderFornecedores() {
     const cor = colors[idx % colors.length];
     const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
-    // Contar ordens ativas deste fornecedor
-    const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
     const ativas = _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col));
-    const hoje = new Date().toISOString().slice(0,10);
-    const hoje_count = ativas.filter(o => o.data === hoje).length;
+    const hojeCount = ativas.filter(o => o.data === hoje).length;
+    const pendForn = _ordens.filter(o => o.forn_id === f.id && !o.forn_pago && (o.cst||0)>0 && o.col!=='orcamento').length;
 
-    // Info de contato
-    const temWA = !!(f.wa_link || f.tel);
-
-    // Regiões resumidas
     let regioes = f.regioes;
     if(typeof regioes === 'string') { try { regioes = JSON.parse(regioes); } catch(e) { regioes = []; } }
     if(!Array.isArray(regioes)) regioes = [];
     const bairrosLabel = regioes.length
       ? regioes.slice(0,3).map(r=>r.bairro||r.regiao||r.nome||'').filter(Boolean).join(', ') + (regioes.length > 3 ? ` +${regioes.length-3}` : '')
-      : 'Atende qualquer bairro';
+      : 'Todos os bairros';
 
-    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
-      <!-- Header do card -->
-      <div style="display:flex;align-items:center;gap:12px;padding:14px">
-        <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">${ini}</div>
+    const temWA = !!(f.wa_link || f.tel);
+
+    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:5px 14px;overflow:hidden">
+
+      <!-- Linha principal -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+        <div style="width:42px;height:42px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0">${ini}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:800;color:var(--txt)">${f.nome}</div>
-          <div style="font-size:11px;color:var(--mut);margin-top:2px">${bairrosLabel}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.nome}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bairrosLabel}</div>
         </div>
-        <div style="text-align:right;flex-shrink:0">
-          ${ativas.length ? `<div style="font-size:18px;font-weight:800;color:var(--acc)">${ativas.length}</div><div style="font-size:10px;color:var(--mut)">ativas</div>` : `<div style="font-size:11px;color:var(--mut2)">sem ordens</div>`}
+        <!-- Badges lado direito -->
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          ${ativas.length ? `<div style="font-size:15px;font-weight:800;color:var(--acc);line-height:1">${ativas.length} <span style="font-size:10px;font-weight:600;color:var(--mut)">ativas</span></div>` : ''}
+          <div style="display:flex;gap:4px;align-items:center">
+            ${hojeCount ? `<span style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">📅 ${hojeCount}hj</span>` : ''}
+            ${pendForn ? `<span style="background:var(--r2);color:var(--r);border:1px solid var(--r3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">💸 ${pendForn}</span>` : ''}
+            ${temWA ? `<span style="background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700">WA</span>` : ''}
+          </div>
         </div>
       </div>
 
-      <!-- Chips de info -->
-      <div style="display:flex;gap:6px;padding:0 14px 10px;flex-wrap:wrap">
-        ${hoje_count ? `<span style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">📅 ${hoje_count} hoje</span>` : ''}
-        ${f.tel ? `<span style="background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--mut)">📞 ${f.tel}</span>` : ''}
-        ${f.wa_link ? `<span style="background:var(--wa);color:var(--wa-c);border:1px solid var(--wa-b);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">WA ✓</span>` : ''}
-        ${regioes.length ? `<span style="background:var(--b2);color:#818cf8;border:1px solid var(--b3);border-radius:6px;padding:3px 9px;font-size:11px">${regioes.length} bairro${regioes.length!==1?'s':''}</span>` : ''}
-      </div>
-
-      <!-- Botões de ação -->
-      <div style="display:flex;gap:0;border-top:1px solid var(--bor)">
+      <!-- Botões de ação compactos -->
+      <div style="display:flex;border-top:1px solid var(--bor)">
         <button onclick="abrirAgendaForn('${f.id}')"
-          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--acc);font-size:12px;font-weight:700;cursor:pointer">
           📲 Agenda
         </button>
-        ${temWA ? `<button onclick="abrirWAFornLivre('${f.id}')"
-          style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-          💬 WA
-        </button>` : `<button disabled style="flex:1;padding:12px 8px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--mut2);font-size:13px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:6px">💬 Sem WA</button>`}
+        ${temWA
+          ? `<button onclick="abrirWAFornLivre('${f.id}')"
+              style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--wa-c);font-size:12px;font-weight:700;cursor:pointer">
+              💬 WA
+            </button>`
+          : `<button disabled style="flex:1;padding:10px 4px;background:transparent;border:none;border-right:1px solid var(--bor);color:var(--mut2);font-size:12px;cursor:not-allowed">💬 WA</button>`
+        }
         <button onclick="abrirEditFornBairro('${f.id}')"
-          style="flex:1;padding:12px 8px;background:transparent;border:none;color:var(--mut);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+          style="flex:1;padding:10px 4px;background:transparent;border:none;color:var(--mut);font-size:12px;font-weight:700;cursor:pointer">
           ⚙️ Editar
         </button>
       </div>
@@ -2914,13 +2924,14 @@ function renderFornecedores() {
 
   const semAgenda = !q && comOrdens.length === 0;
   const emptyMsg = semAgenda
-    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda hoje</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas no momento.</div></div>`
+    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas.</div></div>`
     : lista.length === 0
-      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
+      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div></div>`
       : '';
 
   document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || h);
 }
+
 
 // ── RENDER EQUIPE ──
 // ── PAGAR FORNECEDOR CONDENSADO ──
