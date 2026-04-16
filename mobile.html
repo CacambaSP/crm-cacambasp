@@ -2406,6 +2406,10 @@ function toggleGrupo(key) {
   if(header) header.classList.toggle('collapsed', collapsed);
 }
 
+// ── Helper arquivo morto ──
+function _isArquivoMorto(o){ return o.col==='concluido' && !!(o.cancel_motivo || (!o.pago && !o.forn_pago)); }
+function _isConcluido(o){ return o.col==='concluido' && !_isArquivoMorto(o); }
+
 // ── RENDER INÍCIO ──
 function renderInicio() {
   setTopbar('CaçambaSP', _perfil?.nome||'');
@@ -2558,7 +2562,8 @@ function renderVerTudo(ordens) {
     { key:'vt-pagar',     label:'💳 Cobrar cliente',         cls:'ag-cobrar',    fn: o => o.col==='pagar'||o.col==='faltapg' },
     { key:'vt-pforn',     label:'🚛 Pagar fornecedor',      cls:'ag-pagar',     fn: o => o.forn_id&&!o.forn_pago&&(o.col==='baixar'||o.col==='pagar'||o.col==='entrega'||o.col==='faltapg') },
     { key:'vt-baixar',    label:'⬇️ Baixar',                cls:'',             fn: o => o.col==='baixar' },
-    { key:'vt-concluido', label:'🏁 Concluído',             cls:'',             fn: o => o.col==='concluido' },
+    { key:'vt-concluido', label:'🏁 Concluído',             cls:'',             fn: o => _isConcluido(o) },
+    { key:'vt-morto',     label:'🗄️ Arquivo Morto',         cls:'',             fn: o => _isArquivoMorto(o) },
   ];
   const usados = new Set();
   const grupos = ETAPAS.map(e => {
