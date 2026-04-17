@@ -133,9 +133,10 @@ input,select,textarea,button{font-family:var(--font)}
 .fp-ordem-sub{font-size:11px;color:var(--mut);margin-top:1px}
 .fp-ordem-cst{font-size:13px;font-weight:800;color:var(--cyan);flex-shrink:0}
 /* ── ABA PAGAMENTOS ── */
-.pg-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;padding:14px}
-.pg-card:nth-child(even){background:var(--card)}
-.pg-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pg-card{border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;padding:0}
+.pg-card.pgz-odd{background:var(--sur)}
+.pg-card.pgz-even{background:var(--card)}
+.pg-header{display:flex;align-items:center;gap:10px;padding:12px 14px}
 .pg-forn{font-size:14px;font-weight:800;color:var(--txt);flex:1}
 .pg-val{font-size:16px;font-weight:800;color:var(--cyan)}
 .pg-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--mut)}
@@ -160,7 +161,7 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── VIEWS ── */
 .view{display:none;flex:1;flex-direction:column;overflow:hidden}
 .view.act{display:flex}
-.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 8px}
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 0 8px}
 
 /* ── GRUPOS DE AÇÃO ── */
 .action-group{margin:8px 14px 4px}
@@ -3116,30 +3117,30 @@ function renderPagamentos() {
   const fornIds = [...new Set(todosComForn.map(o=>o.forn_id))];
   const fornOpts = fornIds.map(id=>{ const f=_forns.find(x=>x.id===id); return f?`<option value="${id}">${f.nome}</option>`:''; }).join('');
   const hoje = new Date().toISOString().slice(0,10);
-  const filtroHtml = `<div style="padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--bor)">
+  const filtroHtml = `<div style="padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--bor);box-sizing:border-box;width:100%;overflow:hidden">
     <input id="pgfMobQ" type="search" placeholder="🔍 Buscar nome, endereço, CRM, código..." value="${_pgfMobQ}"
       oninput="_pgfMobQ=this.value;_renderPgfMobLista()"
       style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:13px;box-sizing:border-box">
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;width:100%">
       <select id="pgfMobForn" onchange="_pgfMobForn=this.value;_renderPgfMobLista()"
-        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
         <option value="">— Todos fornecedores —</option>${fornOpts}
       </select>
       <select id="pgfMobStatus" onchange="_pgfMobStatus=this.value;_renderPgfMobLista()"
-        style="width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        style="width:100px;flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
         <option value="todos">Todos</option>
         <option value="pagos">Pagos</option>
         <option value="pendentes">Pendentes</option>
       </select>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
+    <div style="display:flex;gap:6px;align-items:center;width:100%">
       <input id="pgfMobDtIni" type="date" value="${_pgfMobDtIni}" onchange="_pgfMobDtIni=this.value;_renderPgfMobLista()"
-        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
-      <span style="color:var(--mut);font-size:11px">até</span>
+        style="flex:1;min-width:0;padding:6px 4px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;box-sizing:border-box">
+      <span style="color:var(--mut);font-size:11px;flex-shrink:0">até</span>
       <input id="pgfMobDtFim" type="date" value="${_pgfMobDtFim}" onchange="_pgfMobDtFim=this.value;_renderPgfMobLista()"
-        style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        style="flex:1;min-width:0;padding:6px 4px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;box-sizing:border-box">
       <button onclick="_pgfMobDtIni=_pgfMobDtFim='${hoje}';document.getElementById('pgfMobDtIni').value='${hoje}';document.getElementById('pgfMobDtFim').value='${hoje}';_renderPgfMobLista()"
-        style="padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;cursor:pointer;white-space:nowrap">📅 Hoje</button>
+        style="flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;cursor:pointer">Hoje</button>
     </div>
     <div id="pgfMobResumo" style="font-size:11px;color:var(--mut);padding:2px 0"></div>
   </div>
@@ -3184,7 +3185,7 @@ function _renderPgfMobLista() {
   const lotes = {};
   pagos.forEach(o=>{ const key=o.forn_pg_ref||'__sem_ref__'; if(!lotes[key]) lotes[key]=[]; lotes[key].push(o); });
   let h = '';
-  Object.entries(lotes).forEach(([ref, list])=>{
+  Object.entries(lotes).forEach(([ref, list], _pgIdx)=>{
     const forn = _forns.find(f=>f.id===list[0].forn_id);
     const nome = forn?.nome||'Fornecedor';
     const cor = colors[nome.charCodeAt(0)%colors.length];
@@ -3195,9 +3196,9 @@ function _renderPgfMobLista() {
     const tag = partes[1]||'';
     const obs = partes[2]||'';
     const safeRef = btoa(unescape(encodeURIComponent(ref))).replace(/[^a-zA-Z0-9]/g,'');
-    if(_groupStates['pg-'+safeRef] === undefined) _groupStates['pg-'+safeRef] = false;
+    if(_groupStates['pg-'+safeRef] === undefined) _groupStates['pg-'+safeRef] = true;
     const collapsed = _groupStates['pg-'+safeRef] === true;
-    h += `<div class="pg-card">
+    h += `<div class="pg-card ${_pgIdx%2===0?'pgz-odd':'pgz-even'}">
       <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${safeRef}')">
         <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
@@ -3226,17 +3227,17 @@ function _renderPgfMobLista() {
       if(!pendGrupos[key]) pendGrupos[key]=[];
       pendGrupos[key].push(o);
     });
-    Object.entries(pendGrupos).forEach(([fornId, list])=>{
+    Object.entries(pendGrupos).forEach(([fornId, list], _pdIdx)=>{
       const forn = _forns.find(f=>f.id===fornId);
       const nome = forn?.nome||'Sem fornecedor';
       const cor = colors[nome.charCodeAt(0)%colors.length];
       const total = list.reduce((s,o)=>s+parseFloat(o.cst||0),0);
       const safeKey = 'pend-'+fornId.replace(/[^a-zA-Z0-9]/g,'');
-      if(_groupStates[safeKey] === undefined) _groupStates[safeKey] = false;
+      if(_groupStates[safeKey] === undefined) _groupStates[safeKey] = true;
       const collapsed = _groupStates[safeKey] === true;
       const datas = list.map(o=>o.data||o.criado_em||'').filter(Boolean).sort();
       const dataLabel = datas.length ? new Date(datas[datas.length-1]+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-      h += `<div class="pg-card" style="border-left:3px solid #f5a623">
+      h += `<div class="pg-card ${_pdIdx%2===0?'pgz-odd':'pgz-even'}" style="border-left:3px solid #f5a623">
         <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('${safeKey}')">
           <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
           <div style="flex:1;min-width:0">
