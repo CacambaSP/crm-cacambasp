@@ -1012,6 +1012,7 @@ let _groupStates = {}; // { contratar: true, entregar: false, ... }
 let _filtroVendedores = null; // null = não iniciado; [] = todos; [uid] = filtrado
 let _loteSelected = new Set(); // IDs de ordens selecionadas para lote
 let _modoSimples = false; // toggle Simples/Detalhes nos action cards
+let _pgfMobQ = '', _pgfMobForn = '', _pgfMobStatus = 'pendentes', _pgfMobDtIni = '', _pgfMobDtFim = '';
 
 const isAdmin = () => _perfil?.nivel === 'admin';
 const tok = () => _user?.access_token;
