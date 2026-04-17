@@ -555,6 +555,11 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="scroll-area" id="pagamentosContent"></div>
   </div>
 
+  <!-- VIEW: RELATÓRIOS (admin) -->
+  <div class="view" id="view-relatorios">
+    <div class="scroll-area" id="relatoriosContent" style="padding:0"></div>
+  </div>
+
   <!-- VIEW: NOVA ORDEM -->
   <div class="view" id="view-nova">
     <div class="form-scroll" id="novaForm"></div>
@@ -1014,6 +1019,8 @@ let _filtroVendedores = null; // null = não iniciado; [] = todos; [uid] = filtr
 let _loteSelected = new Set(); // IDs de ordens selecionadas para lote
 let _modoSimples = false; // toggle Simples/Detalhes nos action cards
 let _pgfMobQ = '', _pgfMobForn = '', _pgfMobStatus = 'pendentes', _pgfMobDtIni = '', _pgfMobDtFim = '';
+let _relMobTab = 'pgto'; // aba ativa nos relatórios mobile
+let _relMobCliQ = ''; // busca ativa na aba cliente
 
 const isAdmin = () => _perfil?.nivel === 'admin';
 const tok = () => _user?.access_token;
@@ -2122,8 +2129,8 @@ function buildBottomNav() {
       <button class="bnb" id="bnb-financeiro" onclick="setView('financeiro')">
         <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="bnb-lbl">Financeiro</div>
       </button>
-      <button class="bnb" id="bnb-pagamentos" onclick="setView('pagamentos')">
-        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="bnb-lbl">Pgtos Forn</div>
+      <button class="bnb" id="bnb-relatorios" onclick="setView('relatorios')">
+        <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></div><div class="bnb-lbl">Relatórios</div>
       </button>
       <button class="bnb" id="bnb-fornecedores" onclick="setView('fornecedores')">
         <div class="bnb-ico"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="bnb-lbl">Fornecedores</div>
@@ -2168,7 +2175,7 @@ function setView(v, pushStack=true) {
   const fab = document.getElementById('fabNova');
   fab.style.display = (v==='nova'||v==='detalhe'||v==='editar') ? 'none' : 'flex';
   // Search btn oculto em views com header próprio
-  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos'||v==='fornecedores'||v==='orc-mob') ? 'none' : 'flex';
+  document.getElementById('searchBtn').style.display = (v==='nova'||v==='editar'||v==='financeiro'||v==='equipe'||v==='alertas'||v==='pagamentos'||v==='relatorios'||v==='fornecedores'||v==='orc-mob') ? 'none' : 'flex';
   if(_searchOpen && v!=='inicio') toggleSearch();
   renderCurrentView();
 }
@@ -2206,6 +2213,7 @@ function renderCurrentView() {
     case 'alertas':   renderAlertas(); break;
     case 'orc-mob':   renderOrcMob(); break;
     case 'pagamentos': renderPagamentos(); break;
+    case 'relatorios': renderRelatoriosMob(); break;
     case 'fornecedores': renderFornecedores(); break;
     case 'nova':      renderNova(); break;
     case 'editar':    renderEditar(); break;
@@ -2450,8 +2458,8 @@ function renderInicio() {
     vf.style.display = 'flex';
     if(!vf.dataset.built) {
       vf.dataset.built = '1';
-      // Inicializar com o próprio uid apenas na primeira carga (nunca sobrescrever escolha do usuário)
-      if(_filtroVendedores === null) _filtroVendedores = [uid()];
+      // Inicializar com todos selecionados na primeira carga
+      if(_filtroVendedores === null) _filtroVendedores = [];
       renderVendFilter();
     }
   }
@@ -3111,6 +3119,168 @@ async function fpConfirmarDados() {
 }
 
 // ── ABA PAGAMENTOS FORNECEDOR ──
+// ══════════════════════════════════════════════
+// RELATÓRIOS MOBILE
+// ══════════════════════════════════════════════
+function renderRelatoriosMob() {
+  setTopbar('Relatórios','');
+  const el = document.getElementById('relatoriosContent');
+  if(!el) return;
+  const abas = [
+    {id:'pgto',    label:'Pgtos Forn.'},
+    {id:'cliente', label:'Cliente'},
+    {id:'resumo',  label:'Resumo'},
+    {id:'inadimp', label:'Inadimplência'},
+    {id:'cancel',  label:'Cancelados'},
+    {id:'fornecedor', label:'Fornecedor'},
+    {id:'receb',   label:'Recebimentos'},
+    {id:'vendedor',label:'Vendedor'},
+  ];
+  el.innerHTML = `
+    <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--bor);scrollbar-width:none">
+      ${abas.map(a=>`<button onclick="setRelMobTab('${a.id}')" id="rmt-${a.id}"
+        style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bor);background:transparent;color:var(--mut);white-space:nowrap"
+        >${a.label}</button>`).join('')}
+    </div>
+    <div id="relMobBody" style="padding:0"></div>`;
+  _renderRelMobTab();
+}
+
+function setRelMobTab(tab) {
+  _relMobTab = tab;
+  _renderRelMobTab();
+}
+
+function _renderRelMobTab() {
+  // Destacar aba ativa
+  ['pgto','cliente','resumo','inadimp','cancel','fornecedor','receb','vendedor'].forEach(id=>{
+    const btn = document.getElementById('rmt-'+id);
+    if(!btn) return;
+    if(id===_relMobTab) {
+      btn.style.background='var(--acc2)'; btn.style.borderColor='var(--acc3)'; btn.style.color='var(--acc)';
+    } else {
+      btn.style.background='transparent'; btn.style.borderColor='var(--bor)'; btn.style.color='var(--mut)';
+    }
+  });
+  const body = document.getElementById('relMobBody');
+  if(!body) return;
+  if(_relMobTab==='pgto')       { body.innerHTML=''; renderPagamentosInto(body); }
+  else if(_relMobTab==='cliente') _renderRelCliMob(body);
+  else body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut);font-size:14px">Em breve</div>`;
+}
+
+function renderPagamentosInto(container) {
+  const todosComForn = _ordens.filter(o=>o.forn_id);
+  const fornIds = [...new Set(todosComForn.map(o=>o.forn_id))];
+  const fornOpts = fornIds.map(id=>{ const f=_forns.find(x=>x.id===id); return f?`<option value="${id}">${f.nome}</option>`:''; }).join('');
+  const hoje = new Date().toISOString().slice(0,10);
+  container.innerHTML = `<div style="padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--bor);box-sizing:border-box;width:100%;overflow:hidden">
+    <input id="pgfMobQ" type="search" placeholder="Buscar nome, endereço, CRM..." value="${_pgfMobQ}"
+      oninput="_pgfMobQ=this.value;_renderPgfMobLista()"
+      style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:13px;box-sizing:border-box">
+    <div style="display:flex;gap:6px;width:100%">
+      <select id="pgfMobForn" onchange="_pgfMobForn=this.value;_renderPgfMobLista()"
+        style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        <option value="">— Todos fornecedores —</option>${fornOpts}
+      </select>
+      <select id="pgfMobStatus" onchange="_pgfMobStatus=this.value;_renderPgfMobLista()"
+        style="width:100px;flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px">
+        <option value="todos">Todos</option>
+        <option value="pagos">Pagos</option>
+        <option value="pendentes">Pendentes</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;width:100%">
+      <input id="pgfMobDtIni" type="date" value="${_pgfMobDtIni}" onchange="_pgfMobDtIni=this.value;_renderPgfMobLista()"
+        style="flex:1;min-width:0;padding:6px 4px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;box-sizing:border-box">
+      <span style="color:var(--mut);font-size:11px;flex-shrink:0">até</span>
+      <input id="pgfMobDtFim" type="date" value="${_pgfMobDtFim}" onchange="_pgfMobDtFim=this.value;_renderPgfMobLista()"
+        style="flex:1;min-width:0;padding:6px 4px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;box-sizing:border-box">
+      <button onclick="_pgfMobDtIni=_pgfMobDtFim='${hoje}';document.getElementById('pgfMobDtIni').value='${hoje}';document.getElementById('pgfMobDtFim').value='${hoje}';_renderPgfMobLista()"
+        style="flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;cursor:pointer">Hoje</button>
+      <button onclick="_pgfMobQ='';_pgfMobForn='';_pgfMobStatus='pendentes';_pgfMobDtIni='';_pgfMobDtFim='';_renderRelMobTab()"
+        style="flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;cursor:pointer">Limpar</button>
+    </div>
+    <div id="pgfMobResumo" style="font-size:11px;color:var(--mut);padding:2px 0"></div>
+  </div>
+  <div id="pgfMobLista"></div>`;
+  if(_pgfMobForn) document.getElementById('pgfMobForn').value = _pgfMobForn;
+  document.getElementById('pgfMobStatus').value = _pgfMobStatus;
+  _renderPgfMobLista();
+}
+
+function _renderRelCliMob(body) {
+  body.innerHTML = `<div style="padding:10px 12px 8px;border-bottom:1px solid var(--bor)">
+    <input id="relCliQ" type="search" placeholder="Buscar cliente por nome ou WhatsApp..."
+      value="${_relMobCliQ}" oninput="_relMobCliQ=this.value;_renderRelCliLista()"
+      style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:13px;box-sizing:border-box">
+  </div>
+  <div id="relCliLista" style="padding:8px 0"></div>`;
+  _renderRelCliLista();
+}
+
+function _renderRelCliLista() {
+  const lista = document.getElementById('relCliLista');
+  if(!lista) return;
+  const q = (_relMobCliQ||'').toLowerCase();
+  // Agrupar ordens por cliente (wh)
+  const clientes = {};
+  _ordens.forEach(o => {
+    if(!o.wh && !o.nome) return;
+    const key = (o.wh||'').replace(/\D/g,'')||o.nome||'';
+    if(!clientes[key]) clientes[key] = {nome:o.nome||'—', wh:o.wh||'', cpf:o.cpf||'', ordens:[]};
+    clientes[key].ordens.push(o);
+  });
+  let arr = Object.values(clientes);
+  if(q) arr = arr.filter(c=> (c.nome||'').toLowerCase().includes(q) || (c.wh||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+  arr.sort((a,b)=>b.ordens.length-a.ordens.length);
+  if(!arr.length) {
+    lista.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut);font-size:14px">Nenhum cliente encontrado</div>`;
+    return;
+  }
+  const colors = ['#6366f1','#22c55e','#f5a623','#ef4444','#06b6d4'];
+  lista.innerHTML = arr.slice(0,50).map((c,i)=>{
+    const total = c.ordens.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+    const inadimp = c.ordens.some(o=>o.col==='inadimp'||o.col==='faltapg');
+    const cor = colors[c.nome.charCodeAt(0)%colors.length];
+    const safeKey = 'cli-'+i;
+    const collapsed = _groupStates[safeKey] !== false;
+    if(_groupStates[safeKey]===undefined) _groupStates[safeKey]=true;
+    const ordensSort = [...c.ordens].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
+    return `<div style="margin:0 14px 8px;border:1px solid var(--bor);border-radius:var(--rad2);background:${i%2===0?'#181b2a':'#0f1117'};overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer" onclick="toggleGrupo('${safeKey}')">
+        <div style="width:32px;height:32px;border-radius:8px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${c.nome[0]?.toUpperCase()||'?'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nome}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:1px">${c.wh||''} · ${c.ordens.length} pedido${c.ordens.length!==1?'s':''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;font-weight:800;color:var(--cyan)">R$ ${fmt(total)}</div>
+          <div style="font-size:10px;margin-top:2px;padding:1px 7px;border-radius:20px;background:${inadimp?'rgba(239,68,68,.2)':'rgba(34,197,94,.15)'};color:${inadimp?'#f87171':'#4ade80'}">${inadimp?'Inadimplente':'Adimplente'}</div>
+        </div>
+      </div>
+      <div id="ag-body-${safeKey}" class="ag-body${collapsed?' collapsed':''}">
+        ${ordensSort.slice(0,20).map(o=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--bor);cursor:pointer" onclick="abrirDetalheDeRel('${o.id}')">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:#f5a623;font-family:var(--mono)">${o.crm_id||''}</div>
+            <div style="font-size:11px;color:var(--txt);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.end||''} · ${o.bairro||''}</div>
+            <div style="font-size:10px;color:var(--mut);margin-top:1px">${dateF(o.data)} · ${o.col||''}</div>
+          </div>
+          <div style="font-size:12px;font-weight:800;color:var(--cyan);flex-shrink:0">R$ ${fmt(o.rec)}</div>
+          <div style="font-size:16px;color:var(--mut)">›</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirDetalheDeRel(id) {
+  // Empilha 'relatorios' para poder voltar
+  _viewStack.push('relatorios');
+  _detalheId = id;
+  setView('detalhe', false);
+}
+
 function renderPagamentos() {
   setTopbar('Pagamentos Fornecedor','');
   const todosComForn = _ordens.filter(o=>o.forn_id);
@@ -3141,6 +3311,8 @@ function renderPagamentos() {
         style="flex:1;min-width:0;padding:6px 4px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;box-sizing:border-box">
       <button onclick="_pgfMobDtIni=_pgfMobDtFim='${hoje}';document.getElementById('pgfMobDtIni').value='${hoje}';document.getElementById('pgfMobDtFim').value='${hoje}';_renderPgfMobLista()"
         style="flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:11px;cursor:pointer">Hoje</button>
+      <button onclick="_pgfMobQ='';_pgfMobForn='';_pgfMobStatus='pendentes';_pgfMobDtIni='';_pgfMobDtFim='';renderPagamentos()"
+        style="flex-shrink:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--mut);font-size:11px;cursor:pointer">Limpar</button>
     </div>
     <div id="pgfMobResumo" style="font-size:11px;color:var(--mut);padding:2px 0"></div>
   </div>
