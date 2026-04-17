@@ -134,8 +134,8 @@ input,select,textarea,button{font-family:var(--font)}
 .fp-ordem-cst{font-size:13px;font-weight:800;color:var(--cyan);flex-shrink:0}
 /* ── ABA PAGAMENTOS ── */
 .pg-card{border:1px solid var(--bor);border-radius:var(--rad2);margin:6px 14px;padding:0}
-.pg-card.pgz-odd{background:var(--sur)}
-.pg-card.pgz-even{background:var(--card)}
+.pg-card.pgz-odd{background:#181b2a}
+.pg-card.pgz-even{background:#0f1117}
 .pg-header{display:flex;align-items:center;gap:10px;padding:12px 14px}
 .pg-forn{font-size:14px;font-weight:800;color:var(--txt);flex:1}
 .pg-val{font-size:16px;font-weight:800;color:var(--cyan)}
@@ -274,7 +274,7 @@ input,select,textarea,button{font-family:var(--font)}
 .vend-stat span{color:var(--txt);font-weight:600}
 
 /* ── NOVA ORDEM FORM ── */
-.form-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 100px}
+.form-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 160px}
 .form-group{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);overflow:hidden;margin-bottom:12px}
 .form-group-title{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.6px;padding:12px 15px;border-bottom:1px solid var(--bor);background:var(--card)}
 .form-field{padding:0;border-bottom:1px solid var(--bor)}
@@ -295,7 +295,7 @@ input,select,textarea,button{font-family:var(--font)}
 .nf-btn{flex:1;padding:12px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);font-size:14px;font-weight:700;cursor:pointer;text-align:center;color:var(--mut);transition:.15s}
 .nf-btn.sel-sim{background:var(--acc2);border-color:var(--acc3);color:var(--acc)}
 .nf-btn.sel-nao{background:var(--g2);border-color:var(--g3);color:var(--g)}
-.submit-wrap{position:fixed;bottom:0;left:0;right:0;padding:16px;padding-bottom:calc(16px + var(--safe-b));background:var(--sur);border-top:1px solid var(--bor)}
+.submit-wrap{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b));left:0;right:0;padding:12px 16px;background:var(--sur);border-top:1px solid var(--bor);z-index:90}
 .submit-btn{width:100%;padding:16px;background:var(--acc);border:none;border-radius:var(--rad2);font-size:16px;font-weight:800;color:#000;cursor:pointer;transition:opacity .15s}
 .submit-btn:active{opacity:.8}
 .submit-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -3788,6 +3788,136 @@ function _setFiltroAlertaMob(uid){
 }
 
 // ── RENDER NOVA ORDEM ──
+// ── BUSCA DE CLIENTE NO FORMULÁRIO NOVA ORDEM ──
+function nvBuscarCliente(q) {
+  const drop = document.getElementById('nv_cli_drop');
+  if(!drop) return;
+  const t = (q||'').toLowerCase().replace(/\D/g,'') || (q||'').toLowerCase();
+  if(!q || q.length < 2) { drop.style.display='none'; return; }
+  // Buscar nas ordens: agrupa por wh para deduplicar clientes
+  const vistos = {};
+  const resultados = [];
+  _ordens.forEach(o => {
+    const wh = (o.wh||'').replace(/\D/g,'');
+    const nome = (o.nome||'').toLowerCase();
+    const whQ = (q||'').replace(/\D/g,'');
+    const match = nome.includes(q.toLowerCase()) || (whQ.length>=3 && wh.includes(whQ));
+    if(match && !vistos[wh+nome]) {
+      vistos[wh+nome] = true;
+      resultados.push(o);
+    }
+  });
+  if(!resultados.length) {
+    drop.style.display='block';
+    drop.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--mut)">Nenhum cliente encontrado</div>
+      <div style="padding:8px 14px 12px;border-top:1px solid var(--bor)">
+        <button onclick="nvNovoCliente()" style="width:100%;padding:10px;border-radius:var(--rad3);border:1px solid var(--acc3);background:var(--acc2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer">+ Novo cliente</button>
+      </div>`;
+    return;
+  }
+  // Limitar a 8 sugestões
+  const lista = resultados.slice(0,8);
+  drop.style.display='block';
+  drop.innerHTML = lista.map(o=>`
+    <div onclick="nvSelecionarCliente('${(o.wh||'').replace(/'/g,"\'")}','${(o.nome||'').replace(/'/g,"\'")}','${(o.cpf||'').replace(/'/g,"\'")}','${(o.wh||'').replace(/'/g,"\'")}')"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bor);display:flex;flex-direction:column;gap:2px;transition:background .1s"
+      onmouseover="this.style.background='var(--card)'" onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:700;color:var(--txt)">${o.nome||'—'}</div>
+      <div style="font-size:11px;color:var(--mut)">${o.wh||''} ${o.cpf?'· '+o.cpf:''}</div>
+    </div>`).join('') +
+    `<div style="padding:8px 14px 10px;border-top:1px solid var(--bor)">
+      <button onclick="nvNovoCliente()" style="width:100%;padding:8px;border-radius:var(--rad3);border:1px solid var(--bor);background:transparent;color:var(--mut);font-size:12px;font-weight:600;cursor:pointer">+ Novo cliente (não cadastrado)</button>
+    </div>`;
+}
+
+function nvNovoCliente() {
+  const drop = document.getElementById('nv_cli_drop');
+  if(drop) drop.style.display='none';
+  const busca = document.getElementById('nv_busca_cli');
+  if(busca) busca.value='';
+  // Limpar campos e focar no nome
+  ['nv_nome','nv_wh','nv_cpf','nv_rua','nv_bairro'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('nv_end_chips').style.display='none';
+  document.getElementById('nv_nome')?.focus();
+}
+
+function nvSelecionarCliente(wh, nome, cpf, whOrig) {
+  const drop = document.getElementById('nv_cli_drop');
+  if(drop) drop.style.display='none';
+  const busca = document.getElementById('nv_busca_cli');
+  if(busca) busca.value = nome;
+  // Preencher campos
+  const nomeEl = document.getElementById('nv_nome');
+  const whEl = document.getElementById('nv_wh');
+  const cpfEl = document.getElementById('nv_cpf');
+  if(nomeEl) nomeEl.value = nome;
+  if(whEl) { whEl.value = whOrig; verificarCelular(whOrig); }
+  if(cpfEl && cpf) cpfEl.value = cpf;
+  // Buscar endereços anteriores deste cliente
+  const telLimpo = wh.replace(/\D/g,'');
+  const ordensCli = _ordens.filter(o=>(o.wh||'').replace(/\D/g,'')=== telLimpo && o.end && o.bairro);
+  // Deduplicar por rua+bairro
+  const endVistos = {};
+  const enderecos = [];
+  ordensCli.forEach(o=>{
+    const key = (o.end||'').toLowerCase()+'|'+(o.bairro||'').toLowerCase();
+    if(!endVistos[key]) { endVistos[key]=true; enderecos.push({rua:o.end,bairro:o.bairro,cidade:o.cidade||'São Paulo'}); }
+  });
+  const chipsWrap = document.getElementById('nv_end_chips');
+  if(chipsWrap && enderecos.length) {
+    chipsWrap.style.display='block';
+    chipsWrap.innerHTML = `<div style="font-size:11px;color:var(--mut);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Endereços anteriores</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${enderecos.map((e,i)=>`<button type="button" onclick="nvAplicarEndereco(${i})" id="nv_end_chip_${i}"
+          style="padding:7px 12px;border-radius:20px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px;cursor:pointer;text-align:left;transition:.15s">
+          📍 ${e.rua}, ${e.bairro}</button>`).join('')}
+        <button type="button" onclick="nvNovoEndereco()"
+          style="padding:7px 12px;border-radius:20px;border:1px dashed var(--bor);background:transparent;color:var(--mut);font-size:12px;cursor:pointer;transition:.15s">
+          + Novo endereço</button>
+      </div>`;
+    // Guardar endereços para usar ao clicar
+    window._nvEnderecos = enderecos;
+    // Auto-selecionar o primeiro
+    nvAplicarEndereco(0);
+  } else if(chipsWrap) {
+    chipsWrap.style.display='none';
+    window._nvEnderecos = [];
+  }
+}
+
+function nvAplicarEndereco(idx) {
+  const e = (window._nvEnderecos||[])[idx]; if(!e) return;
+  const ruaEl = document.getElementById('nv_rua');
+  const bairroEl = document.getElementById('nv_bairro');
+  const cidadeEl = document.getElementById('nv_cidade');
+  if(ruaEl) ruaEl.value = e.rua||'';
+  if(bairroEl) { bairroEl.value = e.bairro||''; buscarFornSugestao(e.bairro||''); }
+  if(cidadeEl) cidadeEl.value = e.cidade||'São Paulo';
+  // Destacar chip selecionado
+  (window._nvEnderecos||[]).forEach((_,i)=>{
+    const chip = document.getElementById('nv_end_chip_'+i);
+    if(chip) chip.style.background = i===idx ? 'var(--acc2)' : 'var(--card)';
+    if(chip) chip.style.borderColor = i===idx ? 'var(--acc3)' : 'var(--bor)';
+    if(chip) chip.style.color = i===idx ? 'var(--acc)' : 'var(--txt)';
+  });
+}
+
+function nvNovoEndereco() {
+  const ruaEl = document.getElementById('nv_rua');
+  const bairroEl = document.getElementById('nv_bairro');
+  const cidadeEl = document.getElementById('nv_cidade');
+  if(ruaEl) { ruaEl.value=''; ruaEl.focus(); }
+  if(bairroEl) bairroEl.value='';
+  if(cidadeEl) cidadeEl.value='São Paulo';
+  // Resetar chips
+  (window._nvEnderecos||[]).forEach((_,i)=>{
+    const chip = document.getElementById('nv_end_chip_'+i);
+    if(chip) { chip.style.background='var(--card)'; chip.style.borderColor='var(--bor)'; chip.style.color='var(--txt)'; }
+  });
+}
+
 function renderNova() {
   setTopbar('Nova Ordem','');
   _novaTemNF = null;
@@ -3797,6 +3927,14 @@ function renderNova() {
     ${isAdmin()?`<div class="form-group"><div class="form-group-title">Responsável</div><div class="form-field"><label>Vendedor</label><select id="nv_user">${vendedores}</select></div></div>`:''}
     <div class="form-group">
       <div class="form-group-title">Cliente</div>
+      <div style="padding:0 15px 10px">
+        <div style="position:relative">
+          <input type="search" id="nv_busca_cli" placeholder="🔍 Buscar cliente por nome ou WhatsApp..."
+            autocomplete="off" oninput="nvBuscarCliente(this.value)"
+            style="width:100%;padding:10px 12px;border-radius:var(--rad3);border:1px solid var(--acc3);background:var(--card);color:var(--txt);font-size:13px;box-sizing:border-box">
+          <div id="nv_cli_drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad3);z-index:200;max-height:200px;overflow-y:auto;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+        </div>
+      </div>
       <div class="form-field"><label>Nome *</label><input type="text" id="nv_nome" placeholder="Nome completo" autocomplete="off"></div>
       <div id="nv_nome_aviso" style="display:none;margin:0 15px 10px;padding:10px 12px;border-radius:var(--rad3);font-size:13px;border:1px solid"></div>
       <div class="form-field"><label>WhatsApp *</label><input type="tel" id="nv_wh" placeholder="(11) 99999-9999" inputmode="tel" oninput="verificarCelular(this.value)"></div>
@@ -3805,6 +3943,7 @@ function renderNova() {
     </div>
     <div class="form-group">
       <div class="form-group-title">Endereço</div>
+      <div id="nv_end_chips" style="display:none;padding:0 15px 10px"></div>
       <div class="form-field"><label>Rua e número *</label><input type="text" id="nv_rua" placeholder="Ex: Rua das Flores, 123"></div>
       <div class="form-field highlight"><label>Bairro *</label><input type="text" id="nv_bairro" placeholder="Digite para sugestão de fornecedor" oninput="buscarFornSugestao(this.value)"></div>
       <div class="form-field"><label>Cidade</label><input type="text" id="nv_cidade" placeholder="São Paulo" value="São Paulo"></div>
