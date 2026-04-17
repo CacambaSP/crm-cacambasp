@@ -730,6 +730,7 @@ input[type=checkbox]:checked::after{
             <button class="rel-tab" onclick="setRelTab('agenda_dia')" data-tab="agenda_dia">📅 Agenda do Dia</button>
             <button class="rel-tab" onclick="setRelTab('recibo')" data-tab="recibo">🧾 Recibo</button>
             <button class="rel-tab" onclick="setRelTab('pgtosforn')" data-tab="pgtosforn">🔍 Pgtos Forn.</button>
+            <button class="rel-tab" onclick="setRelTab('cliente')" data-tab="cliente">👥 Cliente</button>
             <button class="rel-tab admin-only" onclick="setRelTab('analytics')" data-tab="analytics">🔬 Analytics</button>
           </div>
           <div id="relConteudo"></div>
@@ -7240,6 +7241,7 @@ function renderRel(){
   else if(_relTab==='agenda_dia') el.innerHTML=_relAgendaDia(document.getElementById('agendaDiaFiltro')?.value||'');
   else if(_relTab==='recibo') el.innerHTML=_relRecibo();
   else if(_relTab==='pgtosforn') el.innerHTML=_relPgtosForn();
+  else if(_relTab==='cliente') el.innerHTML=_relCliente();
   else if(_relTab==='analytics'){ _relAnalytics(el); }
 }
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
@@ -7378,6 +7380,104 @@ function _relPgtosForn(){
       <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
   }).join('')}</tbody></table></div>`}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Relatório: Cliente ───────────────────────────────────────────────────────
+let _relCliQ = '';
+let _relCliExpanded = {}; // { wh: true/false }
+
+function _relCliente() {
+  const inputStyle = 'background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)';
+  const q = (document.getElementById('relCliQ')?.value || _relCliQ || '').toLowerCase().trim();
+
+  // Agrupar ordens por cliente via WhatsApp normalizado
+  const clientes = {};
+  ordens.forEach(c => {
+    if(!c.nome && !c.cel) return;
+    const key = (c.cel||c.wh||'').replace(/\D/g,'') || c.nome || '';
+    if(!clientes[key]) clientes[key] = { nome: c.nome||'—', cel: c.cel||c.wh||'', cpf: c.cpf||'', ordens: [] };
+    // Atualizar nome para o mais recente
+    if(c.nome && (!clientes[key].nome || clientes[key].nome==='—')) clientes[key].nome = c.nome;
+    clientes[key].ordens.push(c);
+  });
+
+  let arr = Object.values(clientes);
+
+  // Filtro busca
+  if(q) {
+    const qTel = q.replace(/\D/g,'');
+    arr = arr.filter(c =>
+      (c.nome||'').toLowerCase().includes(q) ||
+      (qTel.length >= 3 && (c.cel||'').replace(/\D/g,'').includes(qTel))
+    );
+  }
+
+  // Ordenar por volume de ordens desc
+  arr.sort((a,b) => b.ordens.length - a.ordens.length);
+
+  // KPIs
+  const totalClientes = arr.length;
+  const totalReceita = arr.reduce((s,c) => s + c.ordens.reduce((ss,o)=>ss+parseFloat(o.rec||0),0), 0);
+  const inadimplentes = arr.filter(c => c.ordens.some(o=>o.col==='inadimp'||o.col==='faltapg')).length;
+
+  const rows = arr.slice(0, 200).map((c, idx) => {
+    const total = c.ordens.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+    const inadimp = c.ordens.some(o=>o.col==='inadimp'||o.col==='faltapg');
+    const expanded = _relCliExpanded[c.cel+c.nome] === true;
+    const ordensSort = [...c.ordens].sort((a,b)=>(b.data||b.criado_em||'').localeCompare(a.data||a.criado_em||''));
+    const safeKey = (c.cel+c.nome).replace(/[^a-zA-Z0-9]/g,'_');
+    const subRows = expanded ? ordensSort.map(o => {
+      const dataO = o.data ? o.data.slice(8,10)+'/'+o.data.slice(5,7)+'/'+o.data.slice(0,4) : '—';
+      const end = [o.logradouro||o.end, o.bairro].filter(Boolean).join(', ');
+      const colLabel = {contratar:'Contratar',ag_entrega:'Ag.Entrega',entrega:'Entrega',pagar:'Receber',faltapg:'Falta Pg',baixar:'Baixar',inadimp:'Inadimp.',concluido:'Concluído',cancelado:'Cancelado',orcamento:'Orçamento'}[o.col]||o.col||'—';
+      const colColor = ['inadimp','faltapg'].includes(o.col)?'var(--r)':o.col==='concluido'?'var(--g)':'var(--mut2)';
+      return `<tr style="background:rgba(0,0,0,.15)">
+        <td style="padding:7px 14px 7px 28px;font-family:var(--mono);font-size:11px">
+          <span onclick="event.stopPropagation();_detailId='${o.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${o.crm_id||'—'}</span>
+        </td>
+        <td style="font-size:11px;color:var(--mut2);white-space:nowrap;padding:7px 14px">${dataO}</td>
+        <td style="font-size:11px;color:var(--txt);padding:7px 14px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${end||'—'}</td>
+        <td style="font-size:11px;color:${colColor};padding:7px 14px;white-space:nowrap">${colLabel}</td>
+        <td class="r" style="font-weight:700;color:var(--g);padding:7px 14px;white-space:nowrap">R$ ${fmt(o.rec)}</td>
+      </tr>`;
+    }).join('') : '';
+
+    return `<tr style="cursor:pointer;background:${idx%2===0?'var(--sur)':'rgba(255,255,255,.015)'}"
+        onclick="_relCliExpanded['${safeKey}']=!_relCliExpanded['${safeKey}'];document.getElementById('relConteudo').innerHTML=_relCliente()">
+      <td style="padding:10px 14px;font-weight:700;color:var(--txt)">${c.nome}</td>
+      <td style="font-size:12px;color:var(--mut2);padding:10px 14px;font-family:var(--mono)">${c.cel||'—'}</td>
+      <td style="padding:10px 14px;text-align:center">
+        <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;background:${inadimp?'rgba(239,68,68,.15)':'rgba(34,197,94,.12)'};color:${inadimp?'var(--r)':'var(--g)'}">${inadimp?'Inadimplente':'Adimplente'}</span>
+      </td>
+      <td class="r" style="padding:10px 14px;font-size:12px;color:var(--mut2)">${c.ordens.length}</td>
+      <td class="r" style="padding:10px 14px;font-weight:700;color:var(--acc)">R$ ${fmt(total)}</td>
+      <td style="padding:10px 14px;text-align:center;font-size:14px;color:var(--mut2)">${expanded?'▲':'▼'}</td>
+    </tr>
+    ${subRows}`;
+  }).join('');
+
+  return `
+  <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👥 Buscar cliente</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="relCliQ" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${q}"
+        oninput="_relCliQ=this.value;document.getElementById('relConteudo').innerHTML=_relCliente()"
+        style="${inputStyle};flex:1;min-width:200px">
+      <button onclick="document.getElementById('relCliQ').value='';_relCliQ='';_relCliExpanded={};document.getElementById('relConteudo').innerHTML=_relCliente()"
+        style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕ Limpar</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    ${_kpi(totalClientes+' clientes','histórico completo','var(--acc)','')}
+    ${_kpi('Receita total','R$ '+fmt(totalReceita),'var(--g)','')}
+    ${inadimplentes>0?_kpi(inadimplentes+' inadimplentes','com pendência','var(--r)',''):''}
+  </div>
+  ${!arr.length?'<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>':
+  `<div class="rel-table-wrap"><table class="rel-table"><thead><tr>
+    <th>Cliente</th><th>WhatsApp</th><th style="text-align:center">Status</th>
+    <th class="r">Pedidos</th><th class="r">Total</th><th style="text-align:center">Ver</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`}`;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
