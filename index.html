@@ -998,6 +998,15 @@ input[type=checkbox]:checked::after{
         <div id="o_nf_erro" style="display:none;font-size:11px;color:var(--r);margin-top:8px;font-weight:600">⚠️ Escolha uma opção antes de continuar</div>
         <div id="o_nf_escolhido" style="display:none;margin-top:10px;font-size:12px;padding:7px 10px;border-radius:var(--rad3)"></div>
       </div>
+      <div class="fi" style="margin-bottom:6px">
+        <label style="font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.04em;font-weight:700">Buscar cliente cadastrado</label>
+        <div style="position:relative">
+          <input type="search" id="o_busca_cli" placeholder="🔍 Nome ou WhatsApp..." autocomplete="off"
+            oninput="idxBuscarCliente(this.value)"
+            style="width:100%;background:var(--card);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px;font-size:13px;color:var(--txt);outline:none;font-family:var(--font)">
+          <div id="o_cli_drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad3);z-index:300;max-height:220px;overflow-y:auto;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+        </div>
+      </div>
       <div class="fi"><label>Nome do cliente <span style="color:var(--r)">*</span></label><input type="text" id="o_nome" autocomplete="off"></div>
       <div id="o_nome_aviso" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad3);padding:9px 12px;font-size:12px;color:var(--acc);margin-top:-8px;margin-bottom:6px"></div>
       <div class="fi-row">
@@ -1008,6 +1017,10 @@ input[type=checkbox]:checked::after{
       <div class="fi"><label>E-mail</label><input type="email" id="o_email"></div>
     </div>
     <div class="mtab-p" id="otab-servico">
+      <div id="o_end_chips" style="display:none;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px">Endereços anteriores</div>
+        <div id="o_end_chips_list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
       <div class="fi"><label>Endereço <span style="color:var(--r)">*</span></label><input type="text" id="o_end" placeholder="Rua, número" oninput="atualizarSugestaoForn()"></div>
       <div class="fi-row">
         <div class="fi"><label>Bairro</label><input type="text" id="o_bairro" oninput="atualizarSugestaoForn()"></div>
@@ -2963,6 +2976,137 @@ async function selRemarcarLote(){
   toast('Data atualizada para '+ok+' ordem(ns)'+(err?' · '+err+' erro(s)':''), ok>0?'ok':'warn');
 }
 
+// ── BUSCA DE CLIENTE NO MODAL NOVA ORDEM (index) ──
+function idxBuscarCliente(q) {
+  const drop = document.getElementById('o_cli_drop');
+  if(!drop) return;
+  if(!q || q.length < 2) { drop.style.display='none'; return; }
+  const qLow = q.toLowerCase();
+  const qTel = q.replace(/\D/g,'');
+  const vistos = {};
+  const resultados = [];
+  ordens.forEach(o => {
+    const cel = (o.cel||'').replace(/\D/g,'');
+    const nome = (o.nome||'').toLowerCase();
+    const match = nome.includes(qLow) || (qTel.length>=3 && cel.includes(qTel));
+    const key = cel+(o.nome||'');
+    if(match && !vistos[key]) {
+      vistos[key] = true;
+      resultados.push(o);
+    }
+  });
+  if(!resultados.length) {
+    drop.style.display='block';
+    drop.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--mut2)">Nenhum cliente encontrado</div>
+      <div style="padding:6px 10px 10px;border-top:1px solid var(--bor)">
+        <button onclick="idxNovoCliente()" style="width:100%;padding:8px;border-radius:var(--rad3);border:1px solid var(--bor);background:transparent;color:var(--mut2);font-size:12px;cursor:pointer;font-family:var(--font)">+ Novo cliente</button>
+      </div>`;
+    return;
+  }
+  const lista = resultados.slice(0,8);
+  drop.style.display='block';
+  drop.innerHTML = lista.map(o=>`
+    <div onclick="idxSelecionarCliente('${(o.cel||'').replace(/'/g,"\'")}','${(o.nome||'').replace(/'/g,"\'")}','${(o.cpf||'').replace(/'/g,"\'")}')"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--bor);transition:background .1s"
+      onmouseover="this.style.background='var(--card)'" onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:600;color:var(--txt)">${o.nome||'—'}</div>
+      <div style="font-size:11px;color:var(--mut2)">${o.cel||''} ${o.cpf?'· '+o.cpf:''}</div>
+    </div>`).join('') +
+    `<div style="padding:6px 10px 10px;border-top:1px solid var(--bor)">
+      <button onclick="idxNovoCliente()" style="width:100%;padding:7px;border-radius:var(--rad3);border:1px solid var(--bor);background:transparent;color:var(--mut2);font-size:12px;cursor:pointer;font-family:var(--font)">+ Novo cliente (não cadastrado)</button>
+    </div>`;
+}
+
+function idxNovoCliente() {
+  const drop = document.getElementById('o_cli_drop');
+  if(drop) drop.style.display='none';
+  const busca = document.getElementById('o_busca_cli');
+  if(busca) busca.value='';
+  ['o_nome','o_cel','o_cpf','o_email'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('o_end_chips').style.display='none';
+  window._idxEnderecos=[];
+  document.getElementById('o_nome')?.focus();
+}
+
+function idxSelecionarCliente(cel, nome, cpf) {
+  const drop = document.getElementById('o_cli_drop');
+  if(drop) drop.style.display='none';
+  const busca = document.getElementById('o_busca_cli');
+  if(busca) busca.value=nome;
+  // Preencher campos
+  const nomeEl=document.getElementById('o_nome');
+  const celEl=document.getElementById('o_cel');
+  const cpfEl=document.getElementById('o_cpf');
+  if(nomeEl) nomeEl.value=nome;
+  if(celEl) { celEl.value=cel; verificarInadimplente(cel); }
+  if(cpfEl && cpf) cpfEl.value=cpf;
+  // Buscar endereços anteriores
+  const celLimpo = cel.replace(/\D/g,'');
+  const ordensCli = ordens.filter(o=>(o.cel||'').replace(/\D/g,'')=== celLimpo && (o.logradouro||o.end) && o.bairro);
+  const endVistos={};
+  const enderecos=[];
+  ordensCli.forEach(o=>{
+    const rua=o.logradouro||o.end||'';
+    const key=rua.toLowerCase()+'|'+(o.bairro||'').toLowerCase();
+    if(!endVistos[key]){endVistos[key]=true;enderecos.push({rua,bairro:o.bairro||'',cidade:o.cidade||'São Paulo'});}
+  });
+  window._idxEnderecos=enderecos;
+  const chipsWrap=document.getElementById('o_end_chips');
+  const chipsList=document.getElementById('o_end_chips_list');
+  if(chipsWrap && chipsList && enderecos.length) {
+    chipsWrap.style.display='block';
+    chipsList.innerHTML = enderecos.map((e,i)=>
+      `<button type="button" id="idx_end_chip_${i}" onclick="idxAplicarEndereco(${i})"
+        style="padding:6px 12px;border-radius:20px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px;cursor:pointer;transition:.15s">
+        📍 ${e.rua}, ${e.bairro}</button>`
+    ).join('') +
+    `<button type="button" onclick="idxNovoEndereco()"
+      style="padding:6px 12px;border-radius:20px;border:1px dashed var(--bor);background:transparent;color:var(--mut2);font-size:12px;cursor:pointer">
+      + Novo endereço</button>`;
+    // Auto-selecionar primeiro
+    idxAplicarEndereco(0);
+  } else if(chipsWrap) {
+    chipsWrap.style.display='none';
+  }
+}
+
+function idxAplicarEndereco(idx) {
+  const e=(window._idxEnderecos||[])[idx]; if(!e) return;
+  const endEl=document.getElementById('o_end');
+  const bairroEl=document.getElementById('o_bairro');
+  const cidadeEl=document.getElementById('o_cidade');
+  if(endEl) endEl.value=e.rua||'';
+  if(bairroEl) bairroEl.value=e.bairro||'';
+  if(cidadeEl) cidadeEl.value=e.cidade||'São Paulo';
+  atualizarSugestaoForn();
+  // Destacar chip
+  (window._idxEnderecos||[]).forEach((_,i)=>{
+    const chip=document.getElementById('idx_end_chip_'+i);
+    if(!chip) return;
+    chip.style.background = i===idx?'var(--acc2)':'var(--card)';
+    chip.style.borderColor = i===idx?'var(--acc3)':'var(--bor)';
+    chip.style.color = i===idx?'var(--acc)':'var(--txt)';
+  });
+}
+
+function idxNovoEndereco() {
+  const endEl=document.getElementById('o_end');
+  const bairroEl=document.getElementById('o_bairro');
+  const cidadeEl=document.getElementById('o_cidade');
+  if(endEl){endEl.value='';endEl.focus();}
+  if(bairroEl) bairroEl.value='';
+  if(cidadeEl) cidadeEl.value='São Paulo';
+  (window._idxEnderecos||[]).forEach((_,i)=>{
+    const chip=document.getElementById('idx_end_chip_'+i);
+    if(!chip) return;
+    chip.style.background='var(--card)';
+    chip.style.borderColor='var(--bor)';
+    chip.style.color='var(--txt)';
+  });
+}
+
 // ── NOVA/EDITAR ORDEM ──
 function openNovaOrdem(){
   _ordemEditId=null;
@@ -2977,6 +3121,11 @@ function openNovaOrdem(){
   const _nfInfo=document.getElementById('o_nf_escolhido');if(_nfInfo)_nfInfo.style.display='none';
   const _nfErro=document.getElementById('o_nf_erro');if(_nfErro)_nfErro.style.display='none';
   const _inadEl=document.getElementById('o_inad_aviso');if(_inadEl)_inadEl.style.display='none';
+  const _buscaCli=document.getElementById('o_busca_cli');if(_buscaCli)_buscaCli.value='';
+  const _cliDrop=document.getElementById('o_cli_drop');if(_cliDrop)_cliDrop.style.display='none';
+  const _endChips=document.getElementById('o_end_chips');if(_endChips)_endChips.style.display='none';
+  const _endChipsList=document.getElementById('o_end_chips_list');if(_endChipsList)_endChipsList.innerHTML='';
+  window._idxEnderecos=[];
   document.getElementById('o_rec').value=''; document.getElementById('o_cst').value='';
   document.getElementById('o_data').value=new Date().toISOString().slice(0,10);
   document.getElementById('o_tipo').value='Nova coloca';
