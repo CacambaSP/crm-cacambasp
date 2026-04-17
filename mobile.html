@@ -1425,7 +1425,7 @@ function _abrirWAFornModal(o, f, tipo) {
   if(tipo === 'os') {
     texto = `📦 1 caçamba · 📅 ${data}
 📍 ${endereco}
-👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
+👤 ${o.nome||'—'} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
 📋 OS: ${o.crm_id||'—'}
 
@@ -1464,7 +1464,7 @@ function copiarOS(id) {
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const texto = `📦 1 caçamba · 📅 ${dateF(o.data)}
 📍 ${endereco}
-👤 ${o.nome||'—'} · 📞 ${o.cel||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
+👤 ${o.nome||'—'} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
 📋 OS: ${o.crm_id||'—'}
 
@@ -1530,7 +1530,7 @@ async function abrirAgendaForn(fid, filtroData) {
     const primeiro = (o.nome||'').split(' ')[0];
     return `${i+1}️⃣ 📦 ${o.qtd} · 📅 ${dateF(o.data)}${t?' · '+t:''}
 📍 ${end}
-👤 ${primeiro} · 📞 ${o.cel||'—'}${o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:''}
+👤 ${primeiro} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n📄 CPF/CNPJ: '+o.cpf:''}
 ${o.crm_id||''}`;
   });
 
@@ -1935,7 +1935,7 @@ function onSearchInput(val) {
 function matchSearch(o) {
   if(!_searchQuery || _searchQuery.length < 2) return true;
   const q = _searchQuery;
-  const celLimpo = (o.cel||'').replace(/\D/g,'');
+  const celLimpo = (o.cel||o.wh||'').replace(/\D/g,'');
   const qLimpo = q.replace(/\D/g,'');
   return (o.nome||'').toLowerCase().includes(q) ||
     (o.logradouro||'').toLowerCase().includes(q) ||
@@ -2720,7 +2720,7 @@ async function dispararLote() {
 function actionCardHTML(o, tipoAcao, loteMode=false) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   const d = diasAberto(o);
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   const urgBadge = d>=5 ? `<span class="ac-urgency">⚠️ ${d}d</span>` : '';
   let turnoLabel = '';
   let acoes = '';
@@ -3263,7 +3263,7 @@ function _renderRelCliLista() {
         ${ordensSort.slice(0,20).map(o=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--bor);cursor:pointer" onclick="abrirDetalheDeRel('${o.id}')">
           <div style="flex:1;min-width:0">
             <div style="font-size:12px;font-weight:700;color:#f5a623;font-family:var(--mono)">${o.crm_id||''}</div>
-            <div style="font-size:11px;color:var(--txt);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.end||''} · ${o.bairro||''}</div>
+            <div style="font-size:11px;color:var(--txt);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.logradouro||o.end||''} · ${o.bairro||''}</div>
             <div style="font-size:10px;color:var(--mut);margin-top:1px">${dateF(o.data)} · ${o.col||''}</div>
           </div>
           <div style="font-size:12px;font-weight:800;color:var(--cyan);flex-shrink:0">R$ ${fmt(o.rec)}</div>
@@ -3338,7 +3338,7 @@ function _renderPgfMobLista() {
     }
     if(q) {
       const forn = _forns.find(f=>f.id===o.forn_id);
-      const txt = [(forn?.nome||''),(o.nome||''),(o.end||''),(o.bairro||''),(o.crm_id||''),(o.forn_pg_ref||'')].join(' ').toLowerCase();
+      const txt = [(forn?.nome||''),(o.nome||''),(o.logradouro||o.end||''),(o.bairro||''),(o.crm_id||''),(o.forn_pg_ref||'')].join(' ').toLowerCase();
       if(!txt.includes(q)) return false;
     }
     return true;
@@ -3964,18 +3964,17 @@ function _setFiltroAlertaMob(uid){
 function nvBuscarCliente(q) {
   const drop = document.getElementById('nv_cli_drop');
   if(!drop) return;
-  const t = (q||'').toLowerCase().replace(/\D/g,'') || (q||'').toLowerCase();
   if(!q || q.length < 2) { drop.style.display='none'; return; }
-  // Buscar nas ordens: agrupa por wh para deduplicar clientes
+  // Buscar nas ordens: agrupa por cel/wh para deduplicar clientes
   const vistos = {};
   const resultados = [];
   _ordens.forEach(o => {
-    const wh = (o.wh||'').replace(/\D/g,'');
+    const cel = (o.cel||o.wh||'').replace(/\D/g,'');
     const nome = (o.nome||'').toLowerCase();
-    const whQ = (q||'').replace(/\D/g,'');
-    const match = nome.includes(q.toLowerCase()) || (whQ.length>=3 && wh.includes(whQ));
-    if(match && !vistos[wh+nome]) {
-      vistos[wh+nome] = true;
+    const celQ = (q||'').replace(/\D/g,'');
+    const match = nome.includes(q.toLowerCase()) || (celQ.length>=3 && cel.includes(celQ));
+    if(match && !vistos[cel+nome]) {
+      vistos[cel+nome] = true;
       resultados.push(o);
     }
   });
@@ -3990,13 +3989,13 @@ function nvBuscarCliente(q) {
   // Limitar a 8 sugestões
   const lista = resultados.slice(0,8);
   drop.style.display='block';
-  drop.innerHTML = lista.map(o=>`
-    <div onclick="nvSelecionarCliente('${(o.wh||'').replace(/'/g,"\'")}','${(o.nome||'').replace(/'/g,"\'")}','${(o.cpf||'').replace(/'/g,"\'")}','${(o.wh||'').replace(/'/g,"\'")}')"
+  drop.innerHTML = lista.map(o=>{ const celOrig=(o.cel||o.wh||''); return `
+    <div onclick="nvSelecionarCliente('${celOrig.replace(/'/g,"\'")}','${(o.nome||'').replace(/'/g,"\'")}','${(o.cpf||'').replace(/'/g,"\'")}','${celOrig.replace(/'/g,"\'")}')"
       style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bor);display:flex;flex-direction:column;gap:2px;transition:background .1s"
       onmouseover="this.style.background='var(--card)'" onmouseout="this.style.background=''">
       <div style="font-size:13px;font-weight:700;color:var(--txt)">${o.nome||'—'}</div>
-      <div style="font-size:11px;color:var(--mut)">${o.wh||''} ${o.cpf?'· '+o.cpf:''}</div>
-    </div>`).join('') +
+      <div style="font-size:11px;color:var(--mut)">${celOrig} ${o.cpf?'· '+o.cpf:''}</div>
+    </div>`;}).join('') +
     `<div style="padding:8px 14px 10px;border-top:1px solid var(--bor)">
       <button onclick="nvNovoCliente()" style="width:100%;padding:8px;border-radius:var(--rad3);border:1px solid var(--bor);background:transparent;color:var(--mut);font-size:12px;font-weight:600;cursor:pointer">+ Novo cliente (não cadastrado)</button>
     </div>`;
@@ -4029,13 +4028,14 @@ function nvSelecionarCliente(wh, nome, cpf, whOrig) {
   if(cpfEl && cpf) cpfEl.value = cpf;
   // Buscar endereços anteriores deste cliente
   const telLimpo = wh.replace(/\D/g,'');
-  const ordensCli = _ordens.filter(o=>(o.wh||'').replace(/\D/g,'')=== telLimpo && o.end && o.bairro);
+  const ordensCli = _ordens.filter(o=>(o.cel||o.wh||'').replace(/\D/g,'')=== telLimpo && (o.logradouro||o.end) && o.bairro);
   // Deduplicar por rua+bairro
   const endVistos = {};
   const enderecos = [];
   ordensCli.forEach(o=>{
-    const key = (o.end||'').toLowerCase()+'|'+(o.bairro||'').toLowerCase();
-    if(!endVistos[key]) { endVistos[key]=true; enderecos.push({rua:o.end,bairro:o.bairro,cidade:o.cidade||'São Paulo'}); }
+    const rua = o.logradouro||o.end||'';
+    const key = rua.toLowerCase()+'|'+(o.bairro||'').toLowerCase();
+    if(!endVistos[key]) { endVistos[key]=true; enderecos.push({rua,bairro:o.bairro,cidade:o.cidade||'São Paulo'}); }
   });
   const chipsWrap = document.getElementById('nv_end_chips');
   if(chipsWrap && enderecos.length) {
@@ -4158,7 +4158,7 @@ function verificarCelular(cel) {
 
   const ordensDoTel = _ordens.filter(o =>
     o.col!=='concluido' && o.col!=='orcamento' &&
-    (o.cel||'').replace(/\D/g,'') === telLimpo
+    (o.cel||o.wh||'').replace(/\D/g,'') === telLimpo
   );
 
   // Inadimplência
@@ -4286,6 +4286,8 @@ async function salvarNovaOrdem() {
       id: uidGen(), crm_id,
       usuario_id: uid2, nome,
       cel: wh.replace(/\D/g,''),
+      wh: wh.replace(/\D/g,''),
+      end: rua,
       cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
       logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
       tipo: document.getElementById('nv_tipo')?.value||'Locação',
@@ -4374,7 +4376,7 @@ function renderDetalhe(id) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   const resp = _usuarios.find(u=>u.id===o.usuario_id);
   const d = diasAberto(o);
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   let statusClass = o.pago?'pago':(d>=5?'urg':'pend');
   let statusTxt = o.pago?'✅ Pago':(d>=5?`🔴 Atrasado ${d}d`:`⏳ Em aberto ${d}d`);
   let statusDias = !o.pago && d>0 ? ` · ${d}d` : '';
@@ -4404,7 +4406,7 @@ function renderDetalhe(id) {
   <div class="detail-section">
     <div class="detail-section-title">Cliente</div>
     <div class="detail-row"><div class="detail-key">Nome</div><div class="detail-val">${o.nome||'—'}</div></div>
-    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${tel?`<a class="phone-link" href="tel:+55${tel}">${o.cel}</a>`:'—'}</div></div>
+    <div class="detail-row"><div class="detail-key">WhatsApp</div><div class="detail-val">${tel?`<a class="phone-link" href="tel:+55${tel}">${o.cel||o.wh||""}</a>`:'—'}</div></div>
     ${o.cpf?`<div class="detail-row"><div class="detail-key">CPF/CNPJ</div><div class="detail-val">${o.cpf}</div></div>`:''}
   </div>
   <div class="detail-section">
@@ -4652,7 +4654,7 @@ async function copiarPix() {
 function enviarPixWA() {
   const o = _ordens.find(x=>x.id===_pixOrdemId);
   if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
@@ -4660,7 +4662,7 @@ function enviarPixWA() {
 // ── WHATSAPP ──
 function enviarWA(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   const d = diasAberto(o);
   const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
@@ -4695,7 +4697,7 @@ function enviarWAForn(id) {
 
 function enviarTracking(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
   const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
@@ -5049,7 +5051,7 @@ async function salvarEEnviarOrcMob() {
   if(!ok) return;
   const id = _orcMobId; if(!id) return;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  const tel = (o.cel||'').replace(/\D/g,'');
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){ toast('Sem telefone cadastrado','warn'); return; }
   const valor = parseFloat(document.getElementById('om_valor')?.value||0)||null;
   const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
