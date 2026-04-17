@@ -3193,8 +3193,9 @@ function _renderPgfMobLista() {
     const forma = partes[0]||'—';
     const tag = partes[1]||'';
     const obs = partes[2]||'';
-    const collapsed = _groupStates['pg-'+ref] !== false;
     const safeRef = btoa(unescape(encodeURIComponent(ref))).replace(/[^a-zA-Z0-9]/g,'');
+    if(_groupStates['pg-'+safeRef] === undefined) _groupStates['pg-'+safeRef] = false;
+    const collapsed = _groupStates['pg-'+safeRef] === true;
     h += `<div class="pg-card">
       <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${safeRef}')">
         <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
@@ -4746,4 +4747,3 @@ Qualquer dúvida estamos à disposição! 😊`;
 </script>
 </body>
 </html>
-document.addEventListener('DOMContentLoaded', () => { restoreSession(); });
