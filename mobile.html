@@ -3220,18 +3220,39 @@ function _renderPgfMobLista() {
   });
   if(pend.length) {
     h += `<div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:.5px">⏳ Pendentes (${pend.length})</div>`;
+    const pendGrupos = {};
     pend.forEach(o=>{
-      const forn = _forns.find(f=>f.id===o.forn_id);
-      const nome = forn?.nome||'Fornecedor';
+      const key = o.forn_id||'__sem_forn__';
+      if(!pendGrupos[key]) pendGrupos[key]=[];
+      pendGrupos[key].push(o);
+    });
+    Object.entries(pendGrupos).forEach(([fornId, list])=>{
+      const forn = _forns.find(f=>f.id===fornId);
+      const nome = forn?.nome||'Sem fornecedor';
       const cor = colors[nome.charCodeAt(0)%colors.length];
+      const total = list.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+      const safeKey = 'pend-'+fornId.replace(/[^a-zA-Z0-9]/g,'');
+      if(_groupStates[safeKey] === undefined) _groupStates[safeKey] = false;
+      const collapsed = _groupStates[safeKey] === true;
+      const datas = list.map(o=>o.data||o.criado_em||'').filter(Boolean).sort();
+      const dataLabel = datas.length ? new Date(datas[datas.length-1]+'T12:00:00').toLocaleDateString('pt-BR') : '—';
       h += `<div class="pg-card" style="border-left:3px solid #f5a623">
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+        <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('${safeKey}')">
           <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.crm_id||''} · ${o.nome||'—'}</div>
-            <div style="font-size:11px;color:var(--mut);margin-top:1px">${nome} · 📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+            <div class="pg-forn" style="color:#f5a623">${nome}</div>
+            <div class="pg-meta"><span>📅 ${dataLabel}</span><span>⏳ Pendente</span><span>${list.length} ordem${list.length!==1?'s':''}</span></div>
           </div>
-          <div style="font-size:13px;font-weight:800;color:#f5a623">R$ ${fmt(o.cst)}</div>
+          <div class="pg-val" style="color:#f5a623">R$ ${fmt(total)}</div>
+        </div>
+        <div id="ag-body-${safeKey}" class="ag-body${collapsed?' collapsed':''}">
+          ${list.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--bor)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--txt)">${o.nome||'—'} · <span style="font-family:var(--mono);font-size:10px;color:var(--mut)">${o.crm_id||''}</span></div>
+              <div style="font-size:11px;color:var(--mut);margin-top:1px">📅 ${dateF(o.data)} · ${o.bairro||''}</div>
+            </div>
+            <div style="font-size:13px;font-weight:800;color:#f5a623">R$ ${fmt(o.cst)}</div>
+          </div>`).join('')}
         </div>
       </div>`;
     });
