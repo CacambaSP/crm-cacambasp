@@ -2795,7 +2795,7 @@ function selCobrarAgrupado(){
       const tpl=_waTpl[c0.col==='inadimp'?'inadimp':'cobranca'];
       msg=tpl(c0,'',vend);
     } else {
-      const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);
+      const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
       const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
       const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
       msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
@@ -4504,7 +4504,7 @@ async function openPixDoDetail(){
   _pixCardId=c.id; _pixId=pixId;
   document.getElementById('pix_id').textContent=pixId;
   document.getElementById('pix_sub').textContent=(c.nome||'Cliente')+(c.logradouro?' · '+c.logradouro:'');
-  const _recPix=parseFloat(c.rec||0)+(c.nf_num?_nfAcrescimo:0);
+  const _recPix=parseFloat(c.rec||0);
   document.getElementById('pix_valor_edit').value=_recPix.toFixed(2);
   // Botão compartilhar só aparece se Web Share API disponível (mobile)
   document.getElementById('pixShareBtn').style.display=navigator.share?'':'none';
@@ -4884,7 +4884,7 @@ function renderCobrancaAuto(){
   const atencao   = pendentes.filter(c => c.dias >= COBR_DIAS_ALERTA && c.dias < COBR_DIAS_CRITICO);
   const normais   = pendentes.filter(c => c.dias < COBR_DIAS_ALERTA);
 
-  const totalAberto = todos.reduce((s,c) => s + (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0), 0); // todos = pendentes + cobrados hoje (ainda não pagos)
+  const totalAberto = todos.reduce((s,c) => s + (parseFloat(c.rec)||0), 0); // todos = pendentes + cobrados hoje (ainda não pagos)
 
   el.innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
@@ -5033,7 +5033,7 @@ function _dispararProximaCobranca(){
     const tpl = c0.dias >= COBR_DIAS_CRITICO ? 'inadimp' : 'cobranca';
     msg = _waTpl[tpl](c0, '');
   } else {
-    const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0), 0);
+    const total = ords.reduce((s,c) => s+(parseFloat(c.rec)||0), 0);
     const linhas = ords.map((o,i) =>
       `*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`
     ).join('\n');
@@ -5168,7 +5168,7 @@ function salvarTaxaAdmin(){
 
 // ── Lucro líquido de uma ordem (base para cálculo) ──
 function calcLucroLiquido(c){
-  const rec  = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
+  const rec  = (parseFloat(c.rec)||0);
   const cst  = parseFloat(c.cst)||0;
   const taxa = c.nf_num ? (parseFloat(c.nf_taxa)||_taxaNF)/100 : 0;
   const imp  = rec * taxa;
@@ -7010,7 +7010,7 @@ function renderConcManual(){
 }
 async function quickPagar(id){
   const c=ordens.find(x=>x.id===id);if(!c)return;
-  const vp=(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0);
+  const vp=(parseFloat(c.rec)||0);
   c.pago=true;c.pago_em=nowISO();c.pago_valor=vp;c.pago_obs='Marcado manualmente';
   autoColPagamento(c);
   renderConcManual();renderBoard();renderStats();
@@ -7716,7 +7716,7 @@ async function gerarReciboImprimir() {
   const pagas     = selecionadas.filter(o => o.pago);
   const pendentes = selecionadas.filter(o => !o.pago);
   const totalPago = pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
-  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const totalGeral= totalPago + totalPend;
 
   // Pix para pendentes
@@ -7741,7 +7741,7 @@ async function gerarReciboImprimir() {
 
   function linhaOrdem(o, tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0);
     const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const corVal=tipo==='pago'?'#16a34a':'#dc2626';
     const statusCell=tipo==='pago'
@@ -7952,7 +7952,7 @@ async function _relAnalytics(el){
 function _kpi(label,val,color,sub){return `<div class="rel-kpi"><div class="rel-kpi-label">${label}</div><div class="rel-kpi-val" style="color:${color}">${val}</div>${sub?`<div class="rel-kpi-sub">${sub}</div>`:''}</div>`;}
 function _relResumo(src,nm){
   src = src.filter(c => !_isArquivoMorto(c));
-  const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0)+(c.nf_num?_nfAcrescimo:0),0);
+  const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*((parseFloat(c.nf_taxa)||_taxaNF)/100),0);
   const mg=tr-tc; const mgR=mg-imp;

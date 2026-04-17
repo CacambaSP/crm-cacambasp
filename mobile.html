@@ -4634,7 +4634,7 @@ function abrirPix(id) {
   track('btn_pix');
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _pixOrdemId = id;
-  const valor = parseFloat(o.rec||0)+(o.nf_num&&!o.pago?_nfAcrescimo:0);
+  const valor = parseFloat(o.rec||0);
   const txid = 'CACAMBA'+( o.cel||'00000000').replace(/\D/g,'').slice(-8);
   _pixPayload = buildPixPayload(valor, txid, PIX_NAME, PIX_CITY, PIX_KEY);
   document.getElementById('pix_valor_txt').textContent = 'R$ '+fmt(valor);
