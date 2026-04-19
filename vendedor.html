@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUCA — Assistente CaçambaSP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sora', sans-serif;
+      background: #f0f2f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #0F6E56;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-circle {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: #085041;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: #9FE1CB;
+      letter-spacing: -1px;
+    }
+    .logo-info { flex: 1; }
+    .logo-name { color: #E1F5EE; font-size: 15px; font-weight: 600; }
+    .logo-sub  { color: #9FE1CB; font-size: 12px; }
+    .ia-badge {
+      background: #1D9E75; color: #E1F5EE;
+      font-size: 10px; font-weight: 600;
+      padding: 3px 8px; border-radius: 20px;
+      border: 1px solid #9FE1CB44;
+      letter-spacing: 0.05em;
+    }
+    .banner {
+      background: linear-gradient(135deg, #085041 0%, #1D9E75 100%);
+      padding: 22px 20px 20px; text-align: center;
+    }
+    .banner-ia {
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #9FE1CB;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 12px; border-radius: 20px;
+      margin-bottom: 10px; letter-spacing: 0.06em;
+    }
+    .banner h1 { color: #E1F5EE; font-size: 20px; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+    .banner p  { color: #9FE1CB; font-size: 13px; line-height: 1.5; }
+    .badge-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .badge {
+      background: rgba(255,255,255,0.12); color: #E1F5EE;
+      font-size: 12px; padding: 4px 11px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .chat-wrap {
+      flex: 1; max-width: 480px; width: 100%;
+      margin: 0 auto; display: flex; flex-direction: column; padding: 0 0 80px;
+    }
+    #messages {
+      flex: 1; padding: 16px 14px;
+      display: flex; flex-direction: column; gap: 10px; min-height: 300px;
+    }
+    .msg {
+      max-width: 84%; padding: 10px 14px;
+      border-radius: 18px; font-size: 14px; line-height: 1.55;
+    }
+    .msg.bot {
+      background: #fff; color: #1a1a1a;
+      border-bottom-left-radius: 4px; align-self: flex-start;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .msg.user {
+      background: #1D9E75; color: #E1F5EE;
+      border-bottom-right-radius: 4px; align-self: flex-end;
+    }
+    .msg.sistema {
+      background: #FFF8E1;
+      color: #5D4037;
+      border: 1px solid #FFE082;
+      border-radius: 12px;
+      align-self: center;
+      font-size: 12.5px;
+      text-align: center;
+      max-width: 95%;
+    }
+    .typing {
+      display: flex; gap: 5px; align-items: center;
+      background: #fff; padding: 12px 15px;
+      border-radius: 18px; border-bottom-left-radius: 4px;
+      align-self: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .typing span {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #9FE1CB; animation: blink 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+    .qr-wrap { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 0 4px; }
+    .qr-btn {
+      background: #fff; border: 1.5px solid #1D9E75; color: #0F6E56;
+      padding: 7px 15px; border-radius: 20px; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: 'Sora', sans-serif; transition: background 0.15s;
+    }
+    .qr-btn:hover, .qr-btn:active { background: #E1F5EE; }
+    #input-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #e2e2de;
+      padding: 10px 14px; display: flex; gap: 10px; align-items: center; z-index: 100;
+    }
+    #txt {
+      flex: 1; border: 1px solid #ddd; border-radius: 24px;
+      padding: 10px 16px; font-size: 14px; font-family: 'Sora', sans-serif;
+      outline: none; background: #f4f4f0; color: #1a1a1a;
+    }
+    #txt:focus { border-color: #1D9E75; }
+    #send {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: #1D9E75; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    #send:hover { background: #0F6E56; }
+    .cadastro-btn {
+      display: block; width: calc(100% - 28px);
+      margin: 8px 14px 0; padding: 13px;
+      background: #1D9E75; color: #fff; border: none;
+      border-radius: 14px; font-size: 15px; font-weight: 600;
+      font-family: 'Sora', sans-serif; cursor: pointer; text-align: center;
+    }
+    .cadastro-btn:hover { background: #0F6E56; }
+    .douglas-btn {
+      display: block; width: calc(100% - 28px);
+      margin: 8px 14px 0; padding: 13px;
+      background: #fff; color: #0F6E56; border: 2px solid #1D9E75;
+      border-radius: 14px; font-size: 14px; font-weight: 600;
+      font-family: 'Sora', sans-serif; cursor: pointer; text-align: center;
+    }
+    .douglas-btn:hover { background: #E1F5EE; }
+    .footer-note {
+      text-align: center; font-size: 11px; color: #aaa; padding: 8px 0 16px;
+    }
+
+    /* Modal de aprendizado */
+    #aprender-modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #aprender-modal.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 32px;
+      width: 100%; max-width: 480px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .modal-title { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+    .modal-sub { font-size: 13px; color: #666; line-height: 1.5; }
+    .modal-box textarea {
+      border: 1px solid #ddd; border-radius: 12px;
+      padding: 12px; font-size: 14px; font-family: 'Sora', sans-serif;
+      resize: none; height: 100px; outline: none; color: #1a1a1a;
+    }
+    .modal-box textarea:focus { border-color: #1D9E75; }
+    .modal-btns { display: flex; gap: 8px; }
+    .btn-salvar {
+      flex: 1; padding: 11px; background: #1D9E75; color: #fff;
+      border: none; border-radius: 12px; font-size: 14px; font-weight: 600;
+      font-family: 'Sora', sans-serif; cursor: pointer;
+    }
+    .btn-cancelar {
+      padding: 11px 18px; background: #f4f4f0; color: #666;
+      border: none; border-radius: 12px; font-size: 14px;
+      font-family: 'Sora', sans-serif; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-circle">JU</div>
+  <div class="logo-info">
+    <div class="logo-name">JUCA · CaçambaSP</div>
+    <div class="logo-sub">JUnior CAçamba — Assistente Inteligente</div>
+  </div>
+  <div class="ia-badge">IA 🤖</div>
+</header>
+
+<div class="banner">
+  <div class="banner-ia">ASSISTENTE DE INTELIGÊNCIA ARTIFICIAL</div>
+  <h1>Peça sua caçamba<br>em minutos</h1>
+  <p>Atendimento automático da CaçambaSP<br>para Osasco e Grande SP</p>
+  <div class="badge-row">
+    <div class="badge">Entulho</div>
+    <div class="badge">Poda</div>
+    <div class="badge">Reforma</div>
+    <div class="badge">Mudança</div>
+  </div>
+</div>
+
+<div class="chat-wrap">
+  <div id="messages"></div>
+</div>
+
+<div id="input-bar">
+  <input id="txt" type="text" placeholder="Digite sua mensagem..."/>
+  <button id="send" onclick="enviar()" aria-label="Enviar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M22 2L11 13" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Modal de aprendizado para Douglas -->
+<div id="aprender-modal">
+  <div class="modal-box">
+    <div class="modal-title">📚 Ensinar o JUCA</div>
+    <div class="modal-sub">Douglas, escreva abaixo a resposta correta para esta situação. O JUCA vai usar isso nas próximas conversas.</div>
+    <textarea id="aprender-txt" placeholder="Ex: Quando o cliente pedir prazo de 5 dias, explicar que..."></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancelar" onclick="fecharAprender()">Cancelar</button>
+      <button class="btn-salvar" onclick="salvarAprendizado()">Salvar ensinamento</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EMPRESA   = 'CaçambaSP';
+const CADASTRO  = 'https://cacambasp-crm.vercel.app/cadastro.html?v=6b691e8b-b9e8-4fe7-959a-ee04f03f0803';
+const DOUGLAS_WPP = '551142378757';
+const STORAGE_KEY = 'juca_aprendizados';
+
+/* ── Carrega aprendizados salvos ── */
+function carregarAprendizados() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch { return []; }
+}
+
+function salvarAprendizados(lista) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
+}
+
+function getAprendizadosTexto() {
+  const lista = carregarAprendizados();
+  if (!lista.length) return '';
+  return '\n\n═══ APRENDIZADOS DO DOUGLAS (gerente) ═══\n' +
+    lista.map((a, i) => `${i+1}. ${a}`).join('\n');
+}
+
+/* ── System prompt ── */
+function buildSystem() {
+  return `Você é JUCA (JUnior CAçamba), assistente de inteligência artificial da ${EMPRESA}. Você é simpático, direto e experiente no setor de locação de caçambas.
+
+IMPORTANTE: Deixe sempre claro que você é um ASSISTENTE DE IA, não um humano. Se perguntarem se é robô/IA, confirme com simpatia.
+O gerente humano responsável é o Douglas. Em casos que não souber resolver, você escala para ele.
+
+═══ TABELA DE PREÇOS POR REGIÃO ═══
+REGIÃO 1 — Osasco, Carapicuíba e Grande SP:
+  Sem NF: R$ 430,00 | Com NF: R$ 470,00
+
+REGIÃO 2 — SP Zona Norte, Zona Sul, parte da Zona Oeste e Barueri:
+  Sem NF: R$ 530,00 | Com NF: R$ 570,00
+
+REGIÃO 3 — SP Zona Leste, Perus, Pirituba e região:
+  Sem NF: R$ 560,00 | Com NF: R$ 600,00
+
+Nunca fale o preço antes de confirmar o bairro/região.
+
+═══ PRODUTO ═══
+Caçamba Padrão 4m³ · Permanência: 3 dias (lei municipal — CTR)
+Entrega: durante o dia (Osasco e Grande SP)
+
+═══ PAGAMENTO ═══
+- Somente PIX — enviado APÓS a entrega
+- Motorista NÃO recebe (segurança — já houve assaltos)
+- Sem dinheiro, sem cartão, sem pagamento antecipado
+
+═══ REGRAS ═══
+- Não ultrapassar a borda da caçamba
+- 3 dias é lei — empresa emite CTR e tem prazo para descarregar nos aterros. Ultrapassar gera multa automática.
+- Prazo maior NÃO é vantagem: vizinhos jogam lixo indevidamente e o cliente perde capacidade paga
+
+═══ CONTRA GOLPES ═══
+Se cliente mencionar preço abaixo de R$400 ou entrega em 2h:
+"💣💣💣⚡⚡ Cuidado com anúncios falsos! Valor de R$230 não existe. Entrega em 2 horas é sinal de golpe. Estelionatários se escondem na web. A CaçambaSP é uma empresa séria e confiável."
+
+═══ QUANDO NÃO SOUBER RESPONDER ═══
+Se surgir uma situação que não está no seu conhecimento:
+1. Seja honesto: diga que é uma IA e que vai chamar o gerente Douglas para ajudar
+2. Peça o WhatsApp do cliente
+3. Responda com a tag especial: [ESCALAR_DOUGLAS] no final da mensagem (invisível para o cliente)
+
+═══ FLUXO DE VENDA ═══
+1. Perguntar bairro/região
+2. Confirmar atendimento e horário
+3. Perguntar tipo de resíduo
+4. Perguntar se precisa de NF
+5. Apresentar proposta completa
+6. Cliente aceita → encaminhar para cadastro
+
+═══ COMPORTAMENTO ═══
+- Uma pergunta por vez · Máximo 3 linhas · Português sempre
+- Nunca falar preço antes do bairro
+- Ser transparente sobre ser IA quando perguntado${getAprendizadosTexto()}`;
+}
+
+let history = [];
+let clienteWpp = null;
+let situacaoEscalada = null;
+const el = id => document.getElementById(id);
+
+function scrollDown() {
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function addMsg(text, role) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.textContent = text;
+  el('messages').appendChild(d);
+  scrollDown();
+}
+
+function addSistema(text) {
+  const d = document.createElement('div');
+  d.className = 'msg sistema';
+  d.textContent = text;
+  el('messages').appendChild(d);
+  scrollDown();
+}
+
+function showTyping() {
+  const t = document.createElement('div');
+  t.className = 'typing'; t.id = 'typing';
+  t.innerHTML = '<span></span><span></span><span></span>';
+  el('messages').appendChild(t);
+  scrollDown();
+}
+function removeTyping() { const t = el('typing'); if(t) t.remove(); }
+
+function showQR(opts) {
+  const wrap = document.createElement('div');
+  wrap.className = 'qr-wrap';
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'qr-btn'; b.textContent = o;
+    b.onclick = () => { wrap.remove(); addMsg(o, 'user'); chamar(o); };
+    wrap.appendChild(b);
+  });
+  el('messages').appendChild(wrap);
+  scrollDown();
+}
+
+function showCadastroBtn() {
+  const btn = document.createElement('button');
+  btn.className = 'cadastro-btn';
+  btn.textContent = '✔ Preencher cadastro e confirmar pedido';
+  btn.onclick = () => window.open(CADASTRO, '_blank');
+  el('messages').appendChild(btn);
+  const note = document.createElement('div');
+  note.className = 'footer-note';
+  note.textContent = 'Rápido e seguro — leva menos de 1 minuto';
+  el('messages').appendChild(note);
+  scrollDown();
+}
+
+function showDouglasBtns(wpp, situacao) {
+  clienteWpp = wpp;
+  situacaoEscalada = situacao;
+
+  /* Botão 1 — Douglas entra na conversa */
+  const btn1 = document.createElement('button');
+  btn1.className = 'douglas-btn';
+  btn1.textContent = '👨‍💼 Falar com Douglas (gerente)';
+  btn1.onclick = () => {
+    const msg = encodeURIComponent(
+      `*CaçambaSP — JUCA escalou atendimento*\n\nCliente: ${wpp}\nSituação: ${situacao}\n\nEntrar na conversa para ajudar.`
+    );
+    window.open(`https://wa.me/${DOUGLAS_WPP}?text=${msg}`, '_blank');
+  };
+  el('messages').appendChild(btn1);
+
+  /* Botão 2 — Ensinar o JUCA */
+  const btn2 = document.createElement('button');
+  btn2.className = 'footer-note';
+  btn2.style.cssText = 'cursor:pointer; color:#0F6E56; text-decoration:underline; background:none; border:none; font-family:Sora,sans-serif; font-size:12px; padding:4px 0 12px;';
+  btn2.textContent = '📚 Douglas: ensinar o JUCA como resolver isso';
+  btn2.onclick = abrirAprender;
+  el('messages').appendChild(btn2);
+  scrollDown();
+}
+
+/* ── Modal aprendizado ── */
+function abrirAprender() {
+  el('aprender-txt').value = '';
+  el('aprender-modal').classList.add('open');
+}
+function fecharAprender() {
+  el('aprender-modal').classList.remove('open');
+}
+function salvarAprendizado() {
+  const txt = el('aprender-txt').value.trim();
+  if (!txt) return;
+  const lista = carregarAprendizados();
+  lista.push(`[Situação: ${situacaoEscalada || 'geral'}] ${txt}`);
+  salvarAprendizados(lista);
+  fecharAprender();
+  addSistema('✅ Ensinamento salvo! O JUCA vai usar isso nas próximas conversas.');
+}
+
+/* ── Pedir WhatsApp do cliente ── */
+function pedirWppCliente(situacao) {
+  situacaoEscalada = situacao;
+  setTimeout(() => {
+    addMsg('Para o Douglas entrar em contato com você diretamente, pode me passar seu WhatsApp com DDD?', 'bot');
+    history.push({ role: 'assistant', content: 'Para o Douglas entrar em contato com você diretamente, pode me passar seu WhatsApp com DDD?' });
+  }, 400);
+}
+
+/* ── Chamada à API ── */
+async function chamar(userMsg) {
+  /* Se estamos aguardando o WhatsApp do cliente */
+  if (situacaoEscalada && !clienteWpp && /\d{8,}/.test(userMsg.replace(/\D/g,''))) {
+    const num = userMsg.replace(/\D/g,'');
+    clienteWpp = num;
+    addSistema('📲 WhatsApp recebido! Notificando o Douglas...');
+    showDouglasBtns(num, situacaoEscalada);
+    return;
+  }
+
+  history.push({ role: 'user', content: userMsg });
+  showTyping();
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history, system: buildSystem() })
+    });
+    const data = await res.json();
+    let reply = data.content?.[0]?.text || 'Desculpe, tive um problema. Pode repetir?';
+
+    const escalar = reply.includes('[ESCALAR_DOUGLAS]');
+    reply = reply.replace('[ESCALAR_DOUGLAS]', '').trim();
+
+    history.push({ role: 'assistant', content: reply });
+    removeTyping();
+    addMsg(reply, 'bot');
+
+    const lower = reply.toLowerCase();
+
+    if (escalar) {
+      pedirWppCliente(userMsg);
+    } else if (lower.includes('cadastro') || (lower.includes('link') && lower.includes('preenche'))) {
+      setTimeout(showCadastroBtn, 700);
+    }
+  } catch(e) {
+    removeTyping();
+    addMsg('Ops, erro de conexão. Tente novamente.', 'bot');
+  }
+}
+
+function enviar() {
+  const msg = el('txt').value.trim();
+  if (!msg) return;
+  el('txt').value = '';
+  addMsg(msg, 'user');
+  chamar(msg);
+}
+el('txt').addEventListener('keydown', e => { if (e.key === 'Enter') enviar(); });
+
+async function iniciar() {
+  await new Promise(r => setTimeout(r, 800));
+  showTyping();
+  await new Promise(r => setTimeout(r, 1200));
+  removeTyping();
+  const intro = `Olá! 👋 Sou o JUCA, assistente de inteligência artificial da ${EMPRESA}! Estou aqui para te ajudar a solicitar sua caçamba de forma rápida e segura. Qual bairro ou cidade você precisa de atendimento?`;
+  addMsg(intro, 'bot');
+  history.push({ role: 'assistant', content: intro });
+  showQR(['Osasco / Carapicuíba', 'Barueri', 'SP Zona Norte / Sul', 'SP Zona Leste', 'Outro bairro']);
+}
+
+iniciar();
+</script>
+</body>
+</html>
