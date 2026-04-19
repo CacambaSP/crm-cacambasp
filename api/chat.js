@@ -12,7 +12,32 @@ export default async function handler(req, res) {
 
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const { messages, system } = req.body;
+  const { messages, system, salvar, cidade, pedido_fechado } = req.body;
+
+  /* ── Salvar conversa no Supabase ── */
+  if (salvar && messages) {
+    try {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/juca_conversas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          mensagens: messages,
+          cidade: cidade || null,
+          pedido_fechado: pedido_fechado || false
+        })
+      });
+    } catch(e) {
+      console.error('Erro ao salvar conversa:', e);
+    }
+    return res.status(200).json({ ok: true });
+  }
+
+  /* ── Chamar Claude ── */
   if (!messages || !system) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
