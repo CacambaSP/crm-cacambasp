@@ -8954,18 +8954,21 @@ async function salvarLotePrecosCli(fid){
 function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,180);}
 // Filtro puro no DOM — não re-renderiza, só mostra/esconde cards já existentes
 function filtrarCli(){
-  const nQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=nQ(document.getElementById('cliSearch')?.value||'');
-  const vazio=document.getElementById('cliVazio');
+  // Mesmo padrão do _renderRelCliRows que funciona no Relatório/Cliente
+  const q=(document.getElementById('cliSearch')?.value||'').toLowerCase().trim();
+  const nQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const qN=nQ(q);
+  const qTel=q.replace(/\D/g,'');
   let visivel=0;
-  document.querySelectorAll('#cliLista .cli-card').forEach(card=>{
-    const nome=nQ(card.dataset.nome||'');
-    const cel=(card.dataset.cel||'').replace(/\D/g,'');
-    const match=!q||nome.includes(q)||cel.includes(q.replace(/\D/g,''));
+  document.querySelectorAll('#cliLista [data-cli]').forEach(card=>{
+    const nome=nQ(card.getAttribute('data-nome')||'');
+    const cel=(card.getAttribute('data-cel')||'');
+    const match=!qN||(nome.includes(qN))||(qTel.length>=2&&cel.includes(qTel));
     card.style.display=match?'':'none';
     if(match) visivel++;
   });
-  if(vazio) vazio.style.display=visivel?'none':'block';
+  const vazio=document.getElementById('cliVazio');
+  if(vazio) vazio.style.display=visivel===0?'block':'none';
 }
 
 function renderCli(){
@@ -8983,6 +8986,8 @@ function renderCli(){
   const colLabel={contratar:'Contratar',ag_entrega:'Ag.Entrega',entrega:'Entrega',pagar:'Receber',faltapg:'Falta Pagar',baixar:'Baixar',inadimp:'Inadimplente',concluido:'Concluído',orcamento:'Orçamento'};
   el.innerHTML='<div id="cliVazio" style="display:none;text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>'+rows.map((c,ci)=>{
     const key='cliBody_'+ci;
+    const nomeAttr=(c.nome||'').replace(/"/g,'&quot;');
+    const celAttr=(c.cel||'').replace(/\D/g,'');
     const ordensHtml=c.ordens.sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(o=>{
       const col=colLabel[o.col]||o.col||'-';
       const statusCor=o.col==='concluido'?'var(--g)':o.col==='inadimp'?'var(--r)':'var(--mut2)';
@@ -8994,7 +8999,7 @@ function renderCli(){
         <span style="font-size:10px;color:${statusCor};width:75px;flex-shrink:0;text-align:right">${col}</span>
       </div>`;
     }).join('');
-    return `<div class="cli-card" data-nome="${(c.nome||'').replace(/"/g,'')}" data-cel="${(c.cel||'').replace(/\D/g,'')}" style="padding:0;overflow:hidden">
+    return `<div data-cli="1" data-nome="${nomeAttr}" data-cel="${celAttr}" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:8px;padding:0;overflow:hidden">
       <div onclick="const b=document.getElementById('${key}');const a=document.getElementById('${key}_arr');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;cursor:pointer">
         <div style="width:38px;height:38px;border-radius:10px;background:var(--acc2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--acc);flex-shrink:0">${c.nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
