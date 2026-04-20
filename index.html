@@ -822,7 +822,7 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div class="ph-title">Clientes</div>
           </div>
-          <input type="text" id="cliSearch" placeholder="🔍 Buscar nome ou WhatsApp..." oninput="renderCli(this.value)" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%;box-sizing:border-box;margin-bottom:14px;display:block">
+          <input type="text" id="cliSearch" placeholder="🔍 Buscar nome ou WhatsApp..." oninput="filtrarCli()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%;box-sizing:border-box;margin-bottom:14px;display:block">
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -8952,21 +8952,36 @@ async function salvarLotePrecosCli(fid){
 
 // ── CLIENTES ──
 function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,180);}
-function renderCli(val){
-  const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=_normQ(val!==undefined?val:(document.getElementById('cliSearch')?.value||''));
+// Filtro puro no DOM — não re-renderiza, só mostra/esconde cards já existentes
+function filtrarCli(){
+  const nQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const q=nQ(document.getElementById('cliSearch')?.value||'');
+  const vazio=document.getElementById('cliVazio');
+  let visivel=0;
+  document.querySelectorAll('#cliLista .cli-card').forEach(card=>{
+    const nome=nQ(card.dataset.nome||'');
+    const cel=(card.dataset.cel||'').replace(/\D/g,'');
+    const match=!q||nome.includes(q)||cel.includes(q.replace(/\D/g,''));
+    card.style.display=match?'':'none';
+    if(match) visivel++;
+  });
+  if(vazio) vazio.style.display=visivel?'none':'block';
+}
+
+function renderCli(){
+  const nQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const clientes={};
   ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
     if(!clientes[key]) clientes[key]={nome:c.nome,cel:c.cel,ordens:[],total:0,pago:0};
     clientes[key].ordens.push(c);clientes[key].total+=parseFloat(c.rec)||0;
     if(c.pago)clientes[key].pago+=parseFloat(c.pago_valor||c.rec)||0;
   });
-  let rows=Object.values(clientes).sort((a,b)=>_normQ(a.nome).localeCompare(_normQ(b.nome)));
-  if(q) rows=rows.filter(c=>_normQ(c.nome).includes(q)||(c.cel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+  const rows=Object.values(clientes).sort((a,b)=>nQ(a.nome).localeCompare(nQ(b.nome)));
   const el=document.getElementById('cliLista');
+  if(!el) return;
   if(!rows.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>';return;}
   const colLabel={contratar:'Contratar',ag_entrega:'Ag.Entrega',entrega:'Entrega',pagar:'Receber',faltapg:'Falta Pagar',baixar:'Baixar',inadimp:'Inadimplente',concluido:'Concluído',orcamento:'Orçamento'};
-  el.innerHTML=rows.map((c,ci)=>{
+  el.innerHTML='<div id="cliVazio" style="display:none;text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>'+rows.map((c,ci)=>{
     const key='cliBody_'+ci;
     const ordensHtml=c.ordens.sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(o=>{
       const col=colLabel[o.col]||o.col||'-';
@@ -8979,7 +8994,7 @@ function renderCli(val){
         <span style="font-size:10px;color:${statusCor};width:75px;flex-shrink:0;text-align:right">${col}</span>
       </div>`;
     }).join('');
-    return `<div class="cli-card" style="padding:0;overflow:hidden">
+    return `<div class="cli-card" data-nome="${(c.nome||'').replace(/"/g,'')}" data-cel="${(c.cel||'').replace(/\D/g,'')}" style="padding:0;overflow:hidden">
       <div onclick="const b=document.getElementById('${key}');const a=document.getElementById('${key}_arr');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;cursor:pointer">
         <div style="width:38px;height:38px;border-radius:10px;background:var(--acc2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--acc);flex-shrink:0">${c.nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
