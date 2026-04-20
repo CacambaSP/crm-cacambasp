@@ -822,10 +822,7 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div class="ph-title">Clientes</div>
           </div>
-          <div class="ph">
-            <div class="ph-title">Clientes</div>
-            <input type="text" id="cliSearch" placeholder="🔍 Buscar..." oninput="debounceCli()" onchange="debounceCli()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 12px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;width:200px">
-          </div>
+          <input type="text" id="cliSearch" placeholder="🔍 Buscar nome ou WhatsApp..." oninput="debounceCli()" onchange="debounceCli()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%;box-sizing:border-box;margin-bottom:14px;display:block">
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
