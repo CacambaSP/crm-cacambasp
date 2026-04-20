@@ -1708,6 +1708,7 @@ let _confirmResolve=null;
 let _filterTimer=null, _histTimer=null, _cliTimer=null, _nfTimer=null;
 let _cliQ='';
 function _cliSearch(v){_cliQ=v||'';renderCli();}
+window._cliSearch=_cliSearch;
 let _autoRefreshId=null, _tokenRefreshId=null;
 let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0'); // fallback local
 let _histSelected=new Set(), _histSelMode=false;
@@ -2155,7 +2156,7 @@ function setView(v){
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='comissao') renderComissaoView();
-  if(v==='cli'){_cliSearch('');_initCliEvents();}
+  if(v==='cli'){_cliSearch('');}
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
   if(v==='orc') renderOrc();
@@ -9021,25 +9022,10 @@ function renderCli(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>`;
   el.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}">
-    <button id="cliBtnBuscar" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
-    <button id="cliBtnLimpar" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
+    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}" onkeydown="if(event.key==='Enter'){window._cliSearch(this.value);}">
+    <button onclick="window._cliSearch(document.getElementById('cliSearch').value)" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
+    <button onclick="window._cliSearch('')" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
   </div>${cardsHtml}`;
-}
-function _initCliEvents(){
-  const root=document.getElementById('view-cli');
-  if(!root||root._cliEventsInit) return;
-  root._cliEventsInit=true;
-  root.addEventListener('click',function(e){
-    if(e.target.id==='cliBtnBuscar'){const inp=document.getElementById('cliSearch');if(inp)_cliSearch(inp.value);}
-    if(e.target.id==='cliBtnLimpar'){_cliSearch('');}
-  });
-  root.addEventListener('keydown',function(e){
-    if(e.target.id==='cliSearch'&&e.key==='Enter'){_cliSearch(e.target.value);}
-  });
-  root.addEventListener('input',function(e){
-    if(e.target.id==='cliSearch'){_cliSearch(e.target.value);}
-  });
 }
 
 // ── USUÁRIOS ──
