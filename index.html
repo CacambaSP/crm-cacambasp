@@ -9021,10 +9021,19 @@ function renderCli(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>`;
   el.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}" onkeydown="if(event.key==='Enter'){_cliSearch(this.value);}">
-    <button onclick="_cliSearch(document.getElementById('cliSearch').value)" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
-    <button onclick="_cliSearch('')" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
+    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}">
+    <button id="cliBtnBuscar" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
+    <button id="cliBtnLimpar" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
   </div>${cardsHtml}`;
+  const _cliInput=document.getElementById('cliSearch');
+  if(_cliInput){
+    _cliInput.addEventListener('keydown',function(e){if(e.key==='Enter'){_cliSearch(this.value);}});
+    _cliInput.addEventListener('input',function(){_cliSearch(this.value);});
+  }
+  const _cliBtnB=document.getElementById('cliBtnBuscar');
+  if(_cliBtnB) _cliBtnB.addEventListener('click',function(){_cliSearch(document.getElementById('cliSearch').value);});
+  const _cliBtnL=document.getElementById('cliBtnLimpar');
+  if(_cliBtnL) _cliBtnL.addEventListener('click',function(){_cliSearch('');});
 }
 
 // ── USUÁRIOS ──
