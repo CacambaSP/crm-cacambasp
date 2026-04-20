@@ -822,7 +822,7 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div class="ph-title">Clientes</div>
           </div>
-          <input type="text" id="cliSearch" placeholder="🔍 Buscar nome ou WhatsApp..." oninput="debounceCli()" onchange="debounceCli()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%;box-sizing:border-box;margin-bottom:14px;display:block">
+          <input type="text" id="cliSearch" placeholder="🔍 Buscar nome ou WhatsApp..." oninput="renderCli(this.value)" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%;box-sizing:border-box;margin-bottom:14px;display:block">
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -8952,9 +8952,9 @@ async function salvarLotePrecosCli(fid){
 
 // ── CLIENTES ──
 function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,180);}
-function renderCli(){
+function renderCli(val){
   const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=_normQ(document.getElementById('cliSearch')?.value||'');
+  const q=_normQ(val!==undefined?val:(document.getElementById('cliSearch')?.value||''));
   const clientes={};
   ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
     if(!clientes[key]) clientes[key]={nome:c.nome,cel:c.cel,ordens:[],total:0,pago:0};

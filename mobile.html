@@ -4286,7 +4286,6 @@ async function salvarNovaOrdem() {
       id: uidGen(), crm_id,
       usuario_id: uid2, nome,
       cel: wh.replace(/\D/g,''),
-      wh: wh.replace(/\D/g,''),
       cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
       logradouro: rua, bairro, cidade: document.getElementById('nv_cidade')?.value?.trim()||'São Paulo',
       tipo: document.getElementById('nv_tipo')?.value||'Locação',
