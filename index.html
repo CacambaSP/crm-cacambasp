@@ -2799,6 +2799,15 @@ function selCobrarAgrupado(){
     const [,ords]=entries[i++];
     const c0=ords[0];
     const tel=(c0.cel||'').replace(/\D/g,'');
+    // ── S39: gravar grp_id em todas as ordens do grupo ──
+    if(ords.length>1){
+      const maxCrmId=ords.reduce((max,o)=>{const n=parseInt((o.crm_id||'').replace(/\D/g,''),10)||0;return n>max?n:max;},0);
+      if(maxCrmId){
+        const grpId='GRP'+String(maxCrmId).padStart(8,'0');
+        ords.forEach(o=>{o.grp_id=grpId;});
+        Promise.all(ords.map(o=>api('ordens?id=eq.'+o.id,'PATCH',{grp_id:grpId},tok()))).catch(e=>console.warn('grp_id patch err',e));
+      }
+    }
     if(!tel){toast('Ordem sem telefone — pulando','warn');setTimeout(abrirProximo,500);return;}
     const vend=usuarios.find(u=>u.id===c0.usuario_id)||null;
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -6969,38 +6978,44 @@ function renderExtratoRevisao(){
     if(idLimpo.startsWith('GRP')){
       tipo='grp';
       let matchTipo='';
-      // Tentar casar pelo crm_id embutido no txid: GRP20266020 → LC20266020
-      // Busca a ordem de referência mesmo que já paga — para extrair o celular do cliente
-      const numGrp=idLimpo.replace(/^GRP/,'');
-      const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&c.col!=='orcamento');
-      if(crmGrp){
-        const celRef=(crmGrp.cel||'').replace(/\D/g,'');
-        // Só considera ordens com crm_id numérico <= número do GRP (ordens que existiam quando o GRP foi criado)
-        const numGrpInt=parseInt(numGrp,10)||0;
-        const todasGrp=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef&&parseInt((c.crm_id||'').replace(/\D/g,''),10)<=numGrpInt);
-        const pendGrp=todasGrp.filter(c=>!c.pago);
-        if(pendGrp.length>0){
-          ordemMatch=pendGrp;
-          matchTipo='id';
-        } else if(todasGrp.length>0){
-          // Todas já pagas — marca como ja_pago usando a ordem de referência
-          ordemMatch=todasGrp;
-          matchTipo='id';
-        }
+      // ── S39: 1. Match EXATO por grp_id (novo caminho) ──
+      const todasGrpExato=ordens.filter(c=>c.col!=='orcamento'&&c.grp_id===idLimpo);
+      if(todasGrpExato.length>0){
+        const pendGrpExato=todasGrpExato.filter(c=>!c.pago);
+        ordemMatch=pendGrpExato.length>0?pendGrpExato:todasGrpExato;
+        matchTipo='grp_id';
       } else {
-        // Fallback 1: CPF/CNPJ do pagador
-        const cpfPag=(linha.cpf||'').replace(/\D/g,'');
-        if(cpfPag.length>=11){
-          const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
-          if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
+        // ── S39: 2. Fallback legacy (GRPs criados antes da S39 sem grp_id no banco) ──
+        const numGrp=idLimpo.replace(/^GRP/,'');
+        const crmGrp=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numGrp&&c.col!=='orcamento');
+        if(crmGrp){
+          const celRef=(crmGrp.cel||'').replace(/\D/g,'');
+          const numGrpInt=parseInt(numGrp,10)||0;
+          const todasGrp=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef&&parseInt((c.crm_id||'').replace(/\D/g,''),10)<=numGrpInt);
+          const pendGrp=todasGrp.filter(c=>!c.pago);
+          if(pendGrp.length>0){
+            ordemMatch=pendGrp;
+            matchTipo='legacy';
+          } else if(todasGrp.length>0){
+            ordemMatch=todasGrp;
+            matchTipo='legacy';
+          }
         }
-        // Fallback 2: primeira palavra do nome (4+ chars, match exato)
         if(!ordemMatch){
-          const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
-          if(nomePag.length>=4){
-            const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&
-              (c.nome||'').toLowerCase().split(' ')[0]===nomePag);
-            if(cands.length>=1){ordemMatch=cands;matchTipo='nome';}
+          // Fallback CPF/CNPJ do pagador
+          const cpfPag=(linha.cpf||'').replace(/\D/g,'');
+          if(cpfPag.length>=11){
+            const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
+            if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
+          }
+          // Fallback nome
+          if(!ordemMatch){
+            const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
+            if(nomePag.length>=4){
+              const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&
+                (c.nome||'').toLowerCase().split(' ')[0]===nomePag);
+              if(cands.length>=1){ordemMatch=cands;matchTipo='nome';}
+            }
           }
         }
       }
@@ -7035,10 +7050,17 @@ function renderExtratoRevisao(){
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#78350f;color:#fcd34d;border:1px solid #f59e0b;margin-left:6px">⚠️ Casado por CPF</span>`
           : r.matchTipo==='nome'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;margin-left:6px">⚠️ Casado por nome — confirme!</span>`
+          : r.matchTipo==='grp_id'
+          ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#14532d;color:#86efac;border:1px solid #22c55e;margin-left:6px">✅ GRP exato</span>`
+          : r.matchTipo==='legacy'
+          ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#713f12;color:#fde68a;border:1px solid #f59e0b;margin-left:6px">⚠️ GRP legado</span>`
           : '';
-        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+        // _totalOS = soma das PENDENTES (o que vai ser baixado de fato)
+        const _pendOrdens=(r.ordens||[r.ordem]).filter(Boolean).filter(o=>!o.pago);
+        const _totalOS=_pendOrdens.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+        const _diffVal=r.valorPago-_totalOS;
         // Ordens individuais do GRP — checkboxes para selecionar quais baixar
-        const _ordsGrp = (r.ordens||[r.ordem]).filter(Boolean).filter(o=>!o.pago);
+        const _ordsGrp = _pendOrdens;
         const _subOrdens = r.tipo==='grp' && _ordsGrp.length > 1
           ? _ordsGrp.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 28px;cursor:pointer">
               <input type="checkbox" data-grpid="${r.id}" data-ordid="${o.id}" checked style="accent-color:var(--g);width:14px;height:14px;flex-shrink:0">
@@ -7052,7 +7074,7 @@ function renderExtratoRevisao(){
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${_nomeCliente}${_matchBadge}</div>
           <div style="font-size:11px;color:var(--mut2)">${_grpInfo} · ${r.dataVenc||r.dataPago||'-'}</div></div>
           <div style="text-align:right;flex-shrink:0"><div style="font-weight:800;color:var(--g);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
-          ${Math.abs(r.valorPago-_totalOS)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`:''}</div>
+          ${Math.abs(_diffVal)>0.01?`<div style="font-size:10px;color:var(--acc)" title="Valor das OSs pendentes no sistema">OS: R$ ${fmt(_totalOS)}${_diffVal>0&&_diffVal<=50?' (+NF?)':_diffVal>50?' ⚠️ parcial':''}</div>`:''}</div>
           </label>
           ${_subOrdens}
         </div>`;}).join('')}
@@ -7095,7 +7117,13 @@ async function confirmarBaixaExtrato(){
     const nOrdens=pendItem.length||1;
     const totalRec=pendItem.reduce((s,o)=>s+(parseFloat(o.rec)||0),0)||item.valorPago;
     for(const o of pendItem){
-      const vp=nOrdens===1?item.valorPago:Math.round((parseFloat(o.rec)||0)/totalRec*item.valorPago*100)/100;
+      const recOrdem=parseFloat(o.rec)||0;
+      // Regra: pago_valor = rec da ordem (já inclui NF se houver).
+      // O extrato pode divergir por NF, arredondamento ou agrupamento parcial —
+      // o que importa para o financeiro é o rec cadastrado na OS.
+      // Exceção: se rec=0 (ordem sem valor definido), usa o proporcional do extrato.
+      const vpCalc=nOrdens===1?item.valorPago:Math.round(recOrdem/totalRec*item.valorPago*100)/100;
+      const vp=recOrdem>0?recOrdem:vpCalc;
       o.pago=true;o.pago_em=agora;o.pago_valor=vp;
       o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
       o.col='baixar';
@@ -7129,7 +7157,11 @@ async function confirmarBaixaExtrato(){
         const novoGrpId='GRP'+String(maxCrmId).padStart(8,'0');
         // Registrar no log de cada ordem restante
         for(const o of grupo){
-          try{addLog(o.id,'GRP criado automaticamente','Novo agrupamento: '+novoGrpId+' (restante de baixa parcial)');}catch(e){}
+          o.grp_id=novoGrpId;
+          try{
+            await api('ordens?id=eq.'+o.id,'PATCH',{grp_id:novoGrpId},tok());
+            addLog(o.id,'GRP criado automaticamente','Novo agrupamento: '+novoGrpId+' (restante de baixa parcial)');
+          }catch(e){console.warn('grp_id patch err',e);}
         }
         novosGrps++;
         // Toast informativo com o novo GRP ID
@@ -7173,6 +7205,74 @@ async function quickPagarCard(id){
 }
 function renderConcHist(){
   const pagos=ordens.filter(c=>c.pago).sort((a,b)=>(b.pago_em||'').localeCompare(a.pago_em||''));
+
+  // Agrupar por GRP (ordens com mesmo pago_obs que contém GRP...)
+  const grpMap={}; // grpId → [ordens]
+  const individuais=[];
+  for(const c of pagos){
+    const obs=c.pago_obs||'';
+    const mGrp=obs.match(/GRP\d+/);
+    if(mGrp && obs.includes('agrupado')){
+      const gid=mGrp[0];
+      if(!grpMap[gid]) grpMap[gid]=[];
+      grpMap[gid].push(c);
+    } else {
+      individuais.push(c);
+    }
+  }
+
+  // Montar lista de itens para renderizar (GRPs como 1 linha + individuais)
+  const grpEntries=Object.entries(grpMap).map(([gid,ords])=>({
+    tipo:'grp', gid, ords,
+    nome: ords[0]?.nome||'-',
+    total: ords.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0),
+    pago_em: ords[0]?.pago_em||'',
+    obs: 'Agrupado '+gid+' · '+ords.length+' ordens'
+  }));
+  const indEntries=individuais.map(c=>({tipo:'ind',c}));
+
+  // Ordenar tudo por pago_em desc
+  const tudo=[...grpEntries,...indEntries].sort((a,b)=>{
+    const da=a.tipo==='grp'?a.pago_em:(a.c.pago_em||'');
+    const db=b.tipo==='grp'?b.pago_em:(b.c.pago_em||'');
+    return db.localeCompare(da);
+  });
+
+  let rowsHtml='';
+  tudo.forEach((item,i)=>{
+    const zebra=i%2===1?'background:rgba(255,255,255,.02)':'';
+    if(item.tipo==='grp'){
+      const {gid,ords,nome,total,pago_em,obs}=item;
+      const dataFmt=pago_em?new Date(pago_em).toLocaleDateString('pt-BR'):'-';
+      rowsHtml+=`<tr style="${zebra};cursor:pointer" onclick="document.getElementById('grp-sub-${gid}').style.display=document.getElementById('grp-sub-${gid}').style.display==='none'?'table-row-group':'none';this.querySelector('.grp-chevron').textContent=document.getElementById('grp-sub-${gid}').style.display==='none'?'▶':'▼'">
+        <td style="padding:10px 14px;font-weight:700">
+          <span class="grp-chevron" style="font-size:9px;margin-right:6px;color:var(--mut2)">▶</span>
+          ${nome}
+          <span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;background:rgba(99,102,241,.15);color:#a78bfa;margin-left:6px">🔗 ${ords.length} ordens</span>
+        </td>
+        <td style="padding:10px 14px;text-align:right;color:var(--g);font-weight:700;font-family:var(--mono)">R$ ${fmt(total)}</td>
+        <td style="padding:10px 14px;color:var(--mut2);font-family:var(--mono)">${dataFmt}</td>
+        <td style="padding:10px 14px;color:var(--mut2)">${obs}</td>
+      </tr>
+      <tbody id="grp-sub-${gid}" style="display:none">
+        ${ords.map(o=>`<tr style="background:rgba(99,102,241,.04)">
+          <td style="padding:7px 14px 7px 38px;color:var(--mut2);font-size:11px">↳ ${o.crm_id||'—'} · ${o.logradouro||o.bairro||o.nome||'—'}</td>
+          <td style="padding:7px 14px;text-align:right;color:var(--g);font-size:11px;font-family:var(--mono)">R$ ${fmt(o.pago_valor||o.rec)}</td>
+          <td style="padding:7px 14px;color:var(--mut2);font-size:11px;font-family:var(--mono)">${o.pago_em?new Date(o.pago_em).toLocaleDateString('pt-BR'):'-'}</td>
+          <td style="padding:7px 14px;color:var(--mut2);font-size:11px"><a href="#" onclick="event.preventDefault();openDetail('${o.id}')" style="color:var(--acc);text-decoration:none;font-weight:600">${o.crm_id||'ver'}</a></td>
+        </tr>`).join('')}
+      </tbody>`;
+    } else {
+      const c=item.c;
+      rowsHtml+=`<tr style="${zebra}">
+        <td style="padding:10px 14px">${c.nome||'-'} <span style="font-size:10px;color:var(--mut2)">${c.crm_id||''}</span></td>
+        <td style="padding:10px 14px;text-align:right;color:var(--g);font-weight:700;font-family:var(--mono)">R$ ${fmt(c.pago_valor||c.rec)}</td>
+        <td style="padding:10px 14px;color:var(--mut2);font-family:var(--mono)">${c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'-'}</td>
+        <td style="padding:10px 14px;color:var(--mut2)">${c.pago_obs||'-'}</td>
+      </tr>`;
+    }
+  });
+
   document.getElementById('concPanel-hist').innerHTML=`
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);overflow:hidden">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7180,14 +7280,9 @@ function renderConcHist(){
           <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase">Cliente</th>
           <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase">Valor</th>
           <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase">Data</th>
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase">Obs</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase">Obs / CRM</th>
         </tr></thead>
-        <tbody>${pagos.map((c,i)=>`<tr style="${i%2===1?'background:rgba(255,255,255,.02)':''}">
-          <td style="padding:10px 14px">${c.nome||'-'}</td>
-          <td style="padding:10px 14px;text-align:right;color:var(--g);font-weight:700;font-family:var(--mono)">R$ ${fmt(c.pago_valor||c.rec)}</td>
-          <td style="padding:10px 14px;color:var(--mut2);font-family:var(--mono)">${c.pago_em?new Date(c.pago_em).toLocaleDateString('pt-BR'):'-'}</td>
-          <td style="padding:10px 14px;color:var(--mut2)">${c.pago_obs||'-'}</td>
-        </tr>`).join('')}</tbody>
+        <tbody>${rowsHtml}</tbody>
       </table>
     </div>`;
 }
