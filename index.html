@@ -2155,7 +2155,7 @@ function setView(v){
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='comissao') renderComissaoView();
-  if(v==='cli'){_cliQ='';const _cs=document.getElementById('cliSearch');if(_cs)_cs.value='';renderCli();}
+  if(v==='cli'){_cliSearch('');}
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
   if(v==='orc') renderOrc();
@@ -9021,9 +9021,9 @@ function renderCli(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>`;
   el.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}" onkeydown="if(event.key==='Enter'){_cliQ=this.value;renderCli();}">
-    <button onclick="_cliQ=document.getElementById('cliSearch').value;renderCli()" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
-    <button onclick="_cliQ='';renderCli()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
+    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}" onkeydown="if(event.key==='Enter'){_cliSearch(this.value);}">
+    <button onclick="_cliSearch(document.getElementById('cliSearch').value)" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
+    <button onclick="_cliSearch('')" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
   </div>${cardsHtml}`;
 }
 
