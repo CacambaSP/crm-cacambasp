@@ -821,10 +821,10 @@ input[type=checkbox]:checked::after{
         <div class="pw">
           <div class="ph">
             <div class="ph-title">Clientes</div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="text" id="cliSearch" placeholder="🔍 Buscar..." oninput="renderCli()" onchange="renderCli()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 12px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none;width:200px">
-              <button onclick="document.getElementById('cliSearch').value='';renderCli()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 9px;font-size:11px;color:var(--mut2);cursor:pointer;font-family:var(--font);white-space:nowrap" title="Limpar busca">✕</button>
-            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <input type="text" id="cliSearch" placeholder="🔍 Buscar por nome ou WhatsApp..." oninput="_cliQ=this.value;renderCli()" style="flex:1;max-width:420px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+            <button onclick="_cliQ='';document.getElementById('cliSearch').value='';renderCli()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font);white-space:nowrap">✕ Limpar</button>
           </div>
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
@@ -1710,6 +1710,7 @@ let _finFiltro='todos', _finSel=new Set();
 let _histPage=1; const HIST_PER=50;
 let _confirmResolve=null;
 let _filterTimer=null, _histTimer=null, _cliTimer=null, _nfTimer=null;
+let _cliQ='';
 let _autoRefreshId=null, _tokenRefreshId=null;
 let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0'); // fallback local
 let _histSelected=new Set(), _histSelMode=false;
@@ -2157,7 +2158,7 @@ function setView(v){
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='comissao') renderComissaoView();
-  if(v==='cli') renderCli();
+  if(v==='cli'){_cliQ='';const _cs=document.getElementById('cliSearch');if(_cs)_cs.value='';renderCli();}
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
   if(v==='orc') renderOrc();
@@ -8971,7 +8972,7 @@ async function salvarLotePrecosCli(fid){
 function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,180);}
 function renderCli(){
   const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=_normQ(document.getElementById('cliSearch')?.value||'');
+  const q=_normQ(_cliQ||'');
   const clientes={};
   ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
     if(!clientes[key]) clientes[key]={nome:c.nome,cel:c.cel,ordens:[],total:0,pago:0};
