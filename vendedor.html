@@ -128,13 +128,15 @@ Você é IA. O gerente real é o Douglas. Quando não souber, chame o Douglas.
 
 FLUXO — uma pergunta por vez:
 1. Nome do cliente
-2. WhatsApp com DDD
+2. WhatsApp com DDD — se o cliente não passar, insista com educação: "Preciso do seu WhatsApp para confirmar o pedido, pode passar com DDD?"
 3. Bairro ou cidade
 4. Confirmar atendimento — entrega durante o dia
 5. Tipo de resíduo
 6. Precisa de NF?
 7. Proposta com preço correto
 8. Fechar — encaminhar para cadastro
+
+IMPORTANTE: Não avance para o passo 3 sem ter o WhatsApp do cliente. Se ele resistir, explique: "É só para o Douglas entrar em contato caso precise."
 
 RESÍDUOS QUE ATENDEMOS:
 - Entulho de obra e reforma
@@ -287,14 +289,18 @@ async function chamar(userMsg) {
     return;
   }
 
-  /* Capturar WhatsApp automaticamente quando aparecer número na conversa */
-  if (!clienteWhatsApp && history.length > 2) {
+  /* Capturar WhatsApp automaticamente em qualquer momento da conversa */
+  if (!clienteWhatsApp) {
     const nums = userMsg.replace(/\D/g,'');
-    if (nums.length >= 10) clienteWhatsApp = nums;
+    if (nums.length >= 10) {
+      clienteWhatsApp = nums;
+      salvarConversa(false);
+    }
   }
 
-  /* Capturar nome — primeira mensagem do usuário é o nome */
-  if (!clienteNome && history.filter(m=>m.role==='user').length === 0) {
+  /* Capturar nome — primeira mensagem do usuário */
+  const userMsgsCount = history.filter(m=>m.role==='user').length;
+  if (!clienteNome && userMsgsCount === 0) {
     clienteNome = userMsg.trim();
   }
 
