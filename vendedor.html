@@ -153,6 +153,7 @@ let aguardandoWpp = false;
 let cidadeDetectada = null;
 let pedidoFechado = false;
 let conversaSalva = false;
+let clienteNome = null;
 let clienteWhatsApp = null;
 let conversaId = null;
 
@@ -274,18 +275,18 @@ async function chamar(userMsg) {
     return;
   }
 
-let clienteNome = null;
-
   /* Capturar WhatsApp automaticamente quando aparecer número na conversa */
   if (!clienteWhatsApp && history.length > 2) {
     const nums = userMsg.replace(/\D/g,'');
     if (nums.length >= 10) clienteWhatsApp = nums;
   }
 
-  /* Capturar nome — segunda mensagem do usuário provavelmente é o nome */
-  if (!clienteNome && history.filter(m=>m.role==='user').length === 1) {
+  /* Capturar nome — primeira mensagem do usuário é o nome */
+  if (!clienteNome && history.filter(m=>m.role==='user').length === 0) {
     clienteNome = userMsg.trim();
   }
+
+  const cidade = detectarCidade(userMsg);
   if (cidade) cidadeDetectada = cidade;
 
   history.push({ role: 'user', content: userMsg });
