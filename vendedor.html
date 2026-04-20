@@ -116,6 +116,16 @@ function buildSystem() {
   return `Você é JUCA (JUnior CAçamba), assistente de IA da ${EMPRESA}. Simpático, direto, experiente.
 Sempre deixe claro que é IA. O gerente humano é o Douglas.
 
+FLUXO OBRIGATÓRIO — siga esta ordem exata, uma pergunta por vez:
+1. Perguntar o NOME do cliente
+2. Perguntar o WHATSAPP com DDD
+3. Perguntar o BAIRRO ou CIDADE
+4. Confirmar atendimento e informar entrega durante o dia
+5. Perguntar TIPO DE RESÍDUO (entulho, poda, lixo, etc.)
+6. Perguntar se precisa de NF
+7. Apresentar PROPOSTA COMPLETA com preço correto
+8. Cliente aceita → encaminhar para cadastro
+
 PREÇOS (nunca fale antes de confirmar o bairro):
 - Osasco, Carapicuíba, Grande SP → R$ 430 sem NF / R$ 470 com NF
 - SP Zona Norte, Sul, Zona Oeste, Barueri → R$ 530 / R$ 570
@@ -123,20 +133,17 @@ PREÇOS (nunca fale antes de confirmar o bairro):
 
 PRODUTO: Caçamba 4m³ · Entrega durante o dia
 
-REGRAS DE PRAZO POR CIDADE:
-- São Paulo e maioria das cidades → 3 dias (lei municipal — emitimos CTR com prazo para aterro, multa se ultrapassar)
-- Osasco → NÃO emite CTR. Prazo mais flexível, combinar direto com Douglas.
-- Carapicuíba → verificar com Douglas.
-- Em qualquer caso: não ultrapassar a borda da caçamba.
-- Prazo maior não é vantagem: vizinhos jogam lixo indevidamente e cliente perde capacidade paga.
+REGRAS DE PRAZO:
+- São Paulo e maioria das cidades → 3 dias (lei municipal — CTR, multa se ultrapassar)
+- Osasco → NÃO emite CTR. Prazo mais flexível, combinar com Douglas.
+- Prazo maior não é vantagem: vizinhos jogam lixo e cliente perde capacidade paga.
 
-PAGAMENTO: Só PIX após entrega. Motorista não recebe (segurança — já houve assaltos). Sem dinheiro ou cartão.
+PAGAMENTO: Só PIX após entrega. Motorista não recebe (segurança). Sem dinheiro ou cartão.
 
 GOLPES: Se citar preço abaixo de R$400 ou entrega em 2h → "💣💣💣⚡⚡ Cuidado! Valor de R$230 não existe. Entrega em 2h é sinal de golpe. A CaçambaSP é empresa séria."
 
-QUANDO NÃO SOUBER: Diga que é IA e vai chamar o Douglas. Peça WhatsApp do cliente. Termine com [ESCALAR].
+QUANDO NÃO SOUBER: Diga que é IA e vai chamar o Douglas. Peça WhatsApp se ainda não tiver. Termine com [ESCALAR].
 
-FLUXO: bairro → confirmar → tipo resíduo → NF? → proposta → aceita → encaminhar cadastro
 Uma pergunta por vez. Máximo 3 linhas.${aprendizadosTexto()}`;
 }
 
@@ -233,7 +240,8 @@ async function salvarConversa(fechado = false) {
         messages: history,
         cidade: cidadeDetectada,
         pedido_fechado: fechado,
-        whatsapp: clienteWhatsApp
+        whatsapp: clienteWhatsApp,
+        nome: clienteNome
       })
     });
     conversaSalva = true;
@@ -266,7 +274,18 @@ async function chamar(userMsg) {
     return;
   }
 
-  const cidade = detectarCidade(userMsg);
+let clienteNome = null;
+
+  /* Capturar WhatsApp automaticamente quando aparecer número na conversa */
+  if (!clienteWhatsApp && history.length > 2) {
+    const nums = userMsg.replace(/\D/g,'');
+    if (nums.length >= 10) clienteWhatsApp = nums;
+  }
+
+  /* Capturar nome — segunda mensagem do usuário provavelmente é o nome */
+  if (!clienteNome && history.filter(m=>m.role==='user').length === 1) {
+    clienteNome = userMsg.trim();
+  }
   if (cidade) cidadeDetectada = cidade;
 
   history.push({ role: 'user', content: userMsg });
@@ -342,7 +361,7 @@ async function iniciar() {
   showTyping();
   await new Promise(r => setTimeout(r, 900));
   removeTyping();
-  const intro = `Olá! 👋 Sou o JUCA, assistente de IA da ${EMPRESA}. Em qual cidade ou bairro você precisa da caçamba?`;
+  const intro = `Olá! 👋 Sou o JUCA, assistente de IA da ${EMPRESA}. Para te atender melhor, qual é o seu nome?`;
   addMsg(intro, 'bot');
   history.push({ role: 'assistant', content: intro });
 }

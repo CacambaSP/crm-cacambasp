@@ -200,7 +200,7 @@ function renderizar() {
           ${c.cidade ? `<span class="card-cidade">📍 ${c.cidade}</span>` : ''}
         </div>
         <div class="card-preview">${preview}</div>
-        ${c.whatsapp ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">📱 ${c.whatsapp}</div>` : ''}
+        ${c.whatsapp ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">📱 ${c.whatsapp}${c.nome ? ` · ${c.nome}` : ''}</div>` : c.nome ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">👤 ${c.nome}</div>` : ''}
         <div class="card-data">${data} <span class="card-msgs">${msgs.length} msgs</span></div>
       </div>
     `;
