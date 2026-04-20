@@ -17,12 +17,13 @@ export default async function handler(req, res) {
   /* ── Salvar conversa no Supabase ── */
   if (salvar && messages) {
     try {
-      const { conversa_id, whatsapp } = req.body;
+      const { conversa_id, whatsapp, nome } = req.body;
       const payload = {
         mensagens: messages,
         cidade: cidade || null,
         pedido_fechado: pedido_fechado || false,
-        whatsapp: whatsapp || null
+        whatsapp: whatsapp || null,
+        nome: nome || null
       };
 
       if (conversa_id) {
