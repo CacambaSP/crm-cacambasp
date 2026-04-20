@@ -822,10 +822,6 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div class="ph-title">Clientes</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-            <input type="text" id="cliSearch" placeholder="🔍 Buscar por nome ou WhatsApp..." oninput="_cliSearch(this.value)" style="flex:1;max-width:420px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
-            <button onclick="document.getElementById('cliSearch').value='';_cliSearch('')" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font);white-space:nowrap">✕ Limpar</button>
-          </div>
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -8972,8 +8968,11 @@ async function salvarLotePrecosCli(fid){
 // ── CLIENTES ──
 function debounceCli(){clearTimeout(_cliTimer);_cliTimer=setTimeout(renderCli,180);}
 function renderCli(){
+  const el=document.getElementById('cliLista');
+  if(!el) return;
   const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const q=_normQ(_cliQ||'');
+  const ist='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;flex:1;min-width:0;box-sizing:border-box';
   const clientes={};
   ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
     if(!clientes[key]) clientes[key]={nome:c.nome,cel:c.cel,ordens:[],total:0,pago:0};
@@ -8982,13 +8981,10 @@ function renderCli(){
   });
   let rows=Object.values(clientes).sort((a,b)=>_normQ(a.nome).localeCompare(_normQ(b.nome)));
   if(q) rows=rows.filter(c=>_normQ(c.nome).includes(q)||(c.cel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
-  const el=document.getElementById('cliLista');
-  if(!rows.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>';return;}
   const colLabel={contratar:'Contratar',ag_entrega:'Ag.Entrega',entrega:'Entrega',pagar:'Receber',faltapg:'Falta Pagar',baixar:'Baixar',inadimp:'Inadimplente',concluido:'Concluído',orcamento:'Orçamento'};
-  el.innerHTML=rows.map((c,ci)=>{
+  const cardsHtml=rows.length?rows.map((c,ci)=>{
     const key='cliBody_'+ci;
     const ordensHtml=c.ordens.sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(o=>{
-      const forn=forns.find(f=>f.id===o.forn_id);
       const col=colLabel[o.col]||o.col||'-';
       const statusCor=o.col==='concluido'?'var(--g)':o.col==='inadimp'?'var(--r)':'var(--mut2)';
       return `<div onclick="event.stopPropagation();_detailId='${o.id}';openDetail()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bor);cursor:pointer;transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
@@ -9016,16 +9012,19 @@ function renderCli(){
       </div>
       <div id="${key}" style="display:none;border-top:1px solid var(--bor)">
         <div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;background:var(--bg2);display:flex;gap:8px">
-          <span style="width:90px;flex-shrink:0">CRM</span>
-          <span style="flex:1">Endereço</span>
+          <span style="width:90px;flex-shrink:0">CRM</span><span style="flex:1">Endereço</span>
           <span style="width:80px;flex-shrink:0;text-align:right">Data</span>
           <span style="width:80px;flex-shrink:0;text-align:right">Valor</span>
           <span style="width:75px;flex-shrink:0;text-align:right">Status</span>
-        </div>
-        ${ordensHtml}
+        </div>${ordensHtml}
       </div>
     </div>`;
-  }).join('');
+  }).join(''):`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>`;
+  el.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+    <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." value="${(_cliQ||'').replace(/"/g,'&quot;')}" style="${ist}" onkeydown="if(event.key==='Enter'){_cliQ=this.value;renderCli();}">
+    <button onclick="_cliQ=document.getElementById('cliSearch').value;renderCli()" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
+    <button onclick="_cliQ='';renderCli()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
+  </div>${cardsHtml}`;
 }
 
 // ── USUÁRIOS ──
