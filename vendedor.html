@@ -146,6 +146,8 @@ let aguardandoWpp = false;
 let cidadeDetectada = null;
 let pedidoFechado = false;
 let conversaSalva = false;
+let clienteWhatsApp = null;
+let conversaId = null;
 
 const el = id => document.getElementById(id);
 const scrollDown = () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -219,17 +221,19 @@ function salvarAprendizado() {
 
 /* ── Salvar conversa no Supabase ── */
 async function salvarConversa(fechado = false) {
-  if (conversaSalva && !fechado) return;
   if (history.length < 2) return;
+  if (!conversaId) conversaId = crypto.randomUUID();
   try {
     await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         salvar: true,
+        conversa_id: conversaId,
         messages: history,
         cidade: cidadeDetectada,
-        pedido_fechado: fechado
+        pedido_fechado: fechado,
+        whatsapp: clienteWhatsApp
       })
     });
     conversaSalva = true;
@@ -255,6 +259,7 @@ async function chamar(userMsg) {
   if (aguardandoWpp && /\d{8,}/.test(userMsg.replace(/\D/g,''))) {
     aguardandoWpp = false;
     const wpp = userMsg.replace(/\D/g,'');
+    clienteWhatsApp = wpp;
     addMsg('📲 Obrigado! Notificando o Douglas agora...', 'sistema');
     showDouglasBtn(wpp, situacao);
     salvarConversa(false);
