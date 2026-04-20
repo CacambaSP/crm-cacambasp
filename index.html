@@ -822,6 +822,11 @@ input[type=checkbox]:checked::after{
           <div class="ph">
             <div class="ph-title">Clientes</div>
           </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+            <input id="cliSearch" type="text" placeholder="🔍 Nome ou WhatsApp..." style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;flex:1;min-width:0;box-sizing:border-box" oninput="_cliQ=this.value;_renderCliResults()" onkeydown="if(event.key==='Enter'){_cliQ=this.value;_renderCliResults()}">
+            <button onclick="_cliQ=this.previousElementSibling.value;_renderCliResults()" style="background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap">🔍 Buscar</button>
+            <button onclick="_cliQ='';document.getElementById('cliSearch').value='';_renderCliResults()" style="background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)">✕</button>
+          </div>
           <div id="cliLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -1709,6 +1714,7 @@ let _filterTimer=null, _histTimer=null, _cliTimer=null, _nfTimer=null;
 let _cliQ='';
 function _cliSearch(v){_cliQ=v||'';renderCli();}
 window._cliSearch=_cliSearch;
+function _renderCliResults(){renderCli();}
 let _autoRefreshId=null, _tokenRefreshId=null;
 let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0'); // fallback local
 let _histSelected=new Set(), _histSelMode=false;
@@ -2156,7 +2162,7 @@ function setView(v){
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
   if(v==='comissao') renderComissaoView();
-  if(v==='cli'){_cliSearch('');}
+  if(v==='cli'){_cliQ='';if(document.getElementById('cliSearch'))document.getElementById('cliSearch').value='';renderCli();}
   if(v==='usr') renderUsrs();
   if(v==='perfil') renderPerfil();
   if(v==='orc') renderOrc();
@@ -8972,7 +8978,7 @@ function renderCli(){
   const el=document.getElementById('cliLista');
   if(!el) return;
   const _normQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const q=_normQ(_cliQ||'');
+  const q=_normQ((document.getElementById('cliSearch')?.value)||_cliQ||'');
   const ist='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;flex:1;min-width:0;box-sizing:border-box';
   const clientes={};
   ordens.forEach(c=>{if(!c.nome) return;const key=(c.cel||'').replace(/\D/g,'')||c.nome;
@@ -9021,29 +9027,7 @@ function renderCli(){
       </div>
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum cliente encontrado</div>`;
-  const wrapper=document.createElement('div');
-  wrapper.style.cssText='display:flex;flex-direction:column;gap:8px';
-  const bar=document.createElement('div');
-  bar.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:16px';
-  const inp=document.createElement('input');
-  inp.id='cliSearch';inp.type='text';inp.placeholder='🔍 Nome ou WhatsApp...';
-  inp.value=_cliQ||'';inp.style.cssText=ist;
-  const btnB=document.createElement('button');
-  btnB.textContent='🔍 Buscar';
-  btnB.style.cssText='background:var(--acc);border:none;border-radius:var(--rad3);padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;white-space:nowrap';
-  const btnL=document.createElement('button');
-  btnL.textContent='✕';
-  btnL.style.cssText='background:var(--bg2);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 11px;font-size:12px;color:var(--mut2);cursor:pointer;font-family:var(--font)';
-  btnB.addEventListener('click',function(){_cliSearch(inp.value);});
-  btnL.addEventListener('click',function(){_cliSearch('');});
-  inp.addEventListener('keydown',function(e){if(e.key==='Enter')_cliSearch(inp.value);});
-  bar.appendChild(inp);bar.appendChild(btnB);bar.appendChild(btnL);
-  wrapper.appendChild(bar);
-  const body=document.createElement('div');
-  body.innerHTML=cardsHtml;
-  wrapper.appendChild(body);
-  el.innerHTML='';
-  el.appendChild(wrapper);
+  el.innerHTML=cardsHtml;
 }
 
 // ── USUÁRIOS ──
