@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>JUCA — Conversas</title>
+  <title>JUCA — Junior Caçambas — Conversas</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,7 +89,7 @@
 <div id="tela-acesso">
   <div class="acesso-box">
     <div class="acesso-logo">JU</div>
-    <div class="acesso-title">JUCA · Conversas</div>
+    <div class="acesso-title">JUCA — Junior Caçambas</div>
     <div class="acesso-sub">Acesso restrito ao gerente</div>
     <input type="password" id="senha-input" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')verificarSenha()"/>
     <button onclick="verificarSenha()">Entrar</button>
@@ -102,8 +102,8 @@
   <header>
     <div class="logo-circle">JU</div>
     <div class="logo-info">
-      <div class="logo-name">JUCA · Conversas</div>
-      <div class="logo-sub">Painel do gerente — Douglas</div>
+      <div class="logo-name">JUCA — Junior Caçambas</div>
+      <div class="logo-sub">Vendedor Virtual do Grupo Caçamba SP</div>
     </div>
     <div class="header-count" id="header-count">...</div>
   </header>
@@ -200,7 +200,7 @@ function renderizar() {
           ${c.cidade ? `<span class="card-cidade">📍 ${c.cidade}</span>` : ''}
         </div>
         <div class="card-preview">${preview}</div>
-        ${c.whatsapp ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">📱 ${c.whatsapp}${c.nome ? ` · ${c.nome}` : ''}</div>` : c.nome ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">👤 ${c.nome}</div>` : ''}
+        ${c.whatsapp ? `<div style="font-size:12px;margin-bottom:4px;"><a href="https://wa.me/${c.whatsapp}" target="_blank" style="color:#25D366;text-decoration:none;font-weight:500;">📱 ${c.whatsapp}${c.nome ? ` · ${c.nome}` : ''}</a></div>` : c.nome ? `<div style="font-size:12px;color:#0F6E56;margin-bottom:4px;">👤 ${c.nome}</div>` : ''}
         <div class="card-data">${data} <span class="card-msgs">${msgs.length} msgs</span></div>
       </div>
     `;
