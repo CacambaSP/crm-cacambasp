@@ -17,20 +17,39 @@ export default async function handler(req, res) {
   /* ── Salvar conversa no Supabase ── */
   if (salvar && messages) {
     try {
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/juca_conversas`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          mensagens: messages,
-          cidade: cidade || null,
-          pedido_fechado: pedido_fechado || false
-        })
-      });
+      const { conversa_id, whatsapp } = req.body;
+      const payload = {
+        mensagens: messages,
+        cidade: cidade || null,
+        pedido_fechado: pedido_fechado || false,
+        whatsapp: whatsapp || null
+      };
+
+      if (conversa_id) {
+        /* Upsert — atualiza se já existe, cria se não existe */
+        payload.id = conversa_id;
+        await fetch(`${process.env.SUPABASE_URL}/rest/v1/juca_conversas`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': process.env.SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        await fetch(`${process.env.SUPABASE_URL}/rest/v1/juca_conversas`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': process.env.SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(payload)
+        });
+      }
     } catch(e) {
       console.error('Erro ao salvar conversa:', e);
     }
