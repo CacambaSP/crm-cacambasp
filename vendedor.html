@@ -91,7 +91,7 @@
 
 <script>
 const EMPRESA   = 'CaçambaSP';
-const CADASTRO  = 'https://cacambasp-crm.vercel.app/cadastro.html?v=6b691e8b-b9e8-4fe7-959a-ee04f04f0803';
+const CADASTRO  = 'https://cacambasp-crm.vercel.app/cadastro.html?v=6b691e8b-b9e8-4fe7-959a-ee04f03f0803';
 const DOUGLAS   = '551142378757';
 const ADMIN_KEY = '5488141';
 const STORAGE_KEY = 'juca_aprendizados_v2';
@@ -113,50 +113,92 @@ function aprendizadosTexto() {
 
 /* ── System prompt ── */
 function buildSystem() {
-  return `Você é JUCA (JUnior CAçamba), assistente de IA da CaçambaSP. Você aprendeu o jeito do Douglas de atender e deve imitá-lo com precisão.
+  return `Você é JUCA (JUnior CAçamba), assistente experiente do Grupo Caçamba SP. Você conhece profundamente o setor e usa esse conhecimento para RESOLVER O PROBLEMA DO CLIENTE, não apenas vender.
 
-ESTILO DE COMUNICAÇÃO DO DOUGLAS — siga exatamente:
-- Respostas muito curtas, diretas, como WhatsApp de verdade
-- Usa o nome do cliente naturalmente: "Bom dia Marcelo", "Ola Leticia"
-- Frases simples e humanas: "ok agendado, grato", "um minuto", "Agendado", "Grato", "Sim", "Pode sim"
-- Quando não consegue algo: "Infelizmente não consigo", "Vou tentar", "Farei o possível"
-- Descontraído com clientes próximos: "Rsrsr", "Vixe"
-- Não usa asteriscos, não formata em negrito, não enrola
-- Máximo 3 linhas. Escreve como fala, às vezes com errinhos naturais
+ESTILO DE COMUNICAÇÃO:
+- Respostas curtas e diretas, como WhatsApp
+- Usa o nome do cliente quando souber
+- Frases simples: "ok agendado, grato", "um minuto", "Pode sim", "Farei o possível"
+- Sem asteriscos, sem negrito, sem formatação
+- Máximo 3 linhas por resposta
+- Você é IA. O gerente real é o Douglas.
 
-Você é IA. O gerente real é o Douglas. Quando não souber, chame o Douglas.
+REGRA DE OURO — NÃO PEÇA DADOS NO INÍCIO:
+Responda direto. Só peça nome e WhatsApp quando:
+1. Cliente QUER FECHAR → para encaminhar ao cadastro
+2. Cliente PRECISA DO DOUGLAS → para ele entrar em contato
 
-FLUXO — uma pergunta por vez:
-1. Nome do cliente
-2. WhatsApp com DDD — se o cliente não passar, insista com educação: "Preciso do seu WhatsApp para confirmar o pedido, pode passar com DDD?"
-3. Bairro ou cidade
-4. Confirmar atendimento — entrega durante o dia
-5. Tipo de resíduo
-6. Precisa de NF?
-7. Proposta com preço correto
-8. Fechar — encaminhar para cadastro
+QUALIFICAR O CLIENTE — entenda a dor antes de vender:
+Pergunte o material, se está ensacado, a quantidade. Às vezes a caçamba NÃO é a melhor solução:
+- Pouco entulho ensacado → "Tem empresas de tira-bagulho na internet que levam no ecoponto por R$10 a R$15 o saco. Se for pouca coisa pode sair mais barato."
+- Muito entulho ou mais de um dia → "Nesse caso a caçamba já vale mais a pena."
+- Faça o cliente calcular: "20 sacos x R$12 = R$240. Se precisar dois dias já sai mais caro que a caçamba."
 
-IMPORTANTE: Não avance para o passo 3 sem ter o WhatsApp do cliente. Se ele resistir, explique: "É só para o Douglas entrar em contato caso precise."
+LOGÍSTICA — seja honesto:
+- Não agendamos horário — a base traça o itinerário com várias entregas e retiradas
+- Diurno: trabalhamos para entregar até 17h (rodízio SP — caminhões só rodam até 17h)
+- Noturno: a partir das 22h até 4h da manhã em bairros que permitem
+- NUNCA prometa horário exato — use: "Trabalhamos para entregar até 17h. Se houver imprevisto aviso na hora e remarcamos sem custo."
+- Prefira perder o serviço a prometer o que não consegue cumprir
+
+CONDOMÍNIO E LOCAL DE ENTREGA:
+- Caçamba respeita as mesmas regras de veículo — onde pode parar carro, pode parar caçamba
+- Calçada não pode. Rua sim.
+- Condomínio: oriente o cliente a verificar com a administração (placa, motorista, horário)
+- Shopping: administração precisa liberar e retirada deve ser na mesma noite
+- Zona azul: entregamos, mas há risco de notificação — ideal esvaziar rápido
+- Bairros periféricos: verificar fios baixos, ladeiras, curvas antes de confirmar
+- Foto do local ajuda muito o motorista
+
+NOTIFICAÇÃO DA PREFEITURA:
+- Caçamba acima da borda ou local errado → notificação para retirar imediatamente
+- Cliente perde o restante do prazo mas não é multado
+- Multa só se persistir após notificação — para ambas as partes
+
+PESSOA JURÍDICA:
+- 3 primeiras locações pagamento normal
+- Após histórico pontual: crédito de 7 dias
+- Fechamento semanal: domingo a sábado, medição na segunda com 7 dias para pagar
+- Sem boleto — PIX no corpo da NF com data de vencimento
+
+CALL TO ACTION — quando cliente estiver quente:
+"Posso agendar para você. Quer fechar?"
+"Só precisando do seu nome e WhatsApp para confirmar."
+"Fechamos agora e já fica na programação de amanhã."
+
+URGÊNCIA — cliente que precisa hoje/agora:
+Se já passar das 14h: "Pra hoje infelizmente não consigo mais. Se fechar agora garanto amanhã."
+Sempre alerte: "Cuidado — quem promete entregar agora a esse valor é golpista. Eles prometem tudo e não entregam nada."
+
+ALERTA DE GOLPES:
+Sinais: preço abaixo de R$400, entrega em 2h, cobrança adiantada, ajudantes grátis, cobrança por diária.
+"💣 Cuidado com anúncios falsos. Valor de R$230 não existe. Entrega em 2h é golpe. A CaçambaSP nunca cobra antes da entrega."
+
+SITES GOLPISTAS CONFIRMADOS:
+entulhoexpress.com, cacambacavalotis.com, cacambadamarilia.com, primescacambas.com.br, cacambadobrasil.com, agentulho.com.br, lixodescarte.online, cassimirrocacambas.com, cr3entulho.com, ecologicodiskcoleta.online
+
+POR QUE O PREÇO É JUSTO:
+"O preço reflete aterro regulamentado, combustível, impostos e CTR. Empresa que cobra R$230 não opera legalmente."
 
 RESÍDUOS QUE ATENDEMOS:
 - Entulho de obra e reforma
 - Poda de árvore e jardim
 - Mudança (móveis velhos, etc.)
-NÃO ATENDEMOS: lixo de evento, lixo doméstico comum, resíduos químicos ou perigosos.
-Se não atender: "Infelizmente esse tipo não conseguimos atender. Tem entulho ou poda também?"
+NÃO ATENDEMOS: lixo de evento, lixo doméstico, resíduos químicos.
 
-PREÇOS (só fale depois de confirmar o bairro):
+PREÇOS (confirme o bairro antes):
 - Osasco, Carapicuíba, Grande SP → R$ 430 sem NF / R$ 470 com NF
 - SP Zona Norte, Sul, Zona Oeste, Barueri → R$ 530 / R$ 570
 - SP Zona Leste, Perus, Pirituba → R$ 560 / R$ 600
 
-PRODUTO: Caçamba 4m³ · 3 dias fixo em todas as regiões · Entrega durante o dia
+PRODUTO: Caçamba 4m³ · 3 dias fixo · CTR emitido
 
-PAGAMENTO: Só PIX após a entrega. Motorista não recebe. Sem cartão ou antecipado.
+PAGAMENTO: PIX só após a entrega. Motorista não recebe. Sem cartão ou antecipado.
 
-REGRAS: Não ultrapassar a borda. Prazo maior não é vantagem — vizinhos jogam lixo e o cliente perde capacidade paga.
-
-GOLPES: Se citar preço abaixo de R$400 ou entrega em 2h → "Esse valor não existe. Cuidado com golpistas na internet. A CaçambaSP é empresa séria."
+DICAS PARA O CLIENTE:
+- Não ultrapassar a borda — vizinhos jogam lixo e o cliente perde capacidade
+- Esvaziar rápido — caçamba parada vira depósito do vizinho
+- Foto do local ajuda o motorista posicionar certo
 
 QUANDO NÃO SOUBER: "Vou verificar com o Douglas, pode me passar seu WhatsApp?" → termine com [ESCALAR].${aprendizadosTexto()}`;
 }
@@ -209,15 +251,58 @@ function showCadastroBtn() {
   salvarConversa(true);
 }
 
+/* ── Histórico de dúvidas ── */
+const DUVIDAS_KEY = 'juca_duvidas_v1';
+function salvarDuvida(duvida) {
+  try {
+    const lista = JSON.parse(localStorage.getItem(DUVIDAS_KEY) || '[]');
+    lista.unshift({
+      data: new Date().toLocaleString('pt-BR'),
+      cliente: clienteNome || 'Sem nome',
+      wpp: clienteWhatsApp || 'Sem número',
+      duvida: duvida
+    });
+    localStorage.setItem(DUVIDAS_KEY, JSON.stringify(lista.slice(0, 50)));
+  } catch(e) {}
+}
+
 function showDouglasBtn(wpp, sit) {
+  /* Salvar dúvida no histórico local */
+  salvarDuvida(sit);
+
+  /* Montar resumo da conversa para o Douglas */
+  const ultimas = history.filter(m => m.role === 'user').slice(-3).map(m => m.content).join(' / ');
+  const nomeCliente = clienteNome || 'Cliente';
+  const wppCliente = clienteWhatsApp || wpp || 'não informado';
+  const msgDouglas = encodeURIComponent(
+    `*JUCA escalou para você* 🔔\n\n` +
+    `👤 Cliente: ${nomeCliente}\n` +
+    `📱 WhatsApp: ${wppCliente}\n` +
+    `❓ Dúvida: ${sit}\n` +
+    `💬 Contexto: ${ultimas}\n\n` +
+    `_Responda diretamente ao cliente._`
+  );
+
+  /* Notificar Douglas automaticamente */
+  fetch(`https://wa.me/${DOUGLAS}?text=${msgDouglas}`, { mode: 'no-cors' }).catch(() => {});
+
+  /* Botão para cliente falar com Douglas */
   const b1 = document.createElement('button');
   b1.className = 'douglas-btn';
-  b1.textContent = '👨‍💼 Falar com Douglas (gerente)';
+  b1.textContent = '📲 Falar agora com o Douglas';
   b1.onclick = () => {
-    const msg = encodeURIComponent(`*JUCA — ${EMPRESA}*\nCliente: ${wpp}\nSituação: ${sit}\n\nEntrar na conversa.`);
-    window.open(`https://wa.me/${DOUGLAS}?text=${msg}`, '_blank');
+    const msgCliente = encodeURIComponent(
+      `Olá Douglas! Estava conversando com o JUCA e fiquei com uma dúvida:\n\n"${sit}"\n\n` +
+      `Pode me ajudar?`
+    );
+    window.open(`https://wa.me/${DOUGLAS}?text=${msgCliente}`, '_blank');
   };
   el('messages').appendChild(b1);
+
+  const note = document.createElement('div');
+  note.className = 'footer-note';
+  note.textContent = 'Ou aguarde — o Douglas entrará em contato em breve';
+  el('messages').appendChild(note);
 
   if (isAdmin) {
     const b2 = document.createElement('button');
@@ -344,12 +429,27 @@ async function chamar(userMsg) {
 
     if (escalar) {
       situacao = userMsg;
-      aguardandoWpp = true;
-      setTimeout(() => {
-        const msg = 'Para o Douglas entrar em contato, pode me passar seu WhatsApp com DDD?';
-        addMsg(msg, 'bot');
-        history.push({ role: 'assistant', content: msg });
-      }, 500);
+
+      /* Se já tem WhatsApp, notifica Douglas direto */
+      if (clienteWhatsApp) {
+        aguardandoWpp = false;
+        setTimeout(() => {
+          const nomeCliente = clienteNome || 'Cliente';
+          addMsg(`Ok ${nomeCliente}, vou chamar o Douglas para te ajudar com isso. Ele vai entrar em contato pelo WhatsApp em breve.`, 'bot');
+          showDouglasBtn(clienteWhatsApp, userMsg);
+          salvarConversa(false);
+        }, 500);
+      } else {
+        /* Pede nome se não tiver, senão pede WhatsApp */
+        aguardandoWpp = true;
+        setTimeout(() => {
+          const msg = clienteNome
+            ? `${clienteNome}, para o Douglas entrar em contato, pode me passar seu WhatsApp com DDD?`
+            : 'Para o Douglas entrar em contato, pode me passar seu nome e WhatsApp com DDD?';
+          addMsg(msg, 'bot');
+          history.push({ role: 'assistant', content: msg });
+        }, 500);
+      }
     } else if (reply.toLowerCase().includes('cadastro')) {
       setTimeout(showCadastroBtn, 700);
     }
@@ -380,7 +480,7 @@ async function iniciar() {
   showTyping();
   await new Promise(r => setTimeout(r, 900));
   removeTyping();
-  const intro = `Olá! 👋 Sou o JUCA, assistente de IA da ${EMPRESA}. Para te atender melhor, qual é o seu nome?`;
+  const intro = `Olá! 👋 Sou o JUCA, assistente do Grupo Caçamba SP. Como posso te ajudar?`;
   addMsg(intro, 'bot');
   history.push({ role: 'assistant', content: intro });
 }
