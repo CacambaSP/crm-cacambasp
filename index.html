@@ -8546,7 +8546,8 @@ function exportarCSV(){
   a.click();
   toast('📥 CSV exportado!');
 }
-function _relVendedor.filter(c => !_isArquivoMorto(c));
+function _relVendedor(src,nm){
+  src = src.filter(c => !_isArquivoMorto(c));
   const pv={};
   src.forEach(c=>{const uid=c.usuario_id||'sem';const u=usuarios.find(x=>x.id===uid);const nome=u?.nome||'Sem vendedor';
     if(!pv[uid])pv[uid]={nome,rec:0,cst:0,qtd:0,pagos:0};
@@ -9467,7 +9468,7 @@ function renderUsrs(){
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs btn-b" style="flex:1;justify-content:center" onclick="editarUsr('${u.id}')">✏️ Editar</button>
-          <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" class="btn btn-xs btn-acc" style="flex:1;justify-content:center;text-decoration:none">🔗 Link</a>
+          <a href="https://cacambasp-crm.vercel.app/cadastro.html?uid=${u.id}" target="_blank" class="btn btn-xs btn-acc" style="flex:1;justify-content:center;text-decoration:none">🔗 Link</a>
           ${!isMe?`<button class="btn btn-xs btn-r" style="flex:1;justify-content:center" onclick="deletarUsr('${u.id}')">🗑 Excluir</button>`:`<button class="btn btn-xs" style="flex:1;justify-content:center;opacity:.3" disabled>🗑 Excluir</button>`}
         </div>
       </div>`;
@@ -9482,7 +9483,7 @@ function renderUsrs(){
       </div>
       <div class="user-acts">
         <span class="role-badge ${u.nivel==='admin'?'role-admin':'role-op'}">${u.nivel==='admin'?'👑 Admin':'👤 Operador'}</span>
-        <span style="font-size:11px;color:var(--mut2)">Link: <a href="${window.location.origin}/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
+        <span style="font-size:11px;color:var(--mut2)">Link: <a href="https://cacambasp-crm.vercel.app/cadastro.html?uid=${u.id}" target="_blank" style="color:var(--acc)">📋</a></span>
         <button class="btn btn-xs btn-b" onclick="editarUsr('${u.id}')">✏️ Editar</button>
         ${!isMe?`<button class="btn btn-xs btn-r" onclick="deletarUsr('${u.id}')">🗑</button>`:''}
       </div>
@@ -9642,7 +9643,7 @@ function renderPerfil(){
   const marcaSlogan= _perfil?.marca_slogan|| '';
   const marcaTema  = _perfil?.marca_tema  || 'A';
   const marcaLogo  = _perfil?.marca_logo_url || '';
-  const linkCad = `${window.location.origin}/cadastro.html?v=${uid}`;
+  const linkCad = `https://cacambasp-crm.vercel.app/cadastro.html?v=${uid}`;
 
   const temasHtml = TEMAS_ORCAMENTO.map(t=>`
     <div class="tema-card ${marcaTema===t.id?'tema-ativo':''}" onclick="selecionarTema('${t.id}')" id="tema-card-${t.id}" style="cursor:pointer;border:2px solid ${marcaTema===t.id?'var(--acc)':'var(--bor)'};border-radius:var(--rad3);padding:10px 14px;background:${marcaTema===t.id?'var(--acc2)':'var(--sur)'};transition:all .2s;flex:1;min-width:100px;text-align:center">
@@ -9830,7 +9831,7 @@ async function salvarMarca(){
 }
 
 function copiarLinkCadastro(){
-  const link=window.location.origin+'/cadastro.html?v='+_currentUser?.user?.id;
+  const link='https://cacambasp-crm.vercel.app/cadastro.html?v='+_currentUser?.user?.id;
   navigator.clipboard.writeText(link).then(()=>toast('📋 Link copiado!')).catch(()=>toast('Copie manualmente','warn'));
 }
 async function salvarSenha(){
