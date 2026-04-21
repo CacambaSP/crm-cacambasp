@@ -2310,7 +2310,7 @@ function doFilter(){
     if(c.col==='concluido') return false;
     if(q){
       const qLimpo=q.replace(/\D/g,'');
-      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro].some(f=>(f||'').toLowerCase().includes(q));
+      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>(f||'').toLowerCase().includes(q));
       const celLimpo=(c.cel||'').replace(/\D/g,'');
       const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
       if(!match&&!matchCel) return false;
@@ -8662,7 +8662,7 @@ function _relRecebimento(src,nm){
   </tr></thead><tbody>${pagos.map(c=>{
     const isAgrup=(c.pago_obs||'').includes('agrupado');
     const forn=forns.find(f=>f.id===c.forn_id);
-    const _dataRec=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.pago_obs||''),(forn?forn.nome:'')].join(' ').toLowerCase();
+    const _dataRec=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(c.pago_obs||''),(c.nf_num||''),(forn?forn.nome:'')].join(' ').toLowerCase();
     return`<tr data-rec="${_dataRec.replace(/"/g,'&quot;')}">
     <td style="font-family:var(--mono);font-size:11px"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
     <td style="font-weight:600">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${c.bairro||''}</span></td>
