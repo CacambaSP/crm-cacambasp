@@ -1725,6 +1725,7 @@ let _ordemEditId=null;
 
 const isAdmin=()=>_perfil?.nivel==='admin';
 function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+function _nrm(s){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 // aliases checklist
 function renderCobr(){return renderCobrancaAuto();}
 function renderComissao(){return renderComissaoView();}
@@ -2310,7 +2311,7 @@ function doFilter(){
     if(c.col==='concluido') return false;
     if(q){
       const qLimpo=q.replace(/\D/g,'');
-      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>(f||'').toLowerCase().includes(q));
+      const _q=_nrm(q);const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>_nrm(f).includes(_q));
       const celLimpo=(c.cel||'').replace(/\D/g,'');
       const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
       if(!match&&!matchCel) return false;
@@ -3017,7 +3018,7 @@ function idxBuscarCliente(q) {
   ordens.forEach(o => {
     const cel = (o.cel||'').replace(/\D/g,'');
     const nome = (o.nome||'').toLowerCase();
-    const match = nome.includes(qLow) || (qTel.length>=3 && cel.includes(qTel));
+    const match = _nrm(nome).includes(_nrm(qLow)) || (qTel.length>=3 && cel.includes(qTel));
     const key = cel+(o.nome||'');
     if(match && !vistos[key]) {
       vistos[key] = true;
@@ -3292,9 +3293,9 @@ function modalFornBuscar(q){
       return (Array.isArray(f.regioes)?f.regioes:[]).some(r=>r.zona===zonaAlvo);
     }
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
-    return f.nome.toLowerCase().includes(q)
-      || regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase().includes(q))
-      || regioes.some(r=>(r.zona||'').toLowerCase().includes(q));
+    return _nrm(f.nome).includes(_nrm(q))
+      || regioes.some(r=>_nrm(r.bairro||r.regiao||'').includes(_nrm(q)))
+      || regioes.some(r=>_nrm(r.zona||'').includes(_nrm(q)));
   });
   if(!filtrados.length){
     drop.innerHTML=`<div style="padding:10px;font-size:12px;color:var(--mut2);text-align:center">Nenhum resultado para "${q}"</div>`;
@@ -6405,7 +6406,7 @@ function renderHist(resetPg){
   const _histTab = document.getElementById('histTabSel')?.value || 'concluido';
   const concluidos=ordens.filter(c=>c.col==='concluido' && (_histTab==='morto' ? _isArquivoMorto(c) : _isConcluido(c))).sort((a,b)=>(b.concluido_em||b.criado_em||'').localeCompare(a.concluido_em||a.criado_em||''));
   const filtrados=concluidos.filter(c=>{
-    if(q&&![c.nome,c.logradouro,c.cidade,c.crm_id,c.tipo].some(f=>(f||'').toLowerCase().includes(q)))return false;
+    if(q&&![c.nome,c.logradouro,c.cidade,c.crm_id,c.tipo].some(f=>_nrm(f).includes(_nrm(q))))return false;
     if(de&&c.data&&c.data<de)return false;
     if(ate&&c.data&&c.data>ate)return false;
     return true;
@@ -7471,7 +7472,7 @@ function _relPgfFiltrarDOM(q){
   const tbody=document.querySelector('#pgfTabela tbody');
   if(!tbody)return;
   tbody.querySelectorAll('tr[data-pgf]').forEach(tr=>{
-    const ok=!qL||(tr.dataset.pgf||'').toLowerCase().includes(qL);
+    const ok=!qL||_nrm(tr.dataset.pgf||'').includes(_nrm(qL));
     tr.style.display=ok?'':'none';
   });
 }
@@ -7644,7 +7645,7 @@ function _renderRelCliRows(){
     clientes[key].ordens.push(c);
   });
   let arr=Object.values(clientes);
-  if(q){const qTel=q.replace(/\D/g,'');arr=arr.filter(c=>(c.nome||'').toLowerCase().includes(q)||(qTel.length>=3&&(c.cel||'').replace(/\D/g,'').includes(qTel)));}
+  if(q){const qTel=q.replace(/\D/g,'');arr=arr.filter(c=>_nrm(c.nome).includes(_nrm(q))||(qTel.length>=3&&(c.cel||'').replace(/\D/g,'').includes(qTel)));}
   arr.sort((a,b)=>b.ordens.length-a.ordens.length);
   const totalClientes=arr.length;
   const totalReceita=arr.reduce((s,c)=>s+c.ordens.reduce((ss,o)=>ss+parseFloat(o.rec||0),0),0);
@@ -7810,8 +7811,8 @@ function _reciboFiltrar(q) {
     clientes[chave].ordens.push(o);
   });
   const matches = Object.values(clientes).filter(c =>
-    c.nome.toLowerCase().includes(norm) || c.cel.includes(norm) ||
-    c.ordens.some(o=>(o.logradouro||"").toLowerCase().includes(norm)||(o.bairro||"").toLowerCase().includes(norm))
+    _nrm(c.nome).includes(_nrm(norm)) || c.cel.includes(norm) ||
+    c.ordens.some(o=>_nrm(o.logradouro||'').includes(_nrm(norm))||_nrm(o.bairro||'').includes(_nrm(norm)))
   ).slice(0,8);
   if (!matches.length) { ac.style.display='none'; return; }
   ac.innerHTML = matches.map(c => {
@@ -8591,7 +8592,7 @@ function _relRecFiltrarDOM(q){
   let visiveis=0;
   tbody.querySelectorAll('tr[data-rec]').forEach(tr=>{
     const txt=(tr.dataset.rec||'').toLowerCase();
-    const ok=!qL||txt.includes(qL);
+    const ok=!qL||_nrm(txt).includes(_nrm(qL));
     tr.style.display=ok?'':'none';
     if(ok)visiveis++;
   });
@@ -8613,7 +8614,7 @@ function _relRecebimento(src,nm){
   const fAgrup=document.getElementById('recFiltroAgrup')?.value||'';
   const fValMin=parseFloat(document.getElementById('recValMin')?.value)||0;
   const fValMax=parseFloat(document.getElementById('recValMax')?.value)||0;
-  if(q) pagos=pagos.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.crm_id||'').toLowerCase().includes(q)||(c.pago_obs||'').toLowerCase().includes(q)||(c.logradouro||'').toLowerCase().includes(q)||(c.bairro||'').toLowerCase().includes(q));
+  if(q) pagos=pagos.filter(c=>[c.nome,c.crm_id,c.pago_obs,c.logradouro,c.bairro,c.nf_num].some(f=>_nrm(f).includes(_nrm(q))));
   if(fForn) pagos=pagos.filter(c=>c.forn_id===fForn);
   if(fAgrup==='sim') pagos=pagos.filter(c=>(c.pago_obs||'').includes('agrupado'));
   if(fAgrup==='nao') pagos=pagos.filter(c=>!(c.pago_obs||'').includes('agrupado'));
@@ -8901,7 +8902,7 @@ function renderCobertura(){
 function filtrarCobertura(){
   const q=(document.getElementById('coberturaQ')?.value||'').toLowerCase().trim();
   document.querySelectorAll('.cobertura-row').forEach(el=>{
-    el.style.display=!q||el.dataset.bairro.includes(q)?'':'none';
+    el.style.display=!q||_nrm(el.dataset.bairro||'').includes(_nrm(q))?'':'none';
   });
 }
 function _fornMobTabAtivo(tab){
@@ -8926,11 +8927,11 @@ function renderForns(){
   const soAtivos=document.getElementById('fornFiltroAtivos')?.dataset.ativo==='1';
   const fornsOrdenados=[...forns].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
   const fornsFiltrados=fornsOrdenados.filter(f=>{
-    if(qNome&&!(f.nome||'').toLowerCase().includes(qNome)) return false;
+    if(qNome&&!_nrm(f.nome).includes(_nrm(qNome))) return false;
     if(soAtivos){const ords=ordens.filter(c=>c.forn_id===f.id&&c.col!=='concluido'&&c.col!=='orcamento');if(!ords.length) return false;}
     if(qBairro){
       const regioes=Array.isArray(f.regioes)?f.regioes:[];
-      const atende=regioes.some(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro));
+      const atende=regioes.some(r=>_nrm(r.bairro||r.regiao||r.nome||'').includes(_nrm(qBairro)));
       if(!atende) return false;
     }
     return true;
@@ -8945,7 +8946,7 @@ function renderForns(){
     const pp=f.preco_padrao>0;
     const precoPadraoLabel=pp?`<span style="font-size:11px;color:var(--mut2)">Padrão: <strong style="color:var(--acc);font-family:var(--mono)">R$ ${fmt(f.preco_padrao)}</strong></span>`:'';
     const regioesSorted=[...regioes].map((r,ri)=>({...r,_ri:ri})).sort((a,b)=>(a.bairro||a.regiao||a.nome||'').localeCompare(b.bairro||b.regiao||b.nome||'','pt-BR'));
-    const bairrosFiltrados=qBairro?regioesSorted.filter(r=>(r.bairro||r.regiao||r.nome||'').toLowerCase().includes(qBairro)):regioesSorted;
+    const bairrosFiltrados=qBairro?regioesSorted.filter(r=>_nrm(r.bairro||r.regiao||r.nome||'').includes(_nrm(qBairro))):regioesSorted;
     const supAberto=qBairro&&bairrosFiltrados.length>0;
     const bairrosHtml=bairrosFiltrados.map((r,_idx)=>{
       const ri=r._ri;
@@ -9367,7 +9368,7 @@ function filtrarCli(){
   // Mesmo padrão do _renderRelCliRows que funciona no Relatório/Cliente
   const q=(document.getElementById('cliSearch')?.value||'').toLowerCase().trim();
   const nQ=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  const qN=nQ(q);
+  const qN=_nrm(q);
   const qTel=q.replace(/\D/g,'');
   let visivel=0;
   document.querySelectorAll('#cliLista [data-cli]').forEach(card=>{
