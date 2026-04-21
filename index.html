@@ -2300,7 +2300,7 @@ function doFilter(){
     if(c.col==='concluido') return false;
     if(q){
       const qLimpo=q.replace(/\D/g,'');
-      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro].some(f=>(f||'').toLowerCase().includes(q));
+      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>(f||'').toLowerCase().includes(q));
       const celLimpo=(c.cel||'').replace(/\D/g,'');
       const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
       if(!match&&!matchCel) return false;
@@ -7087,7 +7087,7 @@ function renderExtratoRevisao(){
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
           <input type="checkbox" data-crmid="${r.id}" data-valor="${r.valorPago}" checked style="accent-color:var(--g);width:16px;height:16px;flex-shrink:0">
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${_nomeCliente}${_matchBadge}</div>
-          <div style="font-size:11px;color:var(--mut2)">${_grpInfo} · 📅 ${(r.dataPago&&r.dataPago!=='-')?r.dataPago:(r.dataVenc&&r.dataVenc!=='-'?r.dataVenc:'-')}</div></div>
+          <div style="font-size:11px;color:var(--mut2)">${_grpInfo} · ${r.dataVenc||r.dataPago||'-'}</div></div>
           <div style="text-align:right;flex-shrink:0"><div style="font-weight:800;color:var(--g);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
           ${Math.abs(r.valorPago-_totalOS)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`:''}</div>
           </label>
@@ -7099,7 +7099,7 @@ function renderExtratoRevisao(){
       <div style="font-size:11px;font-weight:700;color:var(--r);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">⚠️ Não identificados</div>
       ${ne.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bor)">
         <div style="flex:1"><div style="font-weight:600;font-size:13px">${r.pagador||'-'}</div>
-        <div style="font-size:11px;color:var(--mut2)">${r.id} · 📅 ${(r.dataPago&&r.dataPago!=='-')?r.dataPago:(r.dataVenc&&r.dataVenc!=='-'?r.dataVenc:'-')}${r.tipo==='grp'?' · Agrupado':''}</div></div>
+        <div style="font-size:11px;color:var(--mut2)">${r.id} · ${r.dataVenc||r.dataPago||'-'}${r.tipo==='grp'?' · Agrupado':''}</div></div>
         <div style="font-weight:800;color:var(--mut2);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
       </div>`).join('')}
       <div style="font-size:11px;color:var(--mut2);margin-top:8px">Verifique manualmente.</div>

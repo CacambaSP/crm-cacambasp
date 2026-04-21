@@ -1941,7 +1941,8 @@ function matchSearch(o) {
     (o.logradouro||'').toLowerCase().includes(q) ||
     (o.bairro||'').toLowerCase().includes(q) ||
     (qLimpo.length >= 4 && celLimpo.includes(qLimpo)) ||
-    (o.crm_id||'').toLowerCase().includes(q);
+    (o.crm_id||'').toLowerCase().includes(q) ||
+    (o.nf_num||'').toLowerCase().includes(q);
 }
 
 // ── LOGIN ──
