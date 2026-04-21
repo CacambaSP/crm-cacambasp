@@ -2300,7 +2300,7 @@ function doFilter(){
     if(c.col==='concluido') return false;
     if(q){
       const qLimpo=q.replace(/\D/g,'');
-      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>(f||'').toLowerCase().includes(q));
+      const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro].some(f=>(f||'').toLowerCase().includes(q));
       const celLimpo=(c.cel||'').replace(/\D/g,'');
       const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
       if(!match&&!matchCel) return false;
@@ -2824,25 +2824,43 @@ function selCobrarAgrupado(){
 async function selArquivarLote(){
   if(!_selCards.size)return;
   const ids=[..._selCards];const n=ids.length;
-  const pendentes=ids.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&(!c.pago||!c.forn_pago);});
-  const avisoBody='As ordens irão para o Histórico.'
-    +(pendentes.length?`<br><br><span style="color:#f5a623;font-weight:700">⚠️ ${pendentes.length} ordem${pendentes.length!==1?'ns':''} ainda com pagamento pendente${pendentes.length!==1?'s':''}.</span>`:'');
-  const ok=await showConfirm({ico:'🏆',title:'Arquivar '+n+' ordem'+(n!==1?'ns':''),body:avisoBody,ok:'🏆 Arquivar',okClass:'btn-acc'});
+  const idsVolta=ids.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&c.col==='concluido';});
+  const idsArq=ids.filter(id=>!idsVolta.includes(id));
+  const pendentes=idsArq.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&(!c.pago||!c.forn_pago);});
+  let avisoBody='';
+  if(idsArq.length&&idsVolta.length){
+    avisoBody=`<strong>${idsArq.length}</strong> ordem${idsArq.length!==1?'ns':''} irá${idsArq.length!==1?'ão':''} para o Histórico e <strong>${idsVolta.length}</strong> voltará${idsVolta.length!==1?'ão':''} ao funil (pago resetado).`;
+  }else if(idsVolta.length){
+    avisoBody=`${idsVolta.length} ordem${idsVolta.length!==1?'ns':''} voltará${idsVolta.length!==1?'ão':''} ao funil na coluna <strong>Baixar</strong> com pagamento resetado.`;
+  }else{
+    avisoBody='As ordens irão para o Histórico.'+(pendentes.length?`<br><br><span style="color:#f5a623;font-weight:700">⚠️ ${pendentes.length} ordem${pendentes.length!==1?'ns':''} ainda com pagamento pendente${pendentes.length!==1?'s':''}.</span>`:'');
+  }
+  const ico=idsVolta.length&&!idsArq.length?'↩️':'🏆';
+  const ok=await showConfirm({ico,title:(idsVolta.length&&!idsArq.length?'↩️ Desarquivar':'🏆 Arquivar')+' '+n+' ordem'+(n!==1?'ns':''),body:avisoBody,ok:ico+' Confirmar',okClass:idsVolta.length&&!idsArq.length?'btn-b':'btn-acc'});
   if(!ok)return;
   const agora=nowISO();
-  ids.forEach(id=>{const c=ordens.find(x=>x.id===id);if(c){c.col='concluido';c.concluido_em=agora;}});
-  _selCards.clear();renderBoard();updateSelBar();renderStats();renderFinanceiro();renderInadBadge();
+  ids.forEach(id=>{
+    const c=ordens.find(x=>x.id===id);if(!c)return;
+    if(idsVolta.includes(id)){c.col='baixar';c.concluido_em=null;c.pago=false;c.pago_obs=null;}
+    else{c.col='concluido';c.concluido_em=agora;}
+  });
+  _selCards.clear();_filteredOrdens=null;renderBoard();updateSelBar();renderStats();renderFinanceiro();renderInadBadge();
   try{
     setSyncDot('sync');
     await Promise.all(ids.map(id=>{
       const c=ordens.find(x=>x.id===id);
+      if(idsVolta.includes(id)){
+        return api('ordens?id=eq.'+id,'PATCH',{col:'baixar',concluido_em:null,pago:false,pago_obs:null},tok()).then(()=>addLog(id,'Desarquivado',''));
+      }
       const patch={col:'concluido',concluido_em:agora};
       if(c&&!c.forn_pago&&c.forn_id){patch.forn_id=null;patch.cst=null;c.forn_id=null;c.cst=null;}
-      return api('ordens?id=eq.'+id,'PATCH',patch,tok());
+      return api('ordens?id=eq.'+id,'PATCH',patch,tok()).then(()=>addLog(id,'Arquivado',''));
     }));
     setSyncDot('ok');
-    ids.forEach(id=>addLog(id,'Arquivado',''));
-    toast('🏆 '+n+' ordem'+(n!==1?'ns':'')+' arquivada'+(n!==1?'s':'')+'!');
+    const partes=[];
+    if(idsArq.length)partes.push('🏆 '+idsArq.length+' arquivada'+(idsArq.length!==1?'s':''));
+    if(idsVolta.length)partes.push('↩️ '+idsVolta.length+' voltou'+(idsVolta.length!==1?'ram':'')+' ao funil');
+    toast(partes.join(' · ')+'!');
   }catch(e){setSyncDot('err');toast('Erro ao arquivar','err');}
 }
 async function selDeletarLote(){
@@ -4446,14 +4464,16 @@ async function arquivarOrdem(id){
   if(!ok) return;
   const novaCol=arquivando?'concluido':'baixar';
   c.col=novaCol;
-  if(arquivando)c.concluido_em=nowISO(); else c.concluido_em=null;
+  if(arquivando){c.concluido_em=nowISO();}else{c.concluido_em=null;c.pago=false;c.pago_obs=null;}
   // Se desarquivando, limpa filtro para a ordem aparecer no board
   if(!arquivando){ _filteredOrdens=null; clearFilter(); }
   renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
   if(_detailId===id)closeDetail();
   try{
     setSyncDot('sync');
-    await api('ordens?id=eq.'+id,'PATCH',{col:novaCol,concluido_em:c.concluido_em},tok());
+    const _patch={col:novaCol,concluido_em:c.concluido_em};
+    if(!arquivando){_patch.pago=false;_patch.pago_obs=null;}
+    await api('ordens?id=eq.'+id,'PATCH',_patch,tok());
     setSyncDot('ok');
     toast(arquivando?'🏆 Ordem arquivada!':'↩️ Ordem voltou ao funil!');
     addLog(id,arquivando?'Arquivado':'Desarquivado','');
