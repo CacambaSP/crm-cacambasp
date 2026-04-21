@@ -3510,11 +3510,16 @@ async function salvarOrdem(){
     renderBoard(); closeModal('ordemModal');
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+c.id,'PATCH',{
+      const _patchEdit={
         nome:c.nome,cel:c.cel,cpf:c.cpf,email_cli:c.email_cli,
         logradouro:c.logradouro,bairro:c.bairro,cidade:c.cidade,cep:c.cep,
         tipo:c.tipo,data:c.data,obs:c.obs,rec:c.rec,cst:c.cst,forn_id:c.forn_id,col:c.col,nf_num:c.nf_num
-      },tok());
+      };
+      if(c.pago && recEdit!==parseFloat(c.pago_valor||0)){
+        c.pago_valor=recEdit;
+        _patchEdit.pago_valor=recEdit;
+      }
+      await api('ordens?id=eq.'+c.id,'PATCH',_patchEdit,tok());
       setSyncDot('ok'); toast('✅ Ordem atualizada!');
       addLog(c.id,'Editado','');
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
@@ -7795,7 +7800,8 @@ function _reciboFiltrar(q) {
     clientes[chave].ordens.push(o);
   });
   const matches = Object.values(clientes).filter(c =>
-    c.nome.toLowerCase().includes(norm) || c.cel.includes(norm)
+    c.nome.toLowerCase().includes(norm) || c.cel.includes(norm) ||
+    c.ordens.some(o=>(o.logradouro||"").toLowerCase().includes(norm)||(o.bairro||"").toLowerCase().includes(norm))
   ).slice(0,8);
   if (!matches.length) { ac.style.display='none'; return; }
   ac.innerHTML = matches.map(c => {
@@ -9090,7 +9096,8 @@ function renderCli(){
         <span style="font-size:10px;color:${statusCor};width:75px;flex-shrink:0;text-align:right">${col}</span>
       </div>`;
     }).join('');
-    return `<div data-cli="1" data-nome="${nomeAttr}" data-cel="${celAttr}" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:8px;padding:0;overflow:hidden">
+    const endAttr=(c.ordens.map(o=>(o.logradouro||"")+" "+(o.bairro||"")).join(" ")).replace(/"/g,"&quot;").toLowerCase();
+    return `<div data-cli="1" data-nome="${nomeAttr}" data-cel="${celAttr}" data-end="${endAttr}" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:8px;padding:0;overflow:hidden">
       <div onclick="const b=document.getElementById('${key}');const a=document.getElementById('${key}_arr');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;cursor:pointer">
         <div style="width:38px;height:38px;border-radius:10px;background:var(--acc2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--acc);flex-shrink:0">${c.nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
