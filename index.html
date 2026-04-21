@@ -7431,6 +7431,24 @@ function renderRel(){
 }
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
+function _relPgfFiltrarDOM(q){
+  const qL=(q||'').toLowerCase().trim();
+  const tbody=document.querySelector('#pgfTabela tbody');
+  if(!tbody)return;
+  tbody.querySelectorAll('tr[data-pgf]').forEach(tr=>{
+    const ok=!qL||(tr.dataset.pgf||'').toLowerCase().includes(qL);
+    tr.style.display=ok?'':'none';
+  });
+}
+function _relPgfCodigoFiltrarDOM(v){
+  const vL=(v||'').toLowerCase().trim();
+  const tbody=document.querySelector('#pgfTabela tbody');
+  if(!tbody)return;
+  tbody.querySelectorAll('tr[data-pgf]').forEach(tr=>{
+    const ok=!vL||(tr.dataset.pgfcod||'').toLowerCase().includes(vL);
+    tr.style.display=ok?'':'none';
+  });
+}
 function _relPgtosFornSort(col){
   if(_pgfSort.col===col) _pgfSort.dir=_pgfSort.dir==='asc'?'desc':'asc';
   else{_pgfSort.col=col;_pgfSort.dir='desc';}
@@ -7516,8 +7534,8 @@ function _relPgtosForn(){
   <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
     <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🔍 Buscar pagamentos a fornecedores</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
-      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="_relPgfFiltrarDOM(this.value)" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="_relPgfCodigoFiltrarDOM(this.value)" style="${inputStyle};flex:2;min-width:200px">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="pgfForn" onchange="renderRel()" style="${inputStyle}">
@@ -7545,7 +7563,7 @@ function _relPgtosForn(){
     ${_kpi('Total','R$ '+fmt(totalPago+totalPend),'var(--acc)',(qtdPago+qtdPend)+' ordens')}
   </div>
   ${!lista.length?`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum resultado encontrado</div>`:`
-  <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
+  <div class="rel-table-wrap"><table id="pgfTabela" class="rel-table"><thead><tr>
     ${th('crm','CRM')} ${th('data','Dt Ordem')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('forn_pago_em','Dt Pagto')} ${th('valor','Valor','r')} <th>Código</th><th>Status</th>
   </tr></thead><tbody>${lista.map(c=>{
     const forn=forns.find(f=>f.id===c.forn_id);
@@ -7554,7 +7572,8 @@ function _relPgtosForn(){
     const cod=c.forn_pg_ref||'—';
     const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
     const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
-    return`<tr>
+    const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
+    return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();_detailId='${c.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
       <td style="font-size:11px;white-space:nowrap;color:var(--mut2)">${dataOrdem}</td>
       <td style="font-weight:600;max-width:200px">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${end}</span></td>
@@ -8225,6 +8244,22 @@ function _relFornecedor(src,nm){
   </tr>`).join('')}</tbody></table></div>`;
 }
 let _recSort={col:'pago_em',dir:'desc'};
+function _relRecFiltrarDOM(q){
+  // Filtra linhas da tabela de recebimentos no DOM sem re-renderizar tudo
+  const qL=(q||'').toLowerCase().trim();
+  const tbody=document.querySelector('#relRecTabela tbody');
+  if(!tbody)return;
+  let visiveis=0;
+  tbody.querySelectorAll('tr[data-rec]').forEach(tr=>{
+    const txt=(tr.dataset.rec||'').toLowerCase();
+    const ok=!qL||txt.includes(qL);
+    tr.style.display=ok?'':'none';
+    if(ok)visiveis++;
+  });
+  // Atualiza contador se existir
+  const ctr=document.getElementById('recContador');
+  if(ctr)ctr.textContent=visiveis+' recebimento'+(visiveis!==1?'s':'');
+}
 function _relRecebimentoSort(col){
   if(_recSort.col===col) _recSort.dir=_recSort.dir==='asc'?'desc':'asc';
   else{_recSort.col=col;_recSort.dir='desc';}
@@ -8265,7 +8300,7 @@ function _relRecebimento(src,nm){
   const arr=(c)=>_recSort.col===c?(_recSort.dir==='asc'?'↑':'↓'):'↕';
   const th=(c,lbl,cls='')=>`<th class="${cls}" onclick="_relRecebimentoSort('${c}')" style="cursor:pointer;user-select:none;white-space:nowrap">${lbl} <span style="font-size:9px;opacity:.6">${arr(c)}</span></th>`;
   return `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <input id="recQ" type="text" placeholder="🔍 Nome, CRM, bairro, obs..." value="${q}" oninput="renderRel()" style="flex:1;min-width:160px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
+    <input id="recQ" type="text" placeholder="🔍 Nome, CRM, bairro, obs..." value="${q}" oninput="_relRecFiltrarDOM(this.value)" style="flex:1;min-width:160px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
     <select id="recFiltroForn" onchange="renderRel()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
       <option value="">Todos fornecedores</option>${fornOpts}
     </select>
@@ -8283,12 +8318,13 @@ function _relRecebimento(src,nm){
     ${totalAgrup>0?_kpi('Agrupados','R$ '+fmt(totalAgrup),'var(--acc)',pagos.filter(c=>(c.pago_obs||'').includes('agrupado')).length+' pagtos'):''}
     ${_kpi('Individual','R$ '+fmt(total-totalAgrup),'var(--g)',pagos.filter(c=>!(c.pago_obs||'').includes('agrupado')).length+' pagtos')}
   </div>
-  <div class="rel-table-wrap"><table class="rel-table"><thead><tr>
+  <div class="rel-table-wrap"><table id="relRecTabela" class="rel-table"><thead><tr>
     ${th('crm','CRM')} ${th('nome','Cliente')} ${th('forn','Fornecedor')} ${th('valor','Valor','r')} ${th('pago_em','Data')} <th>Agrupado</th><th>Obs</th>
   </tr></thead><tbody>${pagos.map(c=>{
     const isAgrup=(c.pago_obs||'').includes('agrupado');
     const forn=forns.find(f=>f.id===c.forn_id);
-    return`<tr>
+    const _dataRec=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.pago_obs||''),(forn?forn.nome:'')].join(' ').toLowerCase();
+    return`<tr data-rec="${_dataRec.replace(/"/g,'&quot;')}">
     <td style="font-family:var(--mono);font-size:11px"><span onclick="event.stopPropagation();_detailId='${c.id}';openDetail()" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
     <td style="font-weight:600">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${c.bairro||''}</span></td>
     <td style="font-size:11px;color:var(--mut2)">${forn?forn.nome.split(' ')[0]:'-'}</td>
