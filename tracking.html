@@ -259,14 +259,20 @@ function copiarLink(){
 let _nfAcrescimo=40;
 async function carregar(){
   const params=new URLSearchParams(window.location.search);
-  const crmId=params.get('id');
-  if(!crmId){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
+  const token=params.get('token'); // UUID — novo formato seguro
+  const crmId=params.get('id');   // crm_id — formato legado
+  if(!token&&!crmId){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
   try{
     // Carregar acréscimo NF do banco
     try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
-    // Buscar ordem pelo crm_id — incluindo cel para busca agrupada e nf_num para acréscimo NF
-    const ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
-    if(!ordens||!ordens.length){mostrarErro('Pedido <strong>'+crmId+'</strong> não encontrado.<br>Verifique o link recebido.');return;}
+    // Buscar ordem: por UUID (token=novo) ou crm_id (id=legado)
+    let ordens;
+    if(token){
+      ordens=await api('ordens?id=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+    }else{
+      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+    }
+    if(!ordens||!ordens.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
     const ord=ordens[0];
     // Buscar vendedor
     let vend=null;
