@@ -3541,6 +3541,7 @@ async function salvarOrdem(){
     const obsBase=document.getElementById('o_obs').value.trim();
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const recComNF=_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec;
+    let ultimaOrdem=null;
     for(let qi=0;qi<qtd;qi++){
       const crmId=await nextCrmId('LC');
       const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
@@ -3561,6 +3562,7 @@ async function salvarOrdem(){
         criado_em:new Date(Date.now()+qi*1000).toISOString()
       };
       ordens.push(novaOrdem);
+      ultimaOrdem=novaOrdem;
       try{
         setSyncDot('sync');
         await api('ordens','POST',novaOrdem,tok());
@@ -3570,17 +3572,14 @@ async function salvarOrdem(){
     }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
     closeModal('ordemModal');
+    toast('✅ Ordem criada!');
     // Scroll para mostrar o card novo
     setTimeout(()=>{
-      const el=document.getElementById('card_'+novaOrdem.id);
-      if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+      if(ultimaOrdem){
+        const el=document.getElementById('card_'+ultimaOrdem.id);
+        if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
     },100);
-    try{
-      setSyncDot('sync');
-      await api('ordens','POST',novaOrdem,tok());
-      setSyncDot('ok'); toast('✅ Ordem criada!');
-      addLog(novaOrdem.id,'Criado',novaOrdem.tipo||'');
-    }catch(e){setSyncDot('err');toast('Erro ao criar','err');}
   }
 }
 
