@@ -1274,10 +1274,86 @@ input[type=checkbox]:checked::after{
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px">
         💡 <strong>Dica:</strong> Use a mesma etiqueta para todas as ordens do mesmo lote.<br>Ex: <span style="font-family:var(--mono);color:var(--acc)">Uliana_06042026_1432</span>
       </div>
-      <div id="pf_outras" style="margin-bottom:12px"></div>
       <div class="mfooter">
         <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
         <button class="btn btn-acc" onclick="salvarPagoForn()">💰 Confirmar pagamento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PAGAR FORNECEDOR LOTE ── -->
+<div class="mbg" id="pagarFornLoteModal">
+  <div class="mbox" style="max-width:520px">
+    <div class="mh" style="background:#0f3460;border-bottom:1px solid #1a4a80">
+      <div class="mh-ico">📦</div>
+      <div class="mh-txt">
+        <div class="mh-title">Pagamento em Lote</div>
+        <div class="mh-sub" id="pflote_sub">Fornecedor</div>
+      </div>
+      <button class="mx" onclick="closeModal('pagarFornLoteModal')">✕</button>
+    </div>
+    <div class="mb">
+      <!-- Resumo -->
+      <div id="pflote_resumo" style="background:#0d1b2a;border:1px solid #1e3a5f;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#ccd6f6" id="pflote_qtd_label">0 ordens selecionadas</div>
+          <div style="font-size:11px;color:#4a6580;margin-top:2px" id="pflote_periodo"></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:#4a6580;text-transform:uppercase;letter-spacing:.5px">Total atual</div>
+          <div style="font-size:15px;font-weight:700;color:#ff6b6b;text-decoration:line-through" id="pflote_total_old">R$ 0,00</div>
+        </div>
+      </div>
+      <!-- Valor por ordem + Data -->
+      <div class="fi-row">
+        <div class="fi">
+          <label>Valor por ordem (R$)</label>
+          <input type="number" id="pflote_val" step="0.01" oninput="_pfloteAtualizarTotal()"
+            style="border-color:#f5a623;font-size:18px;font-weight:700;color:#ffcc02;box-shadow:0 0 0 3px rgba(245,166,35,.12)">
+          <div style="font-size:11px;color:#4a6580;margin-top:4px" id="pflote_diff"></div>
+        </div>
+        <div class="fi">
+          <label>Data do pagamento</label>
+          <input type="date" id="pflote_data">
+        </div>
+      </div>
+      <!-- Forma + Etiqueta -->
+      <div class="fi-row">
+        <div class="fi">
+          <label>Forma de pagamento</label>
+          <select id="pflote_forma" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:10px 13px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;width:100%">
+            <option value="Pix">Pix</option>
+            <option value="Transferencia">Transferência</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Boleto">Boleto</option>
+          </select>
+        </div>
+        <div class="fi">
+          <label>Etiqueta / Referência</label>
+          <input type="text" id="pflote_ref" placeholder="Gerada automaticamente" style="font-family:var(--mono);font-size:12px">
+        </div>
+      </div>
+      <!-- Total novo -->
+      <div style="background:linear-gradient(135deg,rgba(15,52,96,.6),rgba(26,74,128,.4));border:1px solid rgba(78,204,163,.2);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font-size:13px;color:#6b8aaa">Total a pagar</span>
+        <span style="font-size:20px;font-weight:700;color:#4ecca3" id="pflote_total_new">R$ 0,00</span>
+      </div>
+      <!-- Bairros -->
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:#6b8aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          Bairros que serão atualizados
+          <span id="pflote_bairros_badge" style="background:#f5a623;color:#000;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">0</span>
+        </div>
+        <div id="pflote_bairros_list" style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto"></div>
+      </div>
+      <!-- Aviso -->
+      <div style="background:rgba(255,107,107,.05);border:1px solid rgba(255,107,107,.15);border-radius:8px;padding:9px 12px;font-size:12px;color:#e08080;margin-bottom:14px">
+        ⚠️ Ordens anteriores já pagas não serão alteradas. Bairros atualizados valerão para novas ordens a partir de hoje.
+      </div>
+      <div class="mfooter">
+        <button class="btn" onclick="closeModal('pagarFornLoteModal')">Cancelar</button>
+        <button class="btn btn-acc" onclick="salvarPagoFornLote()">✅ Confirmar pagamento</button>
       </div>
     </div>
   </div>
@@ -2209,7 +2285,7 @@ function closeMobSidebar(){
 // ── MODAIS ──
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function openModal(id){document.getElementById(id).classList.add('open');}
-['ordemModal','detailModal','pagarCliModal','pagarFornModal','pixModal','waModal','supModal','usrModal','duplicarModal'].forEach(id=>{
+['ordemModal','detailModal','pagarCliModal','pagarFornModal','pagarFornLoteModal','pixModal','waModal','supModal','usrModal','duplicarModal'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('click',e=>{if(e.target===el)closeModal(id);});
 });
@@ -3541,7 +3617,6 @@ async function salvarOrdem(){
     const obsBase=document.getElementById('o_obs').value.trim();
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const recComNF=_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec;
-    let ultimaOrdem=null;
     for(let qi=0;qi<qtd;qi++){
       const crmId=await nextCrmId('LC');
       const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
@@ -3562,7 +3637,6 @@ async function salvarOrdem(){
         criado_em:new Date(Date.now()+qi*1000).toISOString()
       };
       ordens.push(novaOrdem);
-      ultimaOrdem=novaOrdem;
       try{
         setSyncDot('sync');
         await api('ordens','POST',novaOrdem,tok());
@@ -3572,14 +3646,17 @@ async function salvarOrdem(){
     }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
     closeModal('ordemModal');
-    toast('✅ Ordem criada!');
     // Scroll para mostrar o card novo
     setTimeout(()=>{
-      if(ultimaOrdem){
-        const el=document.getElementById('card_'+ultimaOrdem.id);
-        if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
-      }
+      const el=document.getElementById('card_'+novaOrdem.id);
+      if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
     },100);
+    try{
+      setSyncDot('sync');
+      await api('ordens','POST',novaOrdem,tok());
+      setSyncDot('ok'); toast('✅ Ordem criada!');
+      addLog(novaOrdem.id,'Criado',novaOrdem.tipo||'');
+    }catch(e){setSyncDot('err');toast('Erro ao criar','err');}
   }
 }
 
@@ -4615,15 +4692,6 @@ function openPagarForn(callback){
   document.getElementById('pf_val').value=c.cst||'';
   document.getElementById('pf_data').value=new Date().toISOString().slice(0,10);
   const f=forns.find(s=>s.id===c.forn_id);
-  // outras ordens do mesmo fornecedor
-  const outras=ordens.filter(x=>x.id!==c.id&&x.forn_id===c.forn_id&&!x.forn_pago&&x.cst>0);
-  document.getElementById('pf_outras').innerHTML=outras.length?
-    `<div style="font-size:11px;font-weight:700;color:var(--mut2);margin-bottom:8px">Outras ordens pendentes do mesmo fornecedor:</div>`+
-    outras.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:4px">
-      <input type="checkbox" value="${o.id}" style="accent-color:var(--acc);width:16px;height:16px">
-      <span style="flex:1">${o.nome||'-'} · ${o.logradouro||'-'}</span>
-      <span style="color:var(--acc);font-weight:700">R$ ${fmt(o.cst)}</span>
-    </label>`).join(''):'';
   // Gerar etiqueta automática
   const fEtiq = forns.find(s=>s.id===c?.forn_id);
   if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value = _gerarEtiquetaForn(fEtiq);
@@ -4632,8 +4700,7 @@ function openPagarForn(callback){
 }
 async function salvarPagoForn(){
   const c=ordens.find(x=>x.id===_detailId);
-  // Modo lote não precisa de _detailId — só exige c no modo individual
-  if(!c && !_pgfornModoLote)return;
+  if(!c)return;
   const val=parseFloat(document.getElementById('pf_val').value)||(c?c.cst:0);
   const data=document.getElementById('pf_data').value;
   const forma=document.getElementById('pf_forma')?.value||'Pix';
@@ -4643,14 +4710,11 @@ async function salvarPagoForn(){
   const pgRef=[forma, ref, obsPg].filter(Boolean).join(' | ');
   closeModal('pagarFornModal');
   let ok=0;
-  // Modo lote (Pagar todos) ou modo individual
-  const idsLote = _pgfornModoLote ? _pgfornLotePend.map(x=>x.id) : null;
-  _pgfornModoLote = false;
-  const extras=Array.from(document.querySelectorAll('#pf_outras input:checked')).map(ch=>ch.value);
-  const todos = idsLote || [c.id,...extras];
+  const extras=[];
+  const todos=[c.id,...extras];
   for(const id of todos){
     const ord=ordens.find(x=>x.id===id);if(!ord)continue;
-    const valOrd = idsLote ? (parseFloat(ord.cst)||0) : val;
+    const valOrd=val;
     ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;
     autoColPagamento(ord);
     try{
@@ -4664,6 +4728,78 @@ async function salvarPagoForn(){
   if(_detailId) fillDetail(ordens.find(x=>x.id===_detailId));
   const algumBaixou=todos.some(id=>{const o=ordens.find(x=>x.id===id);return o?.col==='baixar';});
   toast(algumBaixou?`✅ ${ok} ordem${ok!==1?'ns':''} — tudo pago, arquivado! 🎉`:`✅ ${ok} ordem${ok!==1?'ns':''} marcada${ok!==1?'s':''} como paga${ok!==1?'s':''} ao fornecedor!`);
+}
+
+// ── SALVAR PAGAMENTO LOTE FORNECEDOR ──
+async function salvarPagoFornLote(){
+  const fid=_pgfornLoteFid;
+  const pend=_pgfornLotePend;
+  if(!fid||!pend||!pend.length){toast('Nenhuma ordem no lote','warn');return;}
+  const val=parseFloat(document.getElementById('pflote_val')?.value)||0;
+  if(!val){toast('Informe o valor por ordem','warn');return;}
+  const data=document.getElementById('pflote_data').value;
+  const forma=document.getElementById('pflote_forma')?.value||'Pix';
+  const ref=document.getElementById('pflote_ref')?.value.trim()||'';
+  const pgRef=[forma,ref].filter(Boolean).join(' | ');
+  closeModal('pagarFornLoteModal');
+  // 1. Pagar todas as ordens do lote
+  let ok=0;
+  for(const ord of pend){
+    ord.forn_pago=true;
+    ord.forn_pago_em=data+'T12:00:00';
+    ord.forn_pago_valor=val;
+    ord.forn_pg_ref=pgRef;
+    autoColPagamento(ord);
+    try{
+      setSyncDot('sync');
+      await api('ordens?id=eq.'+ord.id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:val,forn_pg_ref:pgRef,col:ord.col},tok());
+      setSyncDot('ok'); ok++;
+      addLog(ord.id,'Fornecedor pago','R$ '+fmt(val)+(ref?' · '+ref:''));
+    }catch(e){setSyncDot('err');}
+  }
+  // 2. Atualizar/cadastrar bairros no fornecedor
+  const f=forns.find(x=>x.id===fid);
+  if(f){
+    let regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
+    const bairrosUnicos=[...new Set(pend.map(o=>(o.bairro||'').trim()).filter(Boolean))];
+    let mudou=false;
+    for(const bairro of bairrosUnicos){
+      const idx=regioes.findIndex(r=>_bairroMatch(bairro.toLowerCase(),(r.bairro||r.regiao||r.nome||'').toLowerCase()));
+      if(idx>=0){
+        regioes[idx]={...regioes[idx],preco:val};
+        mudou=true;
+      }else{
+        regioes.push({bairro,regiao:bairro,preco:val,preco_cli:0});
+        mudou=true;
+      }
+    }
+    if(mudou){
+      f.regioes=regioes;
+      try{await api('fornecedores?id=eq.'+fid,'PATCH',{regioes},tok());}
+      catch(e){toast('Aviso: bairros não atualizados','warn');}
+    }
+  }
+  // 3. Atualizar cst das ordens não pagas do mesmo fornecedor nos bairros afetados
+  const bairrosSet=new Set(pend.map(o=>(o.bairro||'').toLowerCase().trim()).filter(Boolean));
+  const ordensAtualizar=ordens.filter(o=>
+    o.forn_id===fid &&
+    !o.forn_pago &&
+    !pend.find(p=>p.id===o.id) && // não está no lote atual
+    bairrosSet.has((o.bairro||'').toLowerCase().trim())
+  );
+  let okCst=0;
+  for(const ord of ordensAtualizar){
+    ord.cst=val;
+    try{
+      await api('ordens?id=eq.'+ord.id,'PATCH',{cst:val},tok());
+      okCst++;
+    }catch(e){/* silencioso */}
+  }
+  renderBoard(); renderStats(); renderFinanceiro(); initPgForn();
+  if(_detailId) fillDetail(ordens.find(x=>x.id===_detailId));
+  const algumBaixou=pend.some(o=>o.col==='baixar');
+  const sufixoCst=okCst>0?` · ${okCst} ordem${okCst!==1?'ns':''} pendente${okCst!==1?'s':''} atualizada${okCst!==1?'s':''}`:'';
+  toast(algumBaixou?`✅ ${ok} ordem${ok!==1?'ns':''} — tudo pago, arquivado! 🎉${sufixoCst}`:`✅ ${ok} ordem${ok!==1?'ns':''} paga${ok!==1?'s':''} ao fornecedor!${sufixoCst}`);
 }
 
 // ── PIX ──
@@ -7406,13 +7542,77 @@ function _pgfornAbrirModalLote(fid,pend){
   const f=forns.find(x=>x.id===fid);
   const hoje=new Date();
   _pgfornLoteFid=fid; _pgfornLotePend=pend; _pgfornLoteTotal=total;
-  document.getElementById('pf_val').value=total.toFixed(2);
-  document.getElementById('pf_data').value=hoje.toISOString().slice(0,10);
-  if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value=_gerarEtiquetaForn(f);
-  if(document.getElementById('pf_obs_pg')) document.getElementById('pf_obs_pg').value='';
-  document.getElementById('pf_outras').innerHTML=`<div style="font-size:12px;color:var(--mut2);padding:8px;background:var(--card);border-radius:var(--rad3);margin-bottom:8px">📦 Pagamento em lote: <strong>${pend.length} ordens</strong> · Total <strong style="color:var(--acc)">R$ ${fmt(total)}</strong><br><span style="font-size:11px">A etiqueta será aplicada em todas as ordens do lote.</span></div>`;
-  _pagarFornCallback=false; _pgfornModoLote=true;
-  openModal('pagarFornModal');
+  // Subtítulo
+  document.getElementById('pflote_sub').textContent='Fornecedor: '+(f?.nome||'');
+  // Qtd e período
+  document.getElementById('pflote_qtd_label').textContent=pend.length+' ordem'+(pend.length!==1?'s':'')+' selecionada'+(pend.length!==1?'s':'');
+  const datas=pend.map(x=>x.data).filter(Boolean).sort();
+  document.getElementById('pflote_periodo').textContent=datas.length?datas[0]+' a '+datas[datas.length-1]:'';
+  // Total antigo
+  document.getElementById('pflote_total_old').textContent='R$ '+fmt(total);
+  // Valor por ordem — usa cst da primeira ordem como padrão
+  const cstPadrao=parseFloat(pend[0]?.cst)||0;
+  document.getElementById('pflote_val').value=cstPadrao.toFixed(2);
+  document.getElementById('pflote_data').value=hoje.toISOString().slice(0,10);
+  document.getElementById('pflote_ref').value=_gerarEtiquetaForn(f);
+  document.getElementById('pflote_forma').value='Pix';
+  // Atualiza total novo e diff
+  _pfloteAtualizarTotal();
+  // Bairros
+  _pfloteRenderBairros(fid,pend,cstPadrao);
+  openModal('pagarFornLoteModal');
+}
+
+function _pfloteAtualizarTotal(){
+  const val=parseFloat(document.getElementById('pflote_val')?.value)||0;
+  const qtd=_pgfornLotePend.length||0;
+  const totalNew=val*qtd;
+  document.getElementById('pflote_total_new').textContent='R$ '+fmt(totalNew);
+  // Diff por ordem
+  const cstPadrao=parseFloat(_pgfornLotePend[0]?.cst)||0;
+  const diff=val-cstPadrao;
+  const diffEl=document.getElementById('pflote_diff');
+  if(diffEl){
+    if(diff===0) diffEl.textContent='Mesmo valor anterior: R$ '+fmt(cstPadrao);
+    else if(diff>0) diffEl.innerHTML='Anterior: R$ '+fmt(cstPadrao)+' &nbsp;→&nbsp; <span style="color:#4ecca3;font-weight:600">+R$ '+fmt(diff)+'/ordem</span>';
+    else diffEl.innerHTML='Anterior: R$ '+fmt(cstPadrao)+' &nbsp;→&nbsp; <span style="color:#ff6b6b;font-weight:600">-R$ '+fmt(Math.abs(diff))+'/ordem</span>';
+  }
+  // Reatualiza bairros com novo valor
+  _pfloteRenderBairros(_pgfornLoteFid,_pgfornLotePend,val);
+}
+
+function _pfloteRenderBairros(fid,pend,valNovo){
+  const f=forns.find(x=>x.id===fid);
+  if(!f){return;}
+  const regioes=Array.isArray(f.regioes)?f.regioes:[];
+  // Coletar bairros únicos das ordens
+  const bairrosMap={};
+  pend.forEach(o=>{
+    const b=(o.bairro||'').trim();
+    if(!b) return;
+    if(!bairrosMap[b.toLowerCase()]) bairrosMap[b.toLowerCase()]={nome:b,ordens:0};
+    bairrosMap[b.toLowerCase()].ordens++;
+  });
+  const bairrosUnicos=Object.values(bairrosMap);
+  document.getElementById('pflote_bairros_badge').textContent=bairrosUnicos.length;
+  const list=document.getElementById('pflote_bairros_list');
+  if(!bairrosUnicos.length){list.innerHTML='<div style="font-size:12px;color:#4a6580;padding:8px">Nenhum bairro identificado nas ordens.</div>';return;}
+  list.innerHTML=bairrosUnicos.map(bk=>{
+    const reg=regioes.find(r=>_bairroMatch(bk.nome.toLowerCase(),(r.bairro||r.regiao||r.nome||'').toLowerCase()));
+    const jaExiste=!!reg;
+    const precoAtual=reg?reg.preco:null;
+    const chipHtml=jaExiste
+      ?'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(245,166,35,.1);color:#f5a623;border:1px solid rgba(245,166,35,.22)">atualizar</span>'
+      :'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(78,204,163,.1);color:#4ecca3;border:1px solid rgba(78,204,163,.22)">cadastrar</span>';
+    const valHtml=jaExiste&&precoAtual
+      ?'<span style="font-size:12px;color:#6b8aaa"><s style="color:#ff6b6b">R$ '+fmt(precoAtual)+'</s> <span style="margin:0 3px;color:#4a6580">→</span> <span style="color:#4ecca3;font-weight:600">R$ '+fmt(valNovo)+'</span></span>'
+      :'<span style="font-size:12px;color:#4a6580">não cadastrado</span>';
+    return `<div style="background:#0d1b2a;border:1px solid #162d4a;border-radius:7px;padding:7px 11px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#a8b8d0;flex:1">${bk.nome}</span>
+      ${valHtml}
+      ${chipHtml}
+    </div>`;
+  }).join('');
 }
 
 // ── RELATÓRIOS ──
