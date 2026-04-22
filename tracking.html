@@ -316,8 +316,8 @@ async function carregar(){
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
     }
-    // Garantir que a ordem do link está na lista
-    if(!emAberto.find(o=>o.crm_id===crmId)){
+    // Garantir que a ordem do link está na lista (checar por crm_id OU por UUID)
+    if(!emAberto.find(o=>o.crm_id===ord.crm_id||o.id===ord.id)){
       if(!ord.pago&&ord.col!=='concluido'&&ord.col!=='orcamento') emAberto.unshift(ord);
     }
     if(!emAberto.length) emAberto=[ord];
