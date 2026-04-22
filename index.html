@@ -1246,7 +1246,7 @@ input[type=checkbox]:checked::after{
 <!-- PAGAR FORNECEDOR MODAL -->
 <div class="mbg" id="pagarFornModal">
   <div class="mbox" style="max-width:500px">
-    <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
+    <div class="mh" style="background:#0f3460;border-bottom:1px solid #1a4a80"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
       <div class="fi-row">
         <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
@@ -7463,7 +7463,7 @@ function pgfornAtualizarRodape(){
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
+    if(c.forn_id!==fid||c.forn_pago||c.col==='orcamento') return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
