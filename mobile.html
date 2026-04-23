@@ -388,6 +388,32 @@ input,select,textarea,button{font-family:var(--font)}
 .sync-dot.err{background:var(--r)}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 
+/* ── IA ALERTAS ── */
+.ia-bloco{border-radius:10px;padding:10px 13px;margin-bottom:2px}
+.ia-bloco-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;opacity:.75}
+.ia-bloco-txt{font-size:12px;line-height:1.65;color:var(--txt)}
+.ia-bloco.diag{background:var(--card);border:1px solid var(--bor)}
+.ia-bloco.risco{background:var(--r2);border:1px solid var(--r3)}
+.ia-bloco.risco .ia-bloco-label{color:var(--r)}
+.ia-bloco.msg-cli{background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.2)}
+.ia-bloco.msg-cli .ia-bloco-label{color:#25d366}
+.ia-bloco.msg-forn{background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.2)}
+.ia-bloco.msg-forn .ia-bloco-label{color:#0ea5e9}
+.ia-bloco.acao{background:var(--acc2);border:1px solid var(--acc3)}
+.ia-bloco.acao .ia-bloco-label{color:var(--acc)}
+.ia-bloco.incompleto{background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25)}
+.ia-bloco.incompleto .ia-bloco-label{color:#f5a623}
+.ia-msg-box{background:var(--bg);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut2);font-style:italic;margin:6px 0;line-height:1.5}
+.ia-cola-toggle{font-size:11px;color:var(--acc);cursor:pointer;text-decoration:underline;display:inline-block;margin-top:4px}
+.ia-cola-area{margin-top:6px;width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-family:var(--font);font-size:11px;color:var(--txt);resize:vertical;min-height:52px;box-sizing:border-box}
+.ia-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ia-btn-wa-cli{font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid rgba(37,211,102,.35);background:rgba(37,211,102,.1);color:#25d366;cursor:pointer;font-family:var(--font)}
+.ia-btn-wa-forn{font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid rgba(14,165,233,.35);background:rgba(14,165,233,.1);color:#0ea5e9;cursor:pointer;font-family:var(--font)}
+.ia-btn-inad{font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid var(--r3);background:var(--r2);color:var(--r);cursor:pointer;font-family:var(--font)}
+.ia-btn-aceitar{font-size:12px;padding:8px 14px;border-radius:8px;border:1px solid var(--g3);background:var(--g2);color:var(--g);cursor:pointer;font-family:var(--font);font-weight:700}
+.ia-rodape{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--bor);margin-top:4px;flex-wrap:wrap;gap:6px}
+.ia-fonte{font-size:10px;color:var(--mut);font-style:italic}
+
 /* ── TOAST ── */
 #toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 80px);left:16px;right:16px;padding:14px 18px;border-radius:var(--rad2);font-weight:600;font-size:14px;z-index:9998;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;text-align:center}
 #toast.show{transform:none;opacity:1}
@@ -963,6 +989,24 @@ input,select,textarea,button{font-family:var(--font)}
         <button class="btn" onclick="closeModal('waFornModal')">Fechar</button>
         <button class="btn" style="background:var(--wa);color:var(--wa-c);border-color:var(--wa-b)" onclick="waFornEnviar()">📲 Enviar WA</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IA ALERTAS -->
+<div class="modal-overlay" id="iaAlertaModal" onclick="if(event.target===this)closeModal('iaAlertaModal')">
+  <div class="modal-box" style="border-radius:24px 24px 0 0">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:rgba(127,119,221,.18)">🤖</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-title" id="iaAlertaTitulo" style="font-size:14px">Análise IA</div>
+        <div style="font-size:11px;color:var(--mut2)" id="iaAlertaSub"></div>
+      </div>
+      <div class="modal-close" onclick="closeModal('iaAlertaModal')">✕</div>
+    </div>
+    <div class="modal-body" id="iaAlertaBody" style="display:flex;flex-direction:column;gap:10px;padding:14px 16px">
+      <div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>
     </div>
   </div>
 </div>
@@ -3765,6 +3809,7 @@ function renderAlertas(){
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','inad')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
           </div>
         </div>`;
       }).join('')}
@@ -3787,6 +3832,7 @@ function renderAlertas(){
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','crit')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
           </div>
         </div>`;
       }).join('')}
@@ -3809,6 +3855,7 @@ function renderAlertas(){
             <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','atencao')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
           </div>
         </div>`;
       }).join('')}
@@ -3951,6 +3998,39 @@ function renderAlertas(){
     html += '</div>';
   }
 
+  // Seção: Dados incompletos (só admin)
+  const listaIncompletos = isAdmin() ? _ordens.filter(c=>
+    !['concluido','orcamento','cancelado'].includes(c.col) &&
+    (!(parseFloat(c.rec)>0) || (c.forn_id && !(parseFloat(c.cst)>0)))
+  ).sort((a,b)=>(a.criado_em||'').localeCompare(b.criado_em||'')) : [];
+
+  if(listaIncompletos.length){
+    html+=`<div class="alerta-sec">
+      <div class="alerta-sec-hd" style="background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.3);color:#f5a623">
+        ⚠️ Dados incompletos <span class="alerta-cnt" style="background:rgba(245,166,35,.2);color:#f5a623">${listaIncompletos.length}</span>
+      </div>
+      ${listaIncompletos.map(c=>{
+        const semRec=!(parseFloat(c.rec)>0);
+        const semCst=c.forn_id&&!(parseFloat(c.cst)>0);
+        const tag=semRec&&semCst?'Sem valor cliente e fornecedor':semRec?'Sem valor do cliente':'Custo fornecedor zerado';
+        return `<div class="alerta-card" style="background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25)" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${c.logradouro||c.nome||'—'}</span>
+            <span class="alerta-val" style="color:#f5a623;font-size:11px">rec:${fmt(c.rec||0)} · cst:${fmt(c.cst||0)}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag" style="background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.3)">⚠️ ${tag}</span>
+            ${c.bairro?`<span class="alerta-sub">${c.bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAIncompleto('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 Sugerir valores</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
   html += '</div>';
   el.innerHTML = html;
 }
@@ -3958,6 +4038,225 @@ function renderAlertas(){
 function _setFiltroAlertaMob(uid){
   _filtroAlertaMobVend = uid;
   renderAlertas();
+}
+
+// ── IA ALERTAS MOBILE ──
+
+function _mobIaSugerirPrecos(c){
+  const bNrm = _norm(c.bairro||'');
+  const f = c.forn_id ? _forns.find(x=>x.id===c.forn_id) : null;
+  const zonaForn = f&&Array.isArray(f.regioes) ? (()=>{ const r=f.regioes.find(x=>_norm(x.bairro||x.regiao||'')===bNrm); return r?.zona||''; })() : '';
+  const ref = _ordens.filter(o=>o.id!==c.id && o.col!=='orcamento' && parseFloat(o.rec)>0);
+
+  let recPool = ref.filter(o=>_norm(o.bairro||'')===bNrm && bNrm);
+  let recFonte = 'bairro '+c.bairro;
+  if(!recPool.length && zonaForn){ recPool=ref.filter(o=>{ const f2=_forns.find(x=>x.id===o.forn_id); return f2&&Array.isArray(f2.regioes)&&f2.regioes.some(r=>r.zona===zonaForn); }); recFonte='zona '+zonaForn; }
+  if(!recPool.length){ recPool=ref; recFonte='geral'; }
+  const recSug = recPool.length ? Math.max(...recPool.map(o=>parseFloat(o.rec)||0)) : 0;
+
+  let cstSug=0, cstFonte='';
+  if(c.forn_id && f){
+    let cstPool=ref.filter(o=>o.forn_id===c.forn_id&&_norm(o.bairro||'')===bNrm&&bNrm&&parseFloat(o.cst)>0).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
+    if(cstPool.length){ cstSug=parseFloat(cstPool[0].cst); cstFonte='último pago '+c.bairro; }
+    else { const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim()); if(m&&m.preco>0){cstSug=m.preco;cstFonte='tabela fornecedor';}else if(f.preco_padrao>0){cstSug=f.preco_padrao;cstFonte='preço padrão';} }
+  }
+  return {recSug,recFonte,cstSug,cstFonte};
+}
+
+async function _mobIaCall(system, userMsg){
+  const res = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages:[{role:'user',content:userMsg}]})});
+  const data = await res.json();
+  return data?.content?.[0]?.text||'';
+}
+
+async function mobAbrirIAAlerta(id, tipo){
+  const c = _ordens.find(x=>x.id===id); if(!c) return;
+  const f = c.forn_id ? _forns.find(x=>x.id===c.forn_id) : null;
+  const dias = diasEmAberto(c);
+  const logs = (c._logs||[]).slice(-8).map(l=>`${(l.criado_em||'').slice(0,10)} — ${l.acao}`).join('\n')||'Sem histórico';
+
+  document.getElementById('iaAlertaTitulo').textContent = '🤖 '+(c.logradouro||c.nome||'Ordem');
+  document.getElementById('iaAlertaSub').textContent = (tipo==='inad'?'Inadimplente':tipo==='crit'?'Crítico':'Atenção')+' · '+dias+'d · R$ '+fmt(c.rec||0);
+  document.getElementById('iaAlertaBody').innerHTML = '<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>';
+  openModal('iaAlertaModal');
+
+  const system = `Você é um assistente de cobrança para locação de caçambas em São Paulo. Responda SOMENTE em JSON válido sem markdown com as chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Máximo 2 frases por campo. Mensagens estilo WhatsApp informal profissional.`;
+  const user = `Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Custo forn: R$ ${fmt(c.cst||0)} | Dias aberto: ${dias}\nFornecedor: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'} | Status: ${c.col||'—'}\nObs: ${c.obs||'—'}\nHistórico:\n${logs}`;
+
+  try {
+    const txt = await _mobIaCall(system, user);
+    const r = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const nivelCor = r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
+    const telCli=(c.cel||'').replace(/\D/g,'');
+    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
+    const waCli=telCli?`https://wa.me/55${telCli}?text=${encodeURIComponent(r.msg_cliente||'')}` :'';
+    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
+
+    document.getElementById('iaAlertaBody').innerHTML = `
+      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
+      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
+      <div class="ia-bloco msg-cli">
+        <div class="ia-bloco-label">💬 Mensagem — cliente</div>
+        <div class="ia-msg-box">${r.msg_cliente||'—'}</div>
+        <div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente</button>`:''}</div>
+        <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_cli_${id}')">+ Colar conversa do cliente</span>
+        <textarea id="mcola_cli_${id}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp com o cliente..."></textarea>
+      </div>
+      <div class="ia-bloco msg-forn">
+        <div class="ia-bloco-label">🏗️ Mensagem — fornecedor</div>
+        <div class="ia-msg-box">${r.msg_fornecedor||'—'}</div>
+        <div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA fornecedor</button>`:''}</div>
+        <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_forn_${id}')">+ Colar conversa do fornecedor</span>
+        <textarea id="mcola_forn_${id}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp com o fornecedor..."></textarea>
+      </div>
+      <div class="ia-bloco acao">
+        <div class="ia-bloco-label">✅ Ação recomendada</div>
+        <div class="ia-bloco-txt">${r.acao||'—'}</div>
+        <div class="ia-actions">
+          ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="mobArquivarInadimplir('${id}')">🚫 Inadimplente</button>`:''}
+          <button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button>
+        </div>
+      </div>
+      <div class="ia-rodape">
+        <span class="ia-fonte">Dados do sistema · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
+        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaReanalisar('${id}','${tipo}')">🔄 Reanalisar</button>
+      </div>`;
+  } catch(e){
+    document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro na análise.<br><small>${e.message}</small></div>`;
+  }
+}
+
+async function mobIaReanalisar(id, tipo){
+  const c=_ordens.find(x=>x.id===id); if(!c) return;
+  const f=c.forn_id?_forns.find(x=>x.id===c.forn_id):null;
+  const dias=diasEmAberto(c);
+  const logs=(c._logs||[]).slice(-8).map(l=>`${(l.criado_em||'').slice(0,10)} — ${l.acao}`).join('\n')||'Sem histórico';
+  const colaCli=(document.getElementById('mcola_cli_'+id)?.value||'').trim();
+  const colaForn=(document.getElementById('mcola_forn_'+id)?.value||'').trim();
+  if(!colaCli&&!colaForn){toast('Cole ao menos uma conversa antes','warn');return;}
+  document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Reanalisando...</div>';
+  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Considere as conversas fornecidas.`;
+  const user=`Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Dias: ${dias} | Forn: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'}\nHistórico sistema:\n${logs}${colaCli?`\nConversa cliente:\n${colaCli}`:''}${colaForn?`\nConversa fornecedor:\n${colaForn}`:''}`;
+  try{
+    const txt=await _mobIaCall(system,user);
+    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
+    const telCli=(c.cel||'').replace(/\D/g,'');
+    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
+    const waCli=telCli?`https://wa.me/55${telCli}?text=${encodeURIComponent(r.msg_cliente||'')}` :'';
+    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
+    document.getElementById('iaAlertaBody').innerHTML=`
+      <div style="font-size:11px;background:rgba(127,119,221,.12);border:1px solid rgba(127,119,221,.3);color:#a78bfa;border-radius:8px;padding:6px 10px;margin-bottom:6px">🔄 Reanalisado com conversas do WhatsApp</div>
+      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
+      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
+      <div class="ia-bloco msg-cli"><div class="ia-bloco-label">💬 Mensagem — cliente</div><div class="ia-msg-box">${r.msg_cliente||'—'}</div><div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente</button>`:''}</div></div>
+      <div class="ia-bloco msg-forn"><div class="ia-bloco-label">🏗️ Mensagem — fornecedor</div><div class="ia-msg-box">${r.msg_fornecedor||'—'}</div><div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA fornecedor</button>`:''}</div></div>
+      <div class="ia-bloco acao"><div class="ia-bloco-label">✅ Ação recomendada</div><div class="ia-bloco-txt">${r.acao||'—'}</div>
+        <div class="ia-actions">${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="mobArquivarInadimplir('${id}')">🚫 Inadimplente</button>`:''}<button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button></div>
+      </div>
+      <div class="ia-rodape"><span class="ia-fonte">Reanalisado com conversas · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+  }catch(e){document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;}
+}
+
+async function mobAbrirIAIncompleto(id){
+  const c=_ordens.find(x=>x.id===id); if(!c) return;
+  const f=c.forn_id?_forns.find(x=>x.id===c.forn_id):null;
+  const {recSug,recFonte,cstSug,cstFonte}=_mobIaSugerirPrecos(c);
+  const semRec=!(parseFloat(c.rec)>0);
+  const semCst=c.forn_id&&!(parseFloat(c.cst)>0);
+
+  document.getElementById('iaAlertaTitulo').textContent='🤖 Sugestão de valores';
+  document.getElementById('iaAlertaSub').textContent=(c.bairro||'—')+' · '+(c.crm_id||'');
+  document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Calculando...</div>';
+  openModal('iaAlertaModal');
+
+  const system=`Você é um assistente de precificação para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"explicacao_rec":"...","explicacao_cst":"...","obs":"..."}. 1 frase por campo.`;
+  const user=`Bairro: ${c.bairro||'—'} | Fornecedor: ${f?f.nome:'—'}\n${semRec?`Valor cliente zerado. Sugestão: R$ ${fmt(recSug)} (base: ${recFonte})`:'Valor cliente OK.'}\n${semCst?`Custo fornecedor zerado. Sugestão: R$ ${fmt(cstSug)} (base: ${cstFonte})`:'Custo OK.'}`;
+
+  let explicRec='', explicCst='', obs='';
+  try{
+    const txt=await _mobIaCall(system,user);
+    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    explicRec=r.explicacao_rec||''; explicCst=r.explicacao_cst||''; obs=r.obs||'';
+  }catch(e){ explicRec='Maior valor cobrado ('+recFonte+')'; explicCst='Último pago ao fornecedor ('+cstFonte+')'; }
+
+  document.getElementById('iaAlertaBody').innerHTML=`
+    ${semRec?`<div class="ia-bloco incompleto">
+      <div class="ia-bloco-label">💰 Valor do cliente (rec)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:24px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(recSug)}</div>
+        <span style="font-size:10px;color:var(--mut)">base: ${recFonte}</span>
+      </div>
+      <div class="ia-bloco-txt" style="margin-bottom:10px">${explicRec}</div>
+      <div class="ia-actions">
+        <button class="ia-btn-aceitar" onclick="mobIaAceitarValor('${id}','rec',${recSug},'${recFonte}')">✓ Aceitar R$ ${fmt(recSug)}</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="number" id="mia_rec_${id}" placeholder="Outro valor" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:13px;color:var(--txt)">
+        <button class="btn btn-sm" onclick="mobIaAceitarCustom('${id}','rec','mia_rec_${id}')" style="padding:8px 12px">Salvar</button>
+      </div>
+    </div>`:''}
+    ${semCst&&f?`<div class="ia-bloco incompleto">
+      <div class="ia-bloco-label">🏗️ Custo fornecedor — ${f.nome}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:24px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(cstSug)}</div>
+        <span style="font-size:10px;color:var(--mut)">base: ${cstFonte}</span>
+      </div>
+      <div class="ia-bloco-txt" style="margin-bottom:10px">${explicCst}</div>
+      <div class="ia-actions">
+        <button class="ia-btn-aceitar" onclick="mobIaAceitarValor('${id}','cst',${cstSug},'${cstFonte}')">✓ Aceitar R$ ${fmt(cstSug)}</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="number" id="mia_cst_${id}" placeholder="Outro valor" style="flex:1;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:13px;color:var(--txt)">
+        <button class="btn btn-sm" onclick="mobIaAceitarCustom('${id}','cst','mia_cst_${id}')" style="padding:8px 12px">Salvar</button>
+      </div>
+    </div>`:''}
+    ${obs?`<div style="font-size:11px;color:var(--mut2);padding:6px 2px;font-style:italic">${obs}</div>`:''}
+    <div class="ia-rodape">
+      <span class="ia-fonte">Histórico local · sem custo extra</span>
+      <button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button>
+    </div>`;
+}
+
+async function mobIaAceitarValor(id, campo, valor, fonte){
+  const c=_ordens.find(x=>x.id===id); if(!c) return;
+  c[campo]=valor;
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id,'PATCH',{[campo]:valor},tok());
+    setSyncDot('ok');
+    toast('✅ '+campo.toUpperCase()+' salvo: R$ '+fmt(valor));
+    closeModal('iaAlertaModal');
+    renderAlertas();
+  }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
+}
+
+async function mobIaAceitarCustom(id, campo, inputId){
+  const val=parseFloat(document.getElementById(inputId)?.value||0);
+  if(!val||val<=0){toast('Informe um valor válido','warn');return;}
+  await mobIaAceitarValor(id,campo,val,'manual');
+}
+
+function mobIaToggleCola(btn, areaId){
+  const area=document.getElementById(areaId); if(!area) return;
+  const vis=area.style.display==='none';
+  area.style.display=vis?'block':'none';
+  btn.textContent=vis?'- Ocultar conversa':'+ Colar conversa do '+(areaId.includes('cli')?'cliente':'fornecedor');
+}
+
+async function mobArquivarInadimplir(id){
+  const c=_ordens.find(x=>x.id===id); if(!c) return;
+  const ok=await showConfirm({ico:'🚫',title:'Mover para Inadimplente',body:`<strong>${c.logradouro||c.nome||'Ordem'}</strong><br><br>Será movida para Inadimplentes.`,ok:'🚫 Confirmar',okClass:'acc'});
+  if(!ok) return;
+  c.col='inadimp';
+  try{
+    setSyncDot('sync');
+    await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok());
+    setSyncDot('ok');
+    toast('🚫 Movido para inadimplente');
+    closeModal('iaAlertaModal');
+    renderAlertas();
+  }catch(e){setSyncDot('err');toast('Erro','err');}
 }
 
 // ── RENDER NOVA ORDEM ──
