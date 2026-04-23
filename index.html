@@ -741,6 +741,11 @@ input[type=checkbox]:checked::after{
       <div class="view" id="view-nf">
         <div class="pw">
           <div class="ph"><div class="ph-title">Notas Fiscais</div></div>
+          <div style="margin-bottom:12px">
+            <input type="text" id="nfBusca" placeholder="🔍 Buscar por NF, cliente ou endereço..." oninput="_nfFiltrar()"
+              style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
+          </div>
+          <div id="nfCount" style="font-size:11px;color:var(--mut2);margin-bottom:10px"></div>
           <div id="nfLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -1155,7 +1160,7 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm btn-pix" onclick="openPixDoDetail()">⚡ Pix</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWAForn()">🚛 WA Forn.</button>
-        <button class="btn btn-sm" onclick="enviarTracking()" title="Copiar link de rastreamento" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📋 Copiar link</button>
+        <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
@@ -1246,7 +1251,7 @@ input[type=checkbox]:checked::after{
 <!-- PAGAR FORNECEDOR MODAL -->
 <div class="mbg" id="pagarFornModal">
   <div class="mbox" style="max-width:500px">
-    <div class="mh" style="background:#0f3460;border-bottom:1px solid #1a4a80"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
+    <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
       <div class="fi-row">
         <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
@@ -2898,7 +2903,7 @@ function selCobrarAgrupado(){
     } else {
       const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
       const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-      const trackLink=c0.id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c0.id):'';
+      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
       msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
@@ -3617,7 +3622,6 @@ async function salvarOrdem(){
     const obsBase=document.getElementById('o_obs').value.trim();
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const recComNF=_ordemTemNF&&rec>0?rec+_nfAcrescimo:rec;
-    let ultimaOrdem=null;
     for(let qi=0;qi<qtd;qi++){
       const crmId=await nextCrmId('LC');
       const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
@@ -3638,7 +3642,6 @@ async function salvarOrdem(){
         criado_em:new Date(Date.now()+qi*1000).toISOString()
       };
       ordens.push(novaOrdem);
-      ultimaOrdem=novaOrdem;
       try{
         setSyncDot('sync');
         await api('ordens','POST',novaOrdem,tok());
@@ -3648,13 +3651,17 @@ async function salvarOrdem(){
     }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
     closeModal('ordemModal');
-    toast('✅ Ordem criada!');
+    // Scroll para mostrar o card novo
     setTimeout(()=>{
-      if(ultimaOrdem){
-        const el=document.getElementById('card_'+ultimaOrdem.id);
-        if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
-      }
+      const el=document.getElementById('card_'+novaOrdem.id);
+      if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
     },100);
+    try{
+      setSyncDot('sync');
+      await api('ordens','POST',novaOrdem,tok());
+      setSyncDot('ok'); toast('✅ Ordem criada!');
+      addLog(novaOrdem.id,'Criado',novaOrdem.tipo||'');
+    }catch(e){setSyncDot('err');toast('Erro ao criar','err');}
   }
 }
 
@@ -4874,7 +4881,7 @@ function enviarPixWA(){
   const c=ordens.find(x=>x.id===_pixCardId);if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   const val=parseFloat(document.getElementById('pix_valor_edit').value)||parseFloat(c.rec)||0;
-  const trackLink=c.id?'https://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c.id):'';
+  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
   const vend=usuarios.find(u=>u.id===c.usuario_id)||_perfil;
   const marcaNome=vend?.marca_nome||'CaçambaSP';
   const marcaTel=vend?.marca_tel||'(11) 4237-8757';
@@ -4953,24 +4960,19 @@ function enviarTracking(id){
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
   if(!c){toast('Ordem não encontrada','warn');return;}
-  if(!c.id){toast('Ordem sem ID','warn');return;}
-  const link='https://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c.id);
-  navigator.clipboard.writeText(link).then(()=>{
-    toast('📋 Link copiado!','ok');
-  }).catch(()=>{
-    // fallback para browsers sem clipboard API
-    const el=document.createElement('textarea');
-    el.value=link;el.style.position='fixed';el.style.opacity='0';
-    document.body.appendChild(el);el.select();
-    document.execCommand('copy');document.body.removeChild(el);
-    toast('📋 Link copiado!','ok');
-  });
+  if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
+  if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
+  const link='https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id);
+  const nome=(c.nome||'').split(' ')[0]||'Cliente';
+  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
+  const tel=c.cel.replace(/\D/g,'');
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 const _waTpl={
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
-    const trackLink=c.id?'https://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c.id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -4987,7 +4989,7 @@ const _waTpl={
   },
   inadimp:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'');
-    const trackLink=c.id?'https://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c.id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -5364,8 +5366,8 @@ function _dispararProximaCobranca(){
     const marcaNome = vend?.marca_nome||'CaçambaSP';
     const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
     // Usa o tracking da primeira ordem — mostra todas as ordens em aberto do celular
-    const trackLink = c0.id
-      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+encodeURIComponent(c0.id)
+    const trackLink = c0.crm_id
+      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id)
       : '';
     msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
@@ -7466,7 +7468,7 @@ function pgfornAtualizarRodape(){
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid||c.forn_pago||c.col==='orcamento') return false;
+    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
@@ -9024,12 +9026,17 @@ function _relEvolucao(){
 
 // ── NOTAS FISCAIS ──
 function renderNF(){
+  const q=_nrm((document.getElementById('nfBusca')?.value||'').trim());
   const nfs=ordens.filter(c=>c.nf_num).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   if(!nfs.length){document.getElementById('nfLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
-  document.getElementById('nfLista').innerHTML=nfs.map(c=>{
-    const imp=(parseFloat(c.rec)||0)*0.12;
+  const filtradas=q?nfs.filter(c=>[c.nf_num,c.nome,c.logradouro,c.bairro].some(f=>_nrm(f||'').includes(q))):nfs;
+  const countEl=document.getElementById('nfCount');
+  if(countEl) countEl.textContent=q?`${filtradas.length} de ${nfs.length} nota${nfs.length!==1?'s':''}`:nfs.length+` nota${nfs.length!==1?'s':''}`;
+  if(!filtradas.length){document.getElementById('nfLista').innerHTML=`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF encontrada para "<strong>${document.getElementById('nfBusca').value}</strong>"</div>`;return;}
+  document.getElementById('nfLista').innerHTML=filtradas.map(c=>{
+    const imp=(parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100);
     const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)-imp;
-    return `<div class="nf-row">
+    return `<div class="nf-row" onclick="openDetail('${c.id}')" style="cursor:pointer">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700">NF ${c.nf_num} · ${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
@@ -9039,6 +9046,7 @@ function renderNF(){
     </div>`;
   }).join('');
 }
+function _nfFiltrar(){ renderNF(); }
 
 // ── FORNECEDORES ──
 function setFornTab(tab){
