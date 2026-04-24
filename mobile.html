@@ -3792,73 +3792,100 @@ function renderAlertas(){
 
   let html = pillsHtml + '<div style="padding:0 14px 20px">';
 
+  // ── Helper mobile: agrupar por cliente ──
+  const _mobAgrupar = (lista) => {
+    const mapa = {};
+    lista.forEach(c => {
+      const key=(c.cel||'').replace(/\D/g,'')||c.id;
+      if(!mapa[key]) mapa[key]={cel:key,nome:c.nome||'—',ordens:[]};
+      mapa[key].ordens.push(c);
+    });
+    return Object.values(mapa).sort((a,b)=>Math.max(...b.ordens.map(o=>diasEmAberto(o)))-Math.max(...a.ordens.map(o=>diasEmAberto(o))));
+  };
+
+  const _mobRenderGrupo = (grupo, tipo) => {
+    const ords=grupo.ordens;
+    const temZero=ords.some(o=>!(parseFloat(o.rec)>0));
+    const total=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+    const diasArr=ords.map(o=>diasEmAberto(o)).sort((a,b)=>b-a);
+    const maxDias=diasArr[0];
+    const cel=(grupo.cel||'').replace(/\D/g,'');
+    const vend=_usuarios.find(u=>u.id===ords[0].usuario_id);
+    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+    const ordMaisRecente=[...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
+    const trackLink=ordMaisRecente?.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id):'';
+    const tagCor=tipo==='inad'?'alerta-tag-inad':tipo==='crit'?'alerta-tag-crit':'alerta-tag-atencao';
+    const cardCor=tipo==='inad'?'alerta-card-inad':tipo==='crit'?'alerta-card-crit':'alerta-card-atencao';
+    const tagTxt=tipo==='inad'?'⛔ Inadimplente':tipo==='crit'?`🔴 ${maxDias}d`:`🟡 ${maxDias}d`;
+    const dropId='mdrop_'+grupo.cel.replace(/\D/g,'')+'_'+tipo;
+    const totalFmt=total.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    const nomePrimeiro=(grupo.nome||'').split(' ')[0]||'cliente';
+    const msgConsolidada=ords.length>1
+      ?`Olá ${nomePrimeiro}! 👋\n\nVocê tem *${ords.length} caçambas* em aberto:\n\n${ords.map(o=>`📍 *${o.logradouro||'-'}*${o.bairro?', '+o.bairro:''} — R$ ${parseFloat(o.rec||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n')}\n\n💰 *Total: R$ ${totalFmt}*${trackLink?'\n\n⚡ *Pague pelo link:*\n'+trackLink:''}\n\n_${marcaNome} — ${marcaTel}_`
+      :'';
+    const waHref=cel&&!temZero&&(ords.length===1||msgConsolidada)?`https://wa.me/55${cel}?text=${encodeURIComponent(ords.length>1?msgConsolidada:'')}` :'';
+
+    return `<div class="alerta-card ${cardCor}" style="${temZero?'border-color:rgba(245,166,35,.4)':''}">
+      <div style="padding:12px 14px" onclick="_mobAlertaToggleDrop('${dropId}')">
+        <div class="alerta-card-top">
+          <span class="alerta-nome">${grupo.nome}</span>
+          <span class="alerta-val" style="${temZero?'color:var(--acc)':''}">R$ ${totalFmt}</span>
+        </div>
+        <div class="alerta-card-bot">
+          <span class="alerta-tag ${tagCor}">${tagTxt}</span>
+          ${ords.length>1?`<span class="alerta-sub">${ords.length} ordens</span>`:''}
+          ${temZero?`<span class="alerta-tag" style="background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">⚠️ valor zerado</span>`:'<span class="alerta-tag" style="background:rgba(34,197,94,.1);color:#16a34a;border-color:rgba(34,197,94,.25)">✓ OK</span>'}
+        </div>
+      </div>
+      ${temZero?`<div style="padding:5px 14px;background:rgba(245,166,35,.07);border-top:1px solid rgba(245,166,35,.2);font-size:11px;color:var(--acc)">⚠️ Corrija o valor antes de enviar o tracking</div>`:''}
+      <div class="alerta-actions">
+        <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlertaGrupo(${JSON.stringify(ords.map(o=>o.id))},'${tipo}')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' ('+ords.length+')':''}</button>
+        ${!temZero&&cel?`<button class="btn btn-sm" onclick="event.stopPropagation();window.open('${waHref||`https://wa.me/55${cel}`}','_blank')" style="font-size:11px;padding:4px 8px;background:rgba(37,211,102,.1);color:#16a34a;border-color:rgba(37,211,102,.3)">📲 WA${ords.length>1?'+track':''}</button>`:`<button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;opacity:.4;cursor:not-allowed">📲 Bloqueado</button>`}
+        ${temZero?`<button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAIncompleto('${ords.find(o=>!(parseFloat(o.rec)>0))?.id||ords[0].id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir</button>`:''}
+        ${ords.length>1?`<button class="btn btn-sm" onclick="event.stopPropagation();_mobAlertaToggleDrop('${dropId}')" style="font-size:11px;padding:4px 8px">▼ Ordens</button>`:''}
+      </div>
+      <div id="${dropId}" style="display:none;border-top:1px solid var(--bor);background:var(--card)">
+        ${ords.map(o=>{
+          const oZero=!(parseFloat(o.rec)>0);
+          return `<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--bor);flex-wrap:wrap">
+            <span style="font-size:11px;font-family:var(--mono);color:var(--acc)">${o.crm_id||'—'}</span>
+            <span style="font-size:11px;color:var(--mut2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.logradouro||o.bairro||'—'}</span>
+            <span style="font-size:12px;font-weight:500;${oZero?'color:var(--r)':''}">R$ ${fmt(o.rec||0)}</span>
+            <div style="display:flex;gap:4px">
+              ${oZero?`<button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAIncompleto('${o.id}')" style="font-size:10px;padding:3px 7px;background:rgba(245,166,35,.12);color:var(--acc)">🤖</button>`:''}
+              <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${o.id}')" style="font-size:10px;padding:3px 7px">Ver</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  };
+
   // Seção 1: Inadimplentes
   if(listaInad.length){
+    const grupos=_mobAgrupar(listaInad);
     html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
-      ${listaInad.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-            <span class="alerta-dias">${dias}d em aberto</span>
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','inad')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
-          </div>
-        </div>`;
-      }).join('')}
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${grupos.length} cli · ${listaInad.length} ord</span></div>
+      ${grupos.map(g=>_mobRenderGrupo(g,'inad')).join('')}
     </div>`;
   }
 
   // Seção 2: Críticos
   if(listaCrit.length){
+    const grupos=_mobAgrupar(listaCrit);
     html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d sem pagar <span class="alerta-cnt">${listaCrit.length}</span></div>
-      ${listaCrit.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','crit')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
-          </div>
-        </div>`;
-      }).join('')}
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d <span class="alerta-cnt">${grupos.length} cli · ${listaCrit.length} ord</span></div>
+      ${grupos.map(g=>_mobRenderGrupo(g,'crit')).join('')}
     </div>`;
   }
 
   // Seção 3: Atenção
   if(listaCobr.length){
+    const grupos=_mobAgrupar(listaCobr);
     html+=`<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d sem pagar <span class="alerta-cnt">${listaCobr.length}</span></div>
-      ${listaCobr.map(c=>{
-        const {dias,nome,val,bairro}=fmtCard(c);
-        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
-          <div class="alerta-card-top"><span class="alerta-nome">${nome}</span><span class="alerta-val">${val}</span></div>
-          <div class="alerta-card-bot">
-            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
-            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
-          </div>
-          <div class="alerta-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WA</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPix('${c.id}')" style="font-size:11px;padding:4px 10px">Pix</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();abrirPagarCli('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(34,197,94,.12);color:#16a34a;border-color:rgba(34,197,94,.3)">✅ Pago</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlerta('${c.id}','atencao')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
-          </div>
-        </div>`;
-      }).join('')}
+      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d <span class="alerta-cnt">${grupos.length} cli · ${listaCobr.length} ord</span></div>
+      ${grupos.map(g=>_mobRenderGrupo(g,'atencao')).join('')}
     </div>`;
   }
 
@@ -4043,24 +4070,41 @@ function _setFiltroAlertaMob(uid){
 // ── IA ALERTAS MOBILE ──
 
 function _mobIaSugerirPrecos(c){
-  const bNrm = _norm(c.bairro||'');
-  const f = c.forn_id ? _forns.find(x=>x.id===c.forn_id) : null;
+  const bNrm  = _norm(c.bairro||'');
+  const logNrm= _norm(c.logradouro||'');
+  const f     = c.forn_id ? _forns.find(x=>x.id===c.forn_id) : null;
   const zonaForn = f&&Array.isArray(f.regioes) ? (()=>{ const r=f.regioes.find(x=>_norm(x.bairro||x.regiao||'')===bNrm); return r?.zona||''; })() : '';
   const ref = _ordens.filter(o=>o.id!==c.id && o.col!=='orcamento' && parseFloat(o.rec)>0);
 
-  let recPool = ref.filter(o=>_norm(o.bairro||'')===bNrm && bNrm);
-  let recFonte = 'bairro '+c.bairro;
-  if(!recPool.length && zonaForn){ recPool=ref.filter(o=>{ const f2=_forns.find(x=>x.id===o.forn_id); return f2&&Array.isArray(f2.regioes)&&f2.regioes.some(r=>r.zona===zonaForn); }); recFonte='zona '+zonaForn; }
-  if(!recPool.length){ recPool=ref; recFonte='geral'; }
-  const recSug = recPool.length ? Math.max(...recPool.map(o=>parseFloat(o.rec)||0)) : 0;
+  // ── REC ──
+  let recSug=0, recFonte='', recRef=null;
+  const mesmoCli=ref.filter(o=>
+    (c.cel&&(c.cel.replace(/\D/g,''))&&o.cel&&o.cel.replace(/\D/g,'')===c.cel.replace(/\D/g,'')) ||
+    (c.cliente_id&&o.cliente_id&&o.cliente_id===c.cliente_id)
+  ).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
 
-  let cstSug=0, cstFonte='';
-  if(c.forn_id && f){
-    let cstPool=ref.filter(o=>o.forn_id===c.forn_id&&_norm(o.bairro||'')===bNrm&&bNrm&&parseFloat(o.cst)>0).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
-    if(cstPool.length){ cstSug=parseFloat(cstPool[0].cst); cstFonte='último pago '+c.bairro; }
-    else { const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim()); if(m&&m.preco>0){cstSug=m.preco;cstFonte='tabela fornecedor';}else if(f.preco_padrao>0){cstSug=f.preco_padrao;cstFonte='preço padrão';} }
+  const p1rec=mesmoCli.filter(o=>logNrm&&_norm(o.logradouro||'')===logNrm);
+  if(p1rec.length){ recRef=p1rec[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo endereço · '+recRef.crm_id; }
+  if(!recSug){ const p2=mesmoCli.filter(o=>bNrm&&_norm(o.bairro||'')===bNrm); if(p2.length){ recRef=p2[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo cliente · bairro · '+recRef.crm_id; } }
+  if(!recSug&&mesmoCli.length){ recRef=mesmoCli[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo cliente · '+recRef.crm_id; }
+  if(!recSug){
+    let pool=ref.filter(o=>bNrm&&_norm(o.bairro||'')===bNrm); recFonte='maior do bairro '+c.bairro;
+    if(!pool.length&&zonaForn){ pool=ref.filter(o=>{ const f2=_forns.find(x=>x.id===o.forn_id); return f2&&Array.isArray(f2.regioes)&&f2.regioes.some(r=>r.zona===zonaForn); }); recFonte='maior da zona '+zonaForn; }
+    if(!pool.length){ pool=ref; recFonte='maior geral'; }
+    if(pool.length){ recSug=Math.max(...pool.map(o=>parseFloat(o.rec)||0)); recRef=pool.find(o=>parseFloat(o.rec)===recSug)||null; if(recRef) recFonte+=' · '+recRef.crm_id; }
   }
-  return {recSug,recFonte,cstSug,cstFonte};
+
+  // ── CST ──
+  let cstSug=0, cstFonte='', cstRef=null;
+  if(f){
+    const refCst=ref.filter(o=>o.forn_id===c.forn_id&&parseFloat(o.cst)>0).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
+    const p1cst=refCst.filter(o=>logNrm&&_norm(o.logradouro||'')===logNrm);
+    if(p1cst.length){ cstRef=p1cst[0]; cstSug=parseFloat(cstRef.cst); cstFonte='mesmo endereço · '+cstRef.crm_id; }
+    if(!cstSug){ const p2=refCst.filter(o=>bNrm&&_norm(o.bairro||'')===bNrm); if(p2.length){ cstRef=p2[0]; cstSug=parseFloat(cstRef.cst); cstFonte='mesmo bairro · '+cstRef.crm_id; } }
+    if(!cstSug&&refCst.length){ cstRef=refCst[0]; cstSug=parseFloat(cstRef.cst); cstFonte='último pago '+(cstRef.bairro||'geral')+' · '+cstRef.crm_id; }
+    if(!cstSug){ const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim()); if(m&&m.preco>0){cstSug=m.preco;cstFonte='tabela fornecedor';}else if(f.preco_padrao>0){cstSug=f.preco_padrao;cstFonte='preço padrão';} }
+  }
+  return {recSug,recFonte,recRef,cstSug,cstFonte,cstRef};
 }
 
 async function _mobIaCall(system, userMsg){
@@ -4178,16 +4222,19 @@ async function mobAbrirIAIncompleto(id){
     const txt=await _mobIaCall(system,user);
     const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
     explicRec=r.explicacao_rec||''; explicCst=r.explicacao_cst||''; obs=r.obs||'';
-  }catch(e){ explicRec='Maior valor cobrado ('+recFonte+')'; explicCst='Último pago ao fornecedor ('+cstFonte+')'; }
+  }catch(e){ explicRec=''; explicCst=''; }
+
+  const _mRefLine = (ref) => ref ? `<div style="font-size:10px;color:var(--mut2);margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;border-left:2px solid var(--bor)">↳ ref: <strong style="color:var(--txt)">${ref.crm_id||'—'}</strong> · ${ref.nome||ref.logradouro||'—'} · ${ref.bairro||''} · rec: <strong>R$ ${fmt(ref.rec||0)}</strong> · cst: R$ ${fmt(ref.cst||0)}</div>` : '';
 
   document.getElementById('iaAlertaBody').innerHTML=`
     ${semRec?`<div class="ia-bloco incompleto">
       <div class="ia-bloco-label">💰 Valor do cliente (rec)</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <div style="font-size:24px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(recSug)}</div>
         <span style="font-size:10px;color:var(--mut)">base: ${recFonte}</span>
       </div>
-      <div class="ia-bloco-txt" style="margin-bottom:10px">${explicRec}</div>
+      ${_mRefLine(recRef)}
+      ${explicRec?`<div class="ia-bloco-txt" style="margin:6px 0">${explicRec}</div>`:''}
       <div class="ia-actions">
         <button class="ia-btn-aceitar" onclick="mobIaAceitarValor('${id}','rec',${recSug},'${recFonte}')">✓ Aceitar R$ ${fmt(recSug)}</button>
       </div>
@@ -4198,11 +4245,12 @@ async function mobAbrirIAIncompleto(id){
     </div>`:''}
     ${semCst&&f?`<div class="ia-bloco incompleto">
       <div class="ia-bloco-label">🏗️ Custo fornecedor — ${f.nome}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <div style="font-size:24px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(cstSug)}</div>
         <span style="font-size:10px;color:var(--mut)">base: ${cstFonte}</span>
       </div>
-      <div class="ia-bloco-txt" style="margin-bottom:10px">${explicCst}</div>
+      ${_mRefLine(cstRef)}
+      ${explicCst?`<div class="ia-bloco-txt" style="margin:6px 0">${explicCst}</div>`:''}
       <div class="ia-actions">
         <button class="ia-btn-aceitar" onclick="mobIaAceitarValor('${id}','cst',${cstSug},'${cstFonte}')">✓ Aceitar R$ ${fmt(cstSug)}</button>
       </div>
@@ -4237,7 +4285,108 @@ async function mobIaAceitarCustom(id, campo, inputId){
   await mobIaAceitarValor(id,campo,val,'manual');
 }
 
-function mobIaToggleCola(btn, areaId){
+function _mobAlertaToggleDrop(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function mobAbrirIAAlertaGrupo(ids, tipo){
+  if(!ids||!ids.length) return;
+  if(ids.length===1){ mobAbrirIAAlerta(ids[0],tipo); return; }
+  const ords=ids.map(id=>_ordens.find(x=>x.id===id)).filter(Boolean);
+  if(!ords.length) return;
+  const c0=ords[0];
+  const f=c0.forn_id?_forns.find(x=>x.id===c0.forn_id):null;
+  const totalRec=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const vend=_usuarios.find(u=>u.id===c0.usuario_id);
+  const marcaNome=vend?.marca_nome||'CaçambaSP';
+  const marcaTel=vend?.marca_tel||'(11) 4237-8757';
+
+  document.getElementById('iaAlertaTitulo').textContent='🤖 '+(c0.nome||'Cliente')+' — '+ords.length+' ordens';
+  document.getElementById('iaAlertaSub').textContent=(tipo==='inad'?'Inadimplente':tipo==='crit'?'Crítico':'Atenção')+' · Total: R$ '+fmt(totalRec);
+  document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando '+ords.length+' ordens...</div>';
+  openModal('iaAlertaModal');
+
+  const resumo=ords.map((o,i)=>`Ordem ${i+1}: ${o.crm_id||'—'} | ${o.logradouro||'—'}, ${o.bairro||'—'} | R$ ${fmt(o.rec||0)} | ${diasEmAberto(o)}d`).join('\n');
+  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. O cliente tem múltiplas ordens — mencione o total consolidado na msg_cliente.`;
+  const user=`Cliente: ${c0.nome||'—'} | Tel: ${(c0.cel||'').replace(/\D/g,'')||'—'}\nTotal: R$ ${fmt(totalRec)} | ${ords.length} ordens\n${resumo}\nFornecedor: ${f?f.nome:'—'}`;
+
+  try{
+    const txt=await _mobIaCall(system,user);
+    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
+    const cel=(c0.cel||'').replace(/\D/g,'');
+    const ordMaisRecente=[...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
+    const trackLink=ordMaisRecente?.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id):'';
+    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
+    const msgCliComTrack=(r.msg_cliente||'')+(trackLink&&!(r.msg_cliente||'').includes('tracking')?'\n\n⚡ Tracking: '+trackLink:'');
+    const waCli=cel?`https://wa.me/55${cel}?text=${encodeURIComponent(msgCliComTrack)}`:'';
+    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
+
+    document.getElementById('iaAlertaBody').innerHTML=`
+      <div style="font-size:11px;background:rgba(127,119,221,.1);border:1px solid rgba(127,119,221,.25);color:#a78bfa;border-radius:8px;padding:6px 10px;margin-bottom:6px">Análise consolidada · ${ords.length} ordens · Total R$ ${fmt(totalRec)}</div>
+      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
+      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
+      <div class="ia-bloco msg-cli">
+        <div class="ia-bloco-label">💬 Mensagem consolidada — cliente</div>
+        <div class="ia-msg-box">${(r.msg_cliente||'—').replace(/\n/g,'<br>')}</div>
+        ${trackLink?`<div style="font-size:11px;color:var(--mut2);margin-bottom:6px">🔗 ${trackLink}</div>`:''}
+        <div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA — todas as ordens</button>`:''}</div>
+        <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_grp_${ids[0]}')">+ Colar conversa do cliente</span>
+        <textarea id="mcola_grp_${ids[0]}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp..."></textarea>
+      </div>
+      <div class="ia-bloco msg-forn"><div class="ia-bloco-label">🏗️ Fornecedor</div><div class="ia-msg-box">${(r.msg_fornecedor||'—').replace(/\n/g,'<br>')}</div><div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA forn.</button>`:''}</div></div>
+      <div class="ia-bloco acao">
+        <div class="ia-bloco-label">✅ Ação recomendada</div>
+        <div class="ia-bloco-txt">${r.acao||'—'}</div>
+        <div class="ia-actions">
+          ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="Promise.all(${JSON.stringify(ids)}.map(id=>_mobInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderAlertas()})">🚫 Todas inadimplente</button>`:''}
+          <button class="btn btn-sm" onclick="closeModal('iaAlertaModal')">Fechar</button>
+        </div>
+      </div>
+      <div class="ia-rodape">
+        <span class="ia-fonte">${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
+        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaGrupoReanalisar(${JSON.stringify(ids)},'${tipo}')">🔄 Reanalisar</button>
+      </div>`;
+  }catch(e){
+    document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;
+  }
+}
+
+async function mobIaGrupoReanalisar(ids,tipo){
+  const colaCli=(document.getElementById('mcola_grp_'+ids[0])?.value||'').trim();
+  if(!colaCli){toast('Cole a conversa antes de reanalisar','warn');return;}
+  const ords=ids.map(id=>_ordens.find(x=>x.id===id)).filter(Boolean);
+  if(!ords.length) return;
+  const c0=ords[0]; const totalRec=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Reanalisando...</div>';
+  const resumo=ords.map((o,i)=>`Ordem ${i+1}: ${o.crm_id||'—'} | ${o.logradouro||'—'} | R$ ${fmt(o.rec||0)} | ${diasEmAberto(o)}d`).join('\n');
+  const system=`Você é assistente de cobrança para caçambas em SP. Responda SOMENTE em JSON: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Considere a conversa.`;
+  const user=`Cliente: ${c0.nome||'—'} | Total: R$ ${fmt(totalRec)} | ${ords.length} ordens\n${resumo}\nConversa:\n${colaCli}`;
+  try{
+    const txt=await _mobIaCall(system,user);
+    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
+    const cel=(c0.cel||'').replace(/\D/g,'');
+    const ordMaisRecente=[...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
+    const trackLink=ordMaisRecente?.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id):'';
+    const msgCliComTrack=(r.msg_cliente||'')+(trackLink?'\n\n⚡ Tracking: '+trackLink:'');
+    const waCli=cel?`https://wa.me/55${cel}?text=${encodeURIComponent(msgCliComTrack)}`:'';
+    document.getElementById('iaAlertaBody').innerHTML=`
+      <div style="font-size:11px;background:rgba(127,119,221,.12);border:1px solid rgba(127,119,221,.3);color:#a78bfa;border-radius:8px;padding:6px 10px;margin-bottom:6px">🔄 Reanalisado com conversa</div>
+      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
+      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
+      <div class="ia-bloco msg-cli"><div class="ia-bloco-label">💬 Mensagem cliente</div><div class="ia-msg-box">${(r.msg_cliente||'—').replace(/\n/g,'<br>')}</div><div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA</button>`:''}</div></div>
+      <div class="ia-bloco acao"><div class="ia-bloco-label">✅ Ação</div><div class="ia-bloco-txt">${r.acao||'—'}</div></div>
+      <div class="ia-rodape"><span class="ia-fonte">Reanalisado · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+  }catch(e){document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;}
+}
+
+async function _mobInadimplirDireto(id){
+  const c=_ordens.find(x=>x.id===id); if(!c||c.col==='inadimp') return;
+  c.col='inadimp';
+  try{ await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok()); }catch(e){ setSyncDot('err'); }
+}
   const area=document.getElementById(areaId); if(!area) return;
   const vis=area.style.display==='none';
   area.style.display=vis?'block':'none';
