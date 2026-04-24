@@ -7474,9 +7474,14 @@ function renderConcHist(){
 function initPgForn(){
   const sel=document.getElementById('pgfornSup');
   sel.innerHTML='<option value="">-- Escolha --</option>';
+  const colsValidas=['contratar','ag_entrega','pagar','faltapg','baixar','inadimp','concluido','entrega'];
   forns.forEach(f=>{
-    const pend=ordens.filter(c=>c.forn_id===f.id&&!c.forn_pago&&(c.cst||0)>0);
-    if(pend.length){const o=document.createElement('option');o.value=f.id;o.textContent=f.nome+' ('+pend.length+' pendente'+(pend.length>1?'s':'')+')';sel.appendChild(o);}
+    const pend=ordens.filter(c=>c.forn_id===f.id&&c.forn_pago!==true&&colsValidas.includes(c.col));
+    if(pend.length){
+      const semCusto=pend.filter(c=>!(parseFloat(c.cst)>0)).length;
+      const label=f.nome+' ('+pend.length+' pendente'+(pend.length>1?'s':'')+(semCusto?' · '+semCusto+' sem custo':'')+ ')';
+      const o=document.createElement('option');o.value=f.id;o.textContent=label;sel.appendChild(o);
+    }
   });
   document.getElementById('pgfornContent').innerHTML='';
 }
