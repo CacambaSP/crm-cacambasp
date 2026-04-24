@@ -1653,11 +1653,11 @@ function abrirPagarForn(id) {
   const forn = _forns.find(f=>f.id===fornId);
 
   // Buscar todas as ordens pendentes com este fornecedor
+  const _colsValidas = ['contratar','ag_entrega','pagar','faltapg','baixar','inadimp','concluido','entrega'];
   _pf_ordens = _ordens.filter(x =>
     x.forn_id === fornId &&
-    !x.forn_pago &&
-    x.col !== 'concluido' &&
-    x.col !== 'orcamento'
+    x.forn_pago !== true &&
+    _colsValidas.includes(x.col)
   );
 
   document.getElementById('pf_forn_label').textContent = forn?.nome || '—';
@@ -1669,16 +1669,19 @@ function abrirPagarForn(id) {
 
   if(_pf_ordens.length > 1) {
     wrap.style.display = 'block';
-    lista.innerHTML = _pf_ordens.map(ord => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);margin-bottom:6px;cursor:pointer">
-        <input type="checkbox" value="${ord.id}" ${ord.id===id?'checked':''} onchange="pfAtualizarTotal()"
-          style="width:18px;height:18px;accent-color:var(--cyan);flex-shrink:0;cursor:pointer">
+    lista.innerHTML = _pf_ordens.map(ord => {
+      const semCst=!(parseFloat(ord.cst)>0);
+      return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid ${semCst?'rgba(245,166,35,.4)':'var(--bor)'};border-radius:var(--rad3);margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" value="${ord.id}" ${ord.id===id?'checked':''} ${semCst?'disabled':''} onchange="pfAtualizarTotal()"
+          style="width:18px;height:18px;accent-color:var(--cyan);flex-shrink:0;cursor:pointer${semCst?';opacity:.4':''}">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700;color:var(--txt)">${ord.crm_id||'—'} · ${ord.nome||'—'}</div>
           <div style="font-size:11px;color:var(--mut)">${ord.bairro||''}</div>
+          ${semCst?`<div style="font-size:11px;color:#f5a623;margin-top:2px">⚠️ Custo zerado — defina antes de pagar</div>`:''}
         </div>
-        <div style="font-size:13px;font-weight:700;color:var(--cyan);font-family:var(--mono);flex-shrink:0">R$ ${fmt(ord.cst)}</div>
-      </label>`).join('');
+        <div style="font-size:13px;font-weight:700;color:${semCst?'#f5a623':'var(--cyan)'};font-family:var(--mono);flex-shrink:0">${semCst?'R$ —':('R$ '+fmt(ord.cst))}</div>
+      </label>`;
+    }).join('');
   } else {
     wrap.style.display = 'none';
   }
@@ -3840,7 +3843,7 @@ function renderAlertas(){
       </div>
       ${temZero?`<div style="padding:5px 14px;background:rgba(245,166,35,.07);border-top:1px solid rgba(245,166,35,.2);font-size:11px;color:var(--acc)">⚠️ Corrija o valor antes de enviar o tracking</div>`:''}
       <div class="alerta-actions">
-        <button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAAlertaGrupo(${JSON.stringify(ords.map(o=>o.id))},'${tipo}')" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' ('+ords.length+')':''}</button>
+        <button class="btn btn-sm" data-ids="${ords.map(o=>o.id).join(',')}" data-tipo="${tipo}" onclick="event.stopPropagation();mobAbrirIAAlertaGrupo(this.dataset.ids.split(','),this.dataset.tipo)" style="font-size:11px;padding:4px 8px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' ('+ords.length+')':''}</button>
         ${!temZero&&cel?`<button class="btn btn-sm" onclick="event.stopPropagation();window.open('${waHref||`https://wa.me/55${cel}`}','_blank')" style="font-size:11px;padding:4px 8px;background:rgba(37,211,102,.1);color:#16a34a;border-color:rgba(37,211,102,.3)">📲 WA${ords.length>1?'+track':''}</button>`:`<button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;opacity:.4;cursor:not-allowed">📲 Bloqueado</button>`}
         ${temZero?`<button class="btn btn-sm" onclick="event.stopPropagation();mobAbrirIAIncompleto('${ords.find(o=>!(parseFloat(o.rec)>0))?.id||ords[0].id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir</button>`:''}
         ${ords.length>1?`<button class="btn btn-sm" onclick="event.stopPropagation();_mobAlertaToggleDrop('${dropId}')" style="font-size:11px;padding:4px 8px">▼ Ordens</button>`:''}
@@ -4340,13 +4343,13 @@ async function mobAbrirIAAlertaGrupo(ids, tipo){
         <div class="ia-bloco-label">✅ Ação recomendada</div>
         <div class="ia-bloco-txt">${r.acao||'—'}</div>
         <div class="ia-actions">
-          ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="Promise.all(${JSON.stringify(ids)}.map(id=>_mobInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderAlertas()})">🚫 Todas inadimplente</button>`:''}
+          ${tipo!=='atencao'?`<button class="ia-btn-inad" data-ids="${ids.join(',')}" onclick="Promise.all(this.dataset.ids.split(',').map(id=>_mobInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderAlertas()})">🚫 Todas inadimplente</button>`:''}
           <button class="btn btn-sm" onclick="closeModal('iaAlertaModal')">Fechar</button>
         </div>
       </div>
       <div class="ia-rodape">
         <span class="ia-fonte">${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
-        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaGrupoReanalisar(${JSON.stringify(ids)},'${tipo}')">🔄 Reanalisar</button>
+        <button class="btn btn-sm" data-ids="${ids.join(',')}" data-tipo="${tipo}" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaGrupoReanalisar(this.dataset.ids.split(','),this.dataset.tipo)">🔄 Reanalisar</button>
       </div>`;
   }catch(e){
     document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;

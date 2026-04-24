@@ -7502,14 +7502,11 @@ function pgfornAtualizarRodape(){
 
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
-  // Colunas onde o serviço já foi prestado (forn merece receber)
-  const colsValidas = ['pagar','faltapg','baixar','inadimp','concluido','entrega'];
+  const colsValidas = ['contratar','ag_entrega','pagar','faltapg','baixar','inadimp','concluido','entrega'];
   return ordens.filter(c=>{
     if(c.forn_id!==fid) return false;
-    if(c.forn_pago===true) return false;          // explícito: só false ou null
-    if(!c.forn_id) return false;
-    if((parseFloat(c.cst)||0)<=0) return false;   // sem custo não aparece
-    if(!colsValidas.includes(c.col)) return false; // só colunas válidas
+    if(c.forn_pago===true) return false;
+    if(!colsValidas.includes(c.col)) return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
@@ -7556,15 +7553,21 @@ function carregarPgForn(){
       </div>
     </div>
     <div id="pgfornRodape" style="display:none;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap"></div>
-    ${pend.map(c=>`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <input type="checkbox" id="pgcb_${c.id}" onchange="pgfornToggle('${c.id}')" style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0">
+    ${pend.map(c=>{
+      const semCst=!(parseFloat(c.cst)>0);
+      return `<div style="background:var(--sur);border:1px solid ${semCst?'rgba(245,166,35,.4)':'var(--bor)'};border-radius:var(--rad2);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <input type="checkbox" id="pgcb_${c.id}" onchange="pgfornToggle('${c.id}')" ${semCst?'disabled title="Defina o custo antes de pagar"':''} style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0${semCst?';opacity:.4':''}">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">📍 ${c.logradouro||'-'} · 📅 ${dateF(c.data)} · ${c.crm_id||''}</div>
+        ${semCst?`<div style="font-size:11px;color:#f5a623;margin-top:3px">⚠️ Custo zerado — defina o valor antes de pagar</div>`:''}
       </div>
-      <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.cst)}</div>
-      <button class="btn btn-sm btn-acc" onclick="_detailId='${c.id}';openPagarForn(true)">💰 Pagar</button>
-    </div>`).join('')}`;
+      <div style="font-weight:800;color:${semCst?'#f5a623':'var(--acc)'};font-family:var(--mono)">${semCst?'R$ —':('R$ '+fmt(c.cst))}</div>
+      <button class="btn btn-sm btn-acc" onclick="_detailId='${c.id}';${semCst?`openDetail('${c.id}')`:''};${semCst?'':'openPagarForn(true)'}" style="${semCst?'background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.3)':''}">
+        ${semCst?'✏️ Definir custo':'💰 Pagar'}
+      </button>
+    </div>`;
+    }).join('')}`;
 }
 
 async function pgfornPagarSelecionados(){
