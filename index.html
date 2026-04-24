@@ -2734,6 +2734,11 @@ async function oDrop(e,colId){
   if(!_dragId) return;
   const c=ordens.find(x=>x.id===_dragId);
   if(c&&c.col!==colId){
+    // Bloquear saída de "contratar" sem valor fechado
+    if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
+      toast('⚠️ Defina o valor da locação antes de mover a ordem.','warn',5000);
+      _dragId=null; return;
+    }
     c.col=colId; renderBoard(); renderStats(); renderFinanceiro();
     try{
       setSyncDot('sync');
@@ -4010,6 +4015,10 @@ async function _atribuirFornecedorCard(ordemId, fornId){
   // Reusar lógica do detail mas sem precisar abrir o detail
   const c = ordens.find(x=>x.id===ordemId); if(!c) return;
   const f = forns.find(x=>x.id===fornId); if(!f) return;
+  if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
+    toast('⚠️ Defina o valor da locação antes de atribuir fornecedor.','warn',5000);
+    return;
+  }
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
   const m = _fornMatchBairro(f, bairro, cidade);
@@ -4184,6 +4193,10 @@ async function _atribuirFornecedor(fornId){
   if(!c) return;
   const f = forns.find(x => x.id === fornId);
   if(!f) return;
+  if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
+    toast('⚠️ Defina o valor da locação antes de atribuir fornecedor.','warn',5000);
+    return;
+  }
   // Usar matching inteligente de bairro (S16)
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
@@ -4933,11 +4946,6 @@ function enviarWA(id){
   const c=ordens.find(x=>x.id===oid);
   if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
-  // Validação de valor para confirmação de agendamento
-  if(['contratar','ag_entrega'].includes(c.col) && !(parseFloat(c.rec)>0)){
-    toast('⚠️ Atualize o valor da locação antes de enviar!\nNão inclua o acréscimo de NF — ele é adicionado automaticamente na emissão.','warn',7000);
-    return;
-  }
   _waOrdemId=oid;
   document.getElementById('wa_sub').textContent=(c.nome||'Cliente')+' · '+(c.cel||'');
   // Destacar template padrão conforme status
@@ -5016,17 +5024,13 @@ const _waTpl={
     const marcaNome=vend?.marca_nome||'CaçambaSP';
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
     const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')+(c.cep?' — CEP '+c.cep:'');
-    const rec=parseFloat(c.rec)||0;
-    const acr=c.nf_num?_nfAcrescimo:0;
-    const total=rec+acr;
     const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}):'a confirmar';
     const primeiroNome=(c.nome||'').split(' ')[0]||'cliente';
     return 'Olá '+primeiroNome+'! 👋\n\n'+
-      'Seu agendamento está *confirmado*! ✅\n\n'+
+      'Sua caçamba está *agendada*! ✅\n\n'+
       '📍 *Endereço:* '+end+'\n'+
       '📅 *Data:* '+dataStr+'\n'+
       '🪣 *Serviço:* 1x '+(c.tipo||'Caçamba 4m³')+'\n'+
-      '💰 *Valor:* R$ '+fmt(total)+(c.nf_num?' (com NF)':' (sem NF)')+'\n'+
       '💳 *Pagamento:* PIX após entrega\n'+
       (c.obs?'📝 *Obs:* '+c.obs+'\n':'')+
       '\n⚠️ Não ultrapassar a borda da caçamba.\n'+
