@@ -1479,7 +1479,6 @@ input[type=checkbox]:checked::after{
       <!-- Templates -->
       <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Modelo de mensagem</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="waTemplates">
-        <button class="btn btn-sm" onclick="aplicarTemplate('os')" id="wtpl_os">📋 OS/Confirmação</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('cobranca')" id="wtpl_cobranca">💰 Cobrança</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('pix')" id="wtpl_pix">⚡ Pix</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('entrega')" id="wtpl_entrega">📦 Entrega</button>
@@ -2346,8 +2345,20 @@ function initFilters(){
     if(!u) return;
     const o=document.createElement('option');o.value=uid;o.textContent=u.nome||u.email||'Usuário';fv.appendChild(o);
   });
-  // Restaurar filtro persistido: "minhas", outro vendedor específico, ou todos
-  const savedVendId = localStorage.getItem('crm_filtro_vend_id');
+  // Não-admin: travar select no próprio usuário e esconder o select
+  if(!isAdmin()){
+    const meuid = _currentUser?.user?.id;
+    fv.value = meuid || '';
+    fv.style.display = 'none';
+    doFilter();
+    return;
+  }
+  // Admin: restaurar filtro persistido por uid
+  const _myKey = _currentUser?.user?.id || 'anon';
+  const savedMinhas = localStorage.getItem('crm_filtro_minhas_'+_myKey);
+  const savedVendId  = localStorage.getItem('crm_filtro_vend_id_'+_myKey);
+  // _minhasOrdens foi inicializado com a chave global — re-ler com a chave por uid
+  _minhasOrdens = savedMinhas !== '0';
   if(_minhasOrdens){
     _aplicarMinhasOrdens();
   } else if(savedVendId){
@@ -2357,8 +2368,8 @@ function initFilters(){
     _aplicarMinhasOrdens();
   }
 }
-// ── FILTRO MINHAS ORDENS (persistente) ──
-let _minhasOrdens = localStorage.getItem('crm_filtro_minhas') !== '0'; // padrão = ativo
+// ── FILTRO MINHAS ORDENS (persistente, chave por uid) ──
+let _minhasOrdens = true; // padrão = ativo; re-lido por uid em initFilters
 function _aplicarMinhasOrdens(){
   const btn = document.getElementById('btnMinhasOrdens');
   const sel = document.getElementById('filterVend');
@@ -2373,7 +2384,8 @@ function _aplicarMinhasOrdens(){
 }
 function toggleMinhasOrdens(){
   _minhasOrdens = !_minhasOrdens;
-  localStorage.setItem('crm_filtro_minhas', _minhasOrdens ? '1' : '0');
+  const _myKey = _currentUser?.user?.id || 'anon';
+  localStorage.setItem('crm_filtro_minhas_'+_myKey, _minhasOrdens ? '1' : '0');
   _aplicarMinhasOrdens();
 }
 function filtrarPorVendedor(uid, nomeVend){
@@ -2385,23 +2397,26 @@ function filtrarPorVendedor(uid, nomeVend){
       // Limpar filtro de vendedor
       sel.value = '';
       _minhasOrdens = false;
-      localStorage.setItem('crm_filtro_minhas', '0');
-      localStorage.removeItem('crm_filtro_vend_id');
-      localStorage.removeItem('crm_filtro_vend_nome');
+      const _myKey = _currentUser?.user?.id || 'anon';
+      localStorage.setItem('crm_filtro_minhas_'+_myKey, '0');
+      localStorage.removeItem('crm_filtro_vend_id_'+_myKey);
+      localStorage.removeItem('crm_filtro_vend_nome_'+_myKey);
     } else if(uid === meuid){
       // Meu badge — ativa "Minhas"
       sel.value = uid;
       _minhasOrdens = true;
-      localStorage.setItem('crm_filtro_minhas', '1');
-      localStorage.removeItem('crm_filtro_vend_id');
-      localStorage.removeItem('crm_filtro_vend_nome');
+      const _myKey = _currentUser?.user?.id || 'anon';
+      localStorage.setItem('crm_filtro_minhas_'+_myKey, '1');
+      localStorage.removeItem('crm_filtro_vend_id_'+_myKey);
+      localStorage.removeItem('crm_filtro_vend_nome_'+_myKey);
     } else {
       // Badge de outro vendedor
       sel.value = uid;
       _minhasOrdens = false;
-      localStorage.setItem('crm_filtro_minhas', '0');
-      localStorage.setItem('crm_filtro_vend_id', uid);
-      localStorage.setItem('crm_filtro_vend_nome', nomeVend);
+      const _myKey = _currentUser?.user?.id || 'anon';
+      localStorage.setItem('crm_filtro_minhas_'+_myKey, '0');
+      localStorage.setItem('crm_filtro_vend_id_'+_myKey, uid);
+      localStorage.setItem('crm_filtro_vend_nome_'+_myKey, nomeVend);
     }
   }
   // Atualizar visual do botão Minhas
@@ -2690,7 +2705,7 @@ function cardHTML(c,color){
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.12);color:#0ea5e9;border-color:rgba(14,165,233,.3)">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
-      ${c.col==='contratar'&&!c.forn_id?`
+      ${c.col==='contratar'&&!c.forn_id&&isAdmin()?`
       <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
         <button class="cb-blue" style="width:100%;text-align:center" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">Atribuir Fornecedor</button>
       </div>`:''}
@@ -2699,14 +2714,14 @@ function cardHTML(c,color){
         ${precisaConfirmar&&!badgeExpirou?`<div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>`:''}
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${precisaConfirmar&&!badgeExpirou?`<button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>`:''}
-          <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
+          ${isAdmin()?'<button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor(\''+c.id+'\')">Trocar</button>':''}
           <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
           <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
         </div>
       </div>`
       :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
       <div style="padding:6px 0 2px;border-top:1px solid var(--bor);margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
-        <button class="cb-yellow" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Remover Forn.</button>
+        ${isAdmin()?'<button class="cb-yellow" onclick="event.stopPropagation();trocarFornecedor(\''+c.id+'\')">Remover Forn.</button>':''}
         <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
         <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
       </div>`:''}
@@ -2734,11 +2749,6 @@ async function oDrop(e,colId){
   if(!_dragId) return;
   const c=ordens.find(x=>x.id===_dragId);
   if(c&&c.col!==colId){
-    // Bloquear saída de "contratar" sem valor fechado
-    if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
-      toast('⚠️ Defina o valor da locação antes de mover a ordem.','warn',5000);
-      _dragId=null; return;
-    }
     c.col=colId; renderBoard(); renderStats(); renderFinanceiro();
     try{
       setSyncDot('sync');
@@ -4015,10 +4025,6 @@ async function _atribuirFornecedorCard(ordemId, fornId){
   // Reusar lógica do detail mas sem precisar abrir o detail
   const c = ordens.find(x=>x.id===ordemId); if(!c) return;
   const f = forns.find(x=>x.id===fornId); if(!f) return;
-  if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
-    toast('⚠️ Defina o valor da locação antes de atribuir fornecedor.','warn',5000);
-    return;
-  }
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
   const m = _fornMatchBairro(f, bairro, cidade);
@@ -4146,7 +4152,7 @@ function _waFornAbrir(f, texto){
     // Se também tem tel cadastrado, abre número em nova aba com o texto
     window.open(waLink, '_blank');
     const tel = (f.tel||'').replace(/\D/g,'');
-    if(tel) window.open('https://wa.me/55'+tel+'?text='+enc,'_blank');
+    if(tel) setTimeout(()=>window.open('https://wa.me/55'+tel+'?text='+enc,'_blank'),300);
   } else {
     // Tenta wa_link como número, senão cai para f.tel
     const num = waLink ? waLink.replace(/\D/g,'') : (f.tel||'').replace(/\D/g,'');
@@ -4193,10 +4199,6 @@ async function _atribuirFornecedor(fornId){
   if(!c) return;
   const f = forns.find(x => x.id === fornId);
   if(!f) return;
-  if(c.col==='contratar' && !(parseFloat(c.rec)>0)){
-    toast('⚠️ Defina o valor da locação antes de atribuir fornecedor.','warn',5000);
-    return;
-  }
   // Usar matching inteligente de bairro (S16)
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
@@ -4950,7 +4952,7 @@ function enviarWA(id){
   document.getElementById('wa_sub').textContent=(c.nome||'Cliente')+' · '+(c.cel||'');
   // Destacar template padrão conforme status
   document.querySelectorAll('#waTemplates .btn').forEach(b=>b.classList.remove('btn-acc'));
-  const tpl=c.col==='inadimp'?'inadimp':c.pago?'recebido':['contratar','ag_entrega'].includes(c.col)?'os':'cobranca';
+  const tpl=c.col==='inadimp'?'inadimp':c.pago?'recebido':'cobranca';
   aplicarTemplate(tpl);
   openModal('waModal');
 }
@@ -4995,10 +4997,9 @@ function enviarWAForn(id){
   track('btn_wa_forn');
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
-  if(!c){toast('Ordem não encontrada','warn',5000);return;}
+  if(!c){toast('Ordem não encontrada','warn');return;}
   const f=forns.find(x=>x.id===c.forn_id);
-  if(!f){toast('⚠️ Nenhum fornecedor atribuído à ordem','warn',5000);return;}
-  if(!f.wa_link&&!f.tel){toast('⚠️ Fornecedor "'+f.nome+'" sem WhatsApp ou telefone cadastrado','warn',6000);console.warn('WA Forn sem contato:',f);return;}
+  if(!f){toast('Nenhum fornecedor atribuído à ordem','warn');return;}
   const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
   const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim());
@@ -5020,22 +5021,6 @@ function enviarTracking(id){
 }
 
 const _waTpl={
-  os:(c,pixPayload,vend)=>{
-    const marcaNome=vend?.marca_nome||'CaçambaSP';
-    const marcaTel=vend?.marca_tel||'(11) 4237-8757';
-    const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')+(c.cep?' — CEP '+c.cep:'');
-    const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}):'a confirmar';
-    const primeiroNome=(c.nome||'').split(' ')[0]||'cliente';
-    return 'Olá '+primeiroNome+'! 👋\n\n'+
-      'Sua caçamba está *agendada*! ✅\n\n'+
-      '📍 *Endereço:* '+end+'\n'+
-      '📅 *Data:* '+dataStr+'\n'+
-      '🪣 *Serviço:* 1x '+(c.tipo||'Caçamba 4m³')+'\n'+
-      '💳 *Pagamento:* PIX após entrega\n'+
-      (c.obs?'📝 *Obs:* '+c.obs+'\n':'')+
-      '\n⚠️ Não ultrapassar a borda da caçamba.\n'+
-      '\nQualquer dúvida, fale comigo! 😊\n_'+marcaNome+' — '+marcaTel+'_';
-  },
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
     const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
@@ -7474,14 +7459,9 @@ function renderConcHist(){
 function initPgForn(){
   const sel=document.getElementById('pgfornSup');
   sel.innerHTML='<option value="">-- Escolha --</option>';
-  const colsValidas=['contratar','ag_entrega','pagar','faltapg','baixar','inadimp','concluido','entrega'];
   forns.forEach(f=>{
-    const pend=ordens.filter(c=>c.forn_id===f.id&&c.forn_pago!==true&&colsValidas.includes(c.col));
-    if(pend.length){
-      const semCusto=pend.filter(c=>!(parseFloat(c.cst)>0)).length;
-      const label=f.nome+' ('+pend.length+' pendente'+(pend.length>1?'s':'')+(semCusto?' · '+semCusto+' sem custo':'')+ ')';
-      const o=document.createElement('option');o.value=f.id;o.textContent=label;sel.appendChild(o);
-    }
+    const pend=ordens.filter(c=>c.forn_id===f.id&&!c.forn_pago&&(c.cst||0)>0);
+    if(pend.length){const o=document.createElement('option');o.value=f.id;o.textContent=f.nome+' ('+pend.length+' pendente'+(pend.length>1?'s':'')+')';sel.appendChild(o);}
   });
   document.getElementById('pgfornContent').innerHTML='';
 }
@@ -7538,11 +7518,8 @@ function pgfornAtualizarRodape(){
 
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
-  const colsValidas = ['contratar','ag_entrega','pagar','faltapg','baixar','inadimp','concluido','entrega'];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid) return false;
-    if(c.forn_pago===true) return false;
-    if(!colsValidas.includes(c.col)) return false;
+    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
@@ -7589,21 +7566,15 @@ function carregarPgForn(){
       </div>
     </div>
     <div id="pgfornRodape" style="display:none;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap"></div>
-    ${pend.map(c=>{
-      const semCst=!(parseFloat(c.cst)>0);
-      return `<div style="background:var(--sur);border:1px solid ${semCst?'rgba(245,166,35,.4)':'var(--bor)'};border-radius:var(--rad2);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <input type="checkbox" id="pgcb_${c.id}" onchange="pgfornToggle('${c.id}')" ${semCst?'disabled title="Defina o custo antes de pagar"':''} style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0${semCst?';opacity:.4':''}">
+    ${pend.map(c=>`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <input type="checkbox" id="pgcb_${c.id}" onchange="pgfornToggle('${c.id}')" style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">📍 ${c.logradouro||'-'} · 📅 ${dateF(c.data)} · ${c.crm_id||''}</div>
-        ${semCst?`<div style="font-size:11px;color:#f5a623;margin-top:3px">⚠️ Custo zerado — defina o valor antes de pagar</div>`:''}
       </div>
-      <div style="font-weight:800;color:${semCst?'#f5a623':'var(--acc)'};font-family:var(--mono)">${semCst?'R$ —':('R$ '+fmt(c.cst))}</div>
-      <button class="btn btn-sm btn-acc" onclick="_detailId='${c.id}';${semCst?`openDetail('${c.id}')`:''};${semCst?'':'openPagarForn(true)'}" style="${semCst?'background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.3)':''}">
-        ${semCst?'✏️ Definir custo':'💰 Pagar'}
-      </button>
-    </div>`;
-    }).join('')}`;
+      <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.cst)}</div>
+      <button class="btn btn-sm btn-acc" onclick="_detailId='${c.id}';openPagarForn(true)">💰 Pagar</button>
+    </div>`).join('')}`;
 }
 
 async function pgfornPagarSelecionados(){
@@ -9106,152 +9077,66 @@ function _relEvolucao(){
 
 // ── NOTAS FISCAIS ──
 function renderNF(){
-  const q=_nrm((document.getElementById('nfBusca')?.value||'').trim());
   const nfs=ordens.filter(c=>c.nf_num).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   if(!nfs.length){document.getElementById('nfLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
-  const filtradas=q?nfs.filter(c=>[c.nf_num,c.nome,c.logradouro,c.bairro].some(f=>_nrm(f||'').includes(q))):nfs;
-  const countEl=document.getElementById('nfCount');
-  if(countEl) countEl.textContent=q?`${filtradas.length} de ${nfs.length} nota${nfs.length!==1?'s':''}`:nfs.length+` nota${nfs.length!==1?'s':''}`;
-  if(!filtradas.length){document.getElementById('nfLista').innerHTML=`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF encontrada.</div>`;return;}
-  document.getElementById('nfLista').innerHTML=filtradas.map(c=>{
-    const taxa=(parseFloat(c.nf_taxa)||_taxaNF);
-    const imp=(parseFloat(c.rec)||0)*(taxa/100);
+  document.getElementById('nfLista').innerHTML=nfs.map(c=>{
+    const imp=(parseFloat(c.rec)||0)*0.12;
+    const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)-imp;
     return `<div class="nf-row">
-      <div style="flex:1;min-width:0;cursor:pointer" onclick="openDetail('${c.id}')">
+      <div style="flex:1;min-width:0">
         <div style="font-weight:700">NF ${c.nf_num} · ${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
       </div>
-      <div style="text-align:right;margin-right:10px">
-        <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
-        <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div>
-      </div>
-      <button class="btn btn-sm" onclick="emitirNFOsasco('${c.id}')" style="font-size:11px;padding:5px 10px;white-space:nowrap;background:rgba(34,197,94,.1);color:var(--g);border-color:rgba(34,197,94,.3)">📄 Emitir NF</button>
+      <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
+      <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div></div>
     </div>`;
   }).join('');
-}
-function _nfFiltrar(){ renderNF(); }
-
-function emitirNFOsasco(id){
-  const c=ordens.find(x=>x.id===id); if(!c) return;
-  const val=parseFloat(c.rec||0).toFixed(2).replace('.',',');
-  const taxa=(parseFloat(c.nf_taxa)||_taxaNF);
-  const imp=(parseFloat(c.rec)||0)*(taxa/100);
-  const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
-  const desc=`Locação de caçamba metálica 4m³ para coleta de entulho de obra/reforma. Endereço: ${end}. OS: ${c.crm_id||''}. Período: ${dateF(c.data)}.`;
-  const tomador=[c.nome||'',c.cpf?'CPF/CNPJ: '+c.cpf:'',c.logradouro||'',c.bairro||'',c.cidade||'',c.cel?'Tel: '+c.cel:'',c.email_cli?'E-mail: '+c.email_cli:''].filter(Boolean).join('\n');
-  const texto=`=== DADOS PARA EMISSÃO — NF ${c.nf_num||''} · ${c.crm_id||''} ===
-
-TOMADOR:
-${tomador}
-
-VALOR DO SERVIÇO: R$ ${val}
-ALÍQUOTA ISS: ${taxa}%
-ISS: R$ ${fmt(imp)}
-
-DESCRIÇÃO:
-${desc}
-
-CÓDIGO DO SERVIÇO: 7.09`;
-
-  navigator.clipboard.writeText(texto).then(()=>{
-    toast('📋 Dados copiados! Abrindo portal Osasco...');
-  }).catch(()=>{
-    toast('⚠️ Não foi possível copiar automaticamente');
-  });
-  setTimeout(()=>{
-    window.open('https://nfe.osasco.sp.gov.br/EissnfeWebApp/Sistema/Prestador/PesquisarNFE.aspx?IdPermissaoAcesso=132&chave=CDf8Wzwo2O7%2f7YkKeE%2f8YkOq0mYPBMOr2P75646m5dg%3d','_blank');
-  },800);
 }
 
 // ── IA ALERTAS ──
 
 function _iaSugerirPrecos(c){
+  // Valor cliente: maior rec já cobrado no mesmo bairro (fallback: mesma zona, depois geral)
   const bairroNrm = _nrm(c.bairro||'');
-  const logNrm    = _nrm(c.logradouro||'');
-  const f         = c.forn_id ? forns.find(x=>x.id===c.forn_id) : null;
-  const zonaForn  = f&&Array.isArray(f.regioes) ? (()=>{ const r=f.regioes.find(x=>_nrm(x.bairro||x.regiao||'')===bairroNrm); return r?.zona||''; })() : '';
+  const zonaForn  = c.forn_id ? (()=>{ const f=forns.find(x=>x.id===c.forn_id); if(!f||!Array.isArray(f.regioes)) return ''; const r=f.regioes.find(x=>_nrm(x.bairro||x.regiao||'')===bairroNrm); return r?.zona||''; })() : '';
 
-  // Pool base: todas as ordens com rec>0 exceto a própria
-  const ref = ordens.filter(o=>o.id!==c.id && o.col!=='orcamento' && parseFloat(o.rec)>0);
+  const _ordensRef = ordens.filter(o=>o.id!==c.id && o.col!=='orcamento' && parseFloat(o.rec)>0);
 
-  // ── REC (valor cobrado do cliente) ──
-  let recSug=0, recFonte='', recRef=null;
+  // rec: maior valor no bairro → zona → geral
+  let recPool = _ordensRef.filter(o=>_nrm(o.bairro||'')===bairroNrm && bairroNrm);
+  let recFonte = 'bairro '+c.bairro;
+  if(!recPool.length && zonaForn){ recPool=_ordensRef.filter(o=>{ const f2=forns.find(x=>x.id===o.forn_id); return f2&&Array.isArray(f2.regioes)&&f2.regioes.some(r=>r.zona===zonaForn); }); recFonte='zona '+zonaForn; }
+  if(!recPool.length){ recPool=_ordensRef; recFonte='geral'; }
+  const recSug = recPool.length ? Math.max(...recPool.map(o=>parseFloat(o.rec)||0)) : 0;
 
-  const mesmoCli = ref.filter(o=>
-    (c.cel&&(c.cel.replace(/\D/g,''))&&o.cel&&o.cel.replace(/\D/g,'')===c.cel.replace(/\D/g,'')) ||
-    (c.cliente_id&&o.cliente_id&&o.cliente_id===c.cliente_id)
-  ).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
-
-  // P1: mesmo cliente + mesmo logradouro
-  const p1rec = mesmoCli.filter(o=>logNrm&&_nrm(o.logradouro||'')===logNrm);
-  if(p1rec.length){ recRef=p1rec[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo endereço · '+recRef.crm_id; }
-
-  // P2: mesmo cliente + mesmo bairro
-  if(!recSug){ const p2=mesmoCli.filter(o=>bairroNrm&&_nrm(o.bairro||'')===bairroNrm); if(p2.length){ recRef=p2[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo cliente · bairro · '+recRef.crm_id; } }
-
-  // P3: mesmo cliente (qualquer bairro)
-  if(!recSug&&mesmoCli.length){ recRef=mesmoCli[0]; recSug=parseFloat(recRef.rec); recFonte='mesmo cliente · '+recRef.crm_id; }
-
-  // P4: maior rec no mesmo bairro → zona → geral
-  if(!recSug){
-    let pool=ref.filter(o=>bairroNrm&&_nrm(o.bairro||'')===bairroNrm); recFonte='maior do bairro '+c.bairro;
-    if(!pool.length&&zonaForn){ pool=ref.filter(o=>{ const f2=forns.find(x=>x.id===o.forn_id); return f2&&Array.isArray(f2.regioes)&&f2.regioes.some(r=>r.zona===zonaForn); }); recFonte='maior da zona '+zonaForn; }
-    if(!pool.length){ pool=ref; recFonte='maior geral'; }
-    if(pool.length){ recSug=Math.max(...pool.map(o=>parseFloat(o.rec)||0)); recRef=pool.find(o=>parseFloat(o.rec)===recSug)||null; if(recRef) recFonte+=' · '+recRef.crm_id; }
-  }
-
-  // ── CST (custo do fornecedor) ──
-  let cstSug=0, cstFonte='', cstRef=null;
-
-  if(f){
-    const refCst=ref.filter(o=>o.forn_id===c.forn_id&&parseFloat(o.cst)>0).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
-
-    // P1: mesmo forn + mesmo logradouro
-    const p1cst=refCst.filter(o=>logNrm&&_nrm(o.logradouro||'')===logNrm);
-    if(p1cst.length){ cstRef=p1cst[0]; cstSug=parseFloat(cstRef.cst); cstFonte='mesmo endereço · '+cstRef.crm_id; }
-
-    // P2: mesmo forn + mesmo bairro
-    if(!cstSug){ const p2=refCst.filter(o=>bairroNrm&&_nrm(o.bairro||'')===bairroNrm); if(p2.length){ cstRef=p2[0]; cstSug=parseFloat(cstRef.cst); cstFonte='mesmo bairro · '+cstRef.crm_id; } }
-
-    // P3: último pago ao mesmo forn (qualquer bairro)
-    if(!cstSug&&refCst.length){ cstRef=refCst[0]; cstSug=parseFloat(cstRef.cst); cstFonte='último pago '+(cstRef.bairro||'geral')+' · '+cstRef.crm_id; }
-
-    // P4: tabela do fornecedor → preco_padrao
-    if(!cstSug){
-      const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim());
-      if(m&&m.preco>0){ cstSug=m.preco; cstFonte='tabela cadastro fornecedor'; }
-      else if(f.preco_padrao>0){ cstSug=f.preco_padrao; cstFonte='preço padrão fornecedor'; }
+  // cst: último valor pago ao mesmo fornecedor no mesmo bairro → zona → preco_padrao
+  let cstSug=0, cstFonte='';
+  if(c.forn_id){
+    const f=forns.find(x=>x.id===c.forn_id);
+    let cstPool=_ordensRef.filter(o=>o.forn_id===c.forn_id && _nrm(o.bairro||'')===bairroNrm && bairroNrm && parseFloat(o.cst)>0).sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''));
+    if(cstPool.length){ cstSug=parseFloat(cstPool[0].cst); cstFonte='último pago '+c.bairro; }
+    else {
+      // fallback: preco por bairro no cadastro do fornecedor
+      const m=f?_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim()):null;
+      if(m&&m.preco>0){ cstSug=m.preco; cstFonte='tabela fornecedor'; }
+      else if(f&&f.preco_padrao>0){ cstSug=f.preco_padrao; cstFonte='preço padrão fornecedor'; }
     }
   }
 
-  return {recSug, recFonte, recRef, cstSug, cstFonte, cstRef};
+  return {recSug, recFonte, cstSug, cstFonte};
 }
 
 async function _iaCall(systemPrompt, userPrompt){
-  const ctrl = new AbortController();
-  const timer = setTimeout(()=>ctrl.abort(), 30000);
-  let res;
-  try {
-    res = await fetch('/api/chat',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      signal: ctrl.signal,
-      body: JSON.stringify({
-        system: systemPrompt,
-        messages:[{role:'user',content:userPrompt}]
-      })
-    });
-  } finally { clearTimeout(timer); }
-  const raw = await res.text();
-  if(!res.ok){
-    throw new Error('API /chat retornou HTTP '+res.status+': '+raw.slice(0,200));
-  }
-  let data;
-  try { data = JSON.parse(raw); }
-  catch(e){ throw new Error('Resposta inválida da API: '+raw.slice(0,200)); }
-  const txt = data?.content?.[0]?.text || data?.text || '';
-  if(!txt) throw new Error('API retornou resposta vazia. Raw: '+raw.slice(0,200));
-  return txt;
+  const res = await fetch('/api/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      system: systemPrompt,
+      messages:[{role:'user',content:userPrompt}]
+    })
+  });
+  const data = await res.json();
+  return data?.content?.[0]?.text||'';
 }
 
 async function abrirIAAlerta(id, tipo){
@@ -9418,20 +9303,16 @@ Explique em 1 frase cada sugestão de forma simples.`;
     const txt = await _iaCall(system, user);
     const r = JSON.parse(txt.replace(/```json|```/g,'').trim());
     explicRec = r.explicacao_rec||''; explicCst = r.explicacao_cst||''; obs = r.obs||'';
-  } catch(e){ explicRec=''; explicCst=''; }
-
-  // Linha de rastreabilidade
-  const _refLine = (ref, label) => ref ? `<div style="font-size:10px;color:var(--mut2);margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;border-left:2px solid var(--bor)">↳ ${label}: <strong style="color:var(--txt)">${ref.crm_id||'—'}</strong> · ${ref.nome||ref.logradouro||'—'} · ${ref.bairro||''} · rec: <strong>R$ ${fmt(ref.rec||0)}</strong> · cst: R$ ${fmt(ref.cst||0)}</div>` : '';
+  } catch(e){ explicRec='Maior valor cobrado no '+recFonte; explicCst='Último pago ao fornecedor ('+cstFonte+')'; }
 
   document.getElementById('iaAlertaBody').innerHTML = `
     ${semRec?`<div class="ia-bloco incompleto">
       <div class="ia-bloco-label">💰 Valor do cliente (rec)</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:22px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(recSug)}</div>
         <span style="font-size:10px;color:var(--mut)">base: ${recFonte}</span>
       </div>
-      ${_refLine(recRef,'ref.')}
-      ${explicRec?`<div class="ia-bloco-txt" style="margin:6px 0">${explicRec}</div>`:''}
+      <div class="ia-bloco-txt" style="margin-bottom:8px">${explicRec}</div>
       <div class="ia-actions">
         <button class="ia-btn-aceitar" onclick="_iaAceitarValor('${id}','rec',${recSug},'${recFonte}')">✓ Aceitar R$ ${fmt(recSug)}</button>
         <input type="number" id="ia_rec_edit_${id}" placeholder="Outro valor" style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;font-family:var(--font);font-size:12px;color:var(--txt)">
@@ -9440,12 +9321,11 @@ Explique em 1 frase cada sugestão de forma simples.`;
     </div>`:''}
     ${semCst&&f?`<div class="ia-bloco incompleto">
       <div class="ia-bloco-label">🏗️ Custo do fornecedor (cst) — ${f.nome}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:22px;font-weight:800;color:#f5a623;font-family:var(--mono)">R$ ${fmt(cstSug)}</div>
         <span style="font-size:10px;color:var(--mut)">base: ${cstFonte}</span>
       </div>
-      ${_refLine(cstRef,'ref.')}
-      ${explicCst?`<div class="ia-bloco-txt" style="margin:6px 0">${explicCst}</div>`:''}
+      <div class="ia-bloco-txt" style="margin-bottom:8px">${explicCst}</div>
       <div class="ia-actions">
         <button class="ia-btn-aceitar" onclick="_iaAceitarValor('${id}','cst',${cstSug},'${cstFonte}')">✓ Aceitar R$ ${fmt(cstSug)}</button>
         <input type="number" id="ia_cst_edit_${id}" placeholder="Outro valor" style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:5px 8px;font-family:var(--font);font-size:12px;color:var(--txt)">
@@ -9454,7 +9334,7 @@ Explique em 1 frase cada sugestão de forma simples.`;
     </div>`:''}
     ${obs?`<div style="font-size:11px;color:var(--mut2);padding:6px 2px;font-style:italic">${obs}</div>`:''}
     <div class="ia-rodape">
-      <span class="ia-fonte">Valores do histórico local · sem custo de API</span>
+      <span class="ia-fonte">Valores calculados do histórico local · sem custo de API</span>
       <button class="btn btn-sm" onclick="closeModal('iaAlertaModal');openDetail('${id}')">Ver ordem</button>
     </div>`;
 }
@@ -9477,119 +9357,6 @@ async function _iaAceitarValorCustom(id, campo, inputId){
   const val = parseFloat(document.getElementById(inputId)?.value||0);
   if(!val||val<=0){ toast('Informe um valor válido','warn'); return; }
   await _iaAceitarValor(id, campo, val, 'manual');
-}
-
-function _alertaToggleDrop(id){
-  const el=document.getElementById(id); if(!el) return;
-  el.style.display=el.style.display==='none'?'block':'none';
-}
-
-function _alertaAbrirSugestaoZero(ids){
-  if(!ids||!ids.length) return;
-  // Abre sugestão para a primeira ordem zerada — usuário resolve uma por uma
-  abrirIAIncompleto(ids[0]);
-}
-
-async function abrirIAAlertaGrupo(ids, tipo){
-  if(!ids||!ids.length) return;
-  if(ids.length===1){ abrirIAAlerta(ids[0],tipo); return; }
-  const ords = ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
-  if(!ords.length) return;
-  const c0 = ords[0];
-  const f = c0.forn_id ? forns.find(x=>x.id===c0.forn_id) : null;
-  const totalRec = ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
-
-  document.getElementById('iaAlertaTitulo').textContent = '🤖 '+( c0.nome||'Cliente')+' — '+ords.length+' ordens';
-  document.getElementById('iaAlertaSub').textContent = (tipo==='inad'?'Inadimplente':tipo==='crit'?'Crítico':'Atenção')+' · Total: R$ '+fmt(totalRec);
-  document.getElementById('iaAlertaBody').innerHTML = '<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando '+ords.length+' ordens...</div>';
-  openModal('iaAlertaModal');
-
-  const resumo = ords.map((o,i)=>`Ordem ${i+1}: ${o.crm_id||'—'} | ${o.logradouro||'—'}, ${o.bairro||'—'} | R$ ${fmt(o.rec||0)} | ${diasEmAberto(o)}d em aberto | Forn pago: ${o.forn_pago?'Sim':'Não'}`).join('\n');
-
-  const system=`Você é um assistente de cobrança para locação de caçambas em SP. O cliente tem MÚLTIPLAS ordens em aberto. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. A msg_cliente deve mencionar o total consolidado e o link de tracking. Máximo 3 frases por campo.`;
-  const user=`Cliente: ${c0.nome||'—'} | Tel: ${(c0.cel||'').replace(/\D/g,'')||'—'}\nTotal em aberto: R$ ${fmt(totalRec)} | ${ords.length} ordens\n\nResumo das ordens:\n${resumo}\n\nFornecedor principal: ${f?f.nome:'—'}`;
-
-  try{
-    const txt=await _iaCall(system,user);
-    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
-    const cel=(c0.cel||'').replace(/\D/g,'');
-    const ordMaisRecente=[...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
-    const trackLink=ordMaisRecente?.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id):'';
-    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
-    const msgCliComTrack=(r.msg_cliente||'')+(trackLink&&!(r.msg_cliente||'').includes('tracking')?'\n\n⚡ Tracking: '+trackLink:'');
-    const waCli=cel?`https://wa.me/55${cel}?text=${encodeURIComponent(msgCliComTrack)}`:'';
-    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
-
-    document.getElementById('iaAlertaBody').innerHTML=`
-      <div style="font-size:11px;background:rgba(127,119,221,.1);border:1px solid rgba(127,119,221,.25);color:#a78bfa;border-radius:var(--rad3);padding:6px 10px;margin-bottom:6px">Análise consolidada de ${ords.length} ordens · Total R$ ${fmt(totalRec)}</div>
-      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
-      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
-      <div class="ia-bloco msg-cli">
-        <div class="ia-bloco-label">💬 Mensagem consolidada — cliente</div>
-        <div class="ia-msg-box">${(r.msg_cliente||'—').replace(/\n/g,'<br>')}</div>
-        ${trackLink?`<div style="font-size:11px;color:var(--mut2);margin-bottom:6px">🔗 Tracking incluso: <span style="color:var(--acc)">${trackLink}</span></div>`:''}
-        <div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente — todas as ordens</button>`:''}</div>
-        <span class="ia-cola-toggle" onclick="_iaToggleCola(this,'cola_cli_grp_${ids[0]}')">+ Colar conversa do cliente</span>
-        <textarea id="cola_cli_grp_${ids[0]}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp com o cliente..."></textarea>
-      </div>
-      <div class="ia-bloco msg-forn">
-        <div class="ia-bloco-label">🏗️ Mensagem — fornecedor</div>
-        <div class="ia-msg-box">${(r.msg_fornecedor||'—').replace(/\n/g,'<br>')}</div>
-        <div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA fornecedor</button>`:''}</div>
-      </div>
-      <div class="ia-bloco acao">
-        <div class="ia-bloco-label">✅ Ação recomendada</div>
-        <div class="ia-bloco-txt">${r.acao||'—'}</div>
-        <div class="ia-actions">
-          ${tipo!=='atencao'?`<button class="ia-btn-inad" data-ids="${ids.join(',')}" onclick="Promise.all(this.dataset.ids.split(',').map(id=>arquivarOuInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderBoard();renderAlertas();})">🚫 Mover todas para inadimplente</button>`:''}
-          <button class="btn btn-sm" onclick="closeModal('iaAlertaModal')">Fechar</button>
-        </div>
-      </div>
-      <div class="ia-rodape">
-        <span class="ia-fonte">Análise consolidada · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
-        <button class="btn btn-sm" data-ids="${ids.join(',')}" data-tipo="${tipo}" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="abrirIAAlertaGrupoReanalisar(this.dataset.ids.split(','),this.dataset.tipo)">🔄 Reanalisar</button>
-      </div>`;
-  }catch(e){
-    document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro na análise.<br><small>${e.message}</small></div>`;
-  }
-}
-
-async function abrirIAAlertaGrupoReanalisar(ids, tipo){
-  const colaCli=(document.getElementById('cola_cli_grp_'+ids[0])?.value||'').trim();
-  if(!colaCli){toast('Cole a conversa do cliente antes de reanalisar','warn');return;}
-  const ords=ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
-  if(!ords.length) return;
-  const c0=ords[0]; const f=c0.forn_id?forns.find(x=>x.id===c0.forn_id):null;
-  const totalRec=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
-  document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Reanalisando com conversa...</div>';
-  const resumo=ords.map((o,i)=>`Ordem ${i+1}: ${o.crm_id||'—'} | ${o.logradouro||'—'} | R$ ${fmt(o.rec||0)} | ${diasEmAberto(o)}d`).join('\n');
-  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Considere a conversa fornecida.`;
-  const user=`Cliente: ${c0.nome||'—'} | Total: R$ ${fmt(totalRec)} | ${ords.length} ordens\n${resumo}\nConversa cliente:\n${colaCli}`;
-  try{
-    const txt=await _iaCall(system,user);
-    const r=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
-    const cel=(c0.cel||'').replace(/\D/g,'');
-    const ordMaisRecente=[...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
-    const trackLink=ordMaisRecente?.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id):'';
-    const msgCliComTrack=(r.msg_cliente||'')+(trackLink&&!(r.msg_cliente||'').includes('tracking')?'\n\n⚡ Tracking: '+trackLink:'');
-    const waCli=cel?`https://wa.me/55${cel}?text=${encodeURIComponent(msgCliComTrack)}`:'';
-    document.getElementById('iaAlertaBody').innerHTML=`
-      <div style="font-size:11px;background:rgba(127,119,221,.12);border:1px solid rgba(127,119,221,.3);color:#a78bfa;border-radius:var(--rad3);padding:6px 10px;margin-bottom:6px">🔄 Reanalisado com conversa · ${ords.length} ordens</div>
-      <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
-      <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
-      <div class="ia-bloco msg-cli"><div class="ia-bloco-label">💬 Mensagem — cliente</div><div class="ia-msg-box">${(r.msg_cliente||'—').replace(/\n/g,'<br>')}</div><div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente</button>`:''}</div></div>
-      <div class="ia-bloco acao"><div class="ia-bloco-label">✅ Ação recomendada</div><div class="ia-bloco-txt">${r.acao||'—'}</div></div>
-      <div class="ia-rodape"><span class="ia-fonte">Reanalisado · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
-  }catch(e){document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;}
-}
-
-async function arquivarOuInadimplirDireto(id){
-  const c=ordens.find(x=>x.id===id); if(!c||c.col==='inadimp') return;
-  c.col='inadimp';
-  try{ await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok()); addLog(id,'Inadimplente','Movido via IA Alertas grupo'); }
-  catch(e){ setSyncDot('err'); }
 }
 
 function _iaToggleCola(btn, areaId){
@@ -11045,115 +10812,78 @@ function renderAlertas(){
 
   let html = '';
 
-  // ── Helper: agrupar ordens por cliente (cel) ──
-  const _agruparClientes = (lista) => {
-    const mapa = {};
-    lista.forEach(c => {
-      const key = (c.cel||'').replace(/\D/g,'')||c.id;
-      if(!mapa[key]) mapa[key] = {cel:key, nome:c.nome||c.cli_nome||'—', ordens:[]};
-      mapa[key].ordens.push(c);
-    });
-    return Object.values(mapa).sort((a,b) => {
-      const maxA = Math.max(...a.ordens.map(o=>diasEmAberto(o)));
-      const maxB = Math.max(...b.ordens.map(o=>diasEmAberto(o)));
-      return maxB - maxA;
-    });
-  };
-
-  // ── Helper: renderizar grupo de cliente ──
-  const _renderGrupoCliente = (grupo, tipo) => {
-    const ords = grupo.ordens;
-    const temZero = ords.some(o=>!(parseFloat(o.rec)>0));
-    const total = ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
-    const diasArr = ords.map(o=>diasEmAberto(o)).sort((a,b)=>b-a);
-    const maxDias = diasArr[0];
-    const vend = usuarios.find(u=>u.id===ords[0].usuario_id);
-    const marcaNome = vend?.marca_nome||'CaçambaSP';
-    const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
-    const cel = (grupo.cel||'').replace(/\D/g,'');
-
-    // Ordem mais recente para o tracking consolidado
-    const ordMaisRecente = [...ords].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
-    const trackLink = ordMaisRecente?.crm_id ? 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(ordMaisRecente.crm_id) : '';
-
-    const tagCor = tipo==='inad'?'alerta-tag-inad':tipo==='crit'?'alerta-tag-crit':'alerta-tag-atencao';
-    const cardCor = tipo==='inad'?'alerta-card-inad':tipo==='crit'?'alerta-card-crit':'alerta-card-atencao';
-    const tagTxt = tipo==='inad'?`⛔ Inadimplente`:tipo==='crit'?`🔴 ${maxDias}d sem pagar`:`🟡 ${maxDias}d sem pagar`;
-    const dropId = 'adrop_'+grupo.cel.replace(/\D/g,'')+'_'+tipo;
-
-    // Mensagem WA consolidada
-    const nomePrimeiro = (grupo.nome||'').split(' ')[0]||'cliente';
-    const totalFmt = total.toLocaleString('pt-BR',{minimumFractionDigits:2});
-    const msgConsolidada = ords.length>1
-      ? `Olá ${nomePrimeiro}! 👋\n\nPassando para informar que você tem *${ords.length} serviços de caçamba* em aberto conosco:\n\n${ords.map(o=>`📍 *${o.logradouro||'-'}*${o.bairro?', '+o.bairro:''} — R$ ${parseFloat(o.rec||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n')}\n\n💰 *Total: R$ ${totalFmt}*${trackLink?'\n\n⚡ *Acompanhe e pague pelo link:*\n'+trackLink:''}\n\n_${marcaNome} — ${marcaTel}_`
-      : _waTpl[tipo==='inad'?'inadimp':'cobranca'](ords[0],'',vend);
-    const waConsolidadoHref = cel ? `https://wa.me/55${cel}?text=${encodeURIComponent(msgConsolidada)}` : '';
-
-    return `<div class="alerta-card ${cardCor}" style="${temZero?'border-color:rgba(245,166,35,.4)':''}">
-      <div style="padding:12px 14px;cursor:pointer" onclick="_alertaToggleDrop('${dropId}')">
-        <div class="alerta-card-top">
-          <span class="alerta-nome">${grupo.nome}</span>
-          <span class="alerta-val" style="${temZero?'color:var(--acc)':''}">R$ ${totalFmt}</span>
-        </div>
-        <div class="alerta-card-bot">
-          <span class="alerta-tag ${tagCor}">${tagTxt}</span>
-          ${ords.length>1?`<span class="alerta-sub">${ords.length} ordens</span>`:''}
-          ${ords.length>1?`<span class="alerta-sub">${diasArr.slice(0,3).join('d · ')}d</span>`:''}
-          ${temZero?`<span class="alerta-tag" style="background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">⚠️ valor zerado</span>`:'<span class="alerta-tag" style="background:rgba(34,197,94,.1);color:#16a34a;border-color:rgba(34,197,94,.25)">✓ valores OK</span>'}
-        </div>
-      </div>
-      ${temZero?`<div style="display:flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(245,166,35,.07);border-top:1px solid rgba(245,166,35,.2);font-size:11px;color:var(--acc)">⚠️ Corrija o valor antes de enviar — o cliente verá R$ 0,00 no tracking</div>`:''}
-      <div class="alerta-actions" style="padding:0 14px 11px">
-        <button class="btn btn-sm" data-ids="${ords.map(o=>o.id).join(',')}" data-tipo="${tipo}" onclick="event.stopPropagation();abrirIAAlertaGrupo(this.dataset.ids.split(','),'${tipo}')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' — '+ords.length+' ordens':''}</button>
-        ${!temZero && waConsolidadoHref ? `<button class="btn btn-sm" onclick="event.stopPropagation();window.open('${waConsolidadoHref}','_blank')" style="font-size:11px;padding:4px 10px;background:rgba(37,211,102,.1);color:#16a34a;border-color:rgba(37,211,102,.3)">📲 WA${ords.length>1?' + tracking':''}</button>` : `<button class="btn btn-sm" disabled style="font-size:11px;padding:4px 10px;opacity:.45;cursor:not-allowed">📲 WA bloqueado</button>`}
-        ${temZero ? `<button class="btn btn-sm" data-zids="${ords.filter(o=>!(parseFloat(o.rec)>0)).map(o=>o.id).join(',')}" onclick="event.stopPropagation();_alertaAbrirSugestaoZero(this.dataset.zids.split(','))" style="font-size:11px;padding:4px 10px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir valores</button>` : ''}
-        ${ords.length>1?`<button class="btn btn-sm" onclick="event.stopPropagation();_alertaToggleDrop('${dropId}')" style="font-size:11px;padding:4px 10px">▼ Ver ordens</button>`:''}
-      </div>
-      <div id="${dropId}" style="display:none;border-top:1px solid var(--bor);background:var(--card)">
-        ${ords.map(o=>{
-          const oZero=!(parseFloat(o.rec)>0);
-          const oTrack=o.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id):'';
-          const oMsg=_waTpl[tipo==='inad'?'inadimp':'cobranca'](o,'',vend);
-          const oWA=cel&&!oZero?`https://wa.me/55${cel}?text=${encodeURIComponent(oMsg)}`:'';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bor);flex-wrap:wrap">
-            <span style="font-size:11px;font-family:var(--mono);color:var(--acc);min-width:90px">${o.crm_id||'—'}</span>
-            <span style="font-size:11px;color:var(--mut2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.logradouro||o.bairro||'—'}</span>
-            <span style="font-size:11px;font-family:var(--mono);font-weight:700;${oZero?'color:var(--r)':''}">R$ ${fmt(o.rec||0)}</span>
-            <div style="display:flex;gap:4px">
-              ${oZero?`<button class="btn btn-sm" onclick="event.stopPropagation();abrirIAIncompleto('${o.id}')" style="font-size:10px;padding:3px 8px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir</button>`:''}
-              ${oWA?`<button class="btn btn-sm" onclick="event.stopPropagation();window.open('${oWA}','_blank')" style="font-size:10px;padding:3px 8px">📲 WA</button>`:''}
-              <button class="btn btn-sm" onclick="event.stopPropagation();openDetail('${o.id}')" style="font-size:10px;padding:3px 8px">Ver</button>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  };
-
   // ── Seção 1: Inadimplentes ──
   if(listaInad.length){
-    const grupos = _agruparClientes(listaInad);
     html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${grupos.length} cliente${grupos.length!==1?'s':''} · ${listaInad.length} ordem${listaInad.length!==1?'s':''}</span></div>
-      ${grupos.map(g=>_renderGrupoCliente(g,'inad')).join('')}
+      <div class="alerta-sec-hd alerta-inad">🚫 Inadimplentes <span class="alerta-cnt">${listaInad.length}</span></div>
+      ${listaInad.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-inad" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-inad">⛔ Inadimplente</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+            <span class="alerta-dias">${dias}d em aberto</span>
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();setViewMob('cobr')" style="font-size:11px;padding:4px 10px">📋 Cobrança</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirIAAlerta('${c.id}','inad')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
 
-  // ── Seção 2: Críticos ──
+  // ── Seção 2: Críticos (não inadimp) ──
   if(listaCrit.length){
-    const grupos = _agruparClientes(listaCrit);
     html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — +${COBR_DIAS_CRITICO}d <span class="alerta-cnt">${grupos.length} cliente${grupos.length!==1?'s':''} · ${listaCrit.length} ordem${listaCrit.length!==1?'s':''}</span></div>
-      ${grupos.map(g=>_renderGrupoCliente(g,'crit')).join('')}
+      <div class="alerta-sec-hd alerta-crit">🚨 Críticos — Sem pagamento +${COBR_DIAS_CRITICO}d <span class="alerta-cnt">${listaCrit.length}</span></div>
+      ${listaCrit.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-crit" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-crit">🔴 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+            <button class="btn btn-sm btn-acc" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver Ordem</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirIAAlerta('${c.id}','crit')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
 
-  // ── Seção 3: Atenção ──
+  // ── Seção 3: Cobranças (atenção) ──
   if(listaCobr.length){
-    const grupos = _agruparClientes(listaCobr);
     html += `<div class="alerta-sec">
-      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — +${COBR_DIAS_ALERTA}d <span class="alerta-cnt">${grupos.length} cliente${grupos.length!==1?'s':''} · ${listaCobr.length} ordem${listaCobr.length!==1?'s':''}</span></div>
-      ${grupos.map(g=>_renderGrupoCliente(g,'atencao')).join('')}
+      <div class="alerta-sec-hd alerta-atencao">⚠️ Atenção — Cobrança pendente +${COBR_DIAS_ALERTA}d <span class="alerta-cnt">${listaCobr.length}</span></div>
+      ${listaCobr.map(c=>{
+        const {dias,nome,val,bairro}=fmt(c);
+        return `<div class="alerta-card alerta-card-atencao" onclick="abrirDetalhe('${c.id}')">
+          <div class="alerta-card-top">
+            <span class="alerta-nome">${nome}</span>
+            <span class="alerta-val">${val}</span>
+          </div>
+          <div class="alerta-card-bot">
+            <span class="alerta-tag alerta-tag-atencao">🟡 ${dias}d sem pagar</span>
+            ${bairro?`<span class="alerta-sub">${bairro}</span>`:''}
+          </div>
+          <div class="alerta-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation();enviarWA('${c.id}')" style="font-size:11px;padding:4px 10px">📲 WhatsApp</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirIAAlerta('${c.id}','atencao')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
 
