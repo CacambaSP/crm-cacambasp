@@ -7502,8 +7502,14 @@ function pgfornAtualizarRodape(){
 
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
+  // Colunas onde o serviço já foi prestado (forn merece receber)
+  const colsValidas = ['pagar','faltapg','baixar','inadimp','concluido','entrega'];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
+    if(c.forn_id!==fid) return false;
+    if(c.forn_pago===true) return false;          // explícito: só false ou null
+    if(!c.forn_id) return false;
+    if((parseFloat(c.cst)||0)<=0) return false;   // sem custo não aparece
+    if(!colsValidas.includes(c.col)) return false; // só colunas válidas
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
@@ -9442,13 +9448,13 @@ async function abrirIAAlertaGrupo(ids, tipo){
         <div class="ia-bloco-label">✅ Ação recomendada</div>
         <div class="ia-bloco-txt">${r.acao||'—'}</div>
         <div class="ia-actions">
-          ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="Promise.all(${JSON.stringify(ids)}.map(id=>arquivarOuInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderBoard();renderAlertas();})">🚫 Mover todas para inadimplente</button>`:''}
+          ${tipo!=='atencao'?`<button class="ia-btn-inad" data-ids="${ids.join(',')}" onclick="Promise.all(this.dataset.ids.split(',').map(id=>arquivarOuInadimplirDireto(id))).then(()=>{closeModal('iaAlertaModal');renderBoard();renderAlertas();})">🚫 Mover todas para inadimplente</button>`:''}
           <button class="btn btn-sm" onclick="closeModal('iaAlertaModal')">Fechar</button>
         </div>
       </div>
       <div class="ia-rodape">
         <span class="ia-fonte">Análise consolidada · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
-        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="abrirIAAlertaGrupoReanalisar(${JSON.stringify(ids)},'${tipo}')">🔄 Reanalisar</button>
+        <button class="btn btn-sm" data-ids="${ids.join(',')}" data-tipo="${tipo}" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="abrirIAAlertaGrupoReanalisar(this.dataset.ids.split(','),this.dataset.tipo)">🔄 Reanalisar</button>
       </div>`;
   }catch(e){
     document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro na análise.<br><small>${e.message}</small></div>`;
@@ -11004,9 +11010,9 @@ function renderAlertas(){
       </div>
       ${temZero?`<div style="display:flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(245,166,35,.07);border-top:1px solid rgba(245,166,35,.2);font-size:11px;color:var(--acc)">⚠️ Corrija o valor antes de enviar — o cliente verá R$ 0,00 no tracking</div>`:''}
       <div class="alerta-actions" style="padding:0 14px 11px">
-        <button class="btn btn-sm" onclick="event.stopPropagation();abrirIAAlertaGrupo(${JSON.stringify(ords.map(o=>o.id))},'${tipo}')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' — '+ords.length+' ordens':''}</button>
+        <button class="btn btn-sm" data-ids="${ords.map(o=>o.id).join(',')}" data-tipo="${tipo}" onclick="event.stopPropagation();abrirIAAlertaGrupo(this.dataset.ids.split(','),'${tipo}')" style="font-size:11px;padding:4px 10px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)">🤖 IA${ords.length>1?' — '+ords.length+' ordens':''}</button>
         ${!temZero && waConsolidadoHref ? `<button class="btn btn-sm" onclick="event.stopPropagation();window.open('${waConsolidadoHref}','_blank')" style="font-size:11px;padding:4px 10px;background:rgba(37,211,102,.1);color:#16a34a;border-color:rgba(37,211,102,.3)">📲 WA${ords.length>1?' + tracking':''}</button>` : `<button class="btn btn-sm" disabled style="font-size:11px;padding:4px 10px;opacity:.45;cursor:not-allowed">📲 WA bloqueado</button>`}
-        ${temZero ? `<button class="btn btn-sm" onclick="event.stopPropagation();_alertaAbrirSugestaoZero(${JSON.stringify(ords.filter(o=>!(parseFloat(o.rec)>0)).map(o=>o.id))})" style="font-size:11px;padding:4px 10px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir valores</button>` : ''}
+        ${temZero ? `<button class="btn btn-sm" data-zids="${ords.filter(o=>!(parseFloat(o.rec)>0)).map(o=>o.id).join(',')}" onclick="event.stopPropagation();_alertaAbrirSugestaoZero(this.dataset.zids.split(','))" style="font-size:11px;padding:4px 10px;background:rgba(245,166,35,.12);color:var(--acc);border-color:rgba(245,166,35,.3)">🤖 Sugerir valores</button>` : ''}
         ${ords.length>1?`<button class="btn btn-sm" onclick="event.stopPropagation();_alertaToggleDrop('${dropId}')" style="font-size:11px;padding:4px 10px">▼ Ver ordens</button>`:''}
       </div>
       <div id="${dropId}" style="display:none;border-top:1px solid var(--bor);background:var(--card)">
