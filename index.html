@@ -4137,7 +4137,7 @@ function _waFornAbrir(f, texto){
     // Se também tem tel cadastrado, abre número em nova aba com o texto
     window.open(waLink, '_blank');
     const tel = (f.tel||'').replace(/\D/g,'');
-    if(tel) setTimeout(()=>window.open('https://wa.me/55'+tel+'?text='+enc,'_blank'),300);
+    if(tel) window.open('https://wa.me/55'+tel+'?text='+enc,'_blank');
   } else {
     // Tenta wa_link como número, senão cai para f.tel
     const num = waLink ? waLink.replace(/\D/g,'') : (f.tel||'').replace(/\D/g,'');
