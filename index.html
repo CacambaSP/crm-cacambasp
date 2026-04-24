@@ -9491,6 +9491,8 @@ async function arquivarOuInadimplirDireto(id){
   try{ await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok()); addLog(id,'Inadimplente','Movido via IA Alertas grupo'); }
   catch(e){ setSyncDot('err'); }
 }
+
+function _iaToggleCola(btn, areaId){
   const area = document.getElementById(areaId);
   if(!area) return;
   const vis = area.style.display==='none';
@@ -11196,7 +11198,10 @@ function renderAlertas(){
           </div>
         </div>`;
       }).join('')}
-    </div>`;\n  }\n\n  el.innerHTML = html;
+    </div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 // ── Popular filtro de vendedor (reutilizável) ──

@@ -4387,6 +4387,8 @@ async function _mobInadimplirDireto(id){
   c.col='inadimp';
   try{ await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok()); }catch(e){ setSyncDot('err'); }
 }
+
+function mobIaToggleCola(btn, areaId){
   const area=document.getElementById(areaId); if(!area) return;
   const vis=area.style.display==='none';
   area.style.display=vis?'block':'none';
