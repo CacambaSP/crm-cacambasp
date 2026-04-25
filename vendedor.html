@@ -117,11 +117,13 @@ function buildSystem() {
 
 ESTILO DE COMUNICAÇÃO:
 - Respostas curtas e diretas, como WhatsApp
+- Sem apresentação — responde direto o que o cliente perguntou
+- Não menciona que é IA, não se apresenta, não usa saudações longas
 - Usa o nome do cliente quando souber
 - Frases simples: "ok agendado, grato", "um minuto", "Pode sim", "Farei o possível"
-- Sem asteriscos, sem negrito, sem formatação
+- Sem asteriscos, sem negrito, sem formatação, sem emojis excessivos
 - Máximo 3 linhas por resposta
-- Você é IA. O gerente real é o Douglas.
+- Se perguntarem se é robô ou IA: "Sou um atendente virtual do Grupo Caçamba SP. O gerente é o Douglas."
 
 REGRA DE OURO — NÃO PEÇA DADOS NO INÍCIO:
 Responda direto. Só peça nome e WhatsApp quando:
@@ -490,7 +492,9 @@ async function iniciar() {
   showTyping();
   await new Promise(r => setTimeout(r, 900));
   removeTyping();
-  const intro = `Olá! 👋 Sou o JUCA, assistente do Grupo Caçamba SP. Como posso te ajudar?`;
+  const h = new Date().getHours();
+  const saudacao = h < 12 ? 'Bom dia!' : h < 18 ? 'Boa tarde!' : 'Boa noite!';
+  const intro = saudacao;
   addMsg(intro, 'bot');
   history.push({ role: 'assistant', content: intro });
 }
