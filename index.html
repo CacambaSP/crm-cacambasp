@@ -11166,15 +11166,20 @@ function _gerarPDFAgrupado(){
   }
   const linhasModal = orcs.map((o,i)=>{
     const val = o.orc_valor ? parseFloat(o.orc_valor) : '';
+    const temNF = !!(o.nf_num);
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bor)">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700">'+(o.crm_id||'—')+'</div>'
       +'<div style="font-size:12px;color:var(--txt)">'+(o.tipo||'—')+' · '+(o.bairro||'—')+'</div>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut2);cursor:pointer;white-space:nowrap">'
+      +'<input type="checkbox" id="agrup-nf-'+i+'" '+(temNF?'checked':'')+' onchange="_orcAgrupRecalcTotal('+i+')" style="accent-color:var(--acc)"> NF +R$'+_nfAcrescimo
+      +'</label>'
       +'<span style="font-size:12px;color:var(--mut2)">R$</span>'
       +'<input type="number" id="agrup-val-'+i+'" value="'+val+'" placeholder="0,00" step="0.01" min="0"'
-      +' style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:13px;font-weight:700;text-align:right">'
+      +' oninput="_orcAgrupRecalcTotal()"'
+      +' style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:13px;font-weight:700;text-align:right">'
       +'</div>'
       +'</div>';
   }).join('');
@@ -11206,10 +11211,17 @@ function _gerarPDFAgrupado(){
   const inputs = modal.querySelectorAll('[id^="agrup-val-"]');
   const atualizarTotal = ()=>{
     let t = 0;
-    inputs.forEach(inp=>{ t += parseFloat(inp.value)||0; });
+    for(let i=0; i<orcs.length; i++){
+      const inp = document.getElementById('agrup-val-'+i);
+      const chkNF = document.getElementById('agrup-nf-'+i);
+      const base = parseFloat(inp?.value)||0;
+      const nf = chkNF?.checked ? (_nfAcrescimo||0) : 0;
+      t += base + nf;
+    }
     const el = document.getElementById('agrup-total');
-    if(el) el.textContent = t > 0 ? 'R$ '+t.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    if(el) el.textContent = t > 0 ? 'R$ '+t.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '-';
   };
+  window._orcAgrupRecalcTotal = atualizarTotal;
   inputs.forEach(inp => inp.addEventListener('input', atualizarTotal));
   atualizarTotal();
   // Bind do botão gerar sem passar JSON no HTML
@@ -11222,10 +11234,14 @@ function _gerarPDFAgrupado(){
 
 function _confirmarPDFAgrupado(ids){
   const orcs = ids.map(id => ordens.find(o=>o.id===id)).filter(Boolean);
-  // Pegar valores do modal
+  // Pegar valores do modal incluindo acréscimo NF
   orcs.forEach((o,i)=>{
     const inp = document.getElementById('agrup-val-'+i);
-    if(inp) o._agrup_valor = parseFloat(inp.value)||0;
+    const chkNF = document.getElementById('agrup-nf-'+i);
+    const base = parseFloat(inp?.value)||0;
+    const nf = chkNF?.checked ? (_nfAcrescimo||0) : 0;
+    o._agrup_valor = base + nf;
+    o._agrup_nf = chkNF?.checked || false;
   });
 
   document.getElementById('orcAgrupModal')?.classList.remove('open');
@@ -11248,12 +11264,13 @@ function _confirmarPDFAgrupado(ids){
   const linhas = orcs.map(o=>{
     const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
     const val = o._agrup_valor > 0 ? 'R$ '+o._agrup_valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-    return `<tr style="border-bottom:1px solid #eee">
-      <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px">${o.tipo||'—'}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#555">${end}</td>
-      <td style="padding:8px 10px;font-size:13px;font-weight:800;text-align:right;color:${marcaCor}">${val}</td>
-    </tr>`;
+    const nfTag = o._agrup_nf ? '<div style="font-size:9px;color:#6b7280;margin-top:2px">&#x1F9FE; c/ NF</div>' : '';
+    return '<tr style="border-bottom:1px solid #eee">'
+      +'<td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:700">'+(o.crm_id||'—')+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px">'+(o.tipo||'—')+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px;color:#555">'+end+'</td>'
+      +'<td style="padding:8px 10px;font-size:13px;font-weight:800;text-align:right;color:'+marcaCor+'">'+val+nfTag+'</td>'
+      +'</tr>';
   }).join('');
 
   const nomeCliente = o0.nome || '—';
