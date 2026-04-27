@@ -2347,9 +2347,20 @@ function initFilters(){
   });
   // Restaurar filtro persistido: "minhas", outro vendedor específico, ou todos
   const savedVendId = localStorage.getItem('crm_filtro_vend_id');
-  if(_minhasOrdens){
+  // Validar se savedVendId ainda é um usuário existente
+  const savedVendValido = savedVendId && usuarios.some(u => u.id === savedVendId);
+  if(!savedVendValido && savedVendId){
+    localStorage.removeItem('crm_filtro_vend_id');
+    localStorage.removeItem('crm_filtro_vend_nome');
+  }
+  if(isAdmin()){
+    // Admin sempre inicia com Todos (filtro não persiste entre sessões)
+    fv.value = '';
+    _minhasOrdens = false;
+    doFilter();
+  } else if(_minhasOrdens){
     _aplicarMinhasOrdens();
-  } else if(savedVendId){
+  } else if(savedVendValido){
     fv.value = savedVendId;
     doFilter();
   } else {
