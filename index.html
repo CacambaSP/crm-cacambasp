@@ -11086,24 +11086,27 @@ function renderOrcPend(){
     const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : null;
     const vencida = o.orc_validade && new Date(o.orc_validade+'T00:00:00') < new Date();
     const valorFmt = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700;margin-bottom:2px">${o.crm_id||'—'}</div>
-          <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div>
-          <div style="font-size:12px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:12px;color:var(--mut2)">Entrada: ${data}</div>
-          ${isAdmin()?`<div style="font-size:11px;color:var(--mut);margin-top:2px">👤 ${vendNome}</div>`:''}
+    return `<div id="orc-card-${o.id}" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <input type="checkbox" id="orc-chk-${o.id}" onchange="_orcCheckChange()" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0;margin-top:3px;cursor:pointer">
+        <div style="flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700;margin-bottom:2px">${o.crm_id||'—'}</div>
+            <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div>
+            <div style="font-size:12px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--mut2)">Entrada: ${data}</div>
+            ${isAdmin()?`<div style="font-size:11px;color:var(--mut);margin-top:2px">👤 ${vendNome}</div>`:''}
+          </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-left:26px">
         <span style="font-size:11px;background:var(--card);border:1px solid var(--bor);border-radius:20px;padding:3px 10px;color:var(--mut2)">${o.tipo||'—'}</span>
         ${valorFmt!=='—'?`<span style="font-size:12px;font-weight:700;color:var(--g)">${valorFmt}</span>`:''}
         ${validade?`<span style="font-size:11px;border-radius:20px;padding:3px 10px;background:${vencida?'var(--r2)':'var(--card)'};border:1px solid ${vencida?'var(--r3)':'var(--bor)'};color:${vencida?'var(--r)':'var(--mut2)'}">📅 ${vencida?'Vencido':'Válido até'} ${validade}</span>`:''}
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;padding-left:26px">
         <button class="btn btn-sm" onclick="openDetail('${o.id}')">👁 Ver Detalhes</button>
         <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
         <button class="btn btn-sm" onclick="baixarPDFDireto('${o.id}')" title="Baixar PDF para enviar pelo WhatsApp">⬇️ Baixar PDF</button>
@@ -11114,6 +11117,139 @@ function renderOrcPend(){
       </div>
     </div>`;
   }).join('');
+}
+
+function _orcCheckChange(){
+  const selecionados = document.querySelectorAll('[id^="orc-chk-"]:checked');
+  let barra = document.getElementById('orcBarraAgrupado');
+  // Atualizar borda dos cards
+  document.querySelectorAll('[id^="orc-chk-"]').forEach(chk=>{
+    const card = document.getElementById('orc-card-'+chk.id.replace('orc-chk-',''));
+    if(card) card.style.borderColor = chk.checked ? 'var(--acc)' : 'var(--bor)';
+  });
+  if(selecionados.length >= 2){
+    if(!barra){
+      barra = document.createElement('div');
+      barra.id = 'orcBarraAgrupado';
+      barra.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bor);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;z-index:200;gap:12px';
+      barra.innerHTML = `
+        <span id="orcBarraTexto" style="font-size:13px;color:var(--mut2)"></span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="document.querySelectorAll('[id^=orc-chk-]').forEach(c=>c.checked=false);_orcCheckChange()">✕ Limpar</button>
+          <button class="btn btn-sm btn-acc" onclick="_gerarPDFAgrupado()">📄 PDF agrupado (<span id="orcBarraCnt">0</span>)</button>
+        </div>`;
+      document.body.appendChild(barra);
+    }
+    document.getElementById('orcBarraTexto').textContent = selecionados.length + ' orçamentos selecionados';
+    document.getElementById('orcBarraCnt').textContent = selecionados.length;
+    barra.style.display = 'flex';
+  } else {
+    if(barra) barra.style.display = 'none';
+  }
+}
+
+function _gerarPDFAgrupado(){
+  const selecionados = Array.from(document.querySelectorAll('[id^="orc-chk-"]:checked'));
+  if(selecionados.length < 2){ toast('Selecione ao menos 2 orçamentos','warn'); return; }
+  const ids = selecionados.map(chk => chk.id.replace('orc-chk-',''));
+  const orcs = ids.map(id => ordens.find(o=>o.id===id)).filter(Boolean);
+  if(!orcs.length) return;
+
+  // Usa dados do primeiro orçamento para marca/tema
+  const o0 = orcs[0];
+  const vend = o0 ? (usuarios.find(u=>u.id===o0.usuario_id)||_perfil) : _perfil;
+  const marcaCor   = vend?.marca_cor    || '#f5a623';
+  const marcaNome  = vend?.marca_nome   || 'CaçambaSP';
+  const marcaLogo  = vend?.marca_logo_url || '';
+  const marcaSlogan= vend?.marca_slogan || '';
+  const tc = '#fff';
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const logoHtml = marcaLogo ? `<img src="${marcaLogo}" style="height:48px;object-fit:contain;margin-bottom:6px;display:block">` : '';
+  const tc2 = _corContraste(marcaCor);
+
+  const totalGeral = orcs.reduce((s,o)=>s+(parseFloat(o.orc_valor)||0),0);
+  const totalFmt = totalGeral>0 ? 'R$ '+totalGeral.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+
+  // Linhas da tabela
+  const linhas = orcs.map(o=>{
+    const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+    const val = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px">${o.tipo||'—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#555">${end}</td>
+      <td style="padding:8px 10px;font-size:13px;font-weight:800;text-align:right;color:${marcaCor}">${val}</td>
+    </tr>`;
+  }).join('');
+
+  const nomeCliente = o0.nome || '—';
+  const crmIds = orcs.map(o=>o.crm_id||'—').join(' · ');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento Agrupado</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#fff;color:#111;padding:32px;max-width:760px;margin:0 auto}
+    .btn-print{position:fixed;bottom:16px;right:16px;background:#111;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer}
+    @media print{.btn-print{display:none}body{padding:16px}@page{margin:10mm;size:A4}}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;text-align:left}
+    th.r{text-align:right}
+  </style>
+  </head><body>
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
+
+  <!-- Cabeçalho -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${marcaCor};padding-bottom:16px;margin-bottom:20px">
+    <div>
+      ${logoHtml}
+      <div style="font-size:20px;font-weight:800;color:${marcaCor}">${marcaNome}</div>
+      ${marcaSlogan?`<div style="font-size:10px;color:#aaa;margin-top:2px">${marcaSlogan}</div>`:''}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:16px;font-weight:800;color:${marcaCor}">ORÇAMENTO AGRUPADO</div>
+      <div style="font-size:10px;color:#888;font-family:monospace;margin-top:3px">${crmIds}</div>
+      <div style="font-size:10px;color:#888;margin-top:2px">${hoje}</div>
+    </div>
+  </div>
+
+  <!-- Cliente -->
+  <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+    <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Para</div>
+    <div style="font-size:16px;font-weight:800">${nomeCliente}</div>
+    <div style="font-size:11px;color:#666;margin-top:2px">${[o0.logradouro,o0.bairro,o0.cidade].filter(Boolean).join(', ')||''}</div>
+  </div>
+
+  <!-- Tabela de orçamentos -->
+  <table style="margin-bottom:16px">
+    <thead>
+      <tr style="background:${marcaCor}">
+        <th style="color:${tc2}">OS</th>
+        <th style="color:${tc2}">Serviço</th>
+        <th style="color:${tc2}">Endereço</th>
+        <th style="color:${tc2}" class="r">Valor</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+
+  <!-- Total -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+    <div style="background:#111;color:#fff;padding:10px 20px;border-radius:10px;display:flex;gap:20px;align-items:center">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7">${orcs.length} caçamba${orcs.length>1?'s':''} · Total Geral</span>
+      <span style="font-size:18px;font-weight:800;font-family:monospace">${totalFmt}</span>
+    </div>
+  </div>
+
+  <!-- Rodapé -->
+  <div style="border-top:1px solid #eee;padding-top:10px;font-size:9px;color:#aaa;text-align:center">
+    ${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com · Gerado em ${hoje}
+  </div>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('Popup bloqueado. Habilite popups para gerar o PDF.','warn');
 }
 
 // ── Sub-aba Gerador de PDF ──
