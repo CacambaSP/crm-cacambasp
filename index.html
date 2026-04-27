@@ -5424,7 +5424,7 @@ function _dispararProximaCobranca(){
     const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
     // Usa o tracking da primeira ordem — mostra todas as ordens em aberto do celular
     const trackLink = c0.crm_id
-      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id))+'
+      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id))
       : '';
     msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
