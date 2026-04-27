@@ -8203,7 +8203,7 @@ async function gerarReciboImprimir() {
   const pagas     = selecionadas.filter(o => o.pago);
   const pendentes = selecionadas.filter(o => !o.pago);
   const totalPago = pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
-  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num&&o.nf_num!='000'&&o.nf_num!='0000'?(_nfAcrescimo||40):0),0);
+  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const totalGeral= totalPago + totalPend;
 
   // Pix para pendentes
@@ -8228,7 +8228,7 @@ async function gerarReciboImprimir() {
 
   function linhaOrdem(o, tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num&&o.nf_num!='000'&&o.nf_num!='0000'?(_nfAcrescimo||40):0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0);
     const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const corVal=tipo==='pago'?'#16a34a':'#dc2626';
     const statusCell=tipo==='pago'
