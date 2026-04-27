@@ -2345,20 +2345,8 @@ function initFilters(){
     if(!u) return;
     const o=document.createElement('option');o.value=uid;o.textContent=u.nome||u.email||'Usuário';fv.appendChild(o);
   });
-  // Não-admin: travar select no próprio usuário e esconder o select
-  if(!isAdmin()){
-    const meuid = _currentUser?.user?.id;
-    fv.value = meuid || '';
-    fv.style.display = 'none';
-    doFilter();
-    return;
-  }
-  // Admin: restaurar filtro persistido por uid
-  const _myKey = _currentUser?.user?.id || 'anon';
-  const savedMinhas = localStorage.getItem('crm_filtro_minhas_'+_myKey);
-  const savedVendId  = localStorage.getItem('crm_filtro_vend_id_'+_myKey);
-  // _minhasOrdens foi inicializado com a chave global — re-ler com a chave por uid
-  _minhasOrdens = savedMinhas !== '0';
+  // Restaurar filtro persistido: "minhas", outro vendedor específico, ou todos
+  const savedVendId = localStorage.getItem('crm_filtro_vend_id');
   if(_minhasOrdens){
     _aplicarMinhasOrdens();
   } else if(savedVendId){
@@ -2368,8 +2356,8 @@ function initFilters(){
     _aplicarMinhasOrdens();
   }
 }
-// ── FILTRO MINHAS ORDENS (persistente, chave por uid) ──
-let _minhasOrdens = true; // padrão = ativo; re-lido por uid em initFilters
+// ── FILTRO MINHAS ORDENS (persistente) ──
+let _minhasOrdens = localStorage.getItem('crm_filtro_minhas') !== '0'; // padrão = ativo
 function _aplicarMinhasOrdens(){
   const btn = document.getElementById('btnMinhasOrdens');
   const sel = document.getElementById('filterVend');
@@ -2384,8 +2372,7 @@ function _aplicarMinhasOrdens(){
 }
 function toggleMinhasOrdens(){
   _minhasOrdens = !_minhasOrdens;
-  const _myKey = _currentUser?.user?.id || 'anon';
-  localStorage.setItem('crm_filtro_minhas_'+_myKey, _minhasOrdens ? '1' : '0');
+  localStorage.setItem('crm_filtro_minhas', _minhasOrdens ? '1' : '0');
   _aplicarMinhasOrdens();
 }
 function filtrarPorVendedor(uid, nomeVend){
@@ -2397,26 +2384,23 @@ function filtrarPorVendedor(uid, nomeVend){
       // Limpar filtro de vendedor
       sel.value = '';
       _minhasOrdens = false;
-      const _myKey = _currentUser?.user?.id || 'anon';
-      localStorage.setItem('crm_filtro_minhas_'+_myKey, '0');
-      localStorage.removeItem('crm_filtro_vend_id_'+_myKey);
-      localStorage.removeItem('crm_filtro_vend_nome_'+_myKey);
+      localStorage.setItem('crm_filtro_minhas', '0');
+      localStorage.removeItem('crm_filtro_vend_id');
+      localStorage.removeItem('crm_filtro_vend_nome');
     } else if(uid === meuid){
       // Meu badge — ativa "Minhas"
       sel.value = uid;
       _minhasOrdens = true;
-      const _myKey = _currentUser?.user?.id || 'anon';
-      localStorage.setItem('crm_filtro_minhas_'+_myKey, '1');
-      localStorage.removeItem('crm_filtro_vend_id_'+_myKey);
-      localStorage.removeItem('crm_filtro_vend_nome_'+_myKey);
+      localStorage.setItem('crm_filtro_minhas', '1');
+      localStorage.removeItem('crm_filtro_vend_id');
+      localStorage.removeItem('crm_filtro_vend_nome');
     } else {
       // Badge de outro vendedor
       sel.value = uid;
       _minhasOrdens = false;
-      const _myKey = _currentUser?.user?.id || 'anon';
-      localStorage.setItem('crm_filtro_minhas_'+_myKey, '0');
-      localStorage.setItem('crm_filtro_vend_id_'+_myKey, uid);
-      localStorage.setItem('crm_filtro_vend_nome_'+_myKey, nomeVend);
+      localStorage.setItem('crm_filtro_minhas', '0');
+      localStorage.setItem('crm_filtro_vend_id', uid);
+      localStorage.setItem('crm_filtro_vend_nome', nomeVend);
     }
   }
   // Atualizar visual do botão Minhas
@@ -2705,7 +2689,7 @@ function cardHTML(c,color){
       ${c.col==='ag_entrega'?`<span class="chip" style="background:rgba(14,165,233,.12);color:#0ea5e9;border-color:rgba(14,165,233,.3)">${turnoLabel}</span>`:''}
       ${c.crm_id?`<span class="chip acc" style="font-size:9px">${c.crm_id}</span>`:''}
     </div>
-      ${c.col==='contratar'&&!c.forn_id&&isAdmin()?`
+      ${c.col==='contratar'&&!c.forn_id?`
       <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
         <button class="cb-blue" style="width:100%;text-align:center" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">Atribuir Fornecedor</button>
       </div>`:''}
@@ -2714,14 +2698,14 @@ function cardHTML(c,color){
         ${precisaConfirmar&&!badgeExpirou?`<div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>`:''}
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${precisaConfirmar&&!badgeExpirou?`<button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>`:''}
-          ${isAdmin()?'<button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor(\''+c.id+'\')">Trocar</button>':''}
+          <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
           <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
           <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
         </div>
       </div>`
       :c.col==='ag_entrega'&&c.forn_id&&!c.forn_pago?`
       <div style="padding:6px 0 2px;border-top:1px solid var(--bor);margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
-        ${isAdmin()?'<button class="cb-yellow" onclick="event.stopPropagation();trocarFornecedor(\''+c.id+'\')">Remover Forn.</button>':''}
+        <button class="cb-yellow" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Remover Forn.</button>
         <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
         <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
       </div>`:''}
@@ -4705,7 +4689,7 @@ async function salvarPagoCli(){
     c.pago_parcial_valor=novoAcum;c.pago_parcial_data=dataRest||null;
     c.pago_obs=(obs||'Parcial')+' · Acumulado R$ '+fmt(novoAcum)+' · Falta R$ '+fmt(falta);
     if(falta<=0.01){
-      c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=parseFloat(c.rec);
+      c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=novoAcum;
       autoColPagamento(c);
       toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento quitado!');
     }else{c.col='faltapg';toast('⏳ Entrada R$ '+fmt(val)+' registrada. Falta R$ '+fmt(falta)+(dataRest?' para '+new Date(dataRest+'T12:00:00').toLocaleDateString('pt-BR'):''));}
@@ -8228,12 +8212,13 @@ async function gerarReciboImprimir() {
     const statusCell=tipo==='pago'
       ?'<span style="color:#16a34a;font-weight:700">✅ Pago'+dataPag+'</span>'
       :'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>';
+    const nfNum=(o.nf_num||'').replace(/^0+/,'');
     return '<tr>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">'+(o.crm_id||'—')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+(o.tipo||'Caçamba')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+dateF(o.data)+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+end+'</td>'
-      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span></td>'
+      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span>'+(nfNum?'<div style="font-size:9px;color:#6b7280;margin-top:2px">🧾 NF '+nfNum+'</div>':'')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:10px;text-align:right">'+statusCell+'</td>'
       +'</tr>';
   }
@@ -11028,10 +11013,7 @@ function renderAlertas(){
           </div>
         </div>`;
       }).join('')}
-    </div>`;
-  }
-
-  el.innerHTML = html;
+    </div>`;\n  }\n\n  el.innerHTML = html;
 }
 
 // ── Popular filtro de vendedor (reutilizável) ──
