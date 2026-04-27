@@ -11164,39 +11164,41 @@ function _gerarPDFAgrupado(){
     modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
     document.body.appendChild(modal);
   }
-  const linhasModal = orcs.map((o,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bor)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700">${o.crm_id||'—'}</div>
-        <div style="font-size:12px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.tipo||'—'} · ${o.bairro||'—'}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="font-size:12px;color:var(--mut2)">R$</span>
-        <input type="number" id="agrup-val-${i}" value="${o.orc_valor||''}" placeholder="0,00" step="0.01" min="0"
-          style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:13px;font-weight:700;text-align:right">
-      </div>
-    </div>`).join('');
+  const linhasModal = orcs.map((o,i)=>{
+    const val = o.orc_valor ? parseFloat(o.orc_valor) : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bor)">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700">'+(o.crm_id||'—')+'</div>'
+      +'<div style="font-size:12px;color:var(--txt)">'+(o.tipo||'—')+' · '+(o.bairro||'—')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +'<span style="font-size:12px;color:var(--mut2)">R$</span>'
+      +'<input type="number" id="agrup-val-'+i+'" value="'+val+'" placeholder="0,00" step="0.01" min="0"'
+      +' style="width:110px;background:var(--card);border:1px solid var(--bor);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:13px;font-weight:700;text-align:right">'
+      +'</div>'
+      +'</div>';
+  }).join('');
 
-  modal.innerHTML = `<div class="mbox" style="max-width:480px">
-    <div class="mh">
-      <div class="mh-ico">📄</div>
-      <div class="mh-txt">
-        <div class="mh-title">PDF Agrupado — ${orcs.length} caçambas</div>
-        <div class="mh-sub">Confirme o valor de cada orçamento</div>
-      </div>
-      <button class="mh-close" onclick="document.getElementById('orcAgrupModal').classList.remove('open')">✕</button>
-    </div>
-    <div style="padding:16px 20px">
-      ${linhasModal}
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px solid var(--bor)">
-        <div style="font-size:13px;font-weight:700;color:var(--mut2)">Total: <span id="agrup-total" style="color:var(--acc)">—</span></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn" onclick="document.getElementById('orcAgrupModal').classList.remove('open')">Cancelar</button>
-          <button class="btn btn-acc" onclick="_confirmarPDFAgrupado(${JSON.stringify(ids)})">📄 Gerar PDF</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
+  modal.innerHTML = '<div class="mbox" style="max-width:480px">'
+    +'<div class="mh">'
+    +'<div class="mh-ico">&#x1F4C4;</div>'
+    +'<div class="mh-txt">'
+    +'<div class="mh-title">PDF Agrupado &#8212; '+orcs.length+' ca&ccedil;ambas</div>'
+    +'<div class="mh-sub">Confirme o valor de cada or&ccedil;amento</div>'
+    +'</div>'
+    +'<button class="mh-close" onclick="document.getElementById(\'orcAgrupModal\').classList.remove(\'open\')">&#x2715;</button>'
+    +'</div>'
+    +'<div style="padding:16px 20px">'
+    +linhasModal
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px solid var(--bor)">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--mut2)">Total: <span id="agrup-total" style="color:var(--acc)">-</span></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn" onclick="document.getElementById(\'orcAgrupModal\').classList.remove(\'open\')">Cancelar</button>'
+    +'<button class="btn btn-acc" id="orcAgrupBtnGerar">&#x1F4C4; Gerar PDF</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
 
   modal.classList.add('open');
 
@@ -11210,6 +11212,9 @@ function _gerarPDFAgrupado(){
   };
   inputs.forEach(inp => inp.addEventListener('input', atualizarTotal));
   atualizarTotal();
+  // Bind do botão gerar sem passar JSON no HTML
+  const btnGerar = document.getElementById('orcAgrupBtnGerar');
+  if(btnGerar) btnGerar.onclick = () => _confirmarPDFAgrupado(ids);
   // Foca no primeiro input vazio
   const primeiro = Array.from(inputs).find(i=>!i.value);
   if(primeiro) setTimeout(()=>primeiro.focus(), 100);
