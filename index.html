@@ -1181,7 +1181,7 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm btn-pix" onclick="openPixDoDetail()">⚡ Pix</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWAForn()">🚛 WA Forn.</button>
-        <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
+        <button class="btn btn-sm" onclick="copiarTracking()" title="Copiar link de rastreamento" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
@@ -5002,6 +5002,17 @@ function enviarWAForn(id){
   const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
   _waFornAbrir(f, msg);
 }
+function copiarTracking(id){
+  const oid=id||_detailId;
+  const c=ordens.find(x=>x.id===oid);
+  if(!c){toast('Ordem não encontrada','warn');return;}
+  if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
+  const link='https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id));
+  navigator.clipboard.writeText(link)
+    .then(()=>toast('📋 Link copiado!'))
+    .catch(()=>toast('Link: '+link,'warn'));
+}
+
 function enviarTracking(id){
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
