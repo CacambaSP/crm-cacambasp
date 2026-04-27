@@ -38,22 +38,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-pagar-ord{background:var(--acc);color:#000;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 .btn-pagar-ord:active{opacity:.8}
 .badge-nf{font-size:10px;font-weight:700;color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:4px;padding:2px 6px}
-.badge-nf-pend{font-size:10px;font-weight:700;color:#92400e;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:4px;padding:2px 6px}
-.nf-aviso{font-size:10px;color:#fbbf24;margin-top:3px}
-.ord-item-cb{display:flex;align-items:flex-start;padding-right:10px;padding-top:2px;flex-shrink:0}
-.ord-cb{width:20px;height:20px;border-radius:5px;border:2px solid var(--bor);background:var(--bg);cursor:pointer;appearance:none;-webkit-appearance:none;flex-shrink:0;transition:all .2s;margin-top:1px}
-.ord-cb:checked{background:var(--acc);border-color:var(--acc);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 6l3 3 5-5' stroke='%23000' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-size:70%;background-repeat:no-repeat;background-position:center}
-.ord-item.selecionado{background:rgba(245,166,35,.06);border-radius:8px;margin:0 -4px;padding:10px 4px}
-.sep-nf-pend{display:flex;align-items:center;gap:8px;padding:12px 0 4px}
-.sep-nf-pend .sep-line{flex:1;height:1px;background:rgba(251,191,36,.25)}
-.sep-nf-pend .sep-txt{font-size:9px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap}
-#barra-selecao{display:none;position:sticky;bottom:0;left:0;right:0;width:calc(100% - 32px);max-width:480px;background:#1e2130;border:1px solid var(--bor);border-radius:14px 14px 0 0;padding:12px 16px;margin:0 auto;box-shadow:0 -4px 20px rgba(0,0,0,.4);z-index:100}
-.barra-info{font-size:12px;color:var(--mut);margin-bottom:8px;text-align:center}
-.barra-info strong{color:var(--acc)}
-.barra-btns{display:flex;gap:8px}
-#btn-sel-todas{flex:1;background:rgba(255,255,255,.06);color:var(--txt);border:1px solid var(--bor);border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer}
-#btn-pagar-sel{flex:2;background:var(--acc);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s}
-#btn-pagar-sel:disabled{opacity:.35;cursor:not-allowed}
 .pix-ord-titulo{font-size:12px;color:var(--mut);text-align:center;margin-bottom:6px}
 #card-pix{display:none}
 .pix-header{display:flex;align-items:center;gap:10px;padding:4px 0 14px;border-bottom:1px solid var(--bor);margin-bottom:14px}
@@ -154,13 +138,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="card" style="padding:0"><a id="btn-wa" href="#" style="display:none"><span>💬</span> Falar no WhatsApp</a></div>
   <button id="btn-recibo" onclick="abrirReciboTracking()" style="display:none;width:calc(100% - 32px);max-width:480px;margin-top:4px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad);padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🧾 Ver / Imprimir Recibo</button>
   <div id="footer">CaçambaSP · Powered by CRM CaçambaSP</div>
-</div>
-<div id="barra-selecao">
-  <div class="barra-info" id="barra-txt"><strong>0 selecionadas</strong> · Total: R$ 0,00</div>
-  <div class="barra-btns">
-    <button id="btn-sel-todas" onclick="toggleSelecionarTodas()">Selecionar todas</button>
-    <button id="btn-pagar-sel" onclick="pagarSelecionadas()" disabled>💳 Pagar selecionadas</button>
-  </div>
 </div>
 <script>
 const SUPA_URL='https://ejfuqijtiberxsnvxdwm.supabase.co';
@@ -282,19 +259,20 @@ function copiarLink(){
 let _nfAcrescimo=40;
 async function carregar(){
   const params=new URLSearchParams(window.location.search);
-  const token=params.get('token'); // UUID — novo formato seguro
-  const crmId=params.get('id');   // crm_id — formato legado
-  if(!token&&!crmId){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
+  const token=params.get('token');
+  const crmIdParam=params.get('id');
+  if(!token&&!crmIdParam){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
   try{
     // Carregar acréscimo NF do banco
     try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
-    // Buscar ordem: por UUID (token=novo) ou crm_id (id=legado)
+    // Buscar ordem por token (seguro) ou crm_id (legado)
     let ordens;
     if(token){
-      ordens=await api('ordens?id=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
     }else{
-      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
     }
+    const crmId=ordens&&ordens.length?ordens[0].crm_id:(crmIdParam||'');
     if(!ordens||!ordens.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
     const ord=ordens[0];
     // Buscar vendedor
@@ -316,8 +294,8 @@ async function carregar(){
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
     }
-    // Garantir que a ordem do link está na lista (checar por crm_id OU por UUID)
-    if(!emAberto.find(o=>o.crm_id===ord.crm_id||o.id===ord.id)){
+    // Garantir que a ordem do link está na lista
+    if(!emAberto.find(o=>o.crm_id===crmId)){
       if(!ord.pago&&ord.col!=='concluido'&&ord.col!=='orcamento') emAberto.unshift(ord);
     }
     if(!emAberto.length) emAberto=[ord];
@@ -341,7 +319,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   const cor=(vend&&vend.marca_cor)||'#f5a623';
   const nomeVend=(vend&&(vend.marca_nome||vend.nome))||'CaçambaSP';
   const slogan=(vend&&vend.marca_slogan)||'Rastreamento do pedido';
-  const logoUrl=(vend&&vend.marca_logo_url)?LOGOS_BUCKET+vend.marca_logo_url:null;
+  const logoUrl=(vend&&vend.marca_logo_url)?vend.marca_logo_url:null;
   const telVend=(vend&&vend.marca_tel)||null;
   aplicarCor(cor);
   document.getElementById('brand-nome').textContent=nomeVend;
@@ -389,60 +367,20 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     // txid agrupado: GRP + crm_id da primeira ordem pendente — concilia no extrato Itaú
     const _primeiraOrdPend = pendentes[0]||emAberto[0];
     const txidGrupo = ('GRP'+(_primeiraOrdPend?.crm_id||'').replace(/\D/g,'')).substring(0,25);
-
-    // --- ORDENAÇÃO POR NF ---
-    // nf_num vazio / null / "0" / "0000" = sem NF → vai para o final
-    function _temNF(o){const n=o.nf_num;return n&&String(n).replace(/^0+/,'')!=='';}
-    const comNF = emAberto.filter(o=>_temNF(o)).sort((a,b)=>parseInt(a.nf_num||0)-parseInt(b.nf_num||0));
-    const semNF = emAberto.filter(o=>!_temNF(o));
-    const ordemRender = [...comNF, ...semNF];
-
-    function _htmlOrdem(o, mostrarSep){
+    document.getElementById('lista-ordens-agrupadas').innerHTML=emAberto.map(o=>{
       const pago=o.pago;
       const acr=o.nf_num?_nfAcrescimo:0;
       const valCli=(parseFloat(o.rec)||0)+acr;
-      const temNF=_temNF(o);
-      const nfBadge=temNF
-        ?'<span class="badge-nf">🧾 NF '+o.nf_num+'</span> '
-        :'<span class="badge-nf-pend">⏳ NF pendente</span> ';
-      const nfAviso=!temNF&&!pago?'<div class="nf-aviso">⚠️ Nota Fiscal ainda não emitida</div>':'';
-      const sep=mostrarSep?'<div class="sep-nf-pend"><div class="sep-line"></div><div class="sep-txt">⚠️ NF pendente de emissão</div><div class="sep-line"></div></div>':'';
-
-      if(pago) return sep+'<div class="ord-item">'
-        +'<div class="ord-item-left">'
-        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-        +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
-        +'</div>'
-        +'<div style="font-size:12px;color:var(--g);font-weight:700;margin-left:10px">✅ Pago</div>'
-        +'</div>';
-
-      return sep+'<div class="ord-item" id="item-'+o.crm_id+'">'
-        +'<div class="ord-item-cb"><input type="checkbox" class="ord-cb" data-id="'+(o.crm_id||'')+'" data-val="'+valCli+'" onchange="atualizarSelecao()"></div>'
-        +'<div class="ord-item-left">'
-        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-        +'<div class="ord-item-info">'+nfBadge+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
-        +nfAviso
-        +'</div>'
-        +'<div class="ord-item-right">'
-        +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
-        +'</div>'
-        +'</div>';
-    }
-
-    let html='';
-    let sepMostrado=false;
-    ordemRender.forEach(o=>{
-      const ehSemNF=!_temNF(o);
-      const mostrarSep=ehSemNF&&!sepMostrado&&!o.pago&&comNF.length>0;
-      if(mostrarSep) sepMostrado=true;
-      html+=_htmlOrdem(o,mostrarSep);
-    });
-    document.getElementById('lista-ordens-agrupadas').innerHTML=html;
-
-    // Inicializar barra de seleção
-    atualizarSelecao();
+      const nfInfo=o.nf_num?('<span class="badge-nf">🧾 NF '+o.nf_num+'</span> '):'';
+      if(pago) return '<div class="ord-item">'        +'<div class="ord-item-left">'        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'        +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'        +'</div>'        +'<div style="font-size:12px;color:var(--g);font-weight:700;margin-left:10px">✅ Pago</div>'        +'</div>';
+      return '<div class="ord-item">'        +'<div class="ord-item-left">'        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'        +'<div class="ord-item-info">'+nfInfo+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'        +'</div>'        +'<div class="ord-item-right">'        +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'        +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(\'' + (o.crm_id||'') + '\',' + valCli + ')">💳 Pagar esta</button>'        +'</div>'        +'</div>';
+    }).join('');
     const btnTudo=document.getElementById('btn-pagar-tudo');
-    if(btnTudo)btnTudo.style.display='none'; // substituído pela barra de seleção
+    if(pendentes.length>1){
+      if(btnTudo){btnTudo.style.display='block';btnTudo.textContent='💳 Pagar tudo junto — R$ '+fmt(totalRec);}
+    }else{
+      if(btnTudo)btnTudo.style.display='none';
+    }
     renderPix(totalRec,txidGrupo,todasPagas,ultimoPagoEm);
   }else{
     // MODO SIMPLES — mostra detalhes normalmente
@@ -628,61 +566,6 @@ ${pixSection}
   const win=window.open('','_blank');
   win.document.write(html);
   win.document.close();
-}
-
-// --- SELEÇÃO MÚLTIPLA ---
-function _getCbs(){return Array.from(document.querySelectorAll('.ord-cb'));}
-function atualizarSelecao(){
-  const cbs=_getCbs();
-  const sel=cbs.filter(c=>c.checked);
-  const total=sel.reduce((s,c)=>s+parseFloat(c.dataset.val||0),0);
-  const barra=document.getElementById('barra-selecao');
-  const btnPagar=document.getElementById('btn-pagar-sel');
-  const btnTodas=document.getElementById('btn-sel-todas');
-  // Highlight items selecionados
-  cbs.forEach(c=>{
-    const item=document.getElementById('item-'+c.dataset.id);
-    if(item){item.classList.toggle('selecionado',c.checked);}
-  });
-  // Barra visível se há pendentes
-  if(cbs.length>0){
-    barra.style.display='block';
-    document.getElementById('barra-txt').innerHTML='<strong>'+sel.length+' selecionada'+(sel.length!==1?'s':'')+'</strong> · Total: R$ '+fmt(total);
-    btnPagar.disabled=sel.length===0;
-    btnTodas.textContent=sel.length===cbs.length?'Desmarcar todas':'Selecionar todas';
-  }else{
-    barra.style.display='none';
-  }
-}
-function toggleSelecionarTodas(){
-  const cbs=_getCbs();
-  const todasMarcadas=cbs.every(c=>c.checked);
-  cbs.forEach(c=>{c.checked=!todasMarcadas;});
-  atualizarSelecao();
-}
-function pagarSelecionadas(){
-  const sel=Array.from(document.querySelectorAll('.ord-cb:checked'));
-  if(!sel.length)return;
-  const total=sel.reduce((s,c)=>s+parseFloat(c.dataset.val||0),0);
-  const ids=sel.map(c=>c.dataset.id);
-  // Monta txid: se uma só → usa crm_id dela; se várias → GRP + primeira
-  const txid=ids.length===1?ids[0]:('GRP'+(ids[0]||'').replace(/\D/g,'')).substring(0,25);
-  // Info no card pix
-  const infoEl=document.getElementById('pix-ord-info');
-  if(infoEl){
-    if(ids.length===1){
-      const o=_ordensTracking.find(x=>x.crm_id===ids[0]);
-      infoEl.innerHTML='<strong>'+ids[0]+'</strong>'+(o&&o.nf_num?' · <span style="color:#f97316">🧾 NF '+o.nf_num+'</span>':'')+' · '+(o?(o.logradouro||'')+(o.bairro?', '+o.bairro:''):'');
-    }else{
-      infoEl.innerHTML='<strong>'+ids.length+' caçambas selecionadas</strong> · Total: R$ '+fmt(total);
-    }
-    infoEl.style.display='block';
-  }
-  document.getElementById('pix-card-title').textContent=ids.length===1?'Pagamento — '+ids[0]:'Pagamento — '+ids.length+' caçambas';
-  document.getElementById('pix-card-sub').textContent=ids.length===1?'Apenas este pedido':'Pedidos selecionados';
-  // Nenhuma das selecionadas está paga (checkboxes só existem em pendentes)
-  renderPix(total,txid,false,null);
-  document.getElementById('card-pix').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 carregar();

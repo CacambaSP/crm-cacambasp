@@ -2949,7 +2949,7 @@ function selCobrarAgrupado(){
     } else {
       const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
       const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
+      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id)):'';
       msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
@@ -4927,7 +4927,7 @@ function enviarPixWA(){
   const c=ordens.find(x=>x.id===_pixCardId);if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   const val=parseFloat(document.getElementById('pix_valor_edit').value)||parseFloat(c.rec)||0;
-  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
   const vend=usuarios.find(u=>u.id===c.usuario_id)||_perfil;
   const marcaNome=vend?.marca_nome||'CaçambaSP';
   const marcaTel=vend?.marca_tel||'(11) 4237-8757';
@@ -5008,7 +5008,7 @@ function enviarTracking(id){
   if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
-  const link='https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id);
+  const link='https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id));
   const nome=(c.nome||'').split(' ')[0]||'Cliente';
   const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
   const tel=c.cel.replace(/\D/g,'');
@@ -5018,7 +5018,7 @@ function enviarTracking(id){
 const _waTpl={
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
-    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -5035,7 +5035,7 @@ const _waTpl={
   },
   inadimp:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'');
-    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -5413,7 +5413,7 @@ function _dispararProximaCobranca(){
     const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
     // Usa o tracking da primeira ordem — mostra todas as ordens em aberto do celular
     const trackLink = c0.crm_id
-      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id)
+      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id))+'
       : '';
     msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
