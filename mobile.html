@@ -2137,8 +2137,8 @@ function initApp() {
   av.textContent = nome[0]?.toUpperCase()||'?';
   av.style.background = colors[nome.charCodeAt(0)%colors.length]+'33';
   av.style.color = colors[nome.charCodeAt(0)%colors.length];
-  // Toggle bar visível para todos na tela início
-  document.getElementById('toggleBar').style.display = 'flex';
+  // Toggle bar só para admin
+  document.getElementById('toggleBar').style.display = isAdmin() ? 'flex' : 'none';
   buildBottomNav();
   setView('inicio');
   history.pushState(null, '', location.href);
@@ -2211,9 +2211,9 @@ function setView(v, pushStack=true) {
   const backBtn = document.getElementById('backBtn');
   const showBack = (v==='detalhe'||v==='nova');
   backBtn.style.display = showBack?'flex':'none';
-  // Toggle bar visível para todos na tela início
-  document.getElementById('toggleBar').style.display = (v==='inicio') ? 'flex' : 'none';
-  // Filtro vendedores só admin
+  // Esconder toggle bar em outras views
+  document.getElementById('toggleBar').style.display = (v==='inicio' && isAdmin()) ? 'flex' : 'none';
+  // Esconder filtro vendedores fora de inicio
   const vf = document.getElementById('vendFilter');
   if(vf) vf.style.display = (v==='inicio' && isAdmin()) ? 'flex' : 'none';
   // FAB oculto na tela nova e detalhe
@@ -2503,8 +2503,8 @@ function renderInicio() {
     vf.style.display = 'flex';
     if(!vf.dataset.built) {
       vf.dataset.built = '1';
-      // Inicializar com o próprio admin selecionado na primeira carga
-      if(_filtroVendedores === null) _filtroVendedores = [uid()];
+      // Inicializar com todos selecionados na primeira carga
+      if(_filtroVendedores === null) _filtroVendedores = [];
       renderVendFilter();
     }
   }
@@ -2800,10 +2800,10 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       return Math.floor(diffH)+'h restantes';
     })() : '';
     acoes = `
-      ${isAdmin()&&!_modoSimples?` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:''}
+      ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`}
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
-      ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`;
+      ${!_modoSimples?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`.replace(/\n\s*\n/g,'\n');
     // Inject urgency style into card via inline — returned as data attr for rendering
     return `<div class="action-card" onclick="abrirDetalhe('${o.id}')" style="${urg>0?`background:${urgColors[urg]};border-left:3px solid ${urgBorderColors[urg]};border-color:${urgBorderColors[urg]}`:''}" >
       <div class="ac-row">
@@ -2832,7 +2832,7 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
       ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">Ligar forn.</a>`:''}
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA cliente</button>
-      ${!_modoSimples&&isAdmin()&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''}
+      ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''}
       ${!_modoSimples&&o.forn_id?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`;
 
 
@@ -2846,17 +2846,17 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
-      ${!_modoSimples&&isAdmin()?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''  }` : `
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}` : `
       <button class="ac-btn ac-btn-r" onclick="event.stopPropagation();abrirEditar('${o.id}')">Informar valor</button>
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
-      ${!_modoSimples&&isAdmin()?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''}`;
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}`;
   } else if(tipoAcao === 'pagar_forn') {
     acoes = `
       <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarForn('${o.id}')">Registrar pagamento</button>
       ${forn?.tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${forn.tel.replace(/\D/g,'')}" onclick="event.stopPropagation()">Ligar</a>`:''}
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWAForn('${o.id}')">WA forn.</button>
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
-      ${!_modoSimples&&isAdmin()?`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`:''}`;
+      ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}`;
   }
 
   return `<div class="action-card${selOn?' selected':''}" onclick="${loteMode?`toggleLote('${o.id}')`:`abrirDetalhe('${o.id}')`}">
@@ -3928,7 +3928,7 @@ function renderAlertas(){
           </div>
           <div class="alerta-actions">
             <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Ver ordem</button>
-            ${isAdmin()?`<button class="btn btn-sm" onclick="event.stopPropagation();abrirAtribuirForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,158,11,.12);color:#b45309;border-color:rgba(245,158,11,.4)">🚛 Atribuir forn.</button>`:''}
+            <button class="btn btn-sm" onclick="event.stopPropagation();abrirAtribuirForn('${c.id}')" style="font-size:11px;padding:4px 8px;background:rgba(245,158,11,.12);color:#b45309;border-color:rgba(245,158,11,.4)">🚛 Atribuir forn.</button>
           </div>
         </div>`;
       }).join('')}
@@ -4695,10 +4695,10 @@ function renderDetalhe(id) {
     <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>Tracking</button>
   </div>
   ${o.col!=='concluido'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    ${isAdmin()&&!_modoSimples?(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`):''}
+    ${_modoSimples?'':(!o.forn_id?`<button class="ac-btn ac-btn-primary" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`:`<button class="ac-btn ac-btn-ghost" style="flex:1" onclick="abrirAtribuirForn('${o.id}')">Trocar fornecedor</button>`)}
     ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
     ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
-    ${isAdmin()&&!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
+    ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
   </div>`:''}
   </div>
   <div class="detail-section">
