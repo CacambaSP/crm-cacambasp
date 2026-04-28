@@ -6656,7 +6656,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado){
         <div class="nfsel-item-id">${o.crm_id||'—'}</div>
         <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
       </div>
-      <div class="nfsel-item-val">R$ ${fmt((parseFloat(o.rec)||0)+(_nfAcrescimo||0))}</div>
+      <div class="nfsel-item-val">R$ ${fmt(_semNF(o.nf_num)&&!o.nf_num?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
     </div>`).join('');
   return `<div class="nfsel-grupo">
     <div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)">
@@ -6677,7 +6677,13 @@ function _nfSelToggleGrupo(grupoId,marcar){
 function _nfSelAtualizarTotal(){
   const chks=document.querySelectorAll('#nfsel_grupos input[type=checkbox][id^="nfchk_"]:checked');
   let total=0;
-  chks.forEach(cb=>{ const o=ordens.find(x=>x.id===cb.value); if(o) total+=(parseFloat(o.rec)||0)+(_nfAcrescimo||0); });
+  chks.forEach(cb=>{
+    const o=ordens.find(x=>x.id===cb.value);
+    if(!o) return;
+    // Se nf_num estava vazio (nunca teve), adiciona acréscimo; se era 000/0000, já está no rec
+    const rec=parseFloat(o.rec)||0;
+    total += !o.nf_num ? rec+(_nfAcrescimo||0) : rec;
+  });
   document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
 }
 
@@ -6719,8 +6725,8 @@ function _abrirModalNF(ids){
   disc+=trackLink?'\n\nAcompanhe pelo link: '+trackLink:'';
   document.getElementById('nfem_disc').textContent=disc;
 
-  const recTotal=osLista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
-  const valorNF=recTotal+(_nfAcrescimo||0);
+  const recTotal=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(!o.nf_num?r+(_nfAcrescimo||0):r); },0);
+  const valorNF=recTotal;
   const iss=valorNF*0.024;
   document.getElementById('nfem_valor').textContent='R$ '+fmt(valorNF);
   document.getElementById('nfem_base').textContent='R$ '+fmt(valorNF);
@@ -6799,8 +6805,10 @@ async function _nfSalvarNumero(){
 
   try{
     for(const o of osLista){
-      const eraVazia = !o.nf_num || !o.nf_num.replace(/^0+/,'');
       const patch = {nf_num: num};
+      // Só soma acréscimo se o nf_num estava completamente vazio (nunca teve NF)
+      // Se era 000/0000, o acréscimo já foi somado quando o 000 foi registrado
+      const eraVazia = !o.nf_num;
       if(eraVazia && _nfAcrescimo > 0 && (parseFloat(o.rec)||0) > 0){
         const novoRec = (parseFloat(o.rec)||0) + _nfAcrescimo;
         o.rec = novoRec;
