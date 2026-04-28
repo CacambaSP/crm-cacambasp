@@ -6601,31 +6601,31 @@ function abrirEmitirNF(id){
   bloco.className = 'nfem-retencao';
 
   if(cidade === 'osasco' || cidade === ''){
-    // Osasco — sem retenção, você recolhe
+    // Osasco PJ ou PF → NÃO — ISS recolhido via PGDAS pela prestadora
     bloco.classList.add('nfem-ret-ok');
-    retTit.textContent  = '✅ Sem retenção — você recolhe em Osasco';
-    retCorp.textContent = 'Serviço executado em Osasco. ISS de 2,4% é recolhido pela sua empresa normalmente.';
-    retSubst.textContent= 'Subst.Trib./Ret: SIM · Regime: Auto-Lançado | Simples Nacional';
+    retTit.textContent  = '✅ Subst. Trib.: NÃO — cliente paga valor integral';
+    retCorp.textContent = 'Simples Nacional: ISS recolhido via PGDAS/DAS mensalmente pela sua empresa. Cliente paga o valor cheio da NF, sem nenhum desconto.';
+    retSubst.textContent= 'Subst.Trib./Ret: NÃO · Regime: Auto-Lançado | Simples Nacional';
   } else if(cidade === 'sao paulo' || cidade === 'sp'){
     if(tipo === 'PJ'){
-      // SP + PJ — tomador retém na fonte
+      // SP + PJ → SIM — único caso de retenção na fonte
       bloco.classList.add('nfem-ret-info');
-      retTit.textContent  = '⚠️ ISS retido na fonte pelo tomador (São Paulo + PJ)';
-      retCorp.textContent = 'O tomador PJ de São Paulo é responsável por reter o ISS e recolher à Prefeitura de SP. Você receberá o valor já com o ISS descontado — não recolha novamente.';
-      retSubst.textContent= 'Subst.Trib./Ret: SIM · Marcar "Retenção pelo tomador" na NF';
+      retTit.textContent  = '⚠️ Subst. Trib.: SIM — tomador PJ desconta ISS';
+      retCorp.textContent = 'Serviço em São Paulo + tomador PJ: cliente retém o ISS (2,4%) e recolhe para a Prefeitura de SP. Você receberá o valor já com o ISS descontado — isso é correto e não gera cobrança adicional.';
+      retSubst.textContent= 'Subst.Trib./Ret: SIM · Tomador recolhe o ISS para SP';
     } else {
-      // SP + PF — você recolhe para SP
+      // SP + PF → NÃO — cliente paga integral
       bloco.classList.add('nfem-ret-ok');
-      retTit.textContent  = '✅ Sem retenção — você recolhe para São Paulo';
-      retCorp.textContent = 'Tomador PF em São Paulo. ISS de 2,4% é recolhido pela sua empresa para a Prefeitura de SP.';
-      retSubst.textContent= 'Subst.Trib./Ret: SIM · Recolhimento pela prestadora';
+      retTit.textContent  = '✅ Subst. Trib.: NÃO — cliente paga valor integral';
+      retCorp.textContent = 'Tomador PF em São Paulo: não há retenção na fonte. Cliente paga o valor cheio da NF. ISS recolhido pela sua empresa via PGDAS/DAS.';
+      retSubst.textContent= 'Subst.Trib./Ret: NÃO · Recolhimento pela prestadora via PGDAS';
     }
   } else {
-    // Outro município — aviso para verificar
+    // Outro município PJ ou PF → NÃO — regra geral
     bloco.classList.add('nfem-ret-warn');
-    retTit.textContent  = '⚠️ Município diferente — verificar legislação local';
-    retCorp.textContent = 'Serviço em ' + (c.cidade||'outro município') + '. Verifique se há retenção na fonte antes de emitir. Regra geral: ISS segue o local de execução do serviço.';
-    retSubst.textContent= 'Confirme a alíquota e regra de retenção com a prefeitura local.';
+    retTit.textContent  = '⚠️ Subst. Trib.: NÃO — verificar legislação local';
+    retCorp.textContent = 'Serviço em ' + (c.cidade||'outro município') + ': regra geral é NÃO (cliente paga integral, você recolhe o ISS). Confirme com a prefeitura local antes de emitir.';
+    retSubst.textContent= 'Subst.Trib./Ret: NÃO · Confirme alíquota local';
   }
 
   // Preenche nº existente se já tiver
