@@ -6599,6 +6599,9 @@ function salvarNFDebounce(){
 let _nfEmitirId = null;
 let _nfEmitirIds = [];
 
+// _semNF: considera sem NF emitida: vazio, '000', '0000' (só zeros)
+function _semNF(v){ const n=(v||'').replace(/^0+/,''); return !n; }
+
 function _nfNormEnd(s){
   return _nrm(s||'').replace(/^(rua|r\.|av\.|avenida|al\.|alameda|travessa|tv\.|estrada|est\.|rod\.|rodovia)\s*/,'').trim();
 }
@@ -6607,9 +6610,6 @@ function abrirEmitirNF(id){
   const c = ordens.find(x=>x.id===id);
   if(!c){ toast('Ordem não encontrada','warn'); return; }
   _nfEmitirId = id;
-
-  // Considera sem NF: vazio, '000', '0000' (solicitada mas não emitida)
-  const _semNF = v => { const n=(v||'').replace(/^0+/,''); return !n; };
 
   const semNF = ordens.filter(o=>
     o.id !== id && o.nome === c.nome &&
