@@ -289,7 +289,8 @@ async function carregar(){
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
       try{
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa&order=data.asc');
+        const uidFiltro=ord.usuario_id?'&usuario_id=eq.'+encodeURIComponent(ord.usuario_id):'';
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+uidFiltro+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa&order=data.asc');
         todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento');
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
