@@ -6628,11 +6628,19 @@ function abrirEmitirNF(id){
     return (cepBase&&cepO&&cepBase===cepO)||(endBase&&endO&&endBase===endO);
   });
 
-  const outrosEnderecos = semNF.filter(o=>!grupoMesmoEnd.includes(o)&&_nrm(o.cidade||'')===cidBase);
+  // Outros endereços: mesma cidade (pode agrupar) + outra cidade (não pode agrupar, só alerta)
+  const outrosMesmaCid = semNF.filter(o=>!grupoMesmoEnd.includes(o)&&_nrm(o.cidade||'')===cidBase);
+  const outrosOutraCid = semNF.filter(o=>!grupoMesmoEnd.includes(o)&&_nrm(o.cidade||'')!==cidBase);
+
   const mapOutros={};
-  outrosEnderecos.forEach(o=>{
+  outrosMesmaCid.forEach(o=>{
     const k=_nfNormEnd(o.logradouro)||o.logradouro||'Sem endereço';
-    if(!mapOutros[k]) mapOutros[k]={label:o.logradouro||'—',os:[]};
+    if(!mapOutros[k]) mapOutros[k]={label:o.logradouro||'—',cidade:o.cidade||'',outraCidade:false,os:[]};
+    mapOutros[k].os.push(o);
+  });
+  outrosOutraCid.forEach(o=>{
+    const k='_outra_'+(o.cidade||'')+'_'+(_nfNormEnd(o.logradouro)||o.logradouro||'');
+    if(!mapOutros[k]) mapOutros[k]={label:o.logradouro||'—',cidade:o.cidade||'',outraCidade:true,os:[]};
     mapOutros[k].os.push(o);
   });
 
@@ -6640,18 +6648,22 @@ function abrirEmitirNF(id){
 
   const grupos=document.getElementById('nfsel_grupos');
   grupos.innerHTML='';
-  grupos.innerHTML+=_nfSelGrupoHTML('end_principal',c.logradouro||'—',[c,...grupoMesmoEnd],true);
+  grupos.innerHTML+=_nfSelGrupoHTML('end_principal',c.logradouro||'—',[c,...grupoMesmoEnd],true,false);
   Object.entries(mapOutros).forEach(([k,g],i)=>{
-    grupos.innerHTML+=_nfSelGrupoHTML('end_outro_'+i,g.label,g.os,false);
+    grupos.innerHTML+=_nfSelGrupoHTML('end_outro_'+i,g.label+(g.cidade?' · '+g.cidade:''),g.os,false,g.outraCidade);
+
   });
   _nfSelAtualizarTotal();
   document.getElementById('nfsel_erro').style.display='none';
   document.getElementById('nfSelModal').classList.add('open');
 }
 
-function _nfSelGrupoHTML(grupoId,label,os,marcado){
+function _nfSelGrupoHTML(grupoId,label,os,marcado,outraCidade){
+  const alertaHtml = outraCidade
+    ? `<div style="font-size:11px;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:4px 8px;margin:4px 8px 0">⚠️ Cidade diferente — gerar NF separada</div>`
+    : '';
   const checks=os.map(o=>`<div class="nfsel-item">
-      <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado?'checked':''} onchange="_nfSelAtualizarTotal()">
+      <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado&&!outraCidade?'checked':''} onchange="_nfSelAtualizarTotal()">
       <div class="nfsel-item-info">
         <div class="nfsel-item-id">${o.crm_id||'—'}</div>
         <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
@@ -6660,10 +6672,10 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado){
     </div>`).join('');
   return `<div class="nfsel-grupo">
     <div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)">
-      <input type="checkbox" id="nfgrp_${grupoId}" ${marcado?'checked':''} onclick="event.stopPropagation();_nfSelToggleGrupo('${grupoId}',this.checked)">
+      <input type="checkbox" id="nfgrp_${grupoId}" ${marcado&&!outraCidade?'checked':''} onclick="event.stopPropagation();_nfSelToggleGrupo('${grupoId}',this.checked)">
       <span>📍 ${label}</span>
       <span style="margin-left:auto;font-weight:400;color:var(--mut2)">${os.length} OS</span>
-    </div>${checks}</div>`;
+    </div>${alertaHtml}${checks}</div>`;
 }
 
 function _nfSelToggleGrupo(grupoId,marcar){
@@ -6692,7 +6704,12 @@ function _nfSelConfirmar(){
   const ids=chks.map(cb=>cb.value);
   if(!ids.length){ const err=document.getElementById('nfsel_erro'); err.textContent='⚠️ Selecione ao menos uma OS.'; err.style.display='block'; return; }
   const cidades=[...new Set(ids.map(id=>_nrm(ordens.find(x=>x.id===id)?.cidade||'osasco')))];
-  if(cidades.length>1){ const err=document.getElementById('nfsel_erro'); err.textContent='🚫 OS de cidades diferentes — não é possível agrupar em uma única NF.'; err.style.display='block'; return; }
+  if(cidades.length>1){
+    const err=document.getElementById('nfsel_erro');
+    err.textContent='🚫 OS de cidades diferentes selecionadas juntas — não é possível agrupar em uma única NF. Desmarque as de outra cidade.';
+    err.style.display='block';
+    return;
+  }
   document.getElementById('nfSelModal').classList.remove('open');
   _nfEmitirIds=ids;
   _abrirModalNF(ids);
