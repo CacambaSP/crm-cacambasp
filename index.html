@@ -1321,6 +1321,10 @@ input[type=checkbox]:checked::after{
   <div class="mbox" style="max-width:500px">
     <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
+      <div id="pf_obs_aviso" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad3);padding:10px 13px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Nota do fornecedor</div>
+        <div id="pf_obs_texto" style="font-size:13px;color:var(--acc);line-height:1.5"></div>
+      </div>
       <div class="fi-row">
         <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
         <div class="fi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
@@ -1367,6 +1371,10 @@ input[type=checkbox]:checked::after{
       <button class="mx" onclick="closeModal('pagarFornLoteModal')">✕</button>
     </div>
     <div class="mb">
+      <div id="pflote_obs_aviso" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad3);padding:10px 13px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Nota do fornecedor</div>
+        <div id="pflote_obs_texto" style="font-size:13px;color:var(--acc);line-height:1.5"></div>
+      </div>
       <!-- Resumo -->
       <div id="pflote_resumo" style="background:#0d1b2a;border:1px solid #1e3a5f;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <div>
@@ -4883,6 +4891,13 @@ function openPagarForn(callback){
   document.getElementById('pf_val').value=c.cst||'';
   document.getElementById('pf_data').value=new Date().toISOString().slice(0,10);
   const f=forns.find(s=>s.id===c.forn_id);
+  // Mostrar nota do fornecedor se existir
+  const avisoEl=document.getElementById('pf_obs_aviso');
+  const textoEl=document.getElementById('pf_obs_texto');
+  if(avisoEl&&textoEl){
+    if(f?.obs){avisoEl.style.display='block';textoEl.textContent=f.obs;}
+    else{avisoEl.style.display='none';textoEl.textContent='';}
+  }
   // Gerar etiqueta automática
   const fEtiq = forns.find(s=>s.id===c?.forn_id);
   if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value = _gerarEtiquetaForn(fEtiq);
@@ -8016,6 +8031,13 @@ function _pgfornAbrirModalLote(fid,pend){
   _pfloteAtualizarTotal();
   // Bairros
   _pfloteRenderBairros(fid,pend,cstPadrao);
+  // Nota do fornecedor
+  const pfAvisoEl=document.getElementById('pflote_obs_aviso');
+  const pfTextoEl=document.getElementById('pflote_obs_texto');
+  if(pfAvisoEl&&pfTextoEl){
+    if(f?.obs){pfAvisoEl.style.display='block';pfTextoEl.textContent=f.obs;}
+    else{pfAvisoEl.style.display='none';pfTextoEl.textContent='';}
+  }
   openModal('pagarFornLoteModal');
 }
 
@@ -8123,7 +8145,7 @@ function renderRel(){
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
 let _pgfDebounce=null;
-function _relPgfInput(){clearTimeout(_pgfDebounce);_pgfDebounce=setTimeout(()=>renderRel(),300);}
+function _relPgfInput(){clearTimeout(_pgfDebounce);_pgfDebounce=setTimeout(()=>renderRel(),600);}
 function _relPgfFiltrarDOM(q){
   const qL=(q||'').toLowerCase().trim();
   const tbody=document.querySelector('#pgfTabela tbody');
