@@ -6562,10 +6562,15 @@ function abrirEmitirNF(id){
   if(!c){ toast('Ordem não encontrada','warn'); return; }
   _nfEmitirId = id;
 
-  // Tomador
+  // Tomador — detecta PJ pelo campo tipo OU pelo CPF/CNPJ (CNPJ tem 14 dígitos ou contém '/')
+  const cpfVal = (c.cpf || '').trim();
+  const digitosCpf = cpfVal.replace(/\D/g,'').length;
+  const ehPJ = (c.tipo||'').toUpperCase() === 'PJ' || digitosCpf === 14 || cpfVal.includes('/');
+  const tipo  = ehPJ ? 'PJ' : 'PF';
+
   document.getElementById('nfem_nome').textContent = c.nome || '—';
-  document.getElementById('nfem_cpf').textContent  = c.cpf  || '(não informado)';
-  document.getElementById('nfem_tipo').textContent = c.tipo === 'PJ' ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)';
+  document.getElementById('nfem_cpf').textContent  = cpfVal || '(não informado)';
+  document.getElementById('nfem_tipo').textContent = ehPJ ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)';
   document.getElementById('nfem_end').textContent = c.logradouro || '—';
   document.getElementById('nfem_bairro').textContent = c.bairro  || '—';
   document.getElementById('nfem_cep').textContent    = c.cep     || '—';
@@ -6592,7 +6597,6 @@ function abrirEmitirNF(id){
 
   // Retenção ISS — regra: ISS segue local de execução (cidade da ordem)
   const cidade = _nrm(c.cidade || 'osasco');
-  const tipo   = (c.tipo || '').toUpperCase();
   const bloco  = document.getElementById('nfem_retencao_bloco');
   const retTit = document.getElementById('nfem_ret_titulo');
   const retCorp= document.getElementById('nfem_ret_corpo');
