@@ -6668,7 +6668,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado,outraCidade){
         <div class="nfsel-item-id">${o.crm_id||'—'}</div>
         <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
       </div>
-      <div class="nfsel-item-val">R$ ${fmt(_semNF(o.nf_num)&&!o.nf_num?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
+      <div class="nfsel-item-val">R$ ${fmt(_semNF(o.nf_num)?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
     </div>`).join('');
   return `<div class="nfsel-grupo">
     <div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)">
@@ -6694,7 +6694,7 @@ function _nfSelAtualizarTotal(){
     if(!o) return;
     // Se nf_num estava vazio (nunca teve), adiciona acréscimo; se era 000/0000, já está no rec
     const rec=parseFloat(o.rec)||0;
-    total += !o.nf_num ? rec+(_nfAcrescimo||0) : rec;
+    total += _semNF(o.nf_num) ? rec+(_nfAcrescimo||0) : rec;
   });
   document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
 }
