@@ -6654,7 +6654,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado){
       <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado?'checked':''} onchange="_nfSelAtualizarTotal()">
       <div class="nfsel-item-info">
         <div class="nfsel-item-id">${o.crm_id||'—'}</div>
-        <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.bairro?' · '+o.bairro:''}</div>
+        <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
       </div>
       <div class="nfsel-item-val">R$ ${fmt(parseFloat(o.rec)||0)}</div>
     </div>`).join('');
