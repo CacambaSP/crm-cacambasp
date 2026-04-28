@@ -6742,7 +6742,7 @@ function _abrirModalNF(ids){
   disc+=trackLink?'\n\nAcompanhe pelo link: '+trackLink:'';
   document.getElementById('nfem_disc').textContent=disc;
 
-  const recTotal=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(!o.nf_num?r+(_nfAcrescimo||0):r); },0);
+  const recTotal=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(_semNF(o.nf_num)?r+(_nfAcrescimo||0):r); },0);
   const valorNF=recTotal;
   const iss=valorNF*0.024;
   document.getElementById('nfem_valor').textContent='R$ '+fmt(valorNF);
@@ -8496,7 +8496,7 @@ function _reciboRenderLista() {
   if (!_reciboClienteOrdens.length) { lista.innerHTML=''; actions.style.display='none'; return; }
   const cli = _reciboClienteOrdens[0];
   const totalSel = _reciboClienteOrdens.filter(o=>_reciboSelecionados.has(o.id));
-  const totalVal = totalSel.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const totalVal = totalSel.reduce((s,o)=>s+(o.pago?(parseFloat(o.pago_valor||o.rec)||0):(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0)),0);
   const totalPago = totalSel.filter(o=>o.pago).reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
   const totalPendente = totalVal - totalPago;
 
@@ -8518,7 +8518,7 @@ function _reciboRenderLista() {
         ${_reciboClienteOrdens.map(o => {
           const sel = _reciboSelecionados.has(o.id);
           const pago = !!o.pago;
-          const val = parseFloat(o.rec)||0;
+          const val = pago ? (parseFloat(o.pago_valor||o.rec)||0) : (parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0);
           const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
           const statusChip = pago
             ? `<span style="font-size:10px;background:rgba(34,197,94,.15);color:var(--g);border-radius:4px;padding:2px 7px;font-weight:700">✅ Pago${o.pago_em?' · '+new Date(o.pago_em).toLocaleDateString('pt-BR'):''}</span>`
@@ -8595,7 +8595,7 @@ async function gerarReciboImprimir() {
   const pagas     = selecionadas.filter(o => o.pago);
   const pendentes = selecionadas.filter(o => !o.pago);
   const totalPago = pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
-  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0),0);
   const totalGeral= totalPago + totalPend;
 
   // Pix para pendentes
@@ -8620,7 +8620,7 @@ async function gerarReciboImprimir() {
 
   function linhaOrdem(o, tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0);
     const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const corVal=tipo==='pago'?'#16a34a':'#dc2626';
     const statusCell=tipo==='pago'
