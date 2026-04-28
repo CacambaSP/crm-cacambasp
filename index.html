@@ -6656,7 +6656,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado){
         <div class="nfsel-item-id">${o.crm_id||'—'}</div>
         <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
       </div>
-      <div class="nfsel-item-val">R$ ${fmt(parseFloat(o.rec)||0)}</div>
+      <div class="nfsel-item-val">R$ ${fmt((parseFloat(o.rec)||0)+(_nfAcrescimo||0))}</div>
     </div>`).join('');
   return `<div class="nfsel-grupo">
     <div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)">
@@ -6677,7 +6677,7 @@ function _nfSelToggleGrupo(grupoId,marcar){
 function _nfSelAtualizarTotal(){
   const chks=document.querySelectorAll('#nfsel_grupos input[type=checkbox][id^="nfchk_"]:checked');
   let total=0;
-  chks.forEach(cb=>{ const o=ordens.find(x=>x.id===cb.value); if(o) total+=parseFloat(o.rec)||0; });
+  chks.forEach(cb=>{ const o=ordens.find(x=>x.id===cb.value); if(o) total+=(parseFloat(o.rec)||0)+(_nfAcrescimo||0); });
   document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
 }
 
