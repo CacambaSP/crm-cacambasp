@@ -6608,9 +6608,12 @@ function abrirEmitirNF(id){
   if(!c){ toast('Ordem não encontrada','warn'); return; }
   _nfEmitirId = id;
 
+  // Considera sem NF: vazio, '000', '0000' (solicitada mas não emitida)
+  const _semNF = v => { const n=(v||'').replace(/^0+/,''); return !n; };
+
   const semNF = ordens.filter(o=>
     o.id !== id && o.nome === c.nome &&
-    !o.nf_num && !['cancelado','orcamento'].includes(o.col) &&
+    _semNF(o.nf_num) && !['cancelado','orcamento'].includes(o.col) &&
     (parseFloat(o.rec)||0) > 0
   );
 
@@ -6796,7 +6799,7 @@ async function _nfSalvarNumero(){
 
   try{
     for(const o of osLista){
-      const eraVazia = !o.nf_num;
+      const eraVazia = !o.nf_num || !o.nf_num.replace(/^0+/,'');
       const patch = {nf_num: num};
       if(eraVazia && _nfAcrescimo > 0 && (parseFloat(o.rec)||0) > 0){
         const novoRec = (parseFloat(o.rec)||0) + _nfAcrescimo;
