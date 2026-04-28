@@ -8262,6 +8262,7 @@ function _relPgtosForn(){
     const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
     const cod=c.forn_pg_ref||'—';
     const end=[c.logradouro,c.bairro].filter(Boolean).join(', ');
+    const valor=fmt(parseFloat(c.forn_pago_valor||c.cst)||0);
     const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
     return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
