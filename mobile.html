@@ -4963,7 +4963,7 @@ function enviarWA(id) {
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   const d = diasAberto(o);
-  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
+  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(o.tracking_token?encodeURIComponent(o.tracking_token):'id='+encodeURIComponent(o.crm_id)) : '';
   let msg;
   if(o.col==='inadimp') {
     msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
@@ -4998,8 +4998,9 @@ function enviarTracking(id) {
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
-  const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
-  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
+  const url = 'https://cacambasp-crm.vercel.app/tracking.html?token='+(o.tracking_token?encodeURIComponent(o.tracking_token):'id='+encodeURIComponent(o.crm_id));
+  const nome = (o.nome||'').split(' ')[0]||'Cliente';
+  const msg = 'Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+url+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
