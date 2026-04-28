@@ -323,6 +323,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .ia-rodape{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--bor);margin-top:4px}
 .ia-fonte{font-size:10px;color:var(--mut);font-style:italic}
 
+/* ── NF EMITIR MODAL ── */
+#nfEmitirModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px}
+#nfEmitirModal.open{display:flex}
+.nfem-box{background:var(--card);border-radius:var(--rad2);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.nfem-hd{background:#185FA5;color:#E6F1FB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:var(--rad2) var(--rad2) 0 0;font-weight:700;font-size:15px}
+.nfem-hd button{background:none;border:none;color:#B5D4F4;font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.nfem-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.nfem-sec{font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.nfem-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:.5px solid var(--bor);font-size:13px}
+.nfem-row:last-child{border-bottom:none}
+.nfem-lbl{color:var(--mut2);flex-shrink:0;margin-right:8px}
+.nfem-val{color:var(--txt);font-weight:500;text-align:right;word-break:break-word}
+.nfem-disc{font-size:12px;color:var(--txt);line-height:1.5;background:var(--bg2);border-radius:var(--rad3);padding:8px 10px;margin-top:4px;word-break:break-all}
+.nfem-block{background:var(--bg2);border-radius:var(--rad3);padding:10px 12px}
+.nfem-footer{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--rad3);padding:12px;margin-top:4px}
+.nfem-footer-title{font-size:12px;color:#22c55e;font-weight:700;margin-bottom:8px}
+.nfem-save-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.nfem-save-row input{flex:1;padding:8px 10px;border-radius:var(--rad3);border:1px solid var(--bor2);background:var(--card);color:var(--txt);font-size:13px}
 /* ── CONFIRM MODAL ── */
 .confirm-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
 .confirm-bg.open{opacity:1;pointer-events:all}
@@ -1181,11 +1199,12 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm btn-pix" onclick="openPixDoDetail()">⚡ Pix</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
         <button class="btn btn-sm btn-wa" onclick="enviarWAForn()">🚛 WA Forn.</button>
-        <button class="btn btn-sm" onclick="enviarTracking()" title="Enviar link de rastreamento para o cliente" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
+        <button class="btn btn-sm" onclick="copiarTracking()" title="Copiar link de rastreamento" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📍 Tracking</button>
         <button class="btn btn-sm" onclick="gerarOS('cli')">🗒️ OS Cliente</button>
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
         <button class="btn btn-sm" onclick="copiarConfirmacao()" title="Copiar texto de confirmação para enviar ao cliente" style="background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25)">📋 Confirmação</button>
+        <button class="btn btn-sm" id="detailNFBtn" onclick="abrirEmitirNF(_detailId)" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)">🧾 Emitir NF</button>
         <button class="btn btn-sm" id="detailRemFornBtn" onclick="trocarFornecedor(_detailId)" style="display:none;background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3)">🔄 Remover Fornecedor</button>
         <button class="btn btn-sm" id="detailRemarcarBtn" onclick="remarcarEntrega(_detailId)" style="display:none;background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📅 Remarcar</button>
         <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
@@ -1223,6 +1242,7 @@ input[type=checkbox]:checked::after{
         <label>Nº Nota Fiscal</label>
         <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
+        <button class="btn btn-sm" style="margin-top:6px;width:100%;background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)" onclick="abrirEmitirNF(_detailId)">🧾 Emitir NF na prefeitura</button>
       </div>
     </div>
 
@@ -1556,6 +1576,68 @@ input[type=checkbox]:checked::after{
     </div>
     <div class="mb" id="iaAlertaBody" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
       <div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- NF EMITIR MODAL -->
+<div id="nfEmitirModal" onclick="if(event.target===this)document.getElementById('nfEmitirModal').classList.remove('open')">
+  <div class="nfem-box">
+    <div class="nfem-hd">
+      <span>🧾 Emitir Nota Fiscal</span>
+      <button onclick="document.getElementById('nfEmitirModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="nfem-body">
+      <div>
+        <div class="nfem-sec">Tomador</div>
+        <div class="nfem-block">
+          <div class="nfem-row"><span class="nfem-lbl">Nome</span><span class="nfem-val" id="nfem_nome">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">CPF/CNPJ</span><span class="nfem-val" id="nfem_cpf">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">Tipo</span><span class="nfem-val" id="nfem_tipo">—</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="nfem-sec">Local do serviço</div>
+        <div class="nfem-block">
+          <div class="nfem-row"><span class="nfem-lbl">Logradouro</span><span class="nfem-val" id="nfem_end">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">Bairro</span><span class="nfem-val" id="nfem_bairro">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">CEP</span><span class="nfem-val" id="nfem_cep">—</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="nfem-sec">Serviço</div>
+        <div class="nfem-block">
+          <div class="nfem-row"><span class="nfem-lbl">Cód. Serviço</span><span class="nfem-val">7.09 — Varrição, coleta, remoção...</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">Alíquota ISS</span><span class="nfem-val">2,4%</span></div>
+          <div style="margin-top:6px">
+            <div class="nfem-sec" style="margin-bottom:4px">Discriminação (copie para a prefeitura)</div>
+            <div class="nfem-disc" id="nfem_disc">—</div>
+            <button class="btn btn-sm" style="margin-top:6px;width:100%" onclick="_nfCopiarDisc()">📋 Copiar discriminação</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="nfem-sec">Valores</div>
+        <div class="nfem-block">
+          <div class="nfem-row"><span class="nfem-lbl">Valor da Nota</span><span class="nfem-val" id="nfem_valor" style="color:var(--acc);font-size:15px">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">Base de cálculo</span><span class="nfem-val" id="nfem_base">—</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">ISS (2,4%)</span><span class="nfem-val" id="nfem_iss" style="color:var(--r)">—</span></div>
+        </div>
+      </div>
+      <div class="nfem-footer">
+        <div class="nfem-footer-title">✅ Depois de emitir, registre o número aqui</div>
+        <div style="font-size:12px;color:var(--mut2);margin-bottom:6px">
+          1. Clique "Abrir prefeitura" abaixo<br>
+          2. Preencha os dados, resolva o captcha e clique Emitir<br>
+          3. Digite o número da NF gerada e clique Salvar
+        </div>
+        <button class="btn btn-acc" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir prefeitura de Osasco</button>
+        <div class="nfem-save-row">
+          <input type="text" id="nfem_numero_input" placeholder="Nº da NF emitida (ex: 1234)" inputmode="numeric">
+          <button class="btn btn-g" onclick="_nfSalvarNumero()" style="white-space:nowrap">💾 Salvar nº NF</button>
+        </div>
+        <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="nfem_saved_ok">✓ Número da NF salvo com sucesso</div>
+      </div>
     </div>
   </div>
 </div>
@@ -2347,9 +2429,20 @@ function initFilters(){
   });
   // Restaurar filtro persistido: "minhas", outro vendedor específico, ou todos
   const savedVendId = localStorage.getItem('crm_filtro_vend_id');
-  if(_minhasOrdens){
+  // Validar se savedVendId ainda é um usuário existente
+  const savedVendValido = savedVendId && usuarios.some(u => u.id === savedVendId);
+  if(!savedVendValido && savedVendId){
+    localStorage.removeItem('crm_filtro_vend_id');
+    localStorage.removeItem('crm_filtro_vend_nome');
+  }
+  if(isAdmin()){
+    // Admin sempre inicia com Todos (filtro não persiste entre sessões)
+    fv.value = '';
+    _minhasOrdens = false;
+    doFilter();
+  } else if(_minhasOrdens){
     _aplicarMinhasOrdens();
-  } else if(savedVendId){
+  } else if(savedVendValido){
     fv.value = savedVendId;
     doFilter();
   } else {
@@ -2938,7 +3031,7 @@ function selCobrarAgrupado(){
     } else {
       const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
       const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id):'';
+      const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id)):'';
       msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
@@ -4689,7 +4782,7 @@ async function salvarPagoCli(){
     c.pago_parcial_valor=novoAcum;c.pago_parcial_data=dataRest||null;
     c.pago_obs=(obs||'Parcial')+' · Acumulado R$ '+fmt(novoAcum)+' · Falta R$ '+fmt(falta);
     if(falta<=0.01){
-      c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=parseFloat(c.rec);
+      c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=novoAcum;
       autoColPagamento(c);
       toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento quitado!');
     }else{c.col='faltapg';toast('⏳ Entrada R$ '+fmt(val)+' registrada. Falta R$ '+fmt(falta)+(dataRest?' para '+new Date(dataRest+'T12:00:00').toLocaleDateString('pt-BR'):''));}
@@ -4916,7 +5009,7 @@ function enviarPixWA(){
   const c=ordens.find(x=>x.id===_pixCardId);if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   const val=parseFloat(document.getElementById('pix_valor_edit').value)||parseFloat(c.rec)||0;
-  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
   const vend=usuarios.find(u=>u.id===c.usuario_id)||_perfil;
   const marcaNome=vend?.marca_nome||'CaçambaSP';
   const marcaTel=vend?.marca_tel||'(11) 4237-8757';
@@ -4991,13 +5084,24 @@ function enviarWAForn(id){
   const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
   _waFornAbrir(f, msg);
 }
+function copiarTracking(id){
+  const oid=id||_detailId;
+  const c=ordens.find(x=>x.id===oid);
+  if(!c){toast('Ordem não encontrada','warn');return;}
+  if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
+  const link='https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id));
+  navigator.clipboard.writeText(link)
+    .then(()=>toast('📋 Link copiado!'))
+    .catch(()=>toast('Link: '+link,'warn'));
+}
+
 function enviarTracking(id){
   const oid=id||_detailId;
   const c=ordens.find(x=>x.id===oid);
   if(!c){toast('Ordem não encontrada','warn');return;}
   if(!c.cel){toast('Celular não cadastrado na ordem','warn');return;}
   if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
-  const link='https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id);
+  const link='https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id));
   const nome=(c.nome||'').split(' ')[0]||'Cliente';
   const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
   const tel=c.cel.replace(/\D/g,'');
@@ -5007,7 +5111,7 @@ function enviarTracking(id){
 const _waTpl={
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
-    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -5024,7 +5128,7 @@ const _waTpl={
   },
   inadimp:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'');
-    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c.crm_id):'';
+    const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
     const marcaNome=vend?.marca_nome||'CaçambaSP';
@@ -5402,7 +5506,7 @@ function _dispararProximaCobranca(){
     const marcaTel  = vend?.marca_tel||'(11) 4237-8757';
     // Usa o tracking da primeira ordem — mostra todas as ordens em aberto do celular
     const trackLink = c0.crm_id
-      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(c0.crm_id)
+      ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id))
       : '';
     msg = `Olá ${c0.nome||''}! 👋\n\nPassando para informar os pagamentos em aberto:\n\n${linhas}${trackLink}\n\nQualquer dúvida, estamos à disposição! 😊\n_${marcaNome} — ${marcaTel}_`;
   }
@@ -6431,6 +6535,92 @@ function salvarNFDebounce(){
       if(saved){saved.style.display='block';setTimeout(()=>saved.style.display='none',2000);}
     }catch(e){}
   },800);
+}
+
+// ── NF EMITIR ──
+let _nfEmitirId = null;
+
+function abrirEmitirNF(id){
+  const c = ordens.find(x=>x.id===id);
+  if(!c){ toast('Ordem não encontrada','warn'); return; }
+  _nfEmitirId = id;
+
+  // Tomador
+  document.getElementById('nfem_nome').textContent = c.nome || '—';
+  document.getElementById('nfem_cpf').textContent  = c.cpf  || '(não informado)';
+  document.getElementById('nfem_tipo').textContent = c.tipo === 'PJ' ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)';
+  document.getElementById('nfem_end').textContent = c.logradouro || '—';
+  document.getElementById('nfem_bairro').textContent = c.bairro  || '—';
+  document.getElementById('nfem_cep').textContent    = c.cep     || '—';
+
+  // Discriminação
+  const trackLink = c.crm_id
+    ? 'https://cacambasp-crm.vercel.app/tracking.html?token='
+      + (c.tracking_token ? encodeURIComponent(c.tracking_token) : 'id='+encodeURIComponent(c.crm_id))
+    : '';
+  const endDisc = [c.logradouro, c.bairro, (c.cidade||'Osasco')+'/SP'].filter(Boolean).join(', ');
+  const disc = 'Locação de caçamba para coleta de entulho.'
+    + ' Endereço: ' + endDisc + '.'
+    + (c.crm_id ? ' OS: ' + c.crm_id + '.' : '')
+    + (trackLink ? ' Acompanhe pelo link: ' + trackLink : '');
+  document.getElementById('nfem_disc').textContent = disc;
+
+  // Valores
+  const rec     = parseFloat(c.rec) || 0;
+  const valorNF = rec + (_nfAcrescimo || 0);
+  const iss     = valorNF * 0.024;
+  document.getElementById('nfem_valor').textContent = 'R$ ' + fmt(valorNF);
+  document.getElementById('nfem_base').textContent  = 'R$ ' + fmt(valorNF);
+  document.getElementById('nfem_iss').textContent   = 'R$ ' + fmt(iss);
+
+  // Preenche nº existente se já tiver
+  document.getElementById('nfem_numero_input').value = c.nf_num || '';
+  document.getElementById('nfem_saved_ok').style.display = 'none';
+
+  document.getElementById('nfEmitirModal').classList.add('open');
+}
+
+function _nfCopiarDisc(){
+  const disc = document.getElementById('nfem_disc').textContent;
+  navigator.clipboard.writeText(disc).then(()=>toast('📋 Discriminação copiada!','ok')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=disc;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('📋 Discriminação copiada!','ok');
+  });
+}
+
+function _nfAbrirPrefeitura(){
+  window.open('https://nfe.osasco.sp.gov.br/EissnfeWebApp/Portal/Default.aspx','_blank');
+  toast('🌐 Prefeitura aberta em nova aba. Resolva o captcha e preencha os campos.','info',5000);
+}
+
+async function _nfSalvarNumero(){
+  const c = ordens.find(x=>x.id===_nfEmitirId);
+  if(!c){ toast('Ordem não encontrada','warn'); return; }
+  const num = (document.getElementById('nfem_numero_input').value||'').trim();
+  if(!num){ toast('⚠️ Digite o número da NF antes de salvar','warn'); return; }
+
+  const eraVazia = !c.nf_num;
+  const patch = {nf_num: num};
+
+  // Se NF nova: somar acréscimo ao rec (igual ao salvarNFDebounce)
+  if(eraVazia && _nfAcrescimo > 0 && (parseFloat(c.rec)||0) > 0){
+    const novoRec = (parseFloat(c.rec)||0) + _nfAcrescimo;
+    c.rec = novoRec;
+    patch.rec = novoRec;
+  }
+  c.nf_num = num;
+
+  try{
+    await api('ordens?id=eq.'+c.id,'PATCH',patch,tok());
+    document.getElementById('nfem_saved_ok').style.display='block';
+    // Atualizar campo d_nf se o detalhe estiver aberto
+    const inp = document.getElementById('d_nf');
+    if(inp) inp.value = num;
+    toast('✅ NF '+num+' registrada na ordem '+c.crm_id,'ok');
+    if(_detailId===c.id) openDetail(c.id);
+    setTimeout(()=>{ document.getElementById('nfEmitirModal').classList.remove('open'); },1500);
+  }catch(e){
+    toast('Erro ao salvar: '+e,'warn');
+  }
 }
 
 // ── CENTRAL FINANCEIRA ──
@@ -7845,8 +8035,7 @@ function _relPgtosForn(){
     const dataOrdem=c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
     const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
     const cod=c.forn_pg_ref||'—';
-    const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
-    const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
+    const end=[c.logradouro,c.bairro].filter(Boolean).join(', ');
     const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
     return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
@@ -8212,12 +8401,13 @@ async function gerarReciboImprimir() {
     const statusCell=tipo==='pago'
       ?'<span style="color:#16a34a;font-weight:700">✅ Pago'+dataPag+'</span>'
       :'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>';
+    const nfNum=(o.nf_num||'').replace(/^0+/,'');
     return '<tr>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">'+(o.crm_id||'—')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+(o.tipo||'Caçamba')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+dateF(o.data)+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+end+'</td>'
-      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span></td>'
+      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span>'+(nfNum?'<div style="font-size:9px;color:#6b7280;margin-top:2px">🧾 NF '+nfNum+'</div>':'')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:10px;text-align:right">'+statusCell+'</td>'
       +'</tr>';
   }
@@ -9062,17 +9252,21 @@ function _relEvolucao(){
 // ── NOTAS FISCAIS ──
 function renderNF(){
   const nfs=ordens.filter(c=>c.nf_num).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-  if(!nfs.length){document.getElementById('nfLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
-  document.getElementById('nfLista').innerHTML=nfs.map(c=>{
+  const lista=document.getElementById('nfLista');
+  if(!nfs.length){lista.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
+  lista.innerHTML=nfs.map(c=>{
     const imp=(parseFloat(c.rec)||0)*0.12;
     const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)-imp;
-    return `<div class="nf-row">
+    return `<div class="nf-row" style="cursor:pointer" onclick="openDetail('${c.id}')">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700">NF ${c.nf_num} · ${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
       </div>
-      <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
-      <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
+        <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div></div>
+        <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -11012,7 +11206,10 @@ function renderAlertas(){
           </div>
         </div>`;
       }).join('')}
-    </div>`;\n  }\n\n  el.innerHTML = html;
+    </div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 // ── Popular filtro de vendedor (reutilizável) ──
@@ -11071,24 +11268,27 @@ function renderOrcPend(){
     const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : null;
     const vencida = o.orc_validade && new Date(o.orc_validade+'T00:00:00') < new Date();
     const valorFmt = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;display:flex;flex-direction:column;gap:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700;margin-bottom:2px">${o.crm_id||'—'}</div>
-          <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div>
-          <div style="font-size:12px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:12px;color:var(--mut2)">Entrada: ${data}</div>
-          ${isAdmin()?`<div style="font-size:11px;color:var(--mut);margin-top:2px">👤 ${vendNome}</div>`:''}
+    return `<div id="orc-card-${o.id}" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <input type="checkbox" id="orc-chk-${o.id}" onchange="_orcCheckChange()" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0;margin-top:3px;cursor:pointer">
+        <div style="flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700;margin-bottom:2px">${o.crm_id||'—'}</div>
+            <div style="font-size:14px;font-weight:700">${o.nome||'—'}</div>
+            <div style="font-size:12px;color:var(--mut2);margin-top:2px">${[o.bairro,o.cidade].filter(Boolean).join(', ')||'—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--mut2)">Entrada: ${data}</div>
+            ${isAdmin()?`<div style="font-size:11px;color:var(--mut);margin-top:2px">👤 ${vendNome}</div>`:''}
+          </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-left:26px">
         <span style="font-size:11px;background:var(--card);border:1px solid var(--bor);border-radius:20px;padding:3px 10px;color:var(--mut2)">${o.tipo||'—'}</span>
         ${valorFmt!=='—'?`<span style="font-size:12px;font-weight:700;color:var(--g)">${valorFmt}</span>`:''}
         ${validade?`<span style="font-size:11px;border-radius:20px;padding:3px 10px;background:${vencida?'var(--r2)':'var(--card)'};border:1px solid ${vencida?'var(--r3)':'var(--bor)'};color:${vencida?'var(--r)':'var(--mut2)'}">📅 ${vencida?'Vencido':'Válido até'} ${validade}</span>`:''}
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;padding-left:26px">
         <button class="btn btn-sm" onclick="openDetail('${o.id}')">👁 Ver Detalhes</button>
         <button class="btn btn-sm btn-acc" onclick="abrirOrcGerador('${o.id}')">📝 Gerar PDF</button>
         <button class="btn btn-sm" onclick="baixarPDFDireto('${o.id}')" title="Baixar PDF para enviar pelo WhatsApp">⬇️ Baixar PDF</button>
@@ -11099,6 +11299,230 @@ function renderOrcPend(){
       </div>
     </div>`;
   }).join('');
+}
+
+function _orcCheckChange(){
+  const selecionados = document.querySelectorAll('[id^="orc-chk-"]:checked');
+  let barra = document.getElementById('orcBarraAgrupado');
+  // Atualizar borda dos cards
+  document.querySelectorAll('[id^="orc-chk-"]').forEach(chk=>{
+    const card = document.getElementById('orc-card-'+chk.id.replace('orc-chk-',''));
+    if(card) card.style.borderColor = chk.checked ? 'var(--acc)' : 'var(--bor)';
+  });
+  if(selecionados.length >= 2){
+    if(!barra){
+      barra = document.createElement('div');
+      barra.id = 'orcBarraAgrupado';
+      barra.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bor);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;z-index:200;gap:12px';
+      barra.innerHTML = `
+        <span id="orcBarraTexto" style="font-size:13px;color:var(--mut2)"></span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="document.querySelectorAll('[id^=orc-chk-]').forEach(c=>c.checked=false);_orcCheckChange()">✕ Limpar</button>
+          <button class="btn btn-sm btn-acc" onclick="_gerarPDFAgrupado()">📄 PDF agrupado (<span id="orcBarraCnt">0</span>)</button>
+        </div>`;
+      document.body.appendChild(barra);
+    }
+    document.getElementById('orcBarraTexto').textContent = selecionados.length + ' orçamentos selecionados';
+    document.getElementById('orcBarraCnt').textContent = selecionados.length;
+    barra.style.display = 'flex';
+  } else {
+    if(barra) barra.style.display = 'none';
+  }
+}
+
+function _gerarPDFAgrupado(){
+  const selecionados = Array.from(document.querySelectorAll('[id^="orc-chk-"]:checked'));
+  if(selecionados.length < 2){ toast('Selecione ao menos 2 orçamentos','warn'); return; }
+  const ids = selecionados.map(chk => chk.id.replace('orc-chk-',''));
+  const orcs = ids.map(id => ordens.find(o=>o.id===id)).filter(Boolean);
+  if(!orcs.length) return;
+
+  // Modal para digitar valores antes de gerar
+  let modal = document.getElementById('orcAgrupModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'orcAgrupModal';
+    modal.className = 'mbg';
+    modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
+    document.body.appendChild(modal);
+  }
+  const linhasModal = orcs.map((o,i)=>{
+    const val = o.orc_valor ? parseFloat(o.orc_valor) : '';
+    const temNF = !!(o.nf_num);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bor)">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:11px;font-family:var(--mono);color:var(--acc);font-weight:700">'+(o.crm_id||'—')+'</div>'
+      +'<div style="font-size:12px;color:var(--txt)">'+(o.tipo||'—')+' · '+(o.bairro||'—')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut2);cursor:pointer;white-space:nowrap">'
+      +'<input type="checkbox" id="agrup-nf-'+i+'" '+(temNF?'checked':'')+' onchange="_orcAgrupRecalcTotal('+i+')" style="accent-color:var(--acc)"> NF +R$'+_nfAcrescimo
+      +'</label>'
+      +'<span style="font-size:12px;color:var(--mut2)">R$</span>'
+      +'<input type="number" id="agrup-val-'+i+'" value="'+val+'" placeholder="0,00" step="0.01" min="0"'
+      +' oninput="_orcAgrupRecalcTotal()"'
+      +' style="width:100px;background:var(--card);border:1px solid var(--bor);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:13px;font-weight:700;text-align:right">'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
+  modal.innerHTML = '<div class="mbox" style="max-width:480px">'
+    +'<div class="mh">'
+    +'<div class="mh-ico">&#x1F4C4;</div>'
+    +'<div class="mh-txt">'
+    +'<div class="mh-title">PDF Agrupado &#8212; '+orcs.length+' ca&ccedil;ambas</div>'
+    +'<div class="mh-sub">Confirme o valor de cada or&ccedil;amento</div>'
+    +'</div>'
+    +'<button class="mh-close" onclick="document.getElementById(\'orcAgrupModal\').classList.remove(\'open\')">&#x2715;</button>'
+    +'</div>'
+    +'<div style="padding:16px 20px">'
+    +linhasModal
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px solid var(--bor)">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--mut2)">Total: <span id="agrup-total" style="color:var(--acc)">-</span></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn" onclick="document.getElementById(\'orcAgrupModal\').classList.remove(\'open\')">Cancelar</button>'
+    +'<button class="btn btn-acc" id="orcAgrupBtnGerar">&#x1F4C4; Gerar PDF</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+
+  modal.classList.add('open');
+
+  // Calcular total ao digitar
+  const inputs = modal.querySelectorAll('[id^="agrup-val-"]');
+  const atualizarTotal = ()=>{
+    let t = 0;
+    for(let i=0; i<orcs.length; i++){
+      const inp = document.getElementById('agrup-val-'+i);
+      const chkNF = document.getElementById('agrup-nf-'+i);
+      const base = parseFloat(inp?.value)||0;
+      const nf = chkNF?.checked ? (_nfAcrescimo||0) : 0;
+      t += base + nf;
+    }
+    const el = document.getElementById('agrup-total');
+    if(el) el.textContent = t > 0 ? 'R$ '+t.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '-';
+  };
+  window._orcAgrupRecalcTotal = atualizarTotal;
+  inputs.forEach(inp => inp.addEventListener('input', atualizarTotal));
+  atualizarTotal();
+  // Bind do botão gerar sem passar JSON no HTML
+  const btnGerar = document.getElementById('orcAgrupBtnGerar');
+  if(btnGerar) btnGerar.onclick = () => _confirmarPDFAgrupado(ids);
+  // Foca no primeiro input vazio
+  const primeiro = Array.from(inputs).find(i=>!i.value);
+  if(primeiro) setTimeout(()=>primeiro.focus(), 100);
+}
+
+function _confirmarPDFAgrupado(ids){
+  const orcs = ids.map(id => ordens.find(o=>o.id===id)).filter(Boolean);
+  // Pegar valores do modal incluindo acréscimo NF
+  orcs.forEach((o,i)=>{
+    const inp = document.getElementById('agrup-val-'+i);
+    const chkNF = document.getElementById('agrup-nf-'+i);
+    const base = parseFloat(inp?.value)||0;
+    const nf = chkNF?.checked ? (_nfAcrescimo||0) : 0;
+    o._agrup_valor = base + nf;
+    o._agrup_nf = chkNF?.checked || false;
+  });
+
+  document.getElementById('orcAgrupModal')?.classList.remove('open');
+
+  // Usa dados do primeiro orçamento para marca/tema
+  const o0 = orcs[0];
+  const vend = o0 ? (usuarios.find(u=>u.id===o0.usuario_id)||_perfil) : _perfil;
+  const marcaCor   = vend?.marca_cor    || '#f5a623';
+  const marcaNome  = vend?.marca_nome   || 'CaçambaSP';
+  const marcaLogo  = vend?.marca_logo_url || '';
+  const marcaSlogan= vend?.marca_slogan || '';
+  const tc2 = _corContraste(marcaCor);
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const logoHtml = marcaLogo ? `<img src="${marcaLogo}" style="height:48px;object-fit:contain;margin-bottom:6px;display:block">` : '';
+
+  const totalGeral = orcs.reduce((s,o)=>s+(o._agrup_valor||0),0);
+  const totalFmt = totalGeral>0 ? 'R$ '+totalGeral.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+
+  // Linhas da tabela
+  const linhas = orcs.map(o=>{
+    const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
+    const val = o._agrup_valor > 0 ? 'R$ '+o._agrup_valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    const nfTag = o._agrup_nf ? '<div style="font-size:9px;color:#6b7280;margin-top:2px">&#x1F9FE; c/ NF</div>' : '';
+    return '<tr style="border-bottom:1px solid #eee">'
+      +'<td style="padding:8px 10px;font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:700">'+(o.crm_id||'—')+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px">'+(o.tipo||'—')+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px;color:#555">'+end+'</td>'
+      +'<td style="padding:8px 10px;font-size:13px;font-weight:800;text-align:right;color:'+marcaCor+'">'+val+nfTag+'</td>'
+      +'</tr>';
+  }).join('');
+
+  const nomeCliente = o0.nome || '—';
+  const crmIds = orcs.map(o=>o.crm_id||'—').join(' · ');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento Agrupado</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#fff;color:#111;padding:32px;max-width:760px;margin:0 auto}
+    .btn-print{position:fixed;bottom:16px;right:16px;background:#111;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer}
+    @media print{.btn-print{display:none}body{padding:16px}@page{margin:10mm;size:A4}}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;text-align:left}
+    th.r{text-align:right}
+  </style>
+  </head><body>
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
+
+  <!-- Cabeçalho -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${marcaCor};padding-bottom:16px;margin-bottom:20px">
+    <div>
+      ${logoHtml}
+      <div style="font-size:20px;font-weight:800;color:${marcaCor}">${marcaNome}</div>
+      ${marcaSlogan?`<div style="font-size:10px;color:#aaa;margin-top:2px">${marcaSlogan}</div>`:''}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:16px;font-weight:800;color:${marcaCor}">ORÇAMENTO AGRUPADO</div>
+      <div style="font-size:10px;color:#888;font-family:monospace;margin-top:3px">${crmIds}</div>
+      <div style="font-size:10px;color:#888;margin-top:2px">${hoje}</div>
+    </div>
+  </div>
+
+  <!-- Cliente -->
+  <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+    <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Para</div>
+    <div style="font-size:16px;font-weight:800">${nomeCliente}</div>
+    <div style="font-size:11px;color:#666;margin-top:2px">${[o0.logradouro,o0.bairro,o0.cidade].filter(Boolean).join(', ')||''}</div>
+  </div>
+
+  <!-- Tabela -->
+  <table style="margin-bottom:16px">
+    <thead>
+      <tr style="background:${marcaCor}">
+        <th style="color:${tc2}">OS</th>
+        <th style="color:${tc2}">Serviço</th>
+        <th style="color:${tc2}">Endereço</th>
+        <th style="color:${tc2}" class="r">Valor</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+
+  <!-- Total -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+    <div style="background:#111;color:#fff;padding:10px 20px;border-radius:10px;display:flex;gap:20px;align-items:center">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7">${orcs.length} caçamba${orcs.length>1?'s':''} · Total Geral</span>
+      <span style="font-size:18px;font-weight:800;font-family:monospace">${totalFmt}</span>
+    </div>
+  </div>
+
+  <!-- Rodapé -->
+  <div style="border-top:1px solid #eee;padding-top:10px;font-size:9px;color:#aaa;text-align:center">
+    ${marcaNome} · CNPJ: 44.538.708/0001-76 · cacambasp@gmail.com · Gerado em ${hoje}
+  </div>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('Popup bloqueado. Habilite popups para gerar o PDF.','warn');
 }
 
 // ── Sub-aba Gerador de PDF ──
