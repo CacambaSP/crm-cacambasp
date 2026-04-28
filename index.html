@@ -6614,6 +6614,7 @@ function abrirEmitirNF(id){
   const semNF = ordens.filter(o=>
     o.id !== id && o.nome === c.nome &&
     _semNF(o.nf_num) && !['cancelado','orcamento'].includes(o.col) &&
+    !o.cancel_motivo &&
     (parseFloat(o.rec)||0) > 0
   );
 
