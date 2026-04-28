@@ -8122,6 +8122,8 @@ function renderRel(){
 }
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
+let _pgfDebounce=null;
+function _relPgfInput(){clearTimeout(_pgfDebounce);_pgfDebounce=setTimeout(()=>renderRel(),300);}
 function _relPgfFiltrarDOM(q){
   const qL=(q||'').toLowerCase().trim();
   const tbody=document.querySelector('#pgfTabela tbody');
@@ -8225,8 +8227,8 @@ function _relPgtosForn(){
   <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
     <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🔍 Buscar pagamentos a fornecedores</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
-      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="renderRel()" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="_relPgfInput()" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="_relPgfInput()" style="${inputStyle};flex:2;min-width:200px">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="pgfForn" onchange="renderRel()" style="${inputStyle}">
