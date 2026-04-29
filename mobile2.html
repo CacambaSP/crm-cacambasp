@@ -343,7 +343,7 @@ input,select,textarea,button{font-family:var(--font)}
 .detail-action .da-ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .detail-action.da-g{background:rgba(0,255,160,.1);border-color:rgba(0,255,160,.3);color:var(--g);box-shadow:0 0 12px rgba(0,255,160,.08)}
 .detail-action.da-wa{background:rgba(37,211,102,.12);border-color:rgba(37,211,102,.35);color:#25d366;box-shadow:0 0 12px rgba(37,211,102,.1)}
-.detail-action.da-pix{background:rgba(0,200,180,.12);border-color:rgba(0,200,180,.3);color:#32bcad;box-shadow:0 0 12px rgba(0,200,180,.1)}
+.detail-action.da-pix{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3);color:#818cf8;box-shadow:0 0 12px rgba(99,102,241,.1)}
 .detail-action.da-acc{background:rgba(255,168,0,.12);border-color:rgba(255,168,0,.3);color:#ffb020;box-shadow:0 0 12px rgba(255,168,0,.08)}
 .detail-action.da-forn{background:rgba(64,144,255,.12);border-color:rgba(64,144,255,.3);color:var(--b);box-shadow:0 0 12px rgba(64,144,255,.1)}
 .status-block{border-radius:var(--rad2);overflow:hidden;margin-bottom:10px;border:1.5px solid}
@@ -1538,14 +1538,20 @@ function copiarOS(id) {
   })() : '';
   const turnoTxt = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':turno||'';
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-  const texto = `📦 1 caçamba · 📅 ${dateF(o.data)}
-📍 ${endereco}
-👤 ${o.nome||'—'} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
-🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
-📋 OS: ${o.crm_id||'—'}
-
-Por favor, confirme o recebimento desta OS.
-_CaçambaSP_`;
+  const _linhas = [
+    `_Data:_ *${dateF(o.data)}*`,
+    `_Quantidade:_ *${o.qtd||'1'}*`,
+    `_Serviço:_ *${o.tipo||'Locação'}*`,
+    turnoTxt ? `_Turno:_ *${turnoTxt}*` : null,
+    `_Endereço:_ *${endereco}*`,
+    `_Cliente:_ *${o.nome||'—'}*`,
+    `_Telefone:_ *${o.cel||o.wh||'—'}*`,
+    o.cpf ? `_CPF/CNPJ:_ *${o.cpf}*` : null,
+    `_OS:_ *${o.crm_id||'—'}*`,
+    '',
+    'CaçambaSP'
+  ].filter(l=>l!==null);
+  const texto = _linhas.join('\n');
   navigator.clipboard.writeText(texto).then(()=>{
     toast('📋 OS copiada!','ok');
   }).catch(()=>{
@@ -4721,7 +4727,7 @@ function renderDetalhe(id) {
   </div>
   <div class="detail-actions">
     <button class="detail-action da-wa" onclick="enviarWA('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>WA Cliente</button>
-    <button class="detail-action da-pix" onclick="abrirPix('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>Gerar Pix</button>
+    <button class="detail-action da-pix" onclick="copiarOS('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>Copiar OS</button>
     ${tel?`<a class="detail-action" href="tel:+55${tel}" style="text-decoration:none"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</a>`:`<button class="detail-action" style="opacity:.4"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.37 2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16z"/></svg></div>Ligar</button>`}
     <button class="detail-action da-forn" onclick="enviarWAForn('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>WA Forn.</button>
     <button class="detail-action da-acc" onclick="enviarTracking('${o.id}')"><div class="da-ico"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>Tracking</button>
