@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
-<meta name="theme-color" content="#0c0e14">
+<meta name="theme-color" content="#05070f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CaçambaSP">
 <title>CaçambaSP</title>
+<link id="pwa-icon" rel="apple-touch-icon" href="">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <style>
@@ -2117,6 +2118,7 @@ async function loadApp() {
     ]);
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
+    setTimeout(atualizarBadge, 500);
     _usuarios = dbUsrs||[];
     if(dbCfg?.length) {
       dbCfg.forEach(row => {
@@ -2288,6 +2290,55 @@ async function goBack() {
   }
 }
 
+// ── PWA BADGE — conta ordens sem fornecedor ──
+function atualizarBadge() {
+  try {
+    const pendentes = _ordens.filter(o => o.col === 'contratar').length;
+    // Badge nativo (Android Chrome)
+    if ('setAppBadge' in navigator) {
+      pendentes > 0 ? navigator.setAppBadge(pendentes) : navigator.clearAppBadge();
+    }
+    // Ícone dinâmico com canvas (iOS + Android)
+    const logoEl = document.querySelector('.load-logo img') || document.querySelector('.login-ico img');
+    if (!logoEl || !logoEl.complete) return;
+    const size = 192;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // fundo arredondado
+    ctx.fillStyle = '#05070f';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, 40);
+    ctx.fill();
+    // logo centralizado
+    ctx.drawImage(logoEl, 16, 16, size-32, size-32);
+    // badge vermelho se tiver pendentes
+    if (pendentes > 0) {
+      const bx = size - 54, by = 8, br = 30;
+      ctx.fillStyle = '#ff3c5a';
+      ctx.beginPath();
+      ctx.arc(bx, by + br, br, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${pendentes > 9 ? 24 : 28}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pendentes > 99 ? '99+' : String(pendentes), bx, by + br);
+    }
+    const dataUrl = canvas.toDataURL('image/png');
+    // apple-touch-icon dinâmico
+    let link = document.getElementById('pwa-icon');
+    if (!link) { link = document.createElement('link'); link.id = 'pwa-icon'; link.rel = 'apple-touch-icon'; document.head.appendChild(link); }
+    link.href = dataUrl;
+    // favicon dinâmico
+    let fav = document.querySelector('link[rel="icon"]');
+    if (!fav) { fav = document.createElement('link'); fav.rel = 'icon'; document.head.appendChild(fav); }
+    fav.href = dataUrl;
+    // title com contagem
+    document.title = pendentes > 0 ? `(${pendentes}) CaçambaSP` : 'CaçambaSP';
+  } catch(e) { console.warn('badge err', e); }
+}
+
 function renderCurrentView() {
   switch(_currentView) {
     case 'inicio':    renderInicio(); break;
@@ -2302,6 +2353,7 @@ function renderCurrentView() {
     case 'editar':    renderEditar(); break;
     case 'detalhe':   if(_detalheId) renderDetalhe(_detalheId); break;
   }
+  atualizarBadge();
 }
 
 // ── FUNÇÕES DE TURNO E PRAZO ──
