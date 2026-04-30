@@ -2490,7 +2490,7 @@ function _atualizarAlertasBadge() {
   const inadimp = ordens.filter(c=>c.col==='inadimp').length;
   const criticos = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_CRITICO&&!foiCobradoHoje(c)).length;
   const lidos = (() => { try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-  const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).length;
+  const orcPend = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)&&(isAdmin()||o.usuario_id===uid())).length;
   const entregaConf = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)).length;
   const cobrPend = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
   const semForn = ordens.filter(c=>c.col==='contratar'&&!c.forn_id).length;
@@ -3839,7 +3839,7 @@ function renderAlertas(){
   const listaCobr      = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_minhas(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
   const listaCobrOut   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&diasEmAberto(c)<COBR_DIAS_CRITICO&&!foiCobradoHoje(c)&&_outros(c)).sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
   const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-  const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const listaOrc       = ordens.filter(o=>o.col==='orcamento'&&!lidos.includes(o.id)&&(isAdmin()||o.usuario_id===uid())).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   const listaEntrega   = ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_minhas(c));
   const listaEntregaOut= ordens.filter(c=>deveConfirmarEntrega(c)&&!badgeEntregaExpirado(c)&&_outros(c));
   const listaSemForn   = ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&_minhas(c));
