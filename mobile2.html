@@ -2178,7 +2178,7 @@ function initApp() {
   av.style.background = colors[nome.charCodeAt(0)%colors.length]+'33';
   av.style.color = colors[nome.charCodeAt(0)%colors.length];
   // Toggle bar só para admin
-  document.getElementById('toggleBar').style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('toggleBar').style.display = 'flex'; // visível para todos
   buildBottomNav();
   setView('inicio');
   history.pushState(null, '', location.href);
@@ -2252,7 +2252,7 @@ function setView(v, pushStack=true) {
   const showBack = (v==='detalhe'||v==='nova');
   backBtn.style.display = showBack?'flex':'none';
   // Esconder toggle bar em outras views
-  document.getElementById('toggleBar').style.display = (v==='inicio' && isAdmin()) ? 'flex' : 'none';
+  document.getElementById('toggleBar').style.display = (v==='inicio') ? 'flex' : 'none';
   // Esconder filtro vendedores fora de inicio
   const vf = document.getElementById('vendFilter');
   if(vf) vf.style.display = (v==='inicio' && isAdmin()) ? 'flex' : 'none';
@@ -2532,7 +2532,7 @@ function getAcaoPendente(o) {
   // Aguardando entrega (só ag_entrega)
   if(o.col==='ag_entrega') return 'entregar';
   // Precisa cobrar cliente
-  if(!o.pago && (o.col==='entrega'||o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || diasAberto(o)>=3)) return 'cobrar';
+  if(!o.pago && (o.col==='entrega'||o.col==='pagar' || o.col==='faltapg' || o.col==='baixar' || o.col==='receber_cliente' || diasAberto(o)>=3)) return 'cobrar';
   // Precisa pagar fornecedor
   if(o.forn_id && !o.forn_pago && (o.col==='baixar'||o.col==='pagar'||o.col==='entrega') && (o.pago || o.entrega_confirmada)) return 'pagar_forn';
   // Ordem sem ação — not in queue
@@ -2547,7 +2547,7 @@ function getOrdensComAcao(ordens) {
     if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
     if(o.col==='ag_entrega') grupos.entregar.push(o);
     const cobradoHoje = o.cobrado_em && new Date(o.cobrado_em).toDateString()===new Date().toDateString();
-    if(!o.pago && !cobradoHoje && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||diasAberto(o)>=3)) grupos.cobrar.push(o);
+    if(!o.pago && !cobradoHoje && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||o.col==='receber_cliente'||diasAberto(o)>=3)) grupos.cobrar.push(o);
     if(o.forn_id && !o.forn_pago && (o.col==='entrega'||o.col==='baixar'||o.col==='pagar') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
   Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
@@ -4861,31 +4861,23 @@ async function moverColuna(id, colId) {
 
 async function duplicarOrdem(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  // Modal com 3 opções
-  const manterForn = await new Promise(res => {
-    const bg = document.getElementById('confirmModal');
-    document.getElementById('conf_ico').textContent   = '🔁';
-    document.getElementById('conf_title').textContent = 'Duplicar ordem?';
-    document.getElementById('conf_body').innerHTML    = 'Nova OS com os dados do cliente.<br>Data em branco para preencher na hora.';
-    const btns = bg.querySelector('.confirm-btns');
-    btns.innerHTML = `
-      <button class="btn" onclick="_dupResolve(null)">Cancelar</button>
-      <button class="btn acc" onclick="_dupResolve(false)">🔄 Trocar forn.</button>
-      <button class="btn acc" onclick="_dupResolve(true)">🚛 Manter forn.</button>`;
-    window._dupResolve = v => { bg.classList.remove('open'); btns.innerHTML=''; res(v); };
-    bg.classList.add('open');
+  // Sempre duplica sem fornecedor, direto para contratar
+  const ok = await showConfirm({
+    ico:'🔁', title:'Duplicar ordem?',
+    body:'Nova OS com os dados do cliente.<br>Irá para <strong>Contratar</strong> sem fornecedor.',
+    ok:'📋 Duplicar', okClass:'acc'
   });
-  if(manterForn === null) return; // cancelou
+  if(!ok) return;
   try {
     const crm_id = await nextCrmId();
     const body = {
       ...o,
       id: uidGen(), crm_id,
       usuario_id: uid(),
-      col: manterForn ? 'ag_entrega' : 'contratar',
+      col: 'contratar',
       criado_em: nowISO(),
       data: null,
-      forn_id: manterForn ? o.forn_id : null,
+      forn_id: null,
       cobrado_em: null, cancel_motivo: null,
       pago: false, pago_em: null, pago_valor: null, pago_obs: null,
       forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
@@ -4893,7 +4885,7 @@ async function duplicarOrdem(id) {
     };
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
-    toast(`Ordem ${crm_id} criada!`,'ok');
+    toast(`Ordem ${crm_id} criada em Contratar!`,'ok');
     setView('inicio');
   } catch(e){toast('Erro ao duplicar','err');}
 }
