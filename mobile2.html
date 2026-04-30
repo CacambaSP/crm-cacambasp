@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
 <meta name="theme-color" content="#05070f">
+<link rel="manifest" href="/manifest2.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2298,11 +2299,17 @@ async function goBack() {
 function atualizarBadge() {
   try {
     const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
-    const pendentes = _ordens.filter(o =>
+    const orcNovos = _ordens.filter(o =>
       o.col === 'orcamento' &&
       !lidos.includes(o.id) &&
       (isAdmin() || o.usuario_id === uid())
     ).length;
+    const semFornecedor = _ordens.filter(o =>
+      o.col === 'contratar' &&
+      !o.forn_id &&
+      (isAdmin() || o.usuario_id === uid())
+    ).length;
+    const pendentes = orcNovos + semFornecedor;
     // Badge nativo (Android Chrome)
     if ('setAppBadge' in navigator) {
       pendentes > 0 ? navigator.setAppBadge(pendentes) : navigator.clearAppBadge();
