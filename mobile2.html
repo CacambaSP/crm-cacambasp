@@ -2290,10 +2290,15 @@ async function goBack() {
   }
 }
 
-// ── PWA BADGE — conta ordens sem fornecedor ──
+// ── PWA BADGE — conta orçamentos novos não lidos ──
 function atualizarBadge() {
   try {
-    const pendentes = _ordens.filter(o => o.col === 'contratar' && !o.forn_id).length;
+    const lidos = (()=>{ try{ return JSON.parse(localStorage.getItem('orc_lidos')||'[]'); }catch(e){ return []; } })();
+    const pendentes = _ordens.filter(o =>
+      o.col === 'orcamento' &&
+      !lidos.includes(o.id) &&
+      (isAdmin() || o.usuario_id === uid())
+    ).length;
     // Badge nativo (Android Chrome)
     if ('setAppBadge' in navigator) {
       pendentes > 0 ? navigator.setAppBadge(pendentes) : navigator.clearAppBadge();
