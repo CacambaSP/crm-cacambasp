@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP CRM v3.0.0 -->
+<!DOCTYPE html><!-- CaçambaSP CRM v3.0.3 RC-GRP -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -7263,22 +7263,49 @@ function renderExtratoRevisao(){
       const _st=_oa.length===0?'nao_encontrado':(_tp?'ja_pago':'encontrado');
       return{...linha,ordens:_oa,ordem:_oa[0]||null,status:_st,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
     }else if(idLimpo.startsWith('RC')){
-      // ── RC = pagamento individual (1 caçamba só) ──
-      // RC20266211 → busca a ordem cujo crm_id numérico bate com 20266211
-      tipo='normal';
+      // ── RC = pagamento via QR Code individual ──
+      // Busca ordem de referência e expande para TODAS pendentes do mesmo CPF/CNPJ (igual GRP)
+      tipo='grp';
       let matchTipo='id';
       const numRc=idLimpo.replace(/^RC/,'');
       const crmRc=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numRc&&c.col!=='orcamento');
       if(crmRc){
-        ordemMatch=[crmRc];
+        if(crmRc.pago){
+          ordemMatch=[crmRc];
+        } else {
+          const cpfRef=(crmRc.cpf||'').replace(/\D/g,'');
+          const celRef=(crmRc.cel||'').replace(/\D/g,'');
+          let todasRc=[];
+          if(cpfRef.length>=11){
+            todasRc=ordens.filter(c=>c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfRef&&cpfRef);
+          }
+          if(!todasRc.length&&celRef){
+            todasRc=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
+          }
+          if(!todasRc.length) todasRc=[crmRc];
+          let pendRc=todasRc.filter(c=>!c.pago);
+          if(pendRc.length>0&&linha.valorPago>0){
+            const vPago=Math.round(linha.valorPago*100);
+            const sorted=[...pendRc].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
+            let acc=0;const sel=[];
+            for(const o of sorted){
+              const v=Math.round((parseFloat(o.rec)||0)*100);
+              if(acc+v<=vPago){sel.push(o);acc+=v;}
+              if(acc===vPago)break;
+            }
+            if(acc===vPago&&sel.length>0)pendRc=sel;
+          }
+          const excluidas=todasRc.filter(c=>!c.pago&&!pendRc.find(p=>p.id===c.id));
+          _grpExcluidas[idLimpo]=excluidas;
+          ordemMatch=pendRc.length>0?pendRc:todasRc;
+        }
       } else {
-        // Fallback CPF
+        tipo='normal';
         const cpfPag=(linha.cpf||'').replace(/\D/g,'');
         if(cpfPag.length>=11){
           const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
           if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
         }
-        // Fallback nome
         if(!ordemMatch){
           const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
           if(nomePag.length>=4){
@@ -7291,7 +7318,7 @@ function renderExtratoRevisao(){
       const _rcArr=Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
       const _rcPagas=_rcArr.length>0&&_rcArr.every(o=>o.pago);
       const _rcSt=_rcArr.length===0?'nao_encontrado':(_rcPagas?'ja_pago':'encontrado');
-      return{...linha,ordens:_rcArr,ordem:_rcArr[0]||null,status:_rcSt,tipo,matchTipo,ordensExcluidas:[]};
+      return{...linha,ordens:_rcArr,ordem:_rcArr[0]||null,status:_rcSt,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
     }else{
       ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
     }
