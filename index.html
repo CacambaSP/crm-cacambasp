@@ -323,51 +323,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .ia-rodape{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--bor);margin-top:4px}
 .ia-fonte{font-size:10px;color:var(--mut);font-style:italic}
 
-/* ── NF EMITIR MODAL ── */
-#nfEmitirModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px}
-#nfEmitirModal.open{display:flex}
-.nfem-box{background:var(--card);border-radius:var(--rad2);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
-.nfem-hd{background:#185FA5;color:#E6F1FB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:var(--rad2) var(--rad2) 0 0;font-weight:700;font-size:15px}
-.nfem-hd button{background:none;border:none;color:#B5D4F4;font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
-.nfem-body{padding:16px;display:flex;flex-direction:column;gap:12px}
-.nfem-sec{font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.nfem-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:.5px solid var(--bor);font-size:13px}
-.nfem-row:last-child{border-bottom:none}
-.nfem-lbl{color:var(--mut2);flex-shrink:0;margin-right:8px}
-.nfem-val{color:var(--txt);font-weight:500;text-align:right;word-break:break-word}
-.nfem-disc{font-size:12px;color:var(--txt);line-height:1.5;background:var(--bg2);border-radius:var(--rad3);padding:8px 10px;margin-top:4px;word-break:break-all}
-.nfem-block{background:var(--bg2);border-radius:var(--rad3);padding:10px 12px}
-.nfem-footer{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--rad3);padding:12px;margin-top:4px}
-.nfem-footer-title{font-size:12px;color:#22c55e;font-weight:700;margin-bottom:8px}
-.nfem-save-row{display:flex;gap:8px;align-items:center;margin-top:8px}
-.nfem-save-row input{flex:1;padding:8px 10px;border-radius:var(--rad3);border:1px solid var(--bor2);background:var(--card);color:var(--txt);font-size:13px}
-.nfem-retencao{border-radius:var(--rad3);padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:6px}
-.nfem-ret-ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25)}
-.nfem-ret-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3)}
-.nfem-ret-info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3)}
-.nfem-ret-title{font-weight:700;font-size:12px}
-.nfem-ret-ok .nfem-ret-title{color:#22c55e}
-.nfem-ret-warn .nfem-ret-title{color:#f59e0b}
-.nfem-ret-info .nfem-ret-title{color:#60a5fa}
-.nfem-ret-body{color:var(--mut2);font-size:12px;line-height:1.5}
-/* ── NF SELECAO MODAL ── */
-#nfSelModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:16px}
-#nfSelModal.open{display:flex}
-.nfsel-box{background:var(--card);border-radius:var(--rad2);width:100%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)}
-.nfsel-hd{background:#185FA5;color:#E6F1FB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:var(--rad2) var(--rad2) 0 0;font-weight:700;font-size:14px}
-.nfsel-hd button{background:none;border:none;color:#B5D4F4;font-size:18px;cursor:pointer;padding:0 4px}
-.nfsel-body{padding:14px;display:flex;flex-direction:column;gap:10px}
-.nfsel-grupo{border:.5px solid var(--bor2);border-radius:var(--rad3);overflow:hidden}
-.nfsel-grupo-hd{background:var(--bg2);padding:8px 12px;font-size:12px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px;cursor:pointer}
-.nfsel-grupo-hd input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--acc)}
-.nfsel-item{display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:.5px solid var(--bor);font-size:12px}
-.nfsel-item input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--acc)}
-.nfsel-item-info{flex:1;min-width:0}
-.nfsel-item-id{font-weight:700;color:var(--acc);font-size:11px}
-.nfsel-item-det{color:var(--mut2);font-size:11px}
-.nfsel-item-val{font-weight:700;color:var(--txt);white-space:nowrap;font-size:12px}
-.nfsel-total{background:var(--bg2);border-radius:var(--rad3);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
-.nfsel-footer{display:flex;gap:8px;margin-top:4px}
 /* ── CONFIRM MODAL ── */
 .confirm-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
 .confirm-bg.open{opacity:1;pointer-events:all}
@@ -1231,7 +1186,6 @@ input[type=checkbox]:checked::after{
         <button class="btn btn-sm" onclick="gerarOS('forn')">🚛 OS Forn.</button>
         <button class="btn btn-sm" onclick="abrirDuplicarOrdem()" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)" title="Duplicar ordem (Troca ou Nova)">📋 Duplicar</button>
         <button class="btn btn-sm" onclick="copiarConfirmacao()" title="Copiar texto de confirmação para enviar ao cliente" style="background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25)">📋 Confirmação</button>
-        <button class="btn btn-sm" id="detailNFBtn" onclick="abrirEmitirNF(_detailId)" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)">🧾 Emitir NF</button>
         <button class="btn btn-sm" id="detailRemFornBtn" onclick="trocarFornecedor(_detailId)" style="display:none;background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3)">🔄 Remover Fornecedor</button>
         <button class="btn btn-sm" id="detailRemarcarBtn" onclick="remarcarEntrega(_detailId)" style="display:none;background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.25)">📅 Remarcar</button>
         <button class="btn btn-sm btn-r admin-only" id="detailDelBtn" onclick="deletarOrdemAtual()" style="margin-left:auto">🗑</button>
@@ -1269,7 +1223,6 @@ input[type=checkbox]:checked::after{
         <label>Nº Nota Fiscal</label>
         <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
-        <button class="btn btn-sm" style="margin-top:6px;width:100%;background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)" onclick="abrirEmitirNF(_detailId)">🧾 Emitir NF na prefeitura</button>
       </div>
     </div>
 
@@ -1321,10 +1274,6 @@ input[type=checkbox]:checked::after{
   <div class="mbox" style="max-width:500px">
     <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
-      <div id="pf_obs_aviso" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad3);padding:10px 13px;margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Nota do fornecedor</div>
-        <div id="pf_obs_texto" style="font-size:13px;color:var(--acc);line-height:1.5"></div>
-      </div>
       <div class="fi-row">
         <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
         <div class="fi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
@@ -1371,10 +1320,6 @@ input[type=checkbox]:checked::after{
       <button class="mx" onclick="closeModal('pagarFornLoteModal')">✕</button>
     </div>
     <div class="mb">
-      <div id="pflote_obs_aviso" style="display:none;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad3);padding:10px 13px;margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Nota do fornecedor</div>
-        <div id="pflote_obs_texto" style="font-size:13px;color:var(--acc);line-height:1.5"></div>
-      </div>
       <!-- Resumo -->
       <div id="pflote_resumo" style="background:#0d1b2a;border:1px solid #1e3a5f;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <div>
@@ -1611,99 +1556,6 @@ input[type=checkbox]:checked::after{
     </div>
     <div class="mb" id="iaAlertaBody" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
       <div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>
-    </div>
-  </div>
-</div>
-
-<!-- NF EMITIR MODAL -->
-<div id="nfEmitirModal" onclick="if(event.target===this)document.getElementById('nfEmitirModal').classList.remove('open')">
-  <div class="nfem-box">
-    <div class="nfem-hd">
-      <span>🧾 Emitir Nota Fiscal</span>
-      <button onclick="document.getElementById('nfEmitirModal').classList.remove('open')">✕</button>
-    </div>
-    <div class="nfem-body">
-      <div>
-        <div class="nfem-sec">Tomador</div>
-        <div class="nfem-block">
-          <div class="nfem-row"><span class="nfem-lbl">Nome</span><span class="nfem-val" id="nfem_nome">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_nome')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">CPF/CNPJ</span><span class="nfem-val" id="nfem_cpf">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_cpf')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">Tipo</span><span class="nfem-val" id="nfem_tipo">—</span></div>
-        </div>
-      </div>
-      <div>
-        <div class="nfem-sec">Local do serviço</div>
-        <div class="nfem-block">
-          <div class="nfem-row"><span class="nfem-lbl">Logradouro</span><span class="nfem-val" id="nfem_end">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_end')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">Bairro</span><span class="nfem-val" id="nfem_bairro">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_bairro')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">CEP</span><span class="nfem-val" id="nfem_cep">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_cep')" title="Copiar">📋</button></div>
-        </div>
-      </div>
-      <div>
-        <div class="nfem-sec">Serviço</div>
-        <div class="nfem-block">
-          <div class="nfem-row"><span class="nfem-lbl">Cód. Serviço</span><span class="nfem-val">7.09 — Varrição, coleta, remoção...</span></div>
-          <div class="nfem-row"><span class="nfem-lbl">Alíquota ISS</span><span class="nfem-val">2,4%</span></div>
-          <div style="margin-top:6px">
-            <div class="nfem-sec" style="margin-bottom:4px">Discriminação (copie para a prefeitura)</div>
-            <div class="nfem-disc" id="nfem_disc">—</div>
-            <button class="btn btn-sm" style="margin-top:6px;width:100%" onclick="_nfCopiarDisc()">📋 Copiar discriminação</button>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="nfem-sec">Valores</div>
-        <div class="nfem-block">
-          <div class="nfem-row"><span class="nfem-lbl">Valor da Nota</span><span class="nfem-val" id="nfem_valor" style="color:var(--acc);font-size:15px">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_valor')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">Base de cálculo</span><span class="nfem-val" id="nfem_base">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_base')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">ISS (2,4%)</span><span class="nfem-val" id="nfem_iss" style="color:var(--r)">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_iss')" title="Copiar">📋</button></div>
-        </div>
-      </div>
-      <div>
-        <div class="nfem-sec">Retenção de ISS</div>
-        <div class="nfem-retencao" id="nfem_retencao_bloco">
-          <div class="nfem-ret-title" id="nfem_ret_titulo">—</div>
-          <div class="nfem-ret-body" id="nfem_ret_corpo">—</div>
-          <div style="font-size:11px;font-weight:700;color:var(--mut2);margin-top:2px" id="nfem_ret_subst">—</div>
-        </div>
-      </div>
-      <div class="nfem-footer">
-        <div class="nfem-footer-title">✅ Depois de emitir, registre o número aqui</div>
-        <div style="font-size:12px;color:var(--mut2);margin-bottom:6px">
-          1. Clique "Abrir prefeitura" abaixo<br>
-          2. Preencha os dados, resolva o captcha e clique Emitir<br>
-          3. Digite o número da NF gerada e clique Salvar
-        </div>
-        <button class="btn btn-acc" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir prefeitura de Osasco</button>
-        <div class="nfem-save-row">
-          <input type="text" id="nfem_numero_input" placeholder="Nº da NF emitida (ex: 1234)" inputmode="numeric">
-          <button class="btn btn-g" onclick="_nfSalvarNumero()" style="white-space:nowrap">💾 Salvar nº NF</button>
-        </div>
-        <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="nfem_saved_ok">✓ Número da NF salvo com sucesso</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- NF SELECAO MODAL -->
-<div id="nfSelModal" onclick="if(event.target===this)document.getElementById('nfSelModal').classList.remove('open')">
-  <div class="nfsel-box">
-    <div class="nfsel-hd">
-      <span>🧾 Selecionar OS para a Nota Fiscal</span>
-      <button onclick="document.getElementById('nfSelModal').classList.remove('open')">✕</button>
-    </div>
-    <div class="nfsel-body">
-      <div style="font-size:12px;color:var(--mut2)">Encontramos outras OS deste cliente sem NF emitida. Selecione as que deseja incluir na mesma nota.</div>
-      <div id="nfsel_grupos"></div>
-      <div class="nfsel-total">
-        <span style="color:var(--mut2)">Total selecionado</span>
-        <span style="font-weight:800;color:var(--acc);font-size:15px" id="nfsel_total">R$ 0,00</span>
-      </div>
-      <div style="font-size:11px;color:var(--r);display:none" id="nfsel_erro"></div>
-      <div class="nfsel-footer">
-        <button class="btn" style="flex:1" onclick="document.getElementById('nfSelModal').classList.remove('open')">Cancelar</button>
-        <button class="btn btn-acc" style="flex:2" onclick="_nfSelConfirmar()">✅ Confirmar seleção</button>
-      </div>
     </div>
   </div>
 </div>
@@ -4891,13 +4743,6 @@ function openPagarForn(callback){
   document.getElementById('pf_val').value=c.cst||'';
   document.getElementById('pf_data').value=new Date().toISOString().slice(0,10);
   const f=forns.find(s=>s.id===c.forn_id);
-  // Mostrar nota do fornecedor se existir
-  const avisoEl=document.getElementById('pf_obs_aviso');
-  const textoEl=document.getElementById('pf_obs_texto');
-  if(avisoEl&&textoEl){
-    if(f?.obs){avisoEl.style.display='block';textoEl.textContent=f.obs;}
-    else{avisoEl.style.display='none';textoEl.textContent='';}
-  }
   // Gerar etiqueta automática
   const fEtiq = forns.find(s=>s.id===c?.forn_id);
   if(document.getElementById('pf_ref')) document.getElementById('pf_ref').value = _gerarEtiquetaForn(fEtiq);
@@ -6610,260 +6455,6 @@ function salvarNFDebounce(){
   },800);
 }
 
-// ── NF EMITIR ──
-let _nfEmitirId = null;
-let _nfEmitirIds = [];
-
-// _semNF: considera sem NF emitida: vazio, '000', '0000' (só zeros)
-function _semNF(v){ const n=(v||'').replace(/^0+/,''); return !n; }
-
-function _nfNormEnd(s){
-  return _nrm(s||'').replace(/^(rua|r\.|av\.|avenida|al\.|alameda|travessa|tv\.|estrada|est\.|rod\.|rodovia)\s*/,'').trim();
-}
-
-function abrirEmitirNF(id){
-  const c = ordens.find(x=>x.id===id);
-  if(!c){ toast('Ordem não encontrada','warn'); return; }
-  _nfEmitirId = id;
-
-  const semNF = ordens.filter(o=>
-    o.id !== id && o.nome === c.nome &&
-    _semNF(o.nf_num) && !['cancelado','orcamento'].includes(o.col) &&
-    !o.cancel_motivo &&
-    (parseFloat(o.rec)||0) > 0
-  );
-
-  if(!semNF.length){ _nfEmitirIds=[id]; _abrirModalNF([id]); return; }
-
-  const endBase = _nfNormEnd(c.logradouro);
-  const cepBase = (c.cep||'').replace(/\D/g,'');
-  const cidBase = _nrm(c.cidade||'');
-
-  const grupoMesmoEnd = semNF.filter(o=>{
-    const endO=_nfNormEnd(o.logradouro), cepO=(o.cep||'').replace(/\D/g,'');
-    return (cepBase&&cepO&&cepBase===cepO)||(endBase&&endO&&endBase===endO);
-  });
-
-  // Outros endereços: mesma cidade (pode agrupar) + outra cidade (não pode agrupar, só alerta)
-  const outrosMesmaCid = semNF.filter(o=>!grupoMesmoEnd.includes(o)&&_nrm(o.cidade||'')===cidBase);
-  const outrosOutraCid = semNF.filter(o=>!grupoMesmoEnd.includes(o)&&_nrm(o.cidade||'')!==cidBase);
-
-  const mapOutros={};
-  outrosMesmaCid.forEach(o=>{
-    const k=_nfNormEnd(o.logradouro)||o.logradouro||'Sem endereço';
-    if(!mapOutros[k]) mapOutros[k]={label:o.logradouro||'—',cidade:o.cidade||'',outraCidade:false,os:[]};
-    mapOutros[k].os.push(o);
-  });
-  outrosOutraCid.forEach(o=>{
-    const k='_outra_'+(o.cidade||'')+'_'+(_nfNormEnd(o.logradouro)||o.logradouro||'');
-    if(!mapOutros[k]) mapOutros[k]={label:o.logradouro||'—',cidade:o.cidade||'',outraCidade:true,os:[]};
-    mapOutros[k].os.push(o);
-  });
-
-  if(!grupoMesmoEnd.length&&!Object.keys(mapOutros).length){ _nfEmitirIds=[id]; _abrirModalNF([id]); return; }
-
-  const grupos=document.getElementById('nfsel_grupos');
-  grupos.innerHTML='';
-  grupos.innerHTML+=_nfSelGrupoHTML('end_principal',c.logradouro||'—',[c,...grupoMesmoEnd],true,false);
-  Object.entries(mapOutros).forEach(([k,g],i)=>{
-    grupos.innerHTML+=_nfSelGrupoHTML('end_outro_'+i,g.label+(g.cidade?' · '+g.cidade:''),g.os,false,g.outraCidade);
-
-  });
-  _nfSelAtualizarTotal();
-  document.getElementById('nfsel_erro').style.display='none';
-  document.getElementById('nfSelModal').classList.add('open');
-}
-
-function _nfSelGrupoHTML(grupoId,label,os,marcado,outraCidade){
-  const alertaHtml = outraCidade
-    ? `<div style="font-size:11px;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:4px 8px;margin:4px 8px 0">⚠️ Cidade diferente — gerar NF separada</div>`
-    : '';
-  const checks=os.map(o=>`<div class="nfsel-item">
-      <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado&&!outraCidade?'checked':''} onchange="_nfSelAtualizarTotal()">
-      <div class="nfsel-item-info">
-        <div class="nfsel-item-id">${o.crm_id||'—'}</div>
-        <div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div>
-      </div>
-      <div class="nfsel-item-val">R$ ${fmt(_semNF(o.nf_num)?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
-    </div>`).join('');
-  return `<div class="nfsel-grupo">
-    <div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)">
-      <input type="checkbox" id="nfgrp_${grupoId}" ${marcado&&!outraCidade?'checked':''} onclick="event.stopPropagation();_nfSelToggleGrupo('${grupoId}',this.checked)">
-      <span>📍 ${label}</span>
-      <span style="margin-left:auto;font-weight:400;color:var(--mut2)">${os.length} OS</span>
-    </div>${alertaHtml}${checks}</div>`;
-}
-
-function _nfSelToggleGrupo(grupoId,marcar){
-  const grpChk=document.getElementById('nfgrp_'+grupoId);
-  if(grpChk) grpChk.checked=marcar;
-  const grupo=grpChk?.closest('.nfsel-grupo');
-  if(grupo) grupo.querySelectorAll('input[type=checkbox][id^="nfchk_"]').forEach(cb=>cb.checked=marcar);
-  _nfSelAtualizarTotal();
-}
-
-function _nfSelAtualizarTotal(){
-  const chks=document.querySelectorAll('#nfsel_grupos input[type=checkbox][id^="nfchk_"]:checked');
-  let total=0;
-  chks.forEach(cb=>{
-    const o=ordens.find(x=>x.id===cb.value);
-    if(!o) return;
-    // Se nf_num estava vazio (nunca teve), adiciona acréscimo; se era 000/0000, já está no rec
-    const rec=parseFloat(o.rec)||0;
-    total += _semNF(o.nf_num) ? rec+(_nfAcrescimo||0) : rec;
-  });
-  document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
-}
-
-function _nfSelConfirmar(){
-  const chks=[...document.querySelectorAll('#nfsel_grupos input[type=checkbox][id^="nfchk_"]:checked')];
-  const ids=chks.map(cb=>cb.value);
-  if(!ids.length){ const err=document.getElementById('nfsel_erro'); err.textContent='⚠️ Selecione ao menos uma OS.'; err.style.display='block'; return; }
-  const cidades=[...new Set(ids.map(id=>_nrm(ordens.find(x=>x.id===id)?.cidade||'osasco')))];
-  if(cidades.length>1){
-    const err=document.getElementById('nfsel_erro');
-    err.textContent='🚫 OS de cidades diferentes selecionadas juntas — não é possível agrupar em uma única NF. Desmarque as de outra cidade.';
-    err.style.display='block';
-    return;
-  }
-  document.getElementById('nfSelModal').classList.remove('open');
-  _nfEmitirIds=ids;
-  _abrirModalNF(ids);
-}
-
-function _abrirModalNF(ids){
-  const c=ordens.find(x=>x.id===_nfEmitirId);
-  if(!c) return;
-  const cpfVal=(c.cpf||'').trim();
-  const digitosCpf=cpfVal.replace(/\D/g,'').length;
-  const ehPJ=(c.tipo||'').toUpperCase()==='PJ'||digitosCpf===14||cpfVal.includes('/');
-  const tipo=ehPJ?'PJ':'PF';
-  document.getElementById('nfem_nome').textContent=c.nome||'—';
-  document.getElementById('nfem_cpf').textContent=cpfVal||'(não informado)';
-  document.getElementById('nfem_tipo').textContent=ehPJ?'Pessoa Jurídica (PJ)':'Pessoa Física (PF)';
-  document.getElementById('nfem_end').textContent=c.logradouro||'—';
-  document.getElementById('nfem_bairro').textContent=c.bairro||'—';
-  document.getElementById('nfem_cep').textContent=c.cep||'—';
-
-  const osLista=ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
-  const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
-  const endDisc=[c.logradouro,c.bairro,(c.cidade||'Osasco')+'/SP'].filter(Boolean).join(', ');
-  let disc='Locação de caçamba para coleta de entulho. Endereço: '+endDisc+'.';
-  if(osLista.length===1){
-    disc+=(c.crm_id?' OS: '+c.crm_id+'.':'');
-  } else {
-    disc+=' OS agrupadas:';
-    osLista.forEach(o=>{ disc+=' '+(o.crm_id||o.id)+(o.data?' ('+dateF(o.data)+')':'')+';'; });
-  }
-  disc+=trackLink?'\n\nAcompanhe pelo link: '+trackLink:'';
-  document.getElementById('nfem_disc').textContent=disc;
-
-  const recTotal=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(_semNF(o.nf_num)?r+(_nfAcrescimo||0):r); },0);
-  const valorNF=recTotal;
-  const iss=valorNF*0.024;
-  document.getElementById('nfem_valor').textContent='R$ '+fmt(valorNF);
-  document.getElementById('nfem_base').textContent='R$ '+fmt(valorNF);
-  document.getElementById('nfem_iss').textContent='R$ '+fmt(iss);
-
-  const cidade=_nrm(c.cidade||'osasco');
-  const bloco=document.getElementById('nfem_retencao_bloco');
-  const retTit=document.getElementById('nfem_ret_titulo');
-  const retCorp=document.getElementById('nfem_ret_corpo');
-  const retSubst=document.getElementById('nfem_ret_subst');
-  bloco.className='nfem-retencao';
-  if(cidade==='osasco'||cidade===''){
-    bloco.classList.add('nfem-ret-ok');
-    retTit.textContent='✅ Subst. Trib.: NÃO — cliente paga valor integral';
-    retCorp.textContent='Simples Nacional: ISS recolhido via PGDAS/DAS. Cliente paga o valor cheio da NF.';
-    retSubst.textContent='Subst.Trib./Ret: NÃO · Regime: Auto-Lançado | Simples Nacional';
-  } else if(cidade==='sao paulo'||cidade==='sp'){
-    if(tipo==='PJ'){
-      bloco.classList.add('nfem-ret-info');
-      retTit.textContent='⚠️ Subst. Trib.: SIM — tomador PJ desconta ISS';
-      retCorp.textContent='SP + PJ: cliente retém o ISS (2,4%) e recolhe para a Prefeitura de SP. Você recebe o valor já com ISS descontado.';
-      retSubst.textContent='Subst.Trib./Ret: SIM · Tomador recolhe o ISS para SP';
-    } else {
-      bloco.classList.add('nfem-ret-ok');
-      retTit.textContent='✅ Subst. Trib.: NÃO — cliente paga valor integral';
-      retCorp.textContent='SP + PF: sem retenção. ISS recolhido pela sua empresa via PGDAS/DAS.';
-      retSubst.textContent='Subst.Trib./Ret: NÃO · Recolhimento pela prestadora via PGDAS';
-    }
-  } else {
-    bloco.classList.add('nfem-ret-warn');
-    retTit.textContent='⚠️ Subst. Trib.: NÃO — verificar legislação local';
-    retCorp.textContent='Serviço em '+(c.cidade||'outro município')+': confirme a regra de retenção com a prefeitura local.';
-    retSubst.textContent='Subst.Trib./Ret: NÃO · Confirme alíquota local';
-  }
-
-  document.getElementById('nfem_numero_input').value='';
-  document.getElementById('nfem_saved_ok').style.display='none';
-  document.getElementById('nfEmitirModal').classList.add('open');
-}
-
-function _nfCopiar(elId){
-  const el = document.getElementById(elId);
-  if(!el) return;
-  // Para valores monetários, copia só o número (sem R$)
-  let txt = el.textContent || '';
-  if(elId === 'nfem_valor' || elId === 'nfem_base' || elId === 'nfem_iss'){
-    txt = txt.replace('R$ ','').trim();
-  }
-  navigator.clipboard.writeText(txt).then(()=>{
-    toast('📋 Copiado: ' + txt.slice(0,30) + (txt.length>30?'…':''), 'ok');
-  }).catch(()=>{
-    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
-    toast('📋 Copiado!','ok');
-  });
-}
-
-function _nfCopiarDisc(){
-  const disc = document.getElementById('nfem_disc').textContent;
-  navigator.clipboard.writeText(disc).then(()=>toast('📋 Discriminação copiada!','ok')).catch(()=>{
-    const ta=document.createElement('textarea');ta.value=disc;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('📋 Discriminação copiada!','ok');
-  });
-}
-
-function _nfAbrirPrefeitura(){
-  window.open('https://nfe.osasco.sp.gov.br/EissnfeWebApp/Portal/Default.aspx','_blank');
-  toast('🌐 Prefeitura aberta em nova aba. Resolva o captcha e preencha os campos.','info',5000);
-}
-
-async function _nfSalvarNumero(){
-  const num = (document.getElementById('nfem_numero_input').value||'').trim();
-  if(!num){ toast('⚠️ Digite o número da NF antes de salvar','warn'); return; }
-
-  const ids = (_nfEmitirIds && _nfEmitirIds.length) ? _nfEmitirIds : [_nfEmitirId];
-  const osLista = ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
-  if(!osLista.length){ toast('Ordem não encontrada','warn'); return; }
-
-  try{
-    for(const o of osLista){
-      const patch = {nf_num: num};
-      // Só soma acréscimo se o nf_num estava completamente vazio (nunca teve NF)
-      // Se era 000/0000, o acréscimo já foi somado quando o 000 foi registrado
-      const eraVazia = !o.nf_num;
-      if(eraVazia && _nfAcrescimo > 0 && (parseFloat(o.rec)||0) > 0){
-        const novoRec = (parseFloat(o.rec)||0) + _nfAcrescimo;
-        o.rec = novoRec;
-        patch.rec = novoRec;
-      }
-      o.nf_num = num;
-      await api('ordens?id=eq.'+o.id,'PATCH',patch,tok());
-    }
-    document.getElementById('nfem_saved_ok').style.display='block';
-    const inp = document.getElementById('d_nf');
-    if(inp && ids.includes(_detailId)) inp.value = num;
-    const msg = ids.length > 1
-      ? '✅ NF '+num+' registrada em '+ids.length+' OS'
-      : '✅ NF '+num+' registrada na ordem '+(osLista[0].crm_id||'');
-    toast(msg,'ok');
-    if(ids.includes(_detailId)) openDetail(_detailId);
-    setTimeout(()=>{ document.getElementById('nfEmitirModal').classList.remove('open'); },1500);
-  }catch(e){
-    toast('Erro ao salvar: '+e,'warn');
-  }
-}
-
 // ── CENTRAL FINANCEIRA ──
 function setFinFiltro(f){
   _finFiltro=f;_finSel.clear();
@@ -7671,6 +7262,36 @@ function renderExtratoRevisao(){
       const _tp=_oa.length>0&&_oa.every(o=>o.pago);
       const _st=_oa.length===0?'nao_encontrado':(_tp?'ja_pago':'encontrado');
       return{...linha,ordens:_oa,ordem:_oa[0]||null,status:_st,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
+    }else if(idLimpo.startsWith('RC')){
+      // ── RC = pagamento individual (1 caçamba só) ──
+      // RC20266211 → busca a ordem cujo crm_id numérico bate com 20266211
+      tipo='normal';
+      let matchTipo='id';
+      const numRc=idLimpo.replace(/^RC/,'');
+      const crmRc=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numRc&&c.col!=='orcamento');
+      if(crmRc){
+        ordemMatch=[crmRc];
+      } else {
+        // Fallback CPF
+        const cpfPag=(linha.cpf||'').replace(/\D/g,'');
+        if(cpfPag.length>=11){
+          const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
+          if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
+        }
+        // Fallback nome
+        if(!ordemMatch){
+          const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
+          if(nomePag.length>=4){
+            const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&
+              (c.nome||'').toLowerCase().split(' ')[0]===nomePag);
+            if(cands.length>=1){ordemMatch=cands;matchTipo='nome';}
+          }
+        }
+      }
+      const _rcArr=Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
+      const _rcPagas=_rcArr.length>0&&_rcArr.every(o=>o.pago);
+      const _rcSt=_rcArr.length===0?'nao_encontrado':(_rcPagas?'ja_pago':'encontrado');
+      return{...linha,ordens:_rcArr,ordem:_rcArr[0]||null,status:_rcSt,tipo,matchTipo,ordensExcluidas:[]};
     }else{
       ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
     }
@@ -8031,13 +7652,6 @@ function _pgfornAbrirModalLote(fid,pend){
   _pfloteAtualizarTotal();
   // Bairros
   _pfloteRenderBairros(fid,pend,cstPadrao);
-  // Nota do fornecedor
-  const pfAvisoEl=document.getElementById('pflote_obs_aviso');
-  const pfTextoEl=document.getElementById('pflote_obs_texto');
-  if(pfAvisoEl&&pfTextoEl){
-    if(f?.obs){pfAvisoEl.style.display='block';pfTextoEl.textContent=f.obs;}
-    else{pfAvisoEl.style.display='none';pfTextoEl.textContent='';}
-  }
   openModal('pagarFornLoteModal');
 }
 
@@ -8144,8 +7758,6 @@ function renderRel(){
 }
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
-let _pgfDebounce=null;
-function _relPgfInput(){clearTimeout(_pgfDebounce);_pgfDebounce=setTimeout(()=>renderRel(),600);}
 function _relPgfFiltrarDOM(q){
   const qL=(q||'').toLowerCase().trim();
   const tbody=document.querySelector('#pgfTabela tbody');
@@ -8249,8 +7861,8 @@ function _relPgtosForn(){
   <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
     <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🔍 Buscar pagamentos a fornecedores</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="_relPgfInput()" style="${inputStyle};flex:2;min-width:200px">
-      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="_relPgfInput()" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfQ" type="text" placeholder="🔍 Nome cliente, endereço, bairro, CRM..." value="${q}" oninput="_relPgfFiltrarDOM(this.value)" style="${inputStyle};flex:2;min-width:200px">
+      <input id="pgfCodigo" type="text" placeholder="🔑 Código ex: Uliana_15042026_1556" value="${fCodigo}" oninput="_relPgfCodigoFiltrarDOM(this.value)" style="${inputStyle};flex:2;min-width:200px">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="pgfForn" onchange="renderRel()" style="${inputStyle}">
@@ -8285,8 +7897,8 @@ function _relPgtosForn(){
     const dataOrdem=c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
     const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
     const cod=c.forn_pg_ref||'—';
-    const end=[c.logradouro,c.bairro].filter(Boolean).join(', ');
-    const valor=fmt(parseFloat(c.forn_pago_valor||c.cst)||0);
+    const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
+    const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
     const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
     return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
@@ -8522,7 +8134,7 @@ function _reciboRenderLista() {
   if (!_reciboClienteOrdens.length) { lista.innerHTML=''; actions.style.display='none'; return; }
   const cli = _reciboClienteOrdens[0];
   const totalSel = _reciboClienteOrdens.filter(o=>_reciboSelecionados.has(o.id));
-  const totalVal = totalSel.reduce((s,o)=>s+(o.pago?(parseFloat(o.pago_valor||o.rec)||0):(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0)),0);
+  const totalVal = totalSel.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const totalPago = totalSel.filter(o=>o.pago).reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
   const totalPendente = totalVal - totalPago;
 
@@ -8544,7 +8156,7 @@ function _reciboRenderLista() {
         ${_reciboClienteOrdens.map(o => {
           const sel = _reciboSelecionados.has(o.id);
           const pago = !!o.pago;
-          const val = pago ? (parseFloat(o.pago_valor||o.rec)||0) : (parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0);
+          const val = parseFloat(o.rec)||0;
           const end = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
           const statusChip = pago
             ? `<span style="font-size:10px;background:rgba(34,197,94,.15);color:var(--g);border-radius:4px;padding:2px 7px;font-weight:700">✅ Pago${o.pago_em?' · '+new Date(o.pago_em).toLocaleDateString('pt-BR'):''}</span>`
@@ -8621,7 +8233,7 @@ async function gerarReciboImprimir() {
   const pagas     = selecionadas.filter(o => o.pago);
   const pendentes = selecionadas.filter(o => !o.pago);
   const totalPago = pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
-  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0),0);
+  const totalPend = pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const totalGeral= totalPago + totalPend;
 
   // Pix para pendentes
@@ -8646,7 +8258,7 @@ async function gerarReciboImprimir() {
 
   function linhaOrdem(o, tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0);
     const dataPag=tipo==='pago'&&o.pago_em?' · '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const corVal=tipo==='pago'?'#16a34a':'#dc2626';
     const statusCell=tipo==='pago'
@@ -9503,21 +9115,17 @@ function _relEvolucao(){
 // ── NOTAS FISCAIS ──
 function renderNF(){
   const nfs=ordens.filter(c=>c.nf_num).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-  const lista=document.getElementById('nfLista');
-  if(!nfs.length){lista.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
-  lista.innerHTML=nfs.map(c=>{
+  if(!nfs.length){document.getElementById('nfLista').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF cadastrada</div>';return;}
+  document.getElementById('nfLista').innerHTML=nfs.map(c=>{
     const imp=(parseFloat(c.rec)||0)*0.12;
     const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0)-imp;
-    return `<div class="nf-row" style="cursor:pointer" onclick="openDetail('${c.id}')">
+    return `<div class="nf-row">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700">NF ${c.nf_num} · ${c.nome||'-'}</div>
         <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
-        <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div></div>
-        <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
-      </div>
+      <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</div>
+      <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(imp)}</div></div>
     </div>`;
   }).join('');
 }
