@@ -522,6 +522,8 @@ input,select,textarea,button{font-family:var(--font)}
 .alerta-dias{font-size:11px;color:var(--mut2);margin-left:auto}
 .alerta-actions{display:flex;gap:6px;margin-top:2px}
 </style>
+<!-- OneSignal -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 </head>
 <body>
 
@@ -2181,6 +2183,8 @@ function initApp() {
   document.getElementById('toggleBar').style.display = 'flex'; // visível para todos
   buildBottomNav();
   setView('inicio');
+  initServiceWorker();
+  initOneSignal();
   history.pushState(null, '', location.href);
   let _backDebounce = false;
   window.addEventListener('popstate', async function handleBack() {
@@ -5465,6 +5469,46 @@ Qualquer dúvida estamos à disposição! 😊`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
+
+// ── SERVICE WORKER + ONESIGNAL ──
+let _swReg = null;
+async function initServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    _swReg = await navigator.serviceWorker.register('/sw.js');
+    console.log('SW registrado mobile2');
+  }catch(e){ console.warn('SW falhou:', e); }
+}
+async function initOneSignal(){
+  try{
+    if(window._oneSignalInited) return;
+    window._oneSignalInited = true;
+    if(!window.OneSignalDeferred) window.OneSignalDeferred=[];
+    window.OneSignalDeferred.push(async (OneSignal)=>{
+      try{ await OneSignal.init({
+        appId: 'c2dbdd20-6f19-433f-8106-f45d3e37714d',
+        serviceWorkerPath: '/sw.js',
+        notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true,
+      }); }catch(e){ if(!(e?.message||'').includes('already')) throw e; }
+      const userId = _perfil?.id || _user?.user?.id;
+      if(userId){ try{ await OneSignal.login(userId); }catch(e){ console.warn('OneSignal login:',e); } }
+      if(Notification.permission === 'granted'){
+        try{
+          const ok = await OneSignal.User.PushSubscription.optedIn;
+          if(!ok) await OneSignal.User.PushSubscription.optIn();
+          await new Promise(r=>setTimeout(r,2000));
+          const subId = OneSignal.User.PushSubscription.id;
+          const token = tok();
+          if(subId && userId && token && (!_perfil?.onesignal_id || _perfil.onesignal_id !== subId)){
+            await api('perfis?id=eq.'+userId,'PATCH',{onesignal_id: subId},token);
+            if(_perfil) _perfil.onesignal_id = subId;
+          }
+        }catch(e){}
+      }
+    });
+  }catch(e){ console.warn('OneSignal erro:',e); }
+}
 </script>
 </body>
 </html>
