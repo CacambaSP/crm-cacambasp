@@ -6074,7 +6074,7 @@ function calcularFechamento(){
   }
 
   // CLAUDIA
-  if(f.claudia.vendedor){
+  if(f.claudia.vendedor && _deveIncluir(f.claudia.vendedor)){
     const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
       + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
       + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
@@ -6095,7 +6095,7 @@ function calcularFechamento(){
   }
 
   // SANDRA
-  if(f.sandra.vendedor){
+  if(f.sandra.vendedor && _deveIncluir(f.sandra.vendedor)){
     const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
       + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
       + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
@@ -6201,6 +6201,9 @@ async function salvarFechamento(){
   const f = _fechamentoAtual;
   const mes = f.mes+'-01'; // ex: 2026-03-01
 
+  // Se há vendedor específico filtrado, salva apenas ele
+  const filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
+
   const registros = [];
 
   // Helper: filtra apenas ordens com check marcado
@@ -6210,7 +6213,10 @@ async function salvarFechamento(){
     return !!window._fechDesmarcar[c.id+'_ativo'];
   });
 
-  if(f.luciana.vendedor && f.luciana.ordens.length){
+  // Se filtro ativo, pula vendedores que não são o selecionado
+  const _deveIncluir = (vend) => !filtroVendId || (vend?.id === filtroVendId);
+
+  if(f.luciana.vendedor && f.luciana.ordens.length && _deveIncluir(f.luciana.vendedor)){
     const ativ = _ordsAtivas(f.luciana.ordens);
     if(!ativ.length) {} else
     registros.push({
@@ -6225,7 +6231,7 @@ async function salvarFechamento(){
       status: 'pendente'
     });
   }
-  if(f.leticia && f.leticia.vendedor && f.leticia.ordens.length){
+  if(f.leticia && f.leticia.vendedor && f.leticia.ordens.length && _deveIncluir(f.leticia.vendedor)){
     const ativ = _ordsAtivas(f.leticia.ordens);
     if(!ativ.length) {} else
     registros.push({
@@ -6255,7 +6261,7 @@ async function salvarFechamento(){
       status: 'pendente'
     });
   }
-  if(f.ricardo.vendedor && f.ricardo.ordens.length){
+  if(f.ricardo.vendedor && f.ricardo.ordens.length && _deveIncluir(f.ricardo.vendedor)){
     registros.push({
       mes, usuario_id: f.ricardo.vendedor.id,
       total_ordens: f.ricardo.ordens.length,
