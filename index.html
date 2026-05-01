@@ -6126,7 +6126,7 @@ function calcularFechamento(){
 
   // Botão salvar fechamento
   html += `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button>
+    <button class="btn btn-acc" onclick="if(confirm('⚠️ Isso salva TODOS os vendedores de uma vez!\n\nPara salvar apenas um vendedor específico, use o botão 💾 no card dele.\n\nContinuar?')) salvarFechamento()">💾 Salvar Todos</button>
     <button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button>
   </div>`;
 
