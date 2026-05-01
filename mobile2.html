@@ -5540,6 +5540,38 @@ function pushContratar(ordem){
     });
   }catch(e){console.warn('Push contratar falhou:',e);}
 }
+
+// ── Reativar notificações / re-registrar no OneSignal ──
+async function reativarNotificacoes() {
+  try {
+    if(!('Notification' in window)){ toast('Notificações não suportadas','err'); return; }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ toast('Permissão negada — ative nas configurações do celular','err'); return; }
+    toast('Registrando notificações...','ok');
+    if(!window.OneSignalDeferred) window.OneSignalDeferred=[];
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      try {
+        await OneSignal.User.PushSubscription.optIn();
+        await new Promise(r=>setTimeout(r,3000));
+        const subId = OneSignal.User.PushSubscription.id;
+        const userId = _perfil?.id || _user?.user?.id;
+        const token = tok();
+        if(subId && userId && token){
+          await api('perfis?id=eq.'+userId,'PATCH',{onesignal_id: subId},token);
+          if(_perfil) _perfil.onesignal_id = subId;
+          toast('✅ Notificações ativadas!','ok');
+        } else {
+          toast('Aguarde e tente novamente','err');
+        }
+      } catch(e){ toast('Erro: '+e.message,'err'); }
+    });
+  } catch(e){ toast('Erro ao ativar notificações','err'); }
+}
+
+async function verificarNotifBtn() {
+  const btn = document.getElementById('notifBtn');
+  if(btn) btn.style.display='flex';
+}
 </script>
 </body>
 </html>
