@@ -5604,7 +5604,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── helper: monta bloco modelo luciana para qualquer vendedor ──
   function _blocoModeloLuciana(uVend){
     if(!uVend) return { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
-    const ords = ordens_mes.filter(c => c.usuario_id===uVend.id && (c.pago || c.comissao_liberada));
+    const ords = ordens_mes.filter(c => c.usuario_id===uVend.id);
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
     return {
       vendedor: uVend,
@@ -5621,7 +5621,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── RICARDO — R$15 fixo por ordem paga ou liberada ──
   let ricardo = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
   if(uRicardo){
-    const ords = ordens_mes.filter(c => c.usuario_id===uRicardo.id && (c.pago || c.comissao_liberada));
+    const ords = ordens_mes.filter(c => c.usuario_id===uRicardo.id);
     const total = ords.length * 15;
     ricardo = {
       vendedor: uRicardo,
@@ -5635,7 +5635,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── CLAUDIA — R$1.000 fixo + split após descontos ──
   let claudia = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
   if(uClaudia){
-    const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id && (c.pago || c.comissao_liberada));
+    const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id);
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
     const apos_anuncio = somaLL - (anuncioClaudia||0);
     const restante = Math.max(apos_anuncio, 0);
@@ -5656,7 +5656,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── SANDRA — R$300 fixo + split 40/30/30 após anúncio ──
   let sandra = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0, totalClaudia:0 };
   if(uSandra){
-    const ords = ordens_mes.filter(c => c.usuario_id===uSandra.id && (c.pago || c.comissao_liberada));
+    const ords = ordens_mes.filter(c => c.usuario_id===uSandra.id);
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
     const apos_anuncio = Math.max(somaLL - (anuncioSandra||0), 0);
     const split40 = apos_anuncio * 0.40;
@@ -5838,68 +5838,36 @@ function calcularFechamento(){
   // Data limite: primeiro dia do mês SEGUINTE (nunca inclui ordens futuras)
   const limiteMax = new Date(ano, mes, 1); // ex: 1/jun se mes=mai
 
-  // 1) Ordens pagas dentro do mês selecionado
-  const srcPagas = ordens.filter(c => {
-    if(!c.pago || !c.pago_em || c.col==='orcamento') return false;
-    const d = new Date(c.pago_em);
+  // 1) Todas as ordens do mês (pagas ou não), usando data da ordem como referência
+  const srcMes = ordens.filter(c => {
+    if(c.col==='orcamento') return false;
+    if(!c.data) return false;
+    const d = new Date(c.data+'T12:00:00');
     return d.getMonth()+1===mes && d.getFullYear()===ano;
   });
 
-  // 2) Ordens NÃO pagas de meses ANTERIORES com comissao_liberada=true (aguardando inclusão)
-  const srcLiberadas = ordens.filter(c => {
-    if(c.pago || c.col==='orcamento' || !c.comissao_liberada) return false;
+  // 2) Ordens de meses ANTERIORES não pagas (qualquer status) — vêm sem check por padrão
+  const srcAnteriores = ordens.filter(c => {
+    if(c.pago || c.col==='orcamento') return false;
     if(!c.data) return false;
     const d = new Date(c.data+'T12:00:00');
-    return d < limiteMax; // só datas anteriores ao mês seguinte
-  });
-
-  // 3) Ordens NÃO pagas de meses ANTERIORES sem comissao_liberada (pendentes para decisão)
-  const srcPendentes = ordens.filter(c => {
-    if(c.pago || c.col==='orcamento' || c.comissao_liberada) return false;
-    if(!c.data) return false;
-    const d = new Date(c.data+'T12:00:00');
-    // Apenas de meses anteriores ao selecionado
     return d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
   });
 
-  const src = [...srcPagas, ...srcLiberadas];
+  // Junta tudo — mês atual + anteriores não pagas
+  const src = [...srcMes, ...srcAnteriores];
 
-  // Mostrar aviso de pendentes se houver
-  const _avisoHtml = srcPendentes.length > 0 ? `
-    <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:8px">⚠️ ${srcPendentes.length} ordem(ns) de meses anteriores sem pagamento</div>
-      <div style="font-size:11px;color:var(--mut2);margin-bottom:10px">Você pode liberar a comissão de cada uma individualmente. As não liberadas aparecerão novamente no próximo fechamento.</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${srcPendentes.map(c=>{
-          const u = usuarios.find(x=>x.id===c.usuario_id);
-          const nomeVend = u?.nome||'—';
-          const dataOrd = c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
-          const llVal = calcLucroLiquido(c);
-          return `<div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:0">
-              <span style="font-weight:600;font-size:12px">${c.crm_id||'—'}</span>
-              <span style="font-size:11px;color:var(--mut2);margin-left:8px">${c.nome||'—'} · ${c.bairro||'—'} · ${dataOrd}</span>
-            </div>
-            <span style="font-size:11px;color:var(--mut2)">${nomeVend}</span>
-            <span style="font-weight:700;color:var(--g);font-family:var(--mono);font-size:12px">R$ ${fmt(llVal)}</span>
-            <button class="btn btn-sm btn-g" onclick="liberarComissaoOrdem('${c.id}')">⭐ Liberar</button>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
-
-  document.getElementById('fechResultado').innerHTML = _avisoHtml + '<div id="fechCards"></div>';
+  document.getElementById('fechResultado').innerHTML = '<div id="fechCards"></div>';
 
   if(!src.length){
     document.getElementById('fechCards').innerHTML =
-      '<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem com pagamento registrado no período.<br><small style="font-size:11px">Verifique se as ordens estão marcadas como pagas com data.</small></div>';
+      '<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem encontrada no período.<br><small style="font-size:11px">Verifique se há ordens cadastradas com data neste mês.</small></div>';
     return;
   }
 
   _fechamentoAtual = _calcFechamento(src, anuncioC, anuncioS);
   _fechamentoAtual.mes = mesVal;
   _fechamentoAtual.totalOrdens = src.length;
-  _fechamentoAtual._srcPendentes = srcPendentes;
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -5933,7 +5901,6 @@ function calcularFechamento(){
   if(!window._fechDesmarcar) window._fechDesmarcar = {};
 
   const _recalcularCard = (uid) => {
-    // Recalcula total do vendedor excluindo desmarcadas
     const bloco = _fechamentoAtual && (
       (_fechamentoAtual.luciana?.vendedor?.id===uid && _fechamentoAtual.luciana) ||
       (_fechamentoAtual.leticia?.vendedor?.id===uid && _fechamentoAtual.leticia) ||
@@ -5942,7 +5909,13 @@ function calcularFechamento(){
       (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
     );
     if(!bloco) return;
-    const ordsAtivas = bloco.ordens.filter(({c})=>!window._fechDesmarcar[c.id]);
+    // Ordem paga: incluída por padrão a menos que desmarcada
+    // Ordem não paga: excluída por padrão a menos que marcada (_ativo)
+    const ordsAtivas = bloco.ordens.filter(({c})=>{
+      const isPago = c.pago || c.comissao_liberada;
+      if(isPago) return !window._fechDesmarcar[c.id];
+      return !!window._fechDesmarcar[c.id+'_ativo'];
+    });
     const novoTotal = bloco.modelo==='ricardo'
       ? ordsAtivas.length * 15
       : ordsAtivas.reduce((s,{ll})=>s+ll, 0);
@@ -5954,12 +5927,20 @@ function calcularFechamento(){
     if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
   };
 
-  const _toggleOrdemFech = (id, uid) => {
-    if(window._fechDesmarcar[id]) delete window._fechDesmarcar[id];
-    else window._fechDesmarcar[id] = true;
-    // Risco visual na linha
+  const _toggleOrdemFech = (id, uid, isPago) => {
+    const chk = document.getElementById('fchk_'+id);
+    const marcado = chk ? chk.checked : false;
+    if(isPago){
+      // Pago: marcado por padrão, desmarcar = excluir
+      if(marcado) delete window._fechDesmarcar[id];
+      else window._fechDesmarcar[id] = true;
+    } else {
+      // Não pago: desmarcado por padrão, marcar = incluir
+      if(marcado) window._fechDesmarcar[id+'_ativo'] = true;
+      else delete window._fechDesmarcar[id+'_ativo'];
+    }
     const row = document.getElementById('fechrow_'+id);
-    if(row) row.style.opacity = window._fechDesmarcar[id] ? '0.35' : '1';
+    if(row) row.style.opacity = marcado ? '1' : '0.35';
     _recalcularCard(uid);
   };
 
@@ -5994,8 +5975,22 @@ function calcularFechamento(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
         <span id="fech_cnt_${uid}" style="font-size:11px;color:var(--mut2)">${ordsAtivas.length} ordem(ns) selecionada(s)</span>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-xs" onclick="(function(){${ords.map(({c})=>`delete window._fechDesmarcar['${c.id}'];`).join('')}document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='1');_recalcularCard('${uid}');})()">☑️ Todas</button>
-          <button class="btn btn-xs" onclick="(function(){${ords.map(({c})=>`window._fechDesmarcar['${c.id}']=true;`).join('')}document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='0.35');_recalcularCard('${uid}');})()">☐ Nenhuma</button>
+          <button class="btn btn-xs" onclick="(function(){
+            ${ords.map(({c})=>{
+              const ip = c.pago||c.comissao_liberada;
+              return ip ? `delete window._fechDesmarcar['${c.id}'];` : `window._fechDesmarcar['${c.id}_ativo']=true;`;
+            }).join('')}
+            document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='1');
+            document.querySelectorAll('.fechrow_uid_${uid} input[type=checkbox]').forEach(cb=>cb.checked=true);
+            _recalcularCard('${uid}');})()">☑️ Todas</button>
+          <button class="btn btn-xs" onclick="(function(){
+            ${ords.map(({c})=>{
+              const ip = c.pago||c.comissao_liberada;
+              return ip ? `window._fechDesmarcar['${c.id}']=true;` : `delete window._fechDesmarcar['${c.id}_ativo'];`;
+            }).join('')}
+            document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='0.35');
+            document.querySelectorAll('.fechrow_uid_${uid} input[type=checkbox]').forEach(cb=>cb.checked=false);
+            _recalcularCard('${uid}');})()">☐ Nenhuma</button>
         </div>
       </div>
       <div style="overflow-x:auto">
@@ -6018,13 +6013,19 @@ function calcularFechamento(){
           const calcStr = isRicardo
             ? `${fmt(recVal)} − ${fmt(cstVal)} − ${fmt(TAXA_ADM)}${nf>0?` − ${fmt(nf)}`:''} = ${fmt(ll)}`
             : '';
-          return `<tr id="fechrow_${c.id}" class="fechrow_uid_${uid}" style="border-top:1px solid var(--bor);opacity:${window._fechDesmarcar[c.id]?'0.35':'1'};transition:opacity .15s">
+          // Ordens não pagas e não liberadas vêm sem check por padrão
+          const _isPago = c.pago || c.comissao_liberada;
+          const _marcado = _isPago ? !window._fechDesmarcar[c.id] : !!window._fechDesmarcar[c.id+'_ativo'];
+          const _opaco = !_marcado;
+          const _dataOrd = c.data ? c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4) : '—';
+          const _statusLabel = c.pago ? '✅ Pago' : c.comissao_liberada ? '⭐ Liberado' : '⏳ Não pago';
+          return `<tr id="fechrow_${c.id}" class="fechrow_uid_${uid}" style="border-top:1px solid var(--bor);opacity:${_opaco?'0.35':'1'};transition:opacity .15s">
             <td style="padding:6px 4px;text-align:center">
-              <input type="checkbox" ${window._fechDesmarcar[c.id]?'':'checked'} onchange="_toggleOrdemFech('${c.id}','${uid}')" style="width:15px;height:15px;accent-color:var(--g);cursor:pointer">
+              <input type="checkbox" ${_marcado?'checked':''} id="fchk_${c.id}" onchange="_toggleOrdemFech('${c.id}','${uid}',${_isPago})" style="width:15px;height:15px;accent-color:var(--g);cursor:pointer">
             </td>
             <td style="padding:6px 8px">
               <span style="font-weight:600">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</span><br>
-              <span style="font-size:10px;color:var(--mut2)">${c.crm_id||''} · ${c.pago?'✅ Pago':'⭐ Liberado'}${c.nf_num?' · 🧾 NF':''}</span>
+              <span style="font-size:10px;color:var(--mut2)">${c.crm_id||''} · ${_dataOrd} · ${_statusLabel}${c.nf_num?' · 🧾 NF':''}</span>
             </td>
             <td style="padding:6px 8px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(recVal)}</td>
             <td style="padding:6px 8px;text-align:right;color:var(--r);font-family:var(--mono)">-R$ ${fmt(cstVal)}</td>
