@@ -6203,28 +6203,39 @@ async function salvarFechamento(){
 
   const registros = [];
 
+  // Helper: filtra apenas ordens com check marcado
+  const _ordsAtivas = (ords) => ords.filter(({c})=>{
+    const isPago = c.pago || c.comissao_liberada;
+    if(isPago) return !window._fechDesmarcar[c.id];
+    return !!window._fechDesmarcar[c.id+'_ativo'];
+  });
+
   if(f.luciana.vendedor && f.luciana.ordens.length){
+    const ativ = _ordsAtivas(f.luciana.ordens);
+    if(!ativ.length) {} else
     registros.push({
       mes, usuario_id: f.luciana.vendedor.id,
-      total_ordens: f.luciana.ordens.length,
-      valor_bruto: f.luciana.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
-      total_cst: f.luciana.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      total_ordens: ativ.length,
+      valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
       valor_anuncio: 0, fixo_garantido: 0,
-      lucro_liquido: f.luciana.totalVendedor,
-      valor_vendedor: f.luciana.totalVendedor,
+      lucro_liquido: ativ.reduce((s,{ll})=>s+ll,0),
+      valor_vendedor: ativ.reduce((s,{ll})=>s+ll,0),
       valor_douglas: 0, valor_claudia_extra: 0,
       status: 'pendente'
     });
   }
   if(f.leticia && f.leticia.vendedor && f.leticia.ordens.length){
+    const ativ = _ordsAtivas(f.leticia.ordens);
+    if(!ativ.length) {} else
     registros.push({
       mes, usuario_id: f.leticia.vendedor.id,
-      total_ordens: f.leticia.ordens.length,
-      valor_bruto: f.leticia.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
-      total_cst: f.leticia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      total_ordens: ativ.length,
+      valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
       valor_anuncio: 0, fixo_garantido: 0,
-      lucro_liquido: f.leticia.totalVendedor,
-      valor_vendedor: f.leticia.totalVendedor,
+      lucro_liquido: ativ.reduce((s,{ll})=>s+ll,0),
+      valor_vendedor: ativ.reduce((s,{ll})=>s+ll,0),
       valor_douglas: 0, valor_claudia_extra: 0,
       status: 'pendente'
     });
