@@ -6074,7 +6074,7 @@ function calcularFechamento(){
   }
 
   // CLAUDIA
-  if(f.claudia.vendedor && _deveIncluir(f.claudia.vendedor)){
+  if(f.claudia.vendedor){
     const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
       + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
       + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
@@ -6095,7 +6095,7 @@ function calcularFechamento(){
   }
 
   // SANDRA
-  if(f.sandra.vendedor && _deveIncluir(f.sandra.vendedor)){
+  if(f.sandra.vendedor){
     const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
       + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
       + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
