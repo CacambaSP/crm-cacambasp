@@ -1414,8 +1414,7 @@ input[type=checkbox]:checked::after{
         <input type="text" id="dup_obs" placeholder="Ex: Troca solicitada via WhatsApp">
       </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad3)">
-        ℹ️ Serão copiados: cliente, endereço e valores.<br>
-        Fornecedor não é copiado — nova OS vai para <strong>Contratar</strong>.<br>
+        ℹ️ Serão copiados: cliente, endereço, fornecedor e valores.<br>
         Zerados: pagamentos, NF e referências financeiras.
       </div>
       <div class="mfooter">
@@ -3694,7 +3693,6 @@ async function salvarOrdem(){
         await api('ordens','POST',novaOrdem,tok());
         setSyncDot('ok');
         addLog(novaOrdem.id,'Criado','Nova ordem manual'+(qtd>1?' ('+(qi+1)+'/'+qtd+')':''));
-      if(novaOrdem.col==='contratar') pushContratar(novaOrdem);
       }catch(e){setSyncDot('err');toast('Erro ao salvar ordem '+(qi+1),'err');}
     }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
@@ -4588,7 +4586,6 @@ async function confirmarDuplicarOrdem(){
     setSyncDot('ok');
     addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
     toast('✅ Ordem '+crmId+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
-    if(novaOrdem.col==='contratar') pushContratar(novaOrdem);
   }catch(e){ setSyncDot('err'); toast('Erro ao criar ordem','err'); }
 }
 
@@ -5494,6 +5491,7 @@ function _nomeUsuario(u){ return (u?.nome||u?.email||'').toLowerCase().normalize
 function _modeloComissao(u){
   const n = _nomeUsuario(u);
   if(n.startsWith('luciana')) return 'luciana';
+  if(n.startsWith('leticia')||n.startsWith('letícia')) return 'luciana'; // mesmo modelo da Luciana
   if(n.startsWith('claudia')||n.startsWith('cláudia')) return 'claudia';
   if(n.startsWith('ricardo')) return 'ricardo';
   if(n.startsWith('sandra'))  return 'sandra';
@@ -5583,7 +5581,9 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   const TAXA_ADM = _taxaAdmin || 10;
 
   // IDs dos usuários por modelo
-  const uLuciana = usuarios.find(u => _modeloComissao(u)==='luciana');
+  // Luciana e Leticia usam o mesmo modelo — separados pelo nome
+  const uLuciana = usuarios.find(u => _modeloComissao(u)==='luciana' && _nomeUsuario(u).startsWith('luciana'));
+  const uLeticia = usuarios.find(u => _modeloComissao(u)==='luciana' && _nomeUsuario(u).startsWith('leticia'));
   const uClaudia = usuarios.find(u => _modeloComissao(u)==='claudia');
   const uRicardo = usuarios.find(u => _modeloComissao(u)==='ricardo');
   const uSandra  = usuarios.find(u => _modeloComissao(u)==='sandra');
@@ -5601,28 +5601,31 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   const todasOrdens = ordens_mes.filter(c => c.col!=='orcamento');
   const totalTaxaAdm = todasOrdens.length * TAXA_ADM;
 
-  // ── LUCIANA — 100% do lucro líquido das ordens dela ──
-  let luciana = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
-  if(uLuciana){
-    const ords = ordens_mes.filter(c => c.usuario_id===uLuciana.id && c.pago);
+  // ── helper: monta bloco modelo luciana para qualquer vendedor ──
+  function _blocoModeloLuciana(uVend){
+    if(!uVend) return { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+    const ords = ordens_mes.filter(c => c.usuario_id===uVend.id && (c.pago || c.comissao_liberada));
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
-    luciana = {
-      vendedor: uLuciana,
-      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+    return {
+      vendedor: uVend,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c), liberada:!c.pago&&c.comissao_liberada})),
       totalVendedor: somaLL,
       totalDouglas: 0,
       modelo: 'luciana'
     };
   }
 
-  // ── RICARDO — R$15 fixo por ordem paga ──
+  const luciana = _blocoModeloLuciana(uLuciana);
+  const leticia = _blocoModeloLuciana(uLeticia);
+
+  // ── RICARDO — R$15 fixo por ordem paga ou liberada ──
   let ricardo = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
   if(uRicardo){
-    const ords = ordens_mes.filter(c => c.usuario_id===uRicardo.id && c.pago);
+    const ords = ordens_mes.filter(c => c.usuario_id===uRicardo.id && (c.pago || c.comissao_liberada));
     const total = ords.length * 15;
     ricardo = {
       vendedor: uRicardo,
-      ordens: ords.map(c=>({c, ll:ll(c), comissao:15})),
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:15, liberada:!c.pago&&c.comissao_liberada})),
       totalVendedor: total,
       totalDouglas: 0,
       modelo: 'ricardo'
@@ -5632,14 +5635,14 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── CLAUDIA — R$1.000 fixo + split após descontos ──
   let claudia = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
   if(uClaudia){
-    const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id && c.pago);
+    const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id && (c.pago || c.comissao_liberada));
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
     const apos_anuncio = somaLL - (anuncioClaudia||0);
     const restante = Math.max(apos_anuncio, 0);
     const split50 = restante / 2;
     claudia = {
       vendedor: uClaudia,
-      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c), liberada:!c.pago&&c.comissao_liberada})),
       somaLL, anuncio: anuncioClaudia||0, apos_anuncio: restante,
       fixo: 1000,
       splitVendedor: split50,
@@ -5653,7 +5656,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   // ── SANDRA — R$300 fixo + split 40/30/30 após anúncio ──
   let sandra = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0, totalClaudia:0 };
   if(uSandra){
-    const ords = ordens_mes.filter(c => c.usuario_id===uSandra.id && c.pago);
+    const ords = ordens_mes.filter(c => c.usuario_id===uSandra.id && (c.pago || c.comissao_liberada));
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
     const apos_anuncio = Math.max(somaLL - (anuncioSandra||0), 0);
     const split40 = apos_anuncio * 0.40;
@@ -5661,7 +5664,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
     const split30c = apos_anuncio * 0.30;
     sandra = {
       vendedor: uSandra,
-      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)})),
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c), liberada:!c.pago&&c.comissao_liberada})),
       somaLL, anuncio: anuncioSandra||0, apos_anuncio,
       fixo: 300,
       splitVendedor: split40,
@@ -5683,7 +5686,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   const totalClaudiaExtra = sandra.totalClaudia||0;
 
   return {
-    luciana, ricardo, claudia, sandra,
+    luciana, leticia, ricardo, claudia, sandra,
     totalTaxaAdm, totalDouglas, totalClaudiaExtra,
     douglas: { totalVendedor: totalDouglas },
     totalOrdens: todasOrdens.length,
@@ -5788,6 +5791,42 @@ function _renderFechamento(){
   `;
 }
 
+async function liberarComissaoOrdem(id){
+  const c = ordens.find(x=>x.id===id); if(!c) return;
+  const ok = await showConfirm({
+    ico:'⭐',
+    title:'Liberar comissão antecipada',
+    body:'Liberar a comissão desta ordem mesmo sem pagamento do cliente?<br><small style="color:var(--mut2)">Se o cliente não pagar depois, será exibido para estorno no próximo fechamento.</small>',
+    ok:'✅ Liberar',
+    okClass:'btn-g'
+  });
+  if(!ok) return;
+  try{
+    await api('ordens?id=eq.'+id,'PATCH',{comissao_liberada:true},tok());
+    c.comissao_liberada = true;
+    toast('✅ Comissão liberada para esta ordem!','ok');
+    calcularFechamento();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function estornarComissaoOrdem(id){
+  const c = ordens.find(x=>x.id===id); if(!c) return;
+  const ok = await showConfirm({
+    ico:'↩️',
+    title:'Estornar comissão',
+    body:'Remover a liberação de comissão desta ordem? Ela voltará para pendente.',
+    ok:'↩️ Estornar',
+    okClass:'btn-r'
+  });
+  if(!ok) return;
+  try{
+    await api('ordens?id=eq.'+id,'PATCH',{comissao_liberada:false},tok());
+    c.comissao_liberada = false;
+    toast('↩️ Comissão estornada.','ok');
+    calcularFechamento();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
 function calcularFechamento(){
   const mesVal = document.getElementById('fechMes')?.value;
   if(!mesVal){ toast('Selecione o mês','warn'); return; }
@@ -5795,15 +5834,63 @@ function calcularFechamento(){
   const anuncioC = parseFloat(document.getElementById('fechAnuncioClaudia')?.value)||0;
   const anuncioS = parseFloat(document.getElementById('fechAnuncioSandra')?.value)||0;
 
-  // Filtrar ordens do mês com pagamento registrado
-  const src = ordens.filter(c => {
+  // Data limite: primeiro dia do mês SEGUINTE (nunca inclui ordens futuras)
+  const limiteMax = new Date(ano, mes, 1); // ex: 1/jun se mes=mai
+
+  // 1) Ordens pagas dentro do mês selecionado
+  const srcPagas = ordens.filter(c => {
     if(!c.pago || !c.pago_em || c.col==='orcamento') return false;
     const d = new Date(c.pago_em);
     return d.getMonth()+1===mes && d.getFullYear()===ano;
   });
 
+  // 2) Ordens NÃO pagas de meses ANTERIORES com comissao_liberada=true (aguardando inclusão)
+  const srcLiberadas = ordens.filter(c => {
+    if(c.pago || c.col==='orcamento' || !c.comissao_liberada) return false;
+    if(!c.data) return false;
+    const d = new Date(c.data+'T12:00:00');
+    return d < limiteMax; // só datas anteriores ao mês seguinte
+  });
+
+  // 3) Ordens NÃO pagas de meses ANTERIORES sem comissao_liberada (pendentes para decisão)
+  const srcPendentes = ordens.filter(c => {
+    if(c.pago || c.col==='orcamento' || c.comissao_liberada) return false;
+    if(!c.data) return false;
+    const d = new Date(c.data+'T12:00:00');
+    // Apenas de meses anteriores ao selecionado
+    return d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
+  });
+
+  const src = [...srcPagas, ...srcLiberadas];
+
+  // Mostrar aviso de pendentes se houver
+  const _avisoHtml = srcPendentes.length > 0 ? `
+    <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:8px">⚠️ ${srcPendentes.length} ordem(ns) de meses anteriores sem pagamento</div>
+      <div style="font-size:11px;color:var(--mut2);margin-bottom:10px">Você pode liberar a comissão de cada uma individualmente. As não liberadas aparecerão novamente no próximo fechamento.</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${srcPendentes.map(c=>{
+          const u = usuarios.find(x=>x.id===c.usuario_id);
+          const nomeVend = u?.nome||'—';
+          const dataOrd = c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
+          const llVal = calcLucroLiquido(c);
+          return `<div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0">
+              <span style="font-weight:600;font-size:12px">${c.crm_id||'—'}</span>
+              <span style="font-size:11px;color:var(--mut2);margin-left:8px">${c.nome||'—'} · ${c.bairro||'—'} · ${dataOrd}</span>
+            </div>
+            <span style="font-size:11px;color:var(--mut2)">${nomeVend}</span>
+            <span style="font-weight:700;color:var(--g);font-family:var(--mono);font-size:12px">R$ ${fmt(llVal)}</span>
+            <button class="btn btn-sm btn-g" onclick="liberarComissaoOrdem('${c.id}')">⭐ Liberar</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  document.getElementById('fechResultado').innerHTML = _avisoHtml + '<div id="fechCards"></div>';
+
   if(!src.length){
-    document.getElementById('fechResultado').innerHTML =
+    document.getElementById('fechCards').innerHTML =
       '<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma ordem com pagamento registrado no período.<br><small style="font-size:11px">Verifique se as ordens estão marcadas como pagas com data.</small></div>';
     return;
   }
@@ -5811,6 +5898,7 @@ function calcularFechamento(){
   _fechamentoAtual = _calcFechamento(src, anuncioC, anuncioS);
   _fechamentoAtual.mes = mesVal;
   _fechamentoAtual.totalOrdens = src.length;
+  _fechamentoAtual._srcPendentes = srcPendentes;
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -5865,7 +5953,7 @@ function calcularFechamento(){
     <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:13px;font-weight:700">Fechamento ${mesLabel}</div>
-        <div style="font-size:11px;color:var(--mut2)">${src.length} ordens pagas · Taxa adm: R$${_taxaAdmin}/ordem</div>
+        <div style="font-size:11px;color:var(--mut2)">${src.length} ordem(ns) incluídas · Taxa adm: R$${_taxaAdmin}/ordem</div>
       </div>
       <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">Douglas: R$ ${fmt(f.totalDouglas)}</div>
     </div>`;
@@ -5875,6 +5963,13 @@ function calcularFechamento(){
     const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
       + _tabelaOrdens(f.luciana.ordens);
     html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
+  }
+
+  // LETICIA
+  if(f.leticia && f.leticia.vendedor){
+    const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
+      + _tabelaOrdens(f.leticia.ordens);
+    html += _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido');
   }
 
   // CLAUDIA
@@ -5925,6 +6020,10 @@ function calcularFechamento(){
     <button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button>
   </div>`;
 
+  // Renderizar no container interno (preserva aviso de pendentes acima)
+  const _fechCardsEl = document.getElementById('fechCards');
+  if(!_fechCardsEl){ document.getElementById('fechResultado').innerHTML = html; return; }
+
   // Aplicar filtro de vendedor se selecionado
   const filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
   if(filtroVendId){
@@ -5938,6 +6037,12 @@ function calcularFechamento(){
         const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
           + _tabelaOrdens(f.luciana.ordens);
         return _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
+      },
+      [f.leticia?.vendedor?.id||'_nul5']: () => {
+        if(!f.leticia?.vendedor) return '';
+        const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
+          + _tabelaOrdens(f.leticia.ordens);
+        return _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido');
       },
       [f.claudia?.vendedor?.id||'_nul2']: () => {
         if(!f.claudia.vendedor) return '';
@@ -5979,12 +6084,12 @@ function calcularFechamento(){
       // Reconstruir: cabeçalho + card do vendedor filtrado + botões
       const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${src.length} ordens pagas no total do mês</div></div></div>`;
       const botoes = `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button><button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button><button class="btn" onclick="document.getElementById('fechFiltroVend').value='';calcularFechamento()">👁 Ver todos</button></div>`;
-      document.getElementById('fechResultado').innerHTML = cabecalho + fnCard() + botoes;
+      (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = cabecalho + fnCard() + botoes;
     } else {
-      document.getElementById('fechResultado').innerHTML = html;
+      (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = html;
     }
   } else {
-    document.getElementById('fechResultado').innerHTML = html;
+    (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = html;
   }
 }
 
@@ -6004,6 +6109,19 @@ async function salvarFechamento(){
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.luciana.totalVendedor,
       valor_vendedor: f.luciana.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+  if(f.leticia && f.leticia.vendedor && f.leticia.ordens.length){
+    registros.push({
+      mes, usuario_id: f.leticia.vendedor.id,
+      total_ordens: f.leticia.ordens.length,
+      valor_bruto: f.leticia.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.leticia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.leticia.totalVendedor,
+      valor_vendedor: f.leticia.totalVendedor,
       valor_douglas: 0, valor_claudia_extra: 0,
       status: 'pendente'
     });
@@ -6078,6 +6196,7 @@ function imprimirFechamento(){
   const mesLabel = MESES[mes-1]+' '+ano;
   const linhas = [
     ['Luciana', f.luciana.totalVendedor],
+    ...(f.leticia?.vendedor ? [['Leticia', f.leticia.totalVendedor]] : []),
     ['Claudia', f.claudia.totalVendedor + (f.totalClaudiaExtra||0)],
     ['Ricardo', f.ricardo.totalVendedor],
     ['Sandra', f.sandra.totalVendedor],
@@ -6316,6 +6435,7 @@ function _renderConfigComissao(){
   el.innerHTML = `<div style="background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px 16px;font-size:13px;color:var(--txt)">
     <b>ℹ️ Modelos de comissão configurados:</b><br><br>
     <b>Luciana</b> — 100% do lucro líquido (rec - cst - R$${_taxaAdmin} - NF)<br>
+    <b>Leticia</b> — 100% do lucro líquido (mesmo modelo da Luciana)<br>
     <b>Claudia</b> — R$1.000 fixo + 50% do restante após anúncio<br>
     <b>Ricardo</b> — R$15 fixo por ordem paga<br>
     <b>Sandra</b> — R$300 fixo + 40% do restante após anúncio (30% Claudia, 30% Douglas)<br>
@@ -7169,7 +7289,7 @@ function processarXLS(input){
       const iPagoEm= cab.findIndex(c=>c.includes('pago em'));
       const iEmit  = cab.findIndex(c=>c.includes('emitido'));
       const iPagoV = cab.findIndex(c=>c.includes('valor pago'));
-      const isId=s=>/^(LC|GRP|RC)\d{6,}/i.test(String(s).trim());
+      const isId=s=>/^(LC|GRP)\d{6,}/i.test(String(s).trim());
       const linhas=[];
       for(let i=cabIdx+1;i<rows.length;i++){
         const r=rows[i];
@@ -7265,63 +7385,6 @@ function renderExtratoRevisao(){
       const _tp=_oa.length>0&&_oa.every(o=>o.pago);
       const _st=_oa.length===0?'nao_encontrado':(_tp?'ja_pago':'encontrado');
       return{...linha,ordens:_oa,ordem:_oa[0]||null,status:_st,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
-    }else if(idLimpo.startsWith('RC')){
-      // ── RC = pagamento via QR Code individual ──
-      // Busca ordem de referência e expande para TODAS pendentes do mesmo CPF/CNPJ (igual GRP)
-      tipo='grp';
-      let matchTipo='id';
-      const numRc=idLimpo.replace(/^RC/,'');
-      const crmRc=ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===numRc&&c.col!=='orcamento');
-      if(crmRc){
-        if(crmRc.pago){
-          ordemMatch=[crmRc];
-        } else {
-          const cpfRef=(crmRc.cpf||'').replace(/\D/g,'');
-          const celRef=(crmRc.cel||'').replace(/\D/g,'');
-          let todasRc=[];
-          if(cpfRef.length>=11){
-            todasRc=ordens.filter(c=>c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfRef&&cpfRef);
-          }
-          if(!todasRc.length&&celRef){
-            todasRc=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
-          }
-          if(!todasRc.length) todasRc=[crmRc];
-          let pendRc=todasRc.filter(c=>!c.pago);
-          if(pendRc.length>0&&linha.valorPago>0){
-            const vPago=Math.round(linha.valorPago*100);
-            const sorted=[...pendRc].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
-            let acc=0;const sel=[];
-            for(const o of sorted){
-              const v=Math.round((parseFloat(o.rec)||0)*100);
-              if(acc+v<=vPago){sel.push(o);acc+=v;}
-              if(acc===vPago)break;
-            }
-            if(acc===vPago&&sel.length>0)pendRc=sel;
-          }
-          const excluidas=todasRc.filter(c=>!c.pago&&!pendRc.find(p=>p.id===c.id));
-          _grpExcluidas[idLimpo]=excluidas;
-          ordemMatch=pendRc.length>0?pendRc:todasRc;
-        }
-      } else {
-        tipo='normal';
-        const cpfPag=(linha.cpf||'').replace(/\D/g,'');
-        if(cpfPag.length>=11){
-          const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
-          if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
-        }
-        if(!ordemMatch){
-          const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
-          if(nomePag.length>=4){
-            const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&
-              (c.nome||'').toLowerCase().split(' ')[0]===nomePag);
-            if(cands.length>=1){ordemMatch=cands;matchTipo='nome';}
-          }
-        }
-      }
-      const _rcArr=Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
-      const _rcPagas=_rcArr.length>0&&_rcArr.every(o=>o.pago);
-      const _rcSt=_rcArr.length===0?'nao_encontrado':(_rcPagas?'ja_pago':'encontrado');
-      return{...linha,ordens:_rcArr,ordem:_rcArr[0]||null,status:_rcSt,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
     }else{
       ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
     }
@@ -11900,24 +11963,6 @@ function orcSelTipoPrazo(){
   if(lRua)  lRua.style.borderColor = isCant ? 'var(--bor)' : 'var(--acc)';
   if(lCant) lCant.style.background = isCant ? 'var(--acc2)' : '';
   if(lCant) lCant.style.borderColor= isCant ? 'var(--acc)' : 'var(--bor)';
-}
-
-// ── Notificar push quando ordem vai para Contratar ──
-function pushContratar(ordem){
-  try{
-    fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-push',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
-      body:JSON.stringify({
-        tipo:'nova_ordem',
-        ordem_id:ordem.id,
-        crm_id:ordem.crm_id||'',
-        nome_cliente:ordem.nome||'',
-        bairro:ordem.bairro||'',
-        usuario_id:ordem.usuario_id||null
-      })
-    });
-  }catch(e){console.warn('Push contratar falhou:',e);}
 }
 </script>
 
