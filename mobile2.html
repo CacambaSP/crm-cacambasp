@@ -577,6 +577,7 @@ input,select,textarea,button{font-family:var(--font)}
     <div class="topbar-right">
       <div class="sync-dot ok" id="syncDot"></div>
       <button class="topbar-search" id="searchBtn" onclick="toggleSearch()">🔍</button>
+      <button class="topbar-search" id="notifBtn" onclick="reativarNotificacoes()" title="Ativar notificações" style="display:none">🔔</button>
       <div class="topbar-avatar" id="userAvatar" onclick="doLogout()"></div>
     </div>
   </div>
@@ -2186,6 +2187,7 @@ function initApp() {
   setView('inicio');
   initServiceWorker();
   initOneSignal();
+  setTimeout(verificarNotifBtn, 3000);
   history.pushState(null, '', location.href);
   let _backDebounce = false;
   window.addEventListener('popstate', async function handleBack() {
