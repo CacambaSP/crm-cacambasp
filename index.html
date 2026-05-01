@@ -5827,6 +5827,47 @@ async function estornarComissaoOrdem(id){
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
+// ── Fechamento: funções globais de seleção de ordens ──
+window._fechDesmarcar = window._fechDesmarcar || {};
+
+function _recalcularCard(uid){
+  const bloco = _fechamentoAtual && (
+    (_fechamentoAtual.luciana?.vendedor?.id===uid && _fechamentoAtual.luciana) ||
+    (_fechamentoAtual.leticia?.vendedor?.id===uid && _fechamentoAtual.leticia) ||
+    (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
+    (_fechamentoAtual.ricardo?.vendedor?.id===uid && _fechamentoAtual.ricardo) ||
+    (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
+  );
+  if(!bloco) return;
+  const ordsAtivas = bloco.ordens.filter(({c})=>{
+    const isPago = c.pago || c.comissao_liberada;
+    if(isPago) return !window._fechDesmarcar[c.id];
+    return !!window._fechDesmarcar[c.id+'_ativo'];
+  });
+  const novoTotal = bloco.modelo==='ricardo'
+    ? ordsAtivas.length * 15
+    : ordsAtivas.reduce((s,{ll})=>s+ll, 0);
+  const elTotal = document.getElementById('fech_total_'+uid);
+  if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
+  const elCnt = document.getElementById('fech_cnt_'+uid);
+  if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
+}
+
+function _toggleOrdemFech(id, uid, isPago){
+  const chk = document.getElementById('fchk_'+id);
+  const marcado = chk ? chk.checked : false;
+  if(isPago){
+    if(marcado) delete window._fechDesmarcar[id];
+    else window._fechDesmarcar[id] = true;
+  } else {
+    if(marcado) window._fechDesmarcar[id+'_ativo'] = true;
+    else delete window._fechDesmarcar[id+'_ativo'];
+  }
+  const row = document.getElementById('fechrow_'+id);
+  if(row) row.style.opacity = marcado ? '1' : '0.35';
+  _recalcularCard(uid);
+}
+
 function calcularFechamento(){
   window._fechDesmarcar = {}; // limpa seleção ao recalcular
   const mesVal = document.getElementById('fechMes')?.value;
@@ -5900,52 +5941,7 @@ function calcularFechamento(){
       <span style="font-weight:600;color:${cor||'var(--txt)'};font-family:var(--mono)">R$ ${fmt(val)}</span>
     </div>`;
 
-  // Mapa global de ordens desmarcadas no fechamento (id => true)
-  if(!window._fechDesmarcar) window._fechDesmarcar = {};
 
-  const _recalcularCard = (uid) => {
-    const bloco = _fechamentoAtual && (
-      (_fechamentoAtual.luciana?.vendedor?.id===uid && _fechamentoAtual.luciana) ||
-      (_fechamentoAtual.leticia?.vendedor?.id===uid && _fechamentoAtual.leticia) ||
-      (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
-      (_fechamentoAtual.ricardo?.vendedor?.id===uid && _fechamentoAtual.ricardo) ||
-      (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
-    );
-    if(!bloco) return;
-    // Ordem paga: incluída por padrão a menos que desmarcada
-    // Ordem não paga: excluída por padrão a menos que marcada (_ativo)
-    const ordsAtivas = bloco.ordens.filter(({c})=>{
-      const isPago = c.pago || c.comissao_liberada;
-      if(isPago) return !window._fechDesmarcar[c.id];
-      return !!window._fechDesmarcar[c.id+'_ativo'];
-    });
-    const novoTotal = bloco.modelo==='ricardo'
-      ? ordsAtivas.length * 15
-      : ordsAtivas.reduce((s,{ll})=>s+ll, 0);
-    // Atualiza total exibido no card
-    const elTotal = document.getElementById('fech_total_'+uid);
-    if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
-    // Atualiza contador
-    const elCnt = document.getElementById('fech_cnt_'+uid);
-    if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
-  };
-
-  const _toggleOrdemFech = (id, uid, isPago) => {
-    const chk = document.getElementById('fchk_'+id);
-    const marcado = chk ? chk.checked : false;
-    if(isPago){
-      // Pago: marcado por padrão, desmarcar = excluir
-      if(marcado) delete window._fechDesmarcar[id];
-      else window._fechDesmarcar[id] = true;
-    } else {
-      // Não pago: desmarcado por padrão, marcar = incluir
-      if(marcado) window._fechDesmarcar[id+'_ativo'] = true;
-      else delete window._fechDesmarcar[id+'_ativo'];
-    }
-    const row = document.getElementById('fechrow_'+id);
-    if(row) row.style.opacity = marcado ? '1' : '0.35';
-    _recalcularCard(uid);
-  };
 
   const _tabelaOrdens = (ords, uid, modelo) => {
     if(!ords||!ords.length) return '<div style="color:var(--mut2);font-size:12px;padding:8px 0">Nenhuma ordem no período.</div>';
