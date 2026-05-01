@@ -5838,17 +5838,20 @@ function calcularFechamento(){
   // Data limite: primeiro dia do mês SEGUINTE (nunca inclui ordens futuras)
   const limiteMax = new Date(ano, mes, 1); // ex: 1/jun se mes=mai
 
+  // Status que nunca devem entrar no fechamento
+  const _colsIgnorar = ['orcamento','concluido','cancelado'];
+
   // 1) Todas as ordens do mês (pagas ou não), usando data da ordem como referência
   const srcMes = ordens.filter(c => {
-    if(c.col==='orcamento') return false;
+    if(_colsIgnorar.includes(c.col)) return false;
     if(!c.data) return false;
     const d = new Date(c.data+'T12:00:00');
     return d.getMonth()+1===mes && d.getFullYear()===ano;
   });
 
-  // 2) Ordens de meses ANTERIORES não pagas (qualquer status) — vêm sem check por padrão
+  // 2) Ordens de meses ANTERIORES não pagas — vêm sem check por padrão
   const srcAnteriores = ordens.filter(c => {
-    if(c.pago || c.col==='orcamento') return false;
+    if(c.pago || _colsIgnorar.includes(c.col)) return false;
     if(!c.data) return false;
     const d = new Date(c.data+'T12:00:00');
     return d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
@@ -5946,7 +5949,12 @@ function calcularFechamento(){
 
   const _tabelaOrdens = (ords, uid, modelo) => {
     if(!ords||!ords.length) return '<div style="color:var(--mut2);font-size:12px;padding:8px 0">Nenhuma ordem no período.</div>';
-    const ordsAtivas = ords.filter(({c})=>!window._fechDesmarcar[c.id]);
+    // Paga/liberada: marcada por padrão. Não paga: desmarcada por padrão.
+    const ordsAtivas = ords.filter(({c})=>{
+      const isPago = c.pago || c.comissao_liberada;
+      if(isPago) return !window._fechDesmarcar[c.id];
+      return !!window._fechDesmarcar[c.id+'_ativo'];
+    });
     const TAXA_ADM = _taxaAdmin||10;
 
     // Monta colunas e detalhes por modelo
