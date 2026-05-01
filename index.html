@@ -5918,6 +5918,11 @@ function calcularFechamento(){
   _fechamentoAtual.mes = mesVal;
   _fechamentoAtual.totalOrdens = src.length;
   _fechamentoAtual.filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
+  _fechamentoAtual.srcMesLen = srcMes.length;
+  // Carregar quais vendedores já têm fechamento salvo neste mês
+  api('comissoes_fechamento?mes=eq.'+mesVal+'-01',undefined,undefined,tok())
+    .then(rows=>{ _fechamentoAtual.jaFechados = (rows||[]).map(r=>r.usuario_id); })
+    .catch(()=>{ _fechamentoAtual.jaFechados = []; });
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -5932,9 +5937,11 @@ function calcularFechamento(){
         </div>
         <div style="text-align:right">
           <div id="fech_total_${uid||''}" style="font-size:22px;font-weight:800;color:${cor};font-family:var(--mono)">R$ ${fmt(valor)}</div>
-          <div style="font-size:10px;color:var(--mut2)">a receber</div>
+          <div style="font-size:10px;color:var(--mut2)">${uid&&(_fechamentoAtual?.jaFechados||[]).includes(uid)?'comissão paga':'a receber'}</div>
         </div>
-        ${uid ? `<button class="btn btn-g btn-sm" onclick="salvarVendedor('${uid}')" style="flex-shrink:0">💾 Salvar</button>` : ''}
+        ${uid ? ((_fechamentoAtual?.jaFechados||[]).includes(uid)
+          ? '<div style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:var(--rad3);padding:6px 12px;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0">✅ Comissão paga</div>'
+          : '<button class="btn btn-g btn-sm" onclick="salvarVendedor(\''+uid+'\')">💾 Salvar</button>') : ''}
         <span style="color:var(--mut2);font-size:11px;cursor:pointer" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='none'?'block':'none'">▼</span>
       </div>
       <div style="display:block;padding:14px 16px">
@@ -6054,7 +6061,7 @@ function calcularFechamento(){
     <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:13px;font-weight:700">Fechamento ${mesLabel}</div>
-        <div style="font-size:11px;color:var(--mut2)">${src.length} ordem(ns) incluídas · Taxa adm: R$${_taxaAdmin}/ordem</div>
+        <div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês · ${src.length} incluídas · Taxa adm: R$${_taxaAdmin}/ordem</div>
       </div>
       <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">Douglas: R$ ${fmt(f.totalDouglas)}</div>
     </div>`;
@@ -6187,7 +6194,7 @@ function calcularFechamento(){
     // Remove todos os cards de vendedor e deixa só o selecionado
     if(fnCard){
       // Reconstruir: cabeçalho + card do vendedor filtrado + botões
-      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${src.length} ordens pagas no total do mês</div></div></div>`;
+      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês · ${src.length} incluídas</div></div></div>`;
       const botoes = `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button><button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button><button class="btn" onclick="document.getElementById('fechFiltroVend').value='';calcularFechamento()">👁 Ver todos</button></div>`;
       (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = cabecalho + fnCard() + botoes;
     } else {
@@ -6230,7 +6237,7 @@ async function salvarVendedor(uid){
     total_ordens: ativ.length,
     valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
     total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
-    status: 'pendente'
+    status: 'pago'
   };
 
   const modelo = bloco.modelo;
@@ -6265,7 +6272,16 @@ async function salvarVendedor(uid){
     } else {
       await api('comissoes_fechamento','POST',reg,tok());
     }
-    toast('✅ Fechamento salvo — '+bloco.vendedor.nome,'ok');
+    toast('✅ Comissão salva — '+bloco.vendedor.nome,'ok');
+    if(_fechamentoAtual){ 
+      _fechamentoAtual.jaFechados = _fechamentoAtual.jaFechados||[];
+      if(!_fechamentoAtual.jaFechados.includes(uid)) _fechamentoAtual.jaFechados.push(uid);
+    }
+    // Atualiza botão e texto do card sem recalcular tudo
+    const _elBtn = document.querySelector('#fech_total_'+uid)?.closest('.modal, div[style]')?.querySelector('button');
+    if(_elBtn){ _elBtn.outerHTML = '<div style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:var(--rad3);padding:6px 12px;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0">✅ Comissão paga</div>'; }
+    const _elSub = document.querySelector('#fech_total_'+uid+'~div');
+    if(_elSub) _elSub.textContent='comissão paga';
     setComTab('hist');
   }catch(e){
     toast('Erro ao salvar: '+e.message,'err');
@@ -6452,10 +6468,7 @@ async function _renderHistComissao(){
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(r.valor_vendedor)}</div>
                 <button class="btn btn-sm" onclick="_renderDetalheOrdens('${r.usuario_id}','${mes}')" style="background:rgba(99,102,241,.12);color:#818cf8;border-color:rgba(99,102,241,.25);font-size:10px">📋 Ordens</button>
-                ${r.status==='pago'
-                  ? `<span style="font-size:10px;color:var(--g)">✅ ${r.pago_em?new Date(r.pago_em).toLocaleDateString('pt-BR'):''}</span>`
-                  : `<button class="btn btn-sm btn-g" onclick="marcarComissaoPaga('${r.id}')">Marcar pago</button>`
-                }
+                <span style="font-size:11px;font-weight:700;color:var(--g);background:var(--g2);border:1px solid var(--g3);border-radius:20px;padding:3px 10px">✅ Comissão paga</span>
               </div>
             </div>`;
           }).join('')}
@@ -6482,11 +6495,12 @@ async function _renderDetalheOrdens(usuarioId, mes){
   if(!modal){
     modal = document.createElement('div');
     modal.id = modalId;
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `<div class="modal-box" style="max-width:700px;width:95%">
+    modal.className = 'mbg';
+    modal.onclick = function(e){ if(e.target===this) closeModal('detalheOrdensModal'); };
+    modal.innerHTML = `<div class="modal" style="max-width:700px;width:95%">
       <div class="mh"><div class="mh-ico" style="background:rgba(99,102,241,.15)">📋</div>
-        <div><div class="mh-title" id="detalheOrdensTitle">Ordens</div><div class="mh-sub" id="detalheOrdensSub"></div></div>
-        <button class="nb mh-close" onclick="closeModal('detalheOrdensModal')">✕</button>
+        <div class="mh-txt"><div class="mh-title" id="detalheOrdensTitle">Ordens</div><div class="mh-sub" id="detalheOrdensSub"></div></div>
+        <button class="mx" onclick="closeModal('detalheOrdensModal')">✕</button>
       </div>
       <div id="detalheOrdensBody" style="max-height:60vh;overflow-y:auto;padding:0 4px"></div>
       <div style="padding-top:12px;border-top:1px solid var(--bor);display:flex;gap:8px;justify-content:flex-end">
