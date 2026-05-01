@@ -2314,6 +2314,14 @@ function atualizarBadge() {
     if ('setAppBadge' in navigator) {
       pendentes > 0 ? navigator.setAppBadge(pendentes) : navigator.clearAppBadge();
     }
+    // Envia ao SW para garantir badge no ícone
+    if (_swReg && _swReg.active) {
+      _swReg.active.postMessage({ type: 'UPDATE_BADGE', count: pendentes });
+    } else {
+      navigator.serviceWorker.ready.then(reg => {
+        if(reg.active) reg.active.postMessage({ type: 'UPDATE_BADGE', count: pendentes });
+      }).catch(()=>{});
+    }
     // Ícone dinâmico com canvas (iOS + Android)
     const logoEl = document.querySelector('.load-logo img') || document.querySelector('.login-ico img');
     if (!logoEl || !logoEl.complete) return;

@@ -1,16 +1,12 @@
-// CaçambaSP Service Worker v2.0 — OneSignal
+// CaçambaSP Service Worker v2.1 — OneSignal + Badge
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
-
 const CACHE = 'cacambasp-v2';
-
 self.addEventListener('install', e => {
   self.skipWaiting();
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(clients.claim());
 });
-
 // Recebe push do servidor
 self.addEventListener('push', e => {
   let data = { title: 'CaçambaSP', body: 'Nova atualização', icon: '/icon-192.png', badge: '/icon-192.png' };
@@ -27,7 +23,6 @@ self.addEventListener('push', e => {
     })
   );
 });
-
 // Click na notificação abre o app
 self.addEventListener('notificationclick', e => {
   e.notification.close();
@@ -41,8 +36,7 @@ self.addEventListener('notificationclick', e => {
     })
   );
 });
-
-// Mensagem interna — notificação local (sem servidor push)
+// Mensagem interna — notificação local + badge
 self.addEventListener('message', e => {
   if (e.data?.type === 'NOTIFY') {
     const { title, body, tag, url } = e.data;
@@ -54,5 +48,14 @@ self.addEventListener('message', e => {
       renotify: true,
       data: url || '/'
     });
+  }
+  // Badge no ícone da tela inicial
+  if (e.data?.type === 'UPDATE_BADGE') {
+    const count = e.data.count || 0;
+    if ('setAppBadge' in self.navigator) {
+      count > 0
+        ? self.navigator.setAppBadge(count).catch(() => {})
+        : self.navigator.clearAppBadge().catch(() => {});
+    }
   }
 });
