@@ -6135,13 +6135,15 @@ function calcularFechamento(){
     const mapaVend = {
       [f.luciana?.vendedor?.id||'_nul1']: () => {
         if(!f.luciana.vendedor) return '';
-        const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
+        const linhas = _linha('⭐ Selecionadas ('+f.luciana.ordens.filter(({c})=>(!window._fechDesmarcar[c.id]&&(c.pago||c.comissao_liberada))||window._fechDesmarcar[c.id+'_ativo']).length+' ordens)',f.luciana.totalVendedor,'var(--g)','fech_soma_'+f.luciana.vendedor.id)
+          + _linha('Total geral ('+f.luciana.ordens.length+' ordens)',f.luciana.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)')
           + _tabelaOrdens(f.luciana.ordens, f.luciana.vendedor?.id||'luc','luciana');
         return _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
       },
       [f.leticia?.vendedor?.id||'_nul5']: () => {
         if(!f.leticia?.vendedor) return '';
-        const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
+        const linhas = _linha('⭐ Selecionadas ('+f.leticia.ordens.filter(({c})=>(!window._fechDesmarcar[c.id]&&(c.pago||c.comissao_liberada))||window._fechDesmarcar[c.id+'_ativo']).length+' ordens)',f.leticia.totalVendedor,'var(--g)','fech_soma_'+f.leticia.vendedor.id)
+          + _linha('Total geral ('+f.leticia.ordens.length+' ordens)',f.leticia.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)')
           + _tabelaOrdens(f.leticia.ordens, f.leticia.vendedor?.id||'let','luciana');
         return _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido');
       },
