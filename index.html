@@ -5851,6 +5851,11 @@ function _recalcularCard(uid){
   if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
   const elCnt = document.getElementById('fech_cnt_'+uid);
   if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
+  // Atualiza linha de soma (Soma lucro líquido X ordens)
+  const elSoma = document.getElementById('fech_soma_'+uid);
+  if(elSoma) elSoma.textContent = 'R$ '+fmt(novoTotal);
+  const elSomaLabel = document.getElementById('fech_soma_'+uid+'_label');
+  if(elSomaLabel) elSomaLabel.textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)';
 }
 
 function _toggleOrdemFech(id, uid, isPago){
@@ -5935,10 +5940,10 @@ function calcularFechamento(){
       </div>
     </div>`;
 
-  const _linha = (label, val, cor) =>
+  const _linha = (label, val, cor, elId) =>
     `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bor);font-size:12px">
-      <span style="color:var(--mut2)">${label}</span>
-      <span style="font-weight:600;color:${cor||'var(--txt)'};font-family:var(--mono)">R$ ${fmt(val)}</span>
+      <span style="color:var(--mut2)" ${elId?'id="'+elId+'_label"':''}>${label}</span>
+      <span ${elId?'id="'+elId+'"':''} style="font-weight:600;color:${cor||'var(--txt)'};font-family:var(--mono)">R$ ${fmt(val)}</span>
     </div>`;
 
 
@@ -6054,14 +6059,14 @@ function calcularFechamento(){
 
   // LUCIANA
   if(f.luciana.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
+    const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)','fech_soma_'+f.luciana.vendedor.id)
       + _tabelaOrdens(f.luciana.ordens, f.luciana.vendedor?.id||'luc','luciana');
     html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido',f.luciana.vendedor.id);
   }
 
   // LETICIA
   if(f.leticia && f.leticia.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
+    const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)','fech_soma_'+f.leticia.vendedor.id)
       + _tabelaOrdens(f.leticia.ordens, f.leticia.vendedor?.id||'let','luciana');
     html += _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido',f.leticia.vendedor.id);
   }
