@@ -5917,6 +5917,7 @@ function calcularFechamento(){
   _fechamentoAtual = _calcFechamento(src, anuncioC, anuncioS);
   _fechamentoAtual.mes = mesVal;
   _fechamentoAtual.totalOrdens = src.length;
+  _fechamentoAtual.filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -6202,7 +6203,7 @@ async function salvarFechamento(){
   const mes = f.mes+'-01'; // ex: 2026-03-01
 
   // Se há vendedor específico filtrado, salva apenas ele
-  const filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
+  const filtroVendId = f.filtroVendId || document.getElementById('fechFiltroVend')?.value||'';
 
   const registros = [];
 
