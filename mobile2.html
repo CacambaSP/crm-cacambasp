@@ -2188,6 +2188,9 @@ function initApp() {
   initServiceWorker();
   initOneSignal();
   setTimeout(verificarNotifBtn, 3000);
+  // Limpar badge ao abrir o app
+  if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+  if(_swReg && _swReg.active) _swReg.active.postMessage({type:'UPDATE_BADGE', count:0});
   history.pushState(null, '', location.href);
   let _backDebounce = false;
   window.addEventListener('popstate', async function handleBack() {
@@ -2296,6 +2299,15 @@ async function goBack() {
     setView('inicio', false);
   }
 }
+
+// Limpar badge quando app volta ao foco
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){
+    if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+    if(typeof _swReg !== 'undefined' && _swReg?.active)
+      _swReg.active.postMessage({type:'UPDATE_BADGE', count:0});
+  }
+});
 
 // ── PWA BADGE — conta orçamentos novos não lidos ──
 function atualizarBadge() {
