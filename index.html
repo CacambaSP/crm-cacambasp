@@ -5924,9 +5924,9 @@ function calcularFechamento(){
 
   const _card = (titulo, cor, icon, vendedor, valor, linhas, extra, uid) => `
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px;overflow:hidden">
-      <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--bor)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-        <div style="width:38px;height:38px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
-        <div style="flex:1">
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--bor)">
+        <div onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='none'?'block':'none'" style="width:38px;height:38px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;cursor:pointer">${icon}</div>
+        <div style="flex:1;cursor:pointer" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='none'?'block':'none'">
           <div style="font-weight:700;font-size:15px">${titulo}</div>
           <div style="font-size:11px;color:var(--mut2)">${vendedor} · ${(extra||'')}</div>
         </div>
@@ -5934,7 +5934,8 @@ function calcularFechamento(){
           <div id="fech_total_${uid||''}" style="font-size:22px;font-weight:800;color:${cor};font-family:var(--mono)">R$ ${fmt(valor)}</div>
           <div style="font-size:10px;color:var(--mut2)">a receber</div>
         </div>
-        <span style="color:var(--mut2);font-size:11px">▼</span>
+        ${uid ? `<button class="btn btn-g btn-sm" onclick="salvarVendedor('${uid}')" style="flex-shrink:0">💾 Salvar</button>` : ''}
+        <span style="color:var(--mut2);font-size:11px;cursor:pointer" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='none'?'block':'none'">▼</span>
       </div>
       <div style="display:block;padding:14px 16px">
         ${linhas}
@@ -6197,25 +6198,87 @@ function calcularFechamento(){
   }
 }
 
-async function salvarFechamento(){
-  if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
-  const f = _fechamentoAtual;
-  const mes = f.mes+'-01'; // ex: 2026-03-01
-
-  // Se há vendedor específico filtrado, salva apenas ele
-  const filtroVendId = f.filtroVendId || document.getElementById('fechFiltroVend')?.value||'';
-
-  const registros = [];
-
-  // Helper: filtra apenas ordens com check marcado
-  const _ordsAtivas = (ords) => ords.filter(({c})=>{
+// Helper global: filtra apenas ordens com check marcado
+function _ordsAtivasFech(ords){
+  return ords.filter(({c})=>{
     const isPago = c.pago || c.comissao_liberada;
     if(isPago) return !window._fechDesmarcar[c.id];
     return !!window._fechDesmarcar[c.id+'_ativo'];
   });
+}
 
-  // Se filtro ativo, pula vendedores que não são o selecionado
-  const _deveIncluir = (vend) => !filtroVendId || (vend?.id === filtroVendId);
+async function salvarVendedor(uid){
+  if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
+  const f = _fechamentoAtual;
+  const mes = f.mes+'-01';
+
+  // Encontra o bloco do vendedor
+  const bloco =
+    (f.luciana?.vendedor?.id===uid && f.luciana) ||
+    (f.leticia?.vendedor?.id===uid && f.leticia) ||
+    (f.claudia?.vendedor?.id===uid && f.claudia) ||
+    (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
+    (f.sandra?.vendedor?.id===uid && f.sandra);
+
+  if(!bloco || !bloco.vendedor){ toast('Vendedor não encontrado','warn'); return; }
+
+  const ativ = _ordsAtivasFech(bloco.ordens);
+  if(!ativ.length){ toast('Nenhuma ordem selecionada','warn'); return; }
+
+  let reg = {
+    mes, usuario_id: uid,
+    total_ordens: ativ.length,
+    valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+    total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+    status: 'pendente'
+  };
+
+  const modelo = bloco.modelo;
+  if(modelo==='luciana'){
+    reg = {...reg, valor_anuncio:0, fixo_garantido:0,
+      lucro_liquido: ativ.reduce((s,{ll})=>s+ll,0),
+      valor_vendedor: ativ.reduce((s,{ll})=>s+ll,0),
+      valor_douglas:0, valor_claudia_extra:0};
+  } else if(modelo==='ricardo'){
+    reg = {...reg, valor_anuncio:0, fixo_garantido:0,
+      lucro_liquido: ativ.length*15,
+      valor_vendedor: ativ.length*15,
+      valor_douglas:0, valor_claudia_extra:0};
+  } else if(modelo==='claudia'){
+    reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:1000,
+      lucro_liquido: bloco.apos_anuncio||0,
+      valor_vendedor: bloco.totalVendedor+(f.totalClaudiaExtra||0),
+      valor_douglas: bloco.totalDouglas||0,
+      valor_claudia_extra: f.totalClaudiaExtra||0};
+  } else if(modelo==='sandra'){
+    reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:300,
+      lucro_liquido: bloco.apos_anuncio||0,
+      valor_vendedor: bloco.totalVendedor,
+      valor_douglas: bloco.splitDouglas||0,
+      valor_claudia_extra:0};
+  }
+
+  try{
+    const existe = await api(`comissoes_fechamento?mes=eq.${mes}&usuario_id=eq.${uid}`,undefined,undefined,tok());
+    if(existe && existe.length){
+      await api(`comissoes_fechamento?mes=eq.${mes}&usuario_id=eq.${uid}`,'PATCH',reg,tok());
+    } else {
+      await api('comissoes_fechamento','POST',reg,tok());
+    }
+    toast('✅ Fechamento salvo — '+bloco.vendedor.nome,'ok');
+    setComTab('hist');
+  }catch(e){
+    toast('Erro ao salvar: '+e.message,'err');
+  }
+}
+
+async function salvarFechamento(){
+  if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
+  const f = _fechamentoAtual;
+  const mes = f.mes+'-01';
+  const registros = [];
+  const _ordsAtivas = _ordsAtivasFech;
+  const _deveIncluir = () => true;
 
   if(f.luciana.vendedor && f.luciana.ordens.length && _deveIncluir(f.luciana.vendedor)){
     const ativ = _ordsAtivas(f.luciana.ordens);
