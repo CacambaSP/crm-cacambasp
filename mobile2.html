@@ -4724,6 +4724,7 @@ async function salvarNovaOrdem() {
       ids_criados.push(crm_q);
     }
     toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
+    body_list.filter(o=>o.col==='contratar').forEach(o=>pushContratar(o));
     setView('inicio');
   } catch(e) {
     toast('Erro ao salvar: '+e.message,'err');
@@ -4756,6 +4757,7 @@ async function converterOrcamento(id) {
     await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:novoCrmId, orc_convertido_em:now},tok());
     o.col=colInicial; o.crm_id=novoCrmId; o.orc_convertido_em=now;
     toast('▶️ Ordem '+novoCrmId+' criada!','ok');
+    pushContratar({...o, crm_id: novoCrmId});
     renderCurrentView();
   } catch(e){ toast('Erro','err'); }
 }
@@ -4910,6 +4912,7 @@ async function duplicarOrdem(id) {
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
     toast(`Ordem ${crm_id} criada em Contratar!`,'ok');
+    pushContratar(body);
     setView('inicio');
   } catch(e){toast('Erro ao duplicar','err');}
 }
@@ -5523,6 +5526,17 @@ async function initOneSignal(){
       }
     });
   }catch(e){ console.warn('OneSignal erro:',e); }
+}
+
+// ── Push quando ordem vai para Contratar ──
+function pushContratar(ordem){
+  try{
+    fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
+      body:JSON.stringify({tipo:'nova_ordem',ordem_id:ordem.id,crm_id:ordem.crm_id||'',nome_cliente:ordem.nome||'',bairro:ordem.bairro||'',usuario_id:ordem.usuario_id||null})
+    });
+  }catch(e){console.warn('Push contratar falhou:',e);}
 }
 </script>
 </body>

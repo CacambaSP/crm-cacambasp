@@ -3694,6 +3694,7 @@ async function salvarOrdem(){
         await api('ordens','POST',novaOrdem,tok());
         setSyncDot('ok');
         addLog(novaOrdem.id,'Criado','Nova ordem manual'+(qtd>1?' ('+(qi+1)+'/'+qtd+')':''));
+      if(novaOrdem.col==='contratar') pushContratar(novaOrdem);
       }catch(e){setSyncDot('err');toast('Erro ao salvar ordem '+(qi+1),'err');}
     }
     renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
@@ -4587,6 +4588,7 @@ async function confirmarDuplicarOrdem(){
     setSyncDot('ok');
     addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
     toast('✅ Ordem '+crmId+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
+    if(novaOrdem.col==='contratar') pushContratar(novaOrdem);
   }catch(e){ setSyncDot('err'); toast('Erro ao criar ordem','err'); }
 }
 
@@ -11898,6 +11900,24 @@ function orcSelTipoPrazo(){
   if(lRua)  lRua.style.borderColor = isCant ? 'var(--bor)' : 'var(--acc)';
   if(lCant) lCant.style.background = isCant ? 'var(--acc2)' : '';
   if(lCant) lCant.style.borderColor= isCant ? 'var(--acc)' : 'var(--bor)';
+}
+
+// ── Notificar push quando ordem vai para Contratar ──
+function pushContratar(ordem){
+  try{
+    fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
+      body:JSON.stringify({
+        tipo:'nova_ordem',
+        ordem_id:ordem.id,
+        crm_id:ordem.crm_id||'',
+        nome_cliente:ordem.nome||'',
+        bairro:ordem.bairro||'',
+        usuario_id:ordem.usuario_id||null
+      })
+    });
+  }catch(e){console.warn('Push contratar falhou:',e);}
 }
 </script>
 
