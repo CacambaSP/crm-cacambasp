@@ -5828,6 +5828,7 @@ async function estornarComissaoOrdem(id){
 }
 
 function calcularFechamento(){
+  window._fechDesmarcar = {}; // limpa seleção ao recalcular
   const mesVal = document.getElementById('fechMes')?.value;
   if(!mesVal){ toast('Selecione o mês','warn'); return; }
   const [ano,mes] = mesVal.split('-').map(Number);
@@ -5903,7 +5904,7 @@ function calcularFechamento(){
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
 
-  const _card = (titulo, cor, icon, vendedor, valor, linhas, extra) => `
+  const _card = (titulo, cor, icon, vendedor, valor, linhas, extra, uid) => `
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);margin-bottom:12px;overflow:hidden">
       <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--bor)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
         <div style="width:38px;height:38px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
@@ -5912,12 +5913,12 @@ function calcularFechamento(){
           <div style="font-size:11px;color:var(--mut2)">${vendedor} · ${(extra||'')}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:22px;font-weight:800;color:${cor};font-family:var(--mono)">R$ ${fmt(valor)}</div>
+          <div id="fech_total_${uid||''}" style="font-size:22px;font-weight:800;color:${cor};font-family:var(--mono)">R$ ${fmt(valor)}</div>
           <div style="font-size:10px;color:var(--mut2)">a receber</div>
         </div>
         <span style="color:var(--mut2);font-size:11px">▼</span>
       </div>
-      <div style="display:none;padding:14px 16px">
+      <div style="display:block;padding:14px 16px">
         ${linhas}
       </div>
     </div>`;
@@ -5928,24 +5929,112 @@ function calcularFechamento(){
       <span style="font-weight:600;color:${cor||'var(--txt)'};font-family:var(--mono)">R$ ${fmt(val)}</span>
     </div>`;
 
-  const _tabelaOrdens = (ords) => {
+  // Mapa global de ordens desmarcadas no fechamento (id => true)
+  if(!window._fechDesmarcar) window._fechDesmarcar = {};
+
+  const _recalcularCard = (uid) => {
+    // Recalcula total do vendedor excluindo desmarcadas
+    const bloco = _fechamentoAtual && (
+      (_fechamentoAtual.luciana?.vendedor?.id===uid && _fechamentoAtual.luciana) ||
+      (_fechamentoAtual.leticia?.vendedor?.id===uid && _fechamentoAtual.leticia) ||
+      (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
+      (_fechamentoAtual.ricardo?.vendedor?.id===uid && _fechamentoAtual.ricardo) ||
+      (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
+    );
+    if(!bloco) return;
+    const ordsAtivas = bloco.ordens.filter(({c})=>!window._fechDesmarcar[c.id]);
+    const novoTotal = bloco.modelo==='ricardo'
+      ? ordsAtivas.length * 15
+      : ordsAtivas.reduce((s,{ll})=>s+ll, 0);
+    // Atualiza total exibido no card
+    const elTotal = document.getElementById('fech_total_'+uid);
+    if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
+    // Atualiza contador
+    const elCnt = document.getElementById('fech_cnt_'+uid);
+    if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
+  };
+
+  const _toggleOrdemFech = (id, uid) => {
+    if(window._fechDesmarcar[id]) delete window._fechDesmarcar[id];
+    else window._fechDesmarcar[id] = true;
+    // Risco visual na linha
+    const row = document.getElementById('fechrow_'+id);
+    if(row) row.style.opacity = window._fechDesmarcar[id] ? '0.35' : '1';
+    _recalcularCard(uid);
+  };
+
+  const _tabelaOrdens = (ords, uid, modelo) => {
     if(!ords||!ords.length) return '<div style="color:var(--mut2);font-size:12px;padding:8px 0">Nenhuma ordem no período.</div>';
-    return `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">
+    const ordsAtivas = ords.filter(({c})=>!window._fechDesmarcar[c.id]);
+    const TAXA_ADM = _taxaAdmin||10;
+
+    // Monta colunas e detalhes por modelo
+    const isRicardo = modelo==='ricardo';
+
+    const _thExtra = isRicardo ? '' :
+      `<th style="padding:6px 6px;text-align:right;color:var(--mut2);white-space:nowrap">Taxa Adm</th>
+       <th style="padding:6px 6px;text-align:right;color:var(--mut2)">NF</th>`;
+
+    const _tdExtra = (c) => {
+      if(isRicardo) return '';
+      const nf = c.nf_num ? (parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100) : 0;
+      return `<td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">-R$ ${fmt(TAXA_ADM)}</td>
+              <td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">${nf>0?'-R$ '+fmt(nf):'—'}</td>`;
+    };
+
+    const _comissaoLabel = (c, ll) => {
+      if(isRicardo) return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ 15,00<br><span style="font-size:9px;color:var(--mut2)">fixo</span></td>`;
+      if(modelo==='claudia') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll)}<br><span style="font-size:9px;color:var(--mut2)">→ split 50%</span></td>`;
+      if(modelo==='sandra') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(ll)}<br><span style="font-size:9px;color:var(--mut2)">→ split 40%</span></td>`;
+      // luciana/leticia: comissão = ll
+      return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--g);font-family:var(--mono)">R$ ${fmt(ll)}</td>`;
+    };
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <span id="fech_cnt_${uid}" style="font-size:11px;color:var(--mut2)">${ordsAtivas.length} ordem(ns) selecionada(s)</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-xs" onclick="(function(){${ords.map(({c})=>`delete window._fechDesmarcar['${c.id}'];`).join('')}document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='1');_recalcularCard('${uid}');})()">☑️ Todas</button>
+          <button class="btn btn-xs" onclick="(function(){${ords.map(({c})=>`window._fechDesmarcar['${c.id}']=true;`).join('')}document.querySelectorAll('.fechrow_uid_${uid}').forEach(r=>r.style.opacity='0.35');_recalcularCard('${uid}');})()">☐ Nenhuma</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;min-width:520px">
       <thead><tr style="background:rgba(255,255,255,.03)">
-        <th style="padding:6px 8px;text-align:left;color:var(--mut2)">Endereço</th>
-        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Receita</th>
-        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Custo</th>
-        <th style="padding:6px 8px;text-align:right;color:var(--mut2)">Luc. Líq.</th>
+        <th style="padding:6px 4px;width:28px"></th>
+        <th style="padding:6px 8px;text-align:left;color:var(--mut2)">Endereço / OS</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--g)">Receita</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--r)">Custo</th>
+        ${_thExtra}
+        <th style="padding:6px 8px;text-align:right;color:var(--b)">Luc. Líq.</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--acc)">Comissão</th>
       </tr></thead>
       <tbody>
-        ${ords.map(({c,ll})=>`<tr style="border-top:1px solid var(--bor)">
-          <td style="padding:6px 8px">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</td>
-          <td style="padding:6px 8px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(c.rec)}</td>
-          <td style="padding:6px 8px;text-align:right;color:var(--r);font-family:var(--mono)">R$ ${fmt(c.cst)}</td>
-          <td style="padding:6px 8px;text-align:right;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll)}</td>
-        </tr>`).join('')}
+        ${ords.map(({c,ll,comissao})=>{
+          const nf = c.nf_num ? (parseFloat(c.rec)||0)*((parseFloat(c.nf_taxa)||_taxaNF)/100) : 0;
+          const recVal = parseFloat(c.rec)||0;
+          const cstVal = parseFloat(c.cst)||0;
+          // Linha de cálculo visual: rec - cst - adm - nf = ll
+          const calcStr = isRicardo
+            ? `${fmt(recVal)} − ${fmt(cstVal)} − ${fmt(TAXA_ADM)}${nf>0?` − ${fmt(nf)}`:''} = ${fmt(ll)}`
+            : '';
+          return `<tr id="fechrow_${c.id}" class="fechrow_uid_${uid}" style="border-top:1px solid var(--bor);opacity:${window._fechDesmarcar[c.id]?'0.35':'1'};transition:opacity .15s">
+            <td style="padding:6px 4px;text-align:center">
+              <input type="checkbox" ${window._fechDesmarcar[c.id]?'':'checked'} onchange="_toggleOrdemFech('${c.id}','${uid}')" style="width:15px;height:15px;accent-color:var(--g);cursor:pointer">
+            </td>
+            <td style="padding:6px 8px">
+              <span style="font-weight:600">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</span><br>
+              <span style="font-size:10px;color:var(--mut2)">${c.crm_id||''} · ${c.pago?'✅ Pago':'⭐ Liberado'}${c.nf_num?' · 🧾 NF':''}</span>
+            </td>
+            <td style="padding:6px 8px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(recVal)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--r);font-family:var(--mono)">-R$ ${fmt(cstVal)}</td>
+            ${_tdExtra(c)}
+            <td style="padding:6px 8px;text-align:right;font-family:var(--mono);color:${ll>=0?'var(--b)':'var(--r)'};font-weight:600">R$ ${fmt(ll)}</td>
+            ${_comissaoLabel(c, ll)}
+          </tr>`;
+        }).join('')}
       </tbody>
-    </table>`;
+    </table></div>`;
   };
 
   // Cards por vendedor
@@ -5961,15 +6050,15 @@ function calcularFechamento(){
   // LUCIANA
   if(f.luciana.vendedor){
     const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
-      + _tabelaOrdens(f.luciana.ordens);
-    html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
+      + _tabelaOrdens(f.luciana.ordens, f.luciana.vendedor?.id||'luc','luciana');
+    html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido',f.luciana.vendedor.id);
   }
 
   // LETICIA
   if(f.leticia && f.leticia.vendedor){
     const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
-      + _tabelaOrdens(f.leticia.ordens);
-    html += _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido');
+      + _tabelaOrdens(f.leticia.ordens, f.leticia.vendedor?.id||'let','luciana');
+    html += _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido',f.leticia.vendedor.id);
   }
 
   // CLAUDIA
@@ -5980,17 +6069,17 @@ function calcularFechamento(){
       + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
       + _linha('(+) Fixo garantido',1000,'var(--g)')
       + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
-      + _tabelaOrdens(f.claudia.ordens);
+      + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
     const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
-    html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra, linhas, `R$1.000 fixo + 50% do restante${extra}`);
+    html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
   }
 
   // RICARDO
   if(f.ricardo.vendedor){
     const linhas = _linha('Ordens pagas',f.ricardo.ordens.length,'var(--txt)')
       + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
-      + _tabelaOrdens(f.ricardo.ordens);
-    html += _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem');
+      + _tabelaOrdens(f.ricardo.ordens, f.ricardo.vendedor?.id||'ric','ricardo');
+    html += _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem',f.ricardo.vendedor.id);
   }
 
   // SANDRA
@@ -6002,8 +6091,8 @@ function calcularFechamento(){
       + _linha('(+) Fixo garantido',300,'var(--g)')
       + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
       + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
-      + _tabelaOrdens(f.sandra.ordens);
-    html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
+      + _tabelaOrdens(f.sandra.ordens, f.sandra.vendedor?.id||'san','sandra');
+    html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante',f.sandra.vendedor.id);
   }
 
   const todasOrdens = src; // para referência no escopo
@@ -6035,13 +6124,13 @@ function calcularFechamento(){
       [f.luciana?.vendedor?.id||'_nul1']: () => {
         if(!f.luciana.vendedor) return '';
         const linhas = _linha('Soma lucro líquido ('+f.luciana.ordens.length+' ordens)',f.luciana.totalVendedor,'var(--g)')
-          + _tabelaOrdens(f.luciana.ordens);
+          + _tabelaOrdens(f.luciana.ordens, f.luciana.vendedor?.id||'luc','luciana');
         return _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',f.luciana.totalVendedor,linhas,'100% do lucro líquido');
       },
       [f.leticia?.vendedor?.id||'_nul5']: () => {
         if(!f.leticia?.vendedor) return '';
         const linhas = _linha('Soma lucro líquido ('+f.leticia.ordens.length+' ordens)',f.leticia.totalVendedor,'var(--g)')
-          + _tabelaOrdens(f.leticia.ordens);
+          + _tabelaOrdens(f.leticia.ordens, f.leticia.vendedor?.id||'let','luciana');
         return _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',f.leticia.totalVendedor,linhas,'100% do lucro líquido');
       },
       [f.claudia?.vendedor?.id||'_nul2']: () => {
@@ -6053,14 +6142,14 @@ function calcularFechamento(){
           + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
           + _linha('(+) Fixo garantido',1000,'var(--g)')
           + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
-          + _tabelaOrdens(f.claudia.ordens);
+          + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
         return _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra,linhas,`R$1.000 fixo + 50% do restante${extra}`);
       },
       [f.ricardo?.vendedor?.id||'_nul3']: () => {
         if(!f.ricardo.vendedor) return '';
         const linhas = _linha('Ordens pagas',f.ricardo.ordens.length,'var(--txt)')
           + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
-          + _tabelaOrdens(f.ricardo.ordens);
+          + _tabelaOrdens(f.ricardo.ordens, f.ricardo.vendedor?.id||'ric','ricardo');
         return _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem');
       },
       [f.sandra?.vendedor?.id||'_nul4']: () => {
@@ -6072,7 +6161,7 @@ function calcularFechamento(){
           + _linha('(+) Fixo garantido',300,'var(--g)')
           + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
           + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
-          + _tabelaOrdens(f.sandra.ordens);
+          + _tabelaOrdens(f.sandra.ordens, f.sandra.vendedor?.id||'san','sandra');
         return _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
       },
     };
