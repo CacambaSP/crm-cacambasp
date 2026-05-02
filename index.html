@@ -6280,8 +6280,8 @@ async function calcularFechamento(){
     const _douTotal = parseFloat((_taxAdm + _splitCla + _splitSan + _douLL60).toFixed(2));
     const linhas =
       _linha('R$'+(_taxaAdmin||10)+' × '+_todosAtivosIni+' ordens selecionadas (taxa adm)', _taxAdm, 'var(--g)', 'fech_dou_taxaadm_'+_duid)
-      + _linha('50% split Claudia (fixo)', _splitCla, 'var(--b)')
-      + _linha('30% split Sandra (fixo)', _splitSan, 'var(--acc)')
+      + _linha('50% split Claudia', _splitCla, 'var(--b)', 'fech_dou_splitcla_'+_duid)
+      + _linha('30% split Sandra', _splitSan, 'var(--acc)', 'fech_dou_splitsna_'+_duid)
       + _linha('60% LL próprias ordens ('+_douAtivas.length+' OS)', _douLL60, 'var(--g)', 'fech_dou_ll60_'+_duid)
       + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, _duid,'douglas') : '');
     html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$'+(_taxaAdmin||10)+'/ordem + splits + 60% LL próprio',_duid);
