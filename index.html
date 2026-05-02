@@ -6350,34 +6350,50 @@ async function calcularFechamento(){
       },
       [f.claudia?.vendedor?.id||'_nul2']: () => {
         if(!f.claudia.vendedor) return '';
+        const _cuid = f.claudia.vendedor.id;
+        const _claAtF = _ordsAtivasFech(f.claudia.ordens);
+        const _claLLF = parseFloat(_claAtF.reduce((s,{ll})=>s+ll,0).toFixed(2));
+        const _claAposF = parseFloat(Math.max(_claLLF - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
+        const _claSplitF = parseFloat((_claAposF / 2).toFixed(2));
+        const _claTotalF = parseFloat((1000 + _claSplitF + (f.totalClaudiaExtra||0)).toFixed(2));
         const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
-        const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
+        const linhas = _linha('Soma lucro líquido ('+_claAtF.length+' ordens)',_claLLF,'var(--b)','fech_somaLL_'+_cuid)
+          + _linha('(-) Fixo garantido',1000,'var(--r)')
           + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
-          + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
-          + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
+          + _linha('Restante após descontos',_claAposF,'var(--txt)','fech_apos_'+_cuid)
+          + _linha('50% Claudia (split)',_claSplitF,'var(--acc)','fech_split_'+_cuid)
           + _linha('(+) Fixo garantido',1000,'var(--g)')
-          + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
-          + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
-        return _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra,linhas,`R$1.000 fixo + 50% do restante${extra}`);
+          + _linha('(+) Gerência Sandra',f.totalClaudiaExtra||0,'var(--g)')
+          + _linha('50% Douglas',_claSplitF,'var(--mut2)','fech_splitD_'+_cuid)
+          + _tabelaOrdens(f.claudia.ordens, _cuid,'claudia');
+        return _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',_claTotalF,linhas,`R$1.000 fixo + 50% do restante${extra}`,_cuid);
       },
       [f.ricardo?.vendedor?.id||'_nul3']: () => {
         if(!f.ricardo.vendedor) return '';
         const linhas = _linha('Ordens pagas',f.ricardo.ordens.length,'var(--txt)')
           + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
           + _tabelaOrdens(f.ricardo.ordens, f.ricardo.vendedor?.id||'ric','ricardo');
-        return _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem');
+        return _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem',f.ricardo.vendedor.id);
       },
       [f.sandra?.vendedor?.id||'_nul4']: () => {
         if(!f.sandra.vendedor) return '';
-        const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
+        const _suid = f.sandra.vendedor.id;
+        const _sanAtF = _ordsAtivasFech(f.sandra.ordens);
+        const _sanLLF = parseFloat(_sanAtF.reduce((s,{ll})=>s+ll,0).toFixed(2));
+        const _sanAposF = parseFloat(Math.max(_sanLLF - (f.sandra.anuncio||0), 0).toFixed(2));
+        const _sanSplit40F = parseFloat((_sanAposF*0.40).toFixed(2));
+        const _sanSplit30dF = parseFloat((_sanAposF*0.30).toFixed(2));
+        const _sanSplit30cF = parseFloat((_sanAposF*0.30).toFixed(2));
+        const _sanTotalF = parseFloat((300 + _sanSplit40F).toFixed(2));
+        const linhas = _linha('Soma lucro líquido ('+_sanAtF.length+' ordens)',_sanLLF,'var(--b)','fech_somaLL_'+_suid)
           + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
-          + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
-          + _linha('40% Sandra (split)',f.sandra.splitVendedor,'var(--acc)')
+          + _linha('Restante após anúncio',_sanAposF,'var(--txt)','fech_apos_'+_suid)
+          + _linha('40% Sandra (split)',_sanSplit40F,'var(--acc)','fech_split_'+_suid)
           + _linha('(+) Fixo garantido',300,'var(--g)')
-          + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
-          + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
-          + _tabelaOrdens(f.sandra.ordens, f.sandra.vendedor?.id||'san','sandra');
-        return _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante');
+          + _linha('30% Douglas',_sanSplit30dF,'var(--mut2)','fech_splitD_'+_suid)
+          + _linha('30% Claudia',_sanSplit30cF,'var(--b)','fech_splitC_'+_suid)
+          + _tabelaOrdens(f.sandra.ordens, _suid,'sandra');
+        return _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',_sanTotalF,linhas,'R$300 fixo + 40% do restante',_suid);
       },
     };
     // Douglas é sempre o user logado (dono)
