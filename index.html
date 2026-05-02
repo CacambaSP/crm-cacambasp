@@ -5854,37 +5854,48 @@ window._fechDesmarcar = window._fechDesmarcar || {};
 function _recalcularCard(uid){
   if(!_fechamentoAtual) return;
   const f = _fechamentoAtual;
-  const bloco =
-    (f.luciana?.vendedor?.id===uid && f.luciana) ||
-    (f.leticia?.vendedor?.id===uid && f.leticia) ||
-    (f.claudia?.vendedor?.id===uid && f.claudia) ||
-    (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
-    (f.sandra?.vendedor?.id===uid && f.sandra) ||
-    (f.douglas?.vendedor?.id===uid && f.douglas);
 
-  if(!bloco) return;
-
-  const ordsAtivas = bloco.ordens.filter(({c})=>{
+  // Helper: ordens ativas de um bloco
+  const _ativas = (bloco) => bloco.ordens.filter(({c})=>{
     const isPago = c.pago || c.comissao_liberada;
     if(isPago) return !window._fechDesmarcar[c.id];
     return !!window._fechDesmarcar[c.id+'_ativo'];
   });
 
-  const novoLL = ordsAtivas.reduce((s,{ll})=>s+ll, 0);
-  const anuncio = bloco.anuncio||0;
-
-  const _upd = (id, val) => { const el=document.getElementById(id); if(el) el.textContent='R$ '+fmt(val); };
+  const _upd    = (id, val) => { const el=document.getElementById(id); if(el) el.textContent='R$ '+fmt(val); };
   const _updTxt = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
 
-  let novoTotal;
+  // ── Recalcular o bloco que mudou ──
+  const bloco =
+    (f.luciana?.vendedor?.id===uid && f.luciana) ||
+    (f.leticia?.vendedor?.id===uid && f.leticia) ||
+    (f.claudia?.vendedor?.id===uid && f.claudia) ||
+    (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
+    (f.sandra?.vendedor?.id===uid && f.sandra)   ||
+    (f.douglas?.vendedor?.id===uid && f.douglas);
+
+  if(!bloco) return;
+
+  const ordsAtivas = _ativas(bloco);
+  const novoLL     = parseFloat(ordsAtivas.reduce((s,{ll})=>s+ll, 0).toFixed(2));
+  const anuncio    = bloco.anuncio||0;
+
+  let novoTotal = 0;
+
   if(bloco.modelo==='ricardo'){
     novoTotal = ordsAtivas.length * 15;
     _updTxt('fech_cnt_'+uid, ordsAtivas.length+' ordem(ns) selecionada(s)');
 
   } else if(bloco.modelo==='claudia'){
-    const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
-    const split = aposDesc / 2;
-    novoTotal = 1000 + split + (f.totalClaudiaExtra||0);
+    const aposDesc = parseFloat(Math.max(novoLL - 1000 - anuncio, 0).toFixed(2));
+    const split    = parseFloat((aposDesc / 2).toFixed(2));
+    // recalcular totalClaudiaExtra com as ordens ativas da Sandra
+    const sanAtivas   = f.sandra?.vendedor ? _ativas(f.sandra) : [];
+    const sanLL       = parseFloat(sanAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const sanAnuncio  = f.sandra?.anuncio||0;
+    const sanApos     = parseFloat(Math.max(sanLL - sanAnuncio, 0).toFixed(2));
+    const sanSplit30c = parseFloat((sanApos * 0.30).toFixed(2));
+    novoTotal = parseFloat((1000 + split + sanSplit30c).toFixed(2));
     _upd('fech_somaLL_'+uid, novoLL);
     _updTxt('fech_somaLL_'+uid+'_label', 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
     _upd('fech_apos_'+uid, aposDesc);
@@ -5892,37 +5903,92 @@ function _recalcularCard(uid){
     _upd('fech_splitD_'+uid, split);
 
   } else if(bloco.modelo==='sandra'){
-    const aposAnuncio = Math.max(novoLL - anuncio, 0);
-    const split = aposAnuncio * 0.4;
-    novoTotal = 300 + split;
+    const aposAnuncio = parseFloat(Math.max(novoLL - anuncio, 0).toFixed(2));
+    const split40     = parseFloat((aposAnuncio * 0.40).toFixed(2));
+    const split30d    = parseFloat((aposAnuncio * 0.30).toFixed(2));
+    const split30c    = parseFloat((aposAnuncio * 0.30).toFixed(2));
+    novoTotal = parseFloat((300 + split40).toFixed(2));
     _upd('fech_somaLL_'+uid, novoLL);
     _updTxt('fech_somaLL_'+uid+'_label', 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
     _upd('fech_apos_'+uid, aposAnuncio);
-    _upd('fech_split_'+uid, split);
-    _upd('fech_splitD_'+uid, aposAnuncio*0.3);
+    _upd('fech_split_'+uid, split40);
+    _upd('fech_splitD_'+uid, split30d);
+    _upd('fech_splitC_'+uid, split30c);
+    // Atualizar o 30% da Claudia que vem da Sandra
+    if(f.claudia?.vendedor){
+      const claUid = f.claudia.vendedor.id;
+      // recalcular total da claudia com novo split da sandra
+      const claAtivas   = _ativas(f.claudia);
+      const claLL       = parseFloat(claAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+      const claAnuncio  = f.claudia.anuncio||0;
+      const claApos     = parseFloat(Math.max(claLL - 1000 - claAnuncio, 0).toFixed(2));
+      const claSplit    = parseFloat((claApos / 2).toFixed(2));
+      const claTotal    = parseFloat((1000 + claSplit + split30c).toFixed(2));
+      _upd('fech_somaLL_'+claUid, claLL);
+      _upd('fech_apos_'+claUid, claApos);
+      _upd('fech_split_'+claUid, claSplit);
+      _upd('fech_splitD_'+claUid, claSplit);
+      const elTotalCla = document.getElementById('fech_total_'+claUid);
+      if(elTotalCla) elTotalCla.textContent = 'R$ '+fmt(claTotal);
+    }
 
   } else if(bloco.modelo==='douglas'){
-    // Taxa adm e splits são fixos — só o 60% LL muda ao marcar/desmarcar
-    const ll60 = novoLL * 0.6;
-    const taxaAdmFixa = f.totalTaxaAdm||0;
-    const splitClaFixo = f.claudia?.splitDouglas||0;
-    const splitSanFixo = f.sandra?.splitDouglas||0;
-    novoTotal = taxaAdmFixa + splitClaFixo + splitSanFixo + ll60;
+    const ll60 = parseFloat((novoLL * 0.6).toFixed(2));
+    // Recalcular taxa adm: R$10 × ordens ativas do Douglas
+    const taxaAdm = parseFloat((ordsAtivas.length * (_taxaAdmin||10)).toFixed(2));
+    // Recalcular splits atuais da Claudia e Sandra
+    const claAtivas  = f.claudia?.vendedor ? _ativas(f.claudia) : [];
+    const claLL      = parseFloat(claAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const claAnuncio = f.claudia?.anuncio||0;
+    const claApos    = parseFloat(Math.max(claLL - 1000 - claAnuncio, 0).toFixed(2));
+    const claSplit50 = parseFloat((claApos / 2).toFixed(2));
+    const sanAtivas  = f.sandra?.vendedor ? _ativas(f.sandra) : [];
+    const sanLL      = parseFloat(sanAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const sanAnuncio = f.sandra?.anuncio||0;
+    const sanApos    = parseFloat(Math.max(sanLL - sanAnuncio, 0).toFixed(2));
+    const sanSplit30 = parseFloat((sanApos * 0.30).toFixed(2));
+    novoTotal = parseFloat((taxaAdm + claSplit50 + sanSplit30 + ll60).toFixed(2));
     _upd('fech_dou_ll60_'+uid, ll60);
     _updTxt('fech_dou_ll60_'+uid+'_label', '60% LL próprias ordens ('+ordsAtivas.length+' OS)');
+    _upd('fech_dou_taxaadm_'+uid, taxaAdm);
+    _updTxt('fech_dou_taxaadm_'+uid+'_label', 'R$'+(_taxaAdmin||10)+' × '+ordsAtivas.length+' ordens selecionadas (taxa adm)');
 
   } else {
-    // luciana / leticia
+    // luciana / leticia — 100% do LL
     novoTotal = novoLL;
     _upd('fech_soma_'+uid, novoTotal);
-    _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+bloco.ordens.length+' ordens — '+ordsAtivas.length+' selecionadas)');
+    _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+ordsAtivas.length+' ordens selecionadas)');
   }
 
-  // Atualizar topo e contador
+  // Atualizar topo e contador sempre
   const elTotal = document.getElementById('fech_total_'+uid);
   if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
   const elCnt = document.getElementById('fech_cnt_'+uid);
   if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
+
+  // Se mudou Claudia ou Sandra, recalcular Douglas também
+  if(bloco.modelo==='claudia' || bloco.modelo==='sandra'){
+    if(f.douglas?.vendedor){
+      const dUid    = f.douglas.vendedor.id;
+      const dAtivas = _ativas(f.douglas);
+      const dLL60   = parseFloat((dAtivas.reduce((s,{ll})=>s+ll,0)*0.6).toFixed(2));
+      const dTaxAdm = parseFloat((dAtivas.length * (_taxaAdmin||10)).toFixed(2));
+      // splits atuais
+      const cA2 = f.claudia?.vendedor ? _ativas(f.claudia) : [];
+      const cLL2 = parseFloat(cA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
+      const cApos2 = parseFloat(Math.max(cLL2 - 1000 - (f.claudia?.anuncio||0), 0).toFixed(2));
+      const cSplit2 = parseFloat((cApos2/2).toFixed(2));
+      const sA2 = f.sandra?.vendedor ? _ativas(f.sandra) : [];
+      const sLL2 = parseFloat(sA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
+      const sApos2 = parseFloat(Math.max(sLL2 - (f.sandra?.anuncio||0), 0).toFixed(2));
+      const sSplit2 = parseFloat((sApos2*0.30).toFixed(2));
+      const dTotal = parseFloat((dTaxAdm + cSplit2 + sSplit2 + dLL60).toFixed(2));
+      _upd('fech_dou_ll60_'+dUid, dLL60);
+      _upd('fech_dou_taxaadm_'+dUid, dTaxAdm);
+      const elTotalD = document.getElementById('fech_total_'+dUid);
+      if(elTotalD) elTotalD.textContent = 'R$ '+fmt(dTotal);
+    }
+  }
 }
 
 function _toggleOrdemFech(id, uid, isPago){
@@ -6156,10 +6222,10 @@ async function calcularFechamento(){
   // CLAUDIA
   if(f.claudia.vendedor){
     const _claAtivas = _ordsAtivasFech(f.claudia.ordens);
-    const _claSomaLL = _claAtivas.reduce((s,{ll})=>s+ll,0);
-    const _claAposDesc = Math.max(_claSomaLL - 1000 - (f.claudia.anuncio||0), 0);
-    const _claSplit = _claAposDesc / 2;
-    const _claTotal = 1000 + _claSplit + (f.totalClaudiaExtra||0);
+    const _claSomaLL = parseFloat(_claAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const _claAposDesc = parseFloat(Math.max(_claSomaLL - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
+    const _claSplit = parseFloat((_claAposDesc / 2).toFixed(2));
+    const _claTotal = parseFloat((1000 + _claSplit + (f.totalClaudiaExtra||0)).toFixed(2));
     const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
     const linhas = _linha('Soma lucro líquido ('+_claAtivas.length+' ordens)',_claSomaLL,'var(--b)','fech_somaLL_'+f.claudia.vendedor.id)
       + _linha('(-) Fixo garantido',1000,'var(--r)')
@@ -6185,7 +6251,7 @@ async function calcularFechamento(){
     // Contar ordens pagas do mês para taxa adm
     const _ordsPagas = src.filter(c=>c.pago && c.col!=='orcamento').length;
     const linhas =
-      _linha('R$'+(_taxaAdmin||10)+' × '+_ordsPagas+' ordens pagas (taxa adm — fixo)', _taxAdm, 'var(--g)')
+      _linha('R$'+(_taxaAdmin||10)+' × '+_ordsPagas+' ordens pagas (taxa adm)', _taxAdm, 'var(--g)', 'fech_dou_taxaadm_'+_duid)
       + _linha('50% split Claudia (fixo)', _splitCla, 'var(--b)')
       + _linha('30% split Sandra (fixo)', _splitSan, 'var(--acc)')
       + _linha('60% LL próprias ordens ('+_douAtivas.length+' OS)', _douLL60, 'var(--g)', 'fech_dou_ll60_'+_duid)
@@ -6203,15 +6269,22 @@ async function calcularFechamento(){
 
   // SANDRA
   if(f.sandra.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)','fech_somaLL_'+f.sandra.vendedor.id)
+    const _sanAtivas2 = _ordsAtivasFech(f.sandra.ordens);
+    const _sanLL2 = _sanAtivas2.reduce((s,{ll})=>s+ll,0);
+    const _sanApos2 = Math.max(_sanLL2 - (f.sandra.anuncio||0), 0);
+    const _sanSplit40 = parseFloat((_sanApos2*0.40).toFixed(2));
+    const _sanSplit30d = parseFloat((_sanApos2*0.30).toFixed(2));
+    const _sanSplit30c = parseFloat((_sanApos2*0.30).toFixed(2));
+    const _sanTotal2 = parseFloat((300 + _sanSplit40).toFixed(2));
+    const linhas = _linha('Soma lucro líquido ('+_sanAtivas2.length+' ordens)',_sanLL2,'var(--b)','fech_somaLL_'+f.sandra.vendedor.id)
       + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
-      + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
-      + _linha('40% Sandra (split)',f.sandra.splitVendedor,'var(--acc)')
+      + _linha('Restante após anúncio',_sanApos2,'var(--txt)','fech_apos_'+f.sandra.vendedor.id)
+      + _linha('40% Sandra (split)',_sanSplit40,'var(--acc)','fech_split_'+f.sandra.vendedor.id)
       + _linha('(+) Fixo garantido',300,'var(--g)')
-      + _linha('30% Douglas',f.sandra.splitDouglas,'var(--mut2)')
-      + _linha('30% Claudia',f.sandra.splitClaudia,'var(--b)')
+      + _linha('30% Douglas',_sanSplit30d,'var(--mut2)','fech_splitD_'+f.sandra.vendedor.id)
+      + _linha('30% Claudia',_sanSplit30c,'var(--b)','fech_splitC_'+f.sandra.vendedor.id)
       + _tabelaOrdens(f.sandra.ordens, f.sandra.vendedor?.id||'san','sandra');
-    html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',f.sandra.totalVendedor,linhas,'R$300 fixo + 40% do restante',f.sandra.vendedor.id);
+    html += _card('Sandra','var(--acc)','👩',f.sandra.vendedor.email||'',_sanTotal2,linhas,'R$300 fixo + 40% do restante',f.sandra.vendedor.id);
   }
 
   const todasOrdens = src; // para referência no escopo
