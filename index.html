@@ -5856,6 +5856,33 @@ function _recalcularCard(uid){
   if(elSoma) elSoma.textContent = 'R$ '+fmt(novoTotal);
   const elSomaLabel = document.getElementById('fech_soma_'+uid+'_label');
   if(elSomaLabel) elSomaLabel.textContent = '⭐ Selecionadas ('+ordsAtivas.length+' ordens)';
+  // Atualizar linhas de split da Cláudia e Sandra
+  const elSomaLL = document.getElementById('fech_somaLL_'+uid);
+  if(elSomaLL) elSomaLL.textContent = 'R$ '+fmt(novoTotal);
+  const elSomaLLLabel = document.getElementById('fech_somaLL_'+uid+'_label');
+  if(elSomaLLLabel) elSomaLLLabel.textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)';
+  const TAXA_ADM2 = _taxaAdmin||10;
+  const novoLL = ordsAtivas.reduce((s,{ll})=>s+ll,0);
+  const elSplit = document.getElementById('fech_split_'+uid);
+  if(elSplit){
+    const bloco2 = _fechamentoAtual && (
+      (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
+      (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
+    );
+    if(bloco2){
+      const anuncio = bloco2.anuncio||0;
+      const aposAnuncio = Math.max(novoLL - anuncio, 0);
+      const pct = bloco2.modelo==='claudia' ? 0.5 : 0.4;
+      const fixo = bloco2.modelo==='claudia' ? 1000 : 300;
+      const split = aposAnuncio * pct;
+      document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio));
+      document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
+      document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio*(bloco2.modelo==='claudia'?0.5:0.3)));
+      const totalVend = fixo + split;
+      const elTotal2 = document.getElementById('fech_total_'+uid);
+      if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
+    }
+  }
 }
 
 function _toggleOrdemFech(id, uid, isPago){
@@ -5873,7 +5900,7 @@ function _toggleOrdemFech(id, uid, isPago){
   _recalcularCard(uid);
 }
 
-function calcularFechamento(){
+async function calcularFechamento(){
   window._fechDesmarcar = {}; // limpa seleção ao recalcular
   const mesVal = document.getElementById('fechMes')?.value;
   if(!mesVal){ toast('Selecione o mês','warn'); return; }
@@ -5919,10 +5946,12 @@ function calcularFechamento(){
   _fechamentoAtual.totalOrdens = src.length;
   _fechamentoAtual.filtroVendId = document.getElementById('fechFiltroVend')?.value||'';
   _fechamentoAtual.srcMesLen = srcMes.length;
-  // Carregar quais vendedores já têm fechamento salvo neste mês
-  api('comissoes_fechamento?mes=eq.'+mesVal+'-01',undefined,undefined,tok())
-    .then(rows=>{ _fechamentoAtual.jaFechados = (rows||[]).map(r=>r.usuario_id); })
-    .catch(()=>{ _fechamentoAtual.jaFechados = []; });
+  // Carregar quais vendedores já têm fechamento salvo neste mês ANTES de renderizar
+  _fechamentoAtual.jaFechados = [];
+  try {
+    const rows = await api('comissoes_fechamento?mes=eq.'+mesVal+'-01',undefined,undefined,tok());
+    _fechamentoAtual.jaFechados = (rows||[]).map(r=>r.usuario_id);
+  } catch(e) { _fechamentoAtual.jaFechados = []; }
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -5983,8 +6012,8 @@ function calcularFechamento(){
 
     const _comissaoLabel = (c, ll) => {
       if(isRicardo) return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ 15,00<br><span style="font-size:9px;color:var(--mut2)">fixo</span></td>`;
-      if(modelo==='claudia') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll)}<br><span style="font-size:9px;color:var(--mut2)">→ split 50%</span></td>`;
-      if(modelo==='sandra') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(ll)}<br><span style="font-size:9px;color:var(--mut2)">→ split 40%</span></td>`;
+      if(modelo==='claudia') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll*0.5)}<br><span style="font-size:9px;color:var(--mut2)">50% de R$${fmt(ll)}</span></td>`;
+      if(modelo==='sandra') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(ll*0.4)}<br><span style="font-size:9px;color:var(--mut2)">40% de R$${fmt(ll)}</span></td>`;
       // luciana/leticia: comissão = ll
       return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--g);font-family:var(--mono)">R$ ${fmt(ll)}</td>`;
     };
@@ -6084,12 +6113,12 @@ function calcularFechamento(){
 
   // CLAUDIA
   if(f.claudia.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)')
+    const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)','fech_somaLL_'+f.claudia.vendedor.id)
       + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
-      + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)')
-      + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)')
+      + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)','fech_apos_'+f.claudia.vendedor.id)
+      + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)','fech_split_'+f.claudia.vendedor.id)
       + _linha('(+) Fixo garantido',1000,'var(--g)')
-      + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)')
+      + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)','fech_splitD_'+f.claudia.vendedor.id)
       + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
     const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
     html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
@@ -6105,7 +6134,7 @@ function calcularFechamento(){
 
   // SANDRA
   if(f.sandra.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)')
+    const linhas = _linha('Soma lucro líquido ('+f.sandra.ordens.length+' ordens)',f.sandra.somaLL,'var(--b)','fech_somaLL_'+f.sandra.vendedor.id)
       + _linha('(-) Anúncio',f.sandra.anuncio,'var(--r)')
       + _linha('Restante após anúncio',f.sandra.apos_anuncio,'var(--txt)')
       + _linha('40% Sandra (split)',f.sandra.splitVendedor,'var(--acc)')
