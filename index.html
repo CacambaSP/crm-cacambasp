@@ -5694,7 +5694,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
     + douglasLL60;
 
   // Claudia recebe extra do fechamento da Sandra
-  const totalClaudiaExtra = sandra.totalClaudia||0;
+  const totalClaudiaExtra = parseFloat((sandra.totalClaudia||0).toFixed(2));
 
   const douglas = {
     vendedor: uDouglas2||null,
@@ -5941,8 +5941,11 @@ function _recalcularCard(uid){
 
   } else if(bloco.modelo==='douglas'){
     const ll60 = parseFloat((novoLL * 0.6).toFixed(2));
-    // Recalcular taxa adm: R$10 × ordens ativas do Douglas
-    const taxaAdm = parseFloat((ordsAtivas.length * (_taxaAdmin||10)).toFixed(2));
+    // Taxa adm = TODAS as ordens marcadas de todos os vendedores
+    const _todosAtivos = [f.luciana, f.leticia, f.claudia, f.sandra, f.ricardo, f.douglas]
+      .filter(b => b?.vendedor)
+      .reduce((s, b) => s + _ativas(b).length, 0);
+    const taxaAdm = parseFloat((_todosAtivos * (_taxaAdmin||10)).toFixed(2));
     // Recalcular splits atuais da Claudia e Sandra
     const claAtivas  = f.claudia?.vendedor ? _ativas(f.claudia) : [];
     const claLL      = parseFloat(claAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
@@ -5958,7 +5961,7 @@ function _recalcularCard(uid){
     _upd('fech_dou_ll60_'+uid, ll60);
     _updTxt('fech_dou_ll60_'+uid+'_label', '60% LL próprias ordens ('+ordsAtivas.length+' OS)');
     _upd('fech_dou_taxaadm_'+uid, taxaAdm);
-    _updTxt('fech_dou_taxaadm_'+uid+'_label', 'R$'+(_taxaAdmin||10)+' × '+ordsAtivas.length+' ordens selecionadas (taxa adm)');
+    _updTxt('fech_dou_taxaadm_'+uid+'_label', 'R$'+(_taxaAdmin||10)+' × '+_todosAtivos+' ordens selecionadas (taxa adm)');
     const _elTopoDou = document.getElementById('fech_total_'+uid);
     if(_elTopoDou) _elTopoDou.textContent = 'R$ '+fmt(novoTotal);
 
@@ -6254,20 +6257,29 @@ async function calcularFechamento(){
   if(f.douglas?.vendedor){
     const _duid = f.douglas.vendedor.id||'dou';
     const _douAtivas = _ordsAtivasFech(f.douglas.ordens);
-    const _douLL60 = _douAtivas.reduce((s,{ll})=>s+ll,0)*0.6;
-    const _taxAdm = f.douglas.totalTaxaAdm||0;
-    const _splitCla = f.claudia?.splitDouglas||0;
-    const _splitSan = f.sandra?.splitDouglas||0;
-    const _douTotal = _taxAdm + _splitCla + _splitSan + _douLL60;
-    // Contar ordens pagas do mês para taxa adm
-    const _ordsPagas = src.filter(c=>c.pago && c.col!=='orcamento').length;
+    const _douLL60 = parseFloat((_douAtivas.reduce((s,{ll})=>s+ll,0)*0.6).toFixed(2));
+    // Taxa adm = todas as ordens marcadas de todos os vendedores
+    const _todosAtivosIni = [f.luciana, f.leticia, f.claudia, f.sandra, f.ricardo, f.douglas]
+      .filter(b => b?.vendedor)
+      .reduce((s, b) => s + _ordsAtivasFech(b.ordens).length, 0);
+    const _taxAdm = parseFloat((_todosAtivosIni * (_taxaAdmin||10)).toFixed(2));
+    // Splits atuais da Claudia e Sandra (já calculados acima com ordens ativas)
+    const _claAtivasD = f.claudia?.vendedor ? _ordsAtivasFech(f.claudia.ordens) : [];
+    const _claLLD = parseFloat(_claAtivasD.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const _claAposD = parseFloat(Math.max(_claLLD - 1000 - (f.claudia?.anuncio||0), 0).toFixed(2));
+    const _splitCla = parseFloat((_claAposD/2).toFixed(2));
+    const _sanAtivasD = f.sandra?.vendedor ? _ordsAtivasFech(f.sandra.ordens) : [];
+    const _sanLLD = parseFloat(_sanAtivasD.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const _sanAposD = parseFloat(Math.max(_sanLLD - (f.sandra?.anuncio||0), 0).toFixed(2));
+    const _splitSan = parseFloat((_sanAposD*0.30).toFixed(2));
+    const _douTotal = parseFloat((_taxAdm + _splitCla + _splitSan + _douLL60).toFixed(2));
     const linhas =
-      _linha('R$'+(_taxaAdmin||10)+' × '+_ordsPagas+' ordens pagas (taxa adm)', _taxAdm, 'var(--g)', 'fech_dou_taxaadm_'+_duid)
+      _linha('R$'+(_taxaAdmin||10)+' × '+_todosAtivosIni+' ordens selecionadas (taxa adm)', _taxAdm, 'var(--g)', 'fech_dou_taxaadm_'+_duid)
       + _linha('50% split Claudia (fixo)', _splitCla, 'var(--b)')
       + _linha('30% split Sandra (fixo)', _splitSan, 'var(--acc)')
       + _linha('60% LL próprias ordens ('+_douAtivas.length+' OS)', _douLL60, 'var(--g)', 'fech_dou_ll60_'+_duid)
       + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, _duid,'douglas') : '');
-    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$10/ordem pagas + splits fixos + 60% LL próprio',_duid);
+    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$'+(_taxaAdmin||10)+'/ordem + splits + 60% LL próprio',_duid);
   }
 
   // RICARDO
