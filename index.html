@@ -5852,50 +5852,64 @@ async function estornarComissaoOrdem(id){
 window._fechDesmarcar = window._fechDesmarcar || {};
 
 function _recalcularCard(uid){
-  const bloco = _fechamentoAtual && (
-    (_fechamentoAtual.luciana?.vendedor?.id===uid && _fechamentoAtual.luciana) ||
-    (_fechamentoAtual.leticia?.vendedor?.id===uid && _fechamentoAtual.leticia) ||
-    (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
-    (_fechamentoAtual.ricardo?.vendedor?.id===uid && _fechamentoAtual.ricardo) ||
-    (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
-  );
+  if(!_fechamentoAtual) return;
+  const f = _fechamentoAtual;
+  const bloco =
+    (f.luciana?.vendedor?.id===uid && f.luciana) ||
+    (f.leticia?.vendedor?.id===uid && f.leticia) ||
+    (f.claudia?.vendedor?.id===uid && f.claudia) ||
+    (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
+    (f.sandra?.vendedor?.id===uid && f.sandra) ||
+    (f.douglas?.vendedor?.id===uid && f.douglas);
+
   if(!bloco) return;
+
   const ordsAtivas = bloco.ordens.filter(({c})=>{
     const isPago = c.pago || c.comissao_liberada;
     if(isPago) return !window._fechDesmarcar[c.id];
     return !!window._fechDesmarcar[c.id+'_ativo'];
   });
+
   const novoLL = ordsAtivas.reduce((s,{ll})=>s+ll, 0);
   const anuncio = bloco.anuncio||0;
 
-  // Calcular total correto por modelo
+  const _upd = (id, val) => { const el=document.getElementById(id); if(el) el.textContent='R$ '+fmt(val); };
+  const _updTxt = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
+
   let novoTotal;
   if(bloco.modelo==='ricardo'){
     novoTotal = ordsAtivas.length * 15;
+
   } else if(bloco.modelo==='claudia'){
     const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
     const split = aposDesc / 2;
-    novoTotal = 1000 + split + (_fechamentoAtual?.totalClaudiaExtra||0);
-    // Atualizar linhas detalhadas
-    document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
-    document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
-    document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposDesc));
-    document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
-    document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(split));
+    novoTotal = 1000 + split + (f.totalClaudiaExtra||0);
+    _upd('fech_somaLL_'+uid, novoLL);
+    _updTxt('fech_somaLL_'+uid+'_label', 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+    _upd('fech_apos_'+uid, aposDesc);
+    _upd('fech_split_'+uid, split);
+    _upd('fech_splitD_'+uid, split);
+
   } else if(bloco.modelo==='sandra'){
     const aposAnuncio = Math.max(novoLL - anuncio, 0);
     const split = aposAnuncio * 0.4;
     novoTotal = 300 + split;
-    document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
-    document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
-    document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio));
-    document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
-    document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio*0.3));
+    _upd('fech_somaLL_'+uid, novoLL);
+    _updTxt('fech_somaLL_'+uid+'_label', 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+    _upd('fech_apos_'+uid, aposAnuncio);
+    _upd('fech_split_'+uid, split);
+    _upd('fech_splitD_'+uid, aposAnuncio*0.3);
+
+  } else if(bloco.modelo==='douglas'){
+    const ll60 = novoLL * 0.6;
+    novoTotal = (f.totalTaxaAdm||0) + (f.claudia?.splitDouglas||0) + (f.sandra?.splitDouglas||0) + ll60;
+
   } else {
+    // luciana / leticia
     novoTotal = novoLL;
   }
 
-  // Atualizar topo do card e contador
+  // Atualizar topo e contador
   const elTotal = document.getElementById('fech_total_'+uid);
   if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
   const elCnt = document.getElementById('fech_cnt_'+uid);
