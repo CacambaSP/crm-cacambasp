@@ -5885,6 +5885,8 @@ function _recalcularCard(uid){
   if(bloco.modelo==='ricardo'){
     novoTotal = ordsAtivas.length * 15;
     _updTxt('fech_cnt_'+uid, ordsAtivas.length+' ordem(ns) selecionada(s)');
+    const _elTopoRic = document.getElementById('fech_total_'+uid);
+    if(_elTopoRic) _elTopoRic.textContent = 'R$ '+fmt(novoTotal);
 
   } else if(bloco.modelo==='claudia'){
     const aposDesc = parseFloat(Math.max(novoLL - 1000 - anuncio, 0).toFixed(2));
@@ -5901,6 +5903,9 @@ function _recalcularCard(uid){
     _upd('fech_apos_'+uid, aposDesc);
     _upd('fech_split_'+uid, split);
     _upd('fech_splitD_'+uid, split);
+    // Atualizar topo imediatamente dentro do bloco
+    const _elTopo = document.getElementById('fech_total_'+uid);
+    if(_elTopo) _elTopo.textContent = 'R$ '+fmt(novoTotal);
 
   } else if(bloco.modelo==='sandra'){
     const aposAnuncio = parseFloat(Math.max(novoLL - anuncio, 0).toFixed(2));
@@ -5914,6 +5919,8 @@ function _recalcularCard(uid){
     _upd('fech_split_'+uid, split40);
     _upd('fech_splitD_'+uid, split30d);
     _upd('fech_splitC_'+uid, split30c);
+    const _elTopoSan = document.getElementById('fech_total_'+uid);
+    if(_elTopoSan) _elTopoSan.textContent = 'R$ '+fmt(novoTotal);
     // Atualizar o 30% da Claudia que vem da Sandra
     if(f.claudia?.vendedor){
       const claUid = f.claudia.vendedor.id;
@@ -5952,12 +5959,16 @@ function _recalcularCard(uid){
     _updTxt('fech_dou_ll60_'+uid+'_label', '60% LL próprias ordens ('+ordsAtivas.length+' OS)');
     _upd('fech_dou_taxaadm_'+uid, taxaAdm);
     _updTxt('fech_dou_taxaadm_'+uid+'_label', 'R$'+(_taxaAdmin||10)+' × '+ordsAtivas.length+' ordens selecionadas (taxa adm)');
+    const _elTopoDou = document.getElementById('fech_total_'+uid);
+    if(_elTopoDou) _elTopoDou.textContent = 'R$ '+fmt(novoTotal);
 
   } else {
     // luciana / leticia — 100% do LL
     novoTotal = novoLL;
     _upd('fech_soma_'+uid, novoTotal);
     _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+ordsAtivas.length+' ordens selecionadas)');
+    const _elTopoLuc = document.getElementById('fech_total_'+uid);
+    if(_elTopoLuc) _elTopoLuc.textContent = 'R$ '+fmt(novoTotal);
   }
 
   // Atualizar topo e contador sempre
