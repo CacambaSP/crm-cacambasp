@@ -5678,18 +5678,38 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
     };
   }
 
-  // ── DOUGLAS — consolida tudo ──
+  // ── DOUGLAS — consolida tudo + 60% do próprio LL ──
+  const uDouglas2 = uDouglas;
+  let douglasOrdens = [];
+  let douglasLL60 = 0;
+  if(uDouglas2){
+    const ords = ordens_mes.filter(c => c.usuario_id===uDouglas2.id);
+    douglasOrdens = ords.map(c=>({c, ll:ll(c), comissao:ll(c)*0.6, liberada:!c.pago&&c.comissao_liberada}));
+    douglasLL60 = ords.reduce((s,c)=>s+ll(c)*0.6,0);
+  }
+
   const totalDouglas = totalTaxaAdm
-    + (claudia.totalDouglas||0)
-    + (sandra.totalDouglas||0);
+    + (claudia.splitDouglas||0)
+    + (sandra.splitDouglas||0)
+    + douglasLL60;
 
   // Claudia recebe extra do fechamento da Sandra
   const totalClaudiaExtra = sandra.totalClaudia||0;
 
+  const douglas = {
+    vendedor: uDouglas2||null,
+    ordens: douglasOrdens,
+    totalVendedor: totalDouglas,
+    totalTaxaAdm,
+    splitClaudia: claudia.splitDouglas||0,
+    splitSandra: sandra.splitDouglas||0,
+    ll60: douglasLL60,
+    modelo: 'douglas'
+  };
+
   return {
-    luciana, leticia, ricardo, claudia, sandra,
+    luciana, leticia, ricardo, claudia, sandra, douglas,
     totalTaxaAdm, totalDouglas, totalClaudiaExtra,
-    douglas: { totalVendedor: totalDouglas },
     totalOrdens: todasOrdens.length,
     anuncioClaudia: anuncioClaudia||0,
     anuncioSandra: anuncioSandra||0
@@ -5845,59 +5865,41 @@ function _recalcularCard(uid){
     if(isPago) return !window._fechDesmarcar[c.id];
     return !!window._fechDesmarcar[c.id+'_ativo'];
   });
-  const novoTotal = bloco.modelo==='ricardo'
-    ? ordsAtivas.length * 15
-    : ordsAtivas.reduce((s,{ll})=>s+ll, 0);
+  const novoLL = ordsAtivas.reduce((s,{ll})=>s+ll, 0);
+  const anuncio = bloco.anuncio||0;
+
+  // Calcular total correto por modelo
+  let novoTotal;
+  if(bloco.modelo==='ricardo'){
+    novoTotal = ordsAtivas.length * 15;
+  } else if(bloco.modelo==='claudia'){
+    const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
+    const split = aposDesc / 2;
+    novoTotal = 1000 + split + (_fechamentoAtual?.totalClaudiaExtra||0);
+    // Atualizar linhas detalhadas
+    document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
+    document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+    document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposDesc));
+    document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
+    document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(split));
+  } else if(bloco.modelo==='sandra'){
+    const aposAnuncio = Math.max(novoLL - anuncio, 0);
+    const split = aposAnuncio * 0.4;
+    novoTotal = 300 + split;
+    document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
+    document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+    document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio));
+    document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
+    document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio*0.3));
+  } else {
+    novoTotal = novoLL;
+  }
+
+  // Atualizar topo do card e contador
   const elTotal = document.getElementById('fech_total_'+uid);
   if(elTotal) elTotal.textContent = 'R$ '+fmt(novoTotal);
   const elCnt = document.getElementById('fech_cnt_'+uid);
   if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
-  // Atualiza linha de soma (Soma lucro líquido X ordens)
-  const elSoma = document.getElementById('fech_soma_'+uid);
-  if(elSoma) elSoma.textContent = 'R$ '+fmt(novoTotal);
-  const elSomaLabel = document.getElementById('fech_soma_'+uid+'_label');
-  if(elSomaLabel) elSomaLabel.textContent = '⭐ Selecionadas ('+ordsAtivas.length+' ordens)';
-  // Atualizar linhas de split da Cláudia e Sandra
-  const elSomaLL = document.getElementById('fech_somaLL_'+uid);
-  if(elSomaLL) elSomaLL.textContent = 'R$ '+fmt(novoTotal);
-  const elSomaLLLabel = document.getElementById('fech_somaLL_'+uid+'_label');
-  if(elSomaLLLabel) elSomaLLLabel.textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)';
-  const TAXA_ADM2 = _taxaAdmin||10;
-  const novoLL = ordsAtivas.reduce((s,{ll})=>s+ll,0);
-  const elSplit = document.getElementById('fech_split_'+uid);
-  if(elSplit){
-    const bloco2 = _fechamentoAtual && (
-      (_fechamentoAtual.claudia?.vendedor?.id===uid && _fechamentoAtual.claudia) ||
-      (_fechamentoAtual.sandra?.vendedor?.id===uid && _fechamentoAtual.sandra)
-    );
-    if(bloco2){
-      const anuncio = bloco2.anuncio||0;
-      const aposAnuncio = Math.max(novoLL - anuncio, 0);
-      if(bloco2.modelo==='claudia'){
-        const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
-        const split = aposDesc / 2;
-        const totalVend = 1000 + split + (_fechamentoAtual.totalClaudiaExtra||0);
-        document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
-        document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
-        document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposDesc));
-        document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
-        document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(split));
-        const elTotal2 = document.getElementById('fech_total_'+uid);
-        if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
-      } else if(bloco2.modelo==='sandra'){
-        const aposAnuncio2 = Math.max(novoLL - anuncio, 0);
-        const split = aposAnuncio2 * 0.4;
-        const totalVend = 300 + split;
-        document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
-        document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
-        document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio2));
-        document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
-        document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio2*0.3));
-        const elTotal2 = document.getElementById('fech_total_'+uid);
-        if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
-      }
-    }
-  }
 }
 
 function _toggleOrdemFech(id, uid, isPago){
@@ -6029,6 +6031,7 @@ async function calcularFechamento(){
       if(isRicardo) return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ 15,00<br><span style="font-size:9px;color:var(--mut2)">fixo</span></td>`;
       if(modelo==='claudia') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--b);font-family:var(--mono)">R$ ${fmt(ll*0.5)}<br><span style="font-size:9px;color:var(--mut2)">50% de R$${fmt(ll)}</span></td>`;
       if(modelo==='sandra') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--acc);font-family:var(--mono)">R$ ${fmt(ll*0.4)}<br><span style="font-size:9px;color:var(--mut2)">40% de R$${fmt(ll)}</span></td>`;
+      if(modelo==='douglas') return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--cyan);font-family:var(--mono)">R$ ${fmt(ll*0.6)}<br><span style="font-size:9px;color:var(--mut2)">60% de R$${fmt(ll)}</span></td>`;
       // luciana/leticia: comissão = ll
       return `<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--g);font-family:var(--mono)">R$ ${fmt(ll)}</td>`;
     };
@@ -6105,7 +6108,7 @@ async function calcularFechamento(){
     <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:13px;font-weight:700">Fechamento ${mesLabel}</div>
-        <div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês${srcAnteriores.length>0?' · '+srcAnteriores.length+' pendentes de meses anteriores':''} · Taxa adm: R$${_taxaAdmin}/ordem</div>
+        <div style="font-size:11px;color:var(--mut2)">${filtroVendId ? src.filter(c=>c.usuario_id===filtroVendId).length+' ordens no mês' : srcMes.length+' ordens no mês'}${srcAnteriores.filter(c=>!filtroVendId||c.usuario_id===filtroVendId).length>0?' · '+srcAnteriores.filter(c=>!filtroVendId||c.usuario_id===filtroVendId).length+' pendentes de meses anteriores':''} · Taxa adm: R$${_taxaAdmin}/ordem</div>
       </div>
       <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">Douglas: R$ ${fmt(f.totalDouglas)}</div>
     </div>`;
@@ -6144,6 +6147,17 @@ async function calcularFechamento(){
       + _linha('50% Douglas',_claSplit,'var(--mut2)','fech_splitD_'+f.claudia.vendedor.id)
       + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
     html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',_claTotal, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
+  }
+
+  // DOUGLAS
+  if(f.douglas?.vendedor){
+    const linhas =
+      _linha('R$'+(_taxaAdmin||10)+' × '+f.totalOrdens+' ordens (taxa adm)', f.douglas.totalTaxaAdm, 'var(--g)')
+      + _linha('50% split Claudia', f.douglas.splitClaudia, 'var(--b)')
+      + _linha('30% split Sandra', f.douglas.splitSandra, 'var(--acc)')
+      + _linha('60% LL próprias ordens ('+f.douglas.ordens.length+' OS)', f.douglas.ll60, 'var(--g)')
+      + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, f.douglas.vendedor?.id||'dou','douglas') : '');
+    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',f.douglas.totalVendedor,linhas,'R$10/ordem + splits + 60% LL próprio',f.douglas.vendedor.id);
   }
 
   // RICARDO
@@ -6193,6 +6207,16 @@ async function calcularFechamento(){
     const nomeVend = (uFilt?.nome||'').toLowerCase();
     // Monta array de chaves dos objetos do fechamento para identificar o vendedor
     const mapaVend = {
+      [f.douglas?.vendedor?.id||'_nulD']: () => {
+        if(!f.douglas?.vendedor) return '';
+        const linhas =
+          _linha('R$'+(_taxaAdmin||10)+' × '+f.totalOrdens+' ordens (taxa adm)', f.douglas.totalTaxaAdm, 'var(--g)')
+          + _linha('50% split Claudia', f.douglas.splitClaudia, 'var(--b)')
+          + _linha('30% split Sandra', f.douglas.splitSandra, 'var(--acc)')
+          + _linha('60% LL próprias ordens ('+f.douglas.ordens.length+' OS)', f.douglas.ll60, 'var(--g)')
+          + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, f.douglas.vendedor?.id||'dou','douglas') : '');
+        return _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',f.douglas.totalVendedor,linhas,'R$10/ordem + splits + 60% LL próprio',f.douglas.vendedor.id);
+      },
       [f.luciana?.vendedor?.id||'_nul1']: () => {
         if(!f.luciana.vendedor) return '';
         const _lucAtivas2 = f.luciana.ordens.filter(({c})=>(!window._fechDesmarcar[c.id]&&(c.pago||c.comissao_liberada))||window._fechDesmarcar[c.id+'_ativo']);
@@ -6245,7 +6269,7 @@ async function calcularFechamento(){
     // Remove todos os cards de vendedor e deixa só o selecionado
     if(fnCard){
       // Reconstruir: cabeçalho + card do vendedor filtrado + botões
-      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês${srcAnteriores.length>0?' · '+srcAnteriores.length+' pendentes de meses anteriores':''}</div></div></div>`;
+      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${src.filter(c=>c.usuario_id===filtroVendId).length} ordens no mês${srcAnteriores.filter(c=>c.usuario_id===filtroVendId).length>0?' · '+srcAnteriores.filter(c=>c.usuario_id===filtroVendId).length+' pendentes':''}</div></div></div>`;
       const botoes = `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button><button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button><button class="btn" onclick="document.getElementById('fechFiltroVend').value='';calcularFechamento()">👁 Ver todos</button></div>`;
       (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = cabecalho + fnCard() + botoes;
     } else {
@@ -6347,6 +6371,20 @@ async function salvarFechamento(){
   const _ordsAtivas = _ordsAtivasFech;
   const _deveIncluir = () => true;
 
+  if(f.douglas?.vendedor && _deveIncluir(f.douglas.vendedor)){
+    const ativ = _ordsAtivas(f.douglas.ordens);
+    registros.push({
+      mes, usuario_id: f.douglas.vendedor.id,
+      total_ordens: f.totalOrdens,
+      valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.douglas.totalVendedor,
+      valor_vendedor: f.douglas.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pago'
+    });
+  }
   if(f.luciana.vendedor && f.luciana.ordens.length && _deveIncluir(f.luciana.vendedor)){
     const ativ = _ordsAtivas(f.luciana.ordens);
     if(!ativ.length) {} else
