@@ -5632,18 +5632,19 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
     };
   }
 
-  // ── CLAUDIA — R$1.000 fixo + split após descontos ──
+  // ── CLAUDIA — R$1.000 fixo garantido + split 50/50 após descontar fixo e anúncio ──
+  // Fórmula: (LL - Fixo - Anúncio) / 2 = split → Cláudia recebe split + Fixo
   let claudia = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
   if(uClaudia){
     const ords = ordens_mes.filter(c => c.usuario_id===uClaudia.id);
     const somaLL = ords.reduce((s,c)=>s+ll(c),0);
-    const apos_anuncio = somaLL - (anuncioClaudia||0);
-    const restante = Math.max(apos_anuncio, 0);
-    const split50 = restante / 2;
+    const apos_fixo_anuncio = Math.max(somaLL - 1000 - (anuncioClaudia||0), 0);
+    const split50 = apos_fixo_anuncio / 2;
     claudia = {
       vendedor: uClaudia,
-      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c), liberada:!c.pago&&c.comissao_liberada})),
-      somaLL, anuncio: anuncioClaudia||0, apos_anuncio: restante,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:ll(c)*0.5, liberada:!c.pago&&c.comissao_liberada})),
+      somaLL, anuncio: anuncioClaudia||0,
+      apos_fixo_anuncio,
       fixo: 1000,
       splitVendedor: split50,
       splitDouglas: split50,
@@ -5872,15 +5873,29 @@ function _recalcularCard(uid){
     if(bloco2){
       const anuncio = bloco2.anuncio||0;
       const aposAnuncio = Math.max(novoLL - anuncio, 0);
-      const pct = bloco2.modelo==='claudia' ? 0.5 : 0.4;
-      const fixo = bloco2.modelo==='claudia' ? 1000 : 300;
-      const split = aposAnuncio * pct;
-      document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio));
-      document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
-      document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio*(bloco2.modelo==='claudia'?0.5:0.3)));
-      const totalVend = fixo + split;
-      const elTotal2 = document.getElementById('fech_total_'+uid);
-      if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
+      if(bloco2.modelo==='claudia'){
+        const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
+        const split = aposDesc / 2;
+        const totalVend = 1000 + split + (_fechamentoAtual.totalClaudiaExtra||0);
+        document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
+        document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+        document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposDesc));
+        document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
+        document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(split));
+        const elTotal2 = document.getElementById('fech_total_'+uid);
+        if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
+      } else if(bloco2.modelo==='sandra'){
+        const aposAnuncio2 = Math.max(novoLL - anuncio, 0);
+        const split = aposAnuncio2 * 0.4;
+        const totalVend = 300 + split;
+        document.getElementById('fech_somaLL_'+uid) && (document.getElementById('fech_somaLL_'+uid).textContent = 'R$ '+fmt(novoLL));
+        document.getElementById('fech_somaLL_'+uid+'_label') && (document.getElementById('fech_somaLL_'+uid+'_label').textContent = 'Soma lucro líquido ('+ordsAtivas.length+' ordens)');
+        document.getElementById('fech_apos_'+uid) && (document.getElementById('fech_apos_'+uid).textContent = 'R$ '+fmt(aposAnuncio2));
+        document.getElementById('fech_split_'+uid) && (document.getElementById('fech_split_'+uid).textContent = 'R$ '+fmt(split));
+        document.getElementById('fech_splitD_'+uid) && (document.getElementById('fech_splitD_'+uid).textContent = 'R$ '+fmt(aposAnuncio2*0.3));
+        const elTotal2 = document.getElementById('fech_total_'+uid);
+        if(elTotal2) elTotal2.textContent = 'R$ '+fmt(totalVend);
+      }
     }
   }
 }
@@ -6090,7 +6105,7 @@ async function calcularFechamento(){
     <div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:13px;font-weight:700">Fechamento ${mesLabel}</div>
-        <div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês · ${src.length} incluídas · Taxa adm: R$${_taxaAdmin}/ordem</div>
+        <div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês${srcAnteriores.length>0?' · '+srcAnteriores.length+' pendentes de meses anteriores':''} · Taxa adm: R$${_taxaAdmin}/ordem</div>
       </div>
       <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:var(--mono)">Douglas: R$ ${fmt(f.totalDouglas)}</div>
     </div>`;
@@ -6113,15 +6128,22 @@ async function calcularFechamento(){
 
   // CLAUDIA
   if(f.claudia.vendedor){
-    const linhas = _linha('Soma lucro líquido ('+f.claudia.ordens.length+' ordens)',f.claudia.somaLL,'var(--b)','fech_somaLL_'+f.claudia.vendedor.id)
-      + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
-      + _linha('Restante após anúncio',f.claudia.apos_anuncio,'var(--txt)','fech_apos_'+f.claudia.vendedor.id)
-      + _linha('50% Claudia (split)',f.claudia.splitVendedor,'var(--acc)','fech_split_'+f.claudia.vendedor.id)
-      + _linha('(+) Fixo garantido',1000,'var(--g)')
-      + _linha('50% Douglas',f.claudia.splitDouglas,'var(--mut2)','fech_splitD_'+f.claudia.vendedor.id)
-      + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
+    const _claAtivas = _ordsAtivasFech(f.claudia.ordens);
+    const _claSomaLL = _claAtivas.reduce((s,{ll})=>s+ll,0);
+    const _claAposDesc = Math.max(_claSomaLL - 1000 - (f.claudia.anuncio||0), 0);
+    const _claSplit = _claAposDesc / 2;
+    const _claTotal = 1000 + _claSplit + (f.totalClaudiaExtra||0);
     const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
-    html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',f.claudia.totalVendedor + f.totalClaudiaExtra, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
+    const linhas = _linha('Soma lucro líquido ('+_claAtivas.length+' ordens)',_claSomaLL,'var(--b)','fech_somaLL_'+f.claudia.vendedor.id)
+      + _linha('(-) Fixo garantido',1000,'var(--r)')
+      + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
+      + _linha('Restante após descontos',_claAposDesc,'var(--txt)','fech_apos_'+f.claudia.vendedor.id)
+      + _linha('50% Claudia (split)',_claSplit,'var(--acc)','fech_split_'+f.claudia.vendedor.id)
+      + _linha('(+) Fixo garantido',1000,'var(--g)')
+      + _linha('(+) Gerência Sandra',f.totalClaudiaExtra||0,'var(--g)')
+      + _linha('50% Douglas',_claSplit,'var(--mut2)','fech_splitD_'+f.claudia.vendedor.id)
+      + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
+    html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',_claTotal, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
   }
 
   // RICARDO
@@ -6223,7 +6245,7 @@ async function calcularFechamento(){
     // Remove todos os cards de vendedor e deixa só o selecionado
     if(fnCard){
       // Reconstruir: cabeçalho + card do vendedor filtrado + botões
-      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês · ${src.length} incluídas</div></div></div>`;
+      const cabecalho = `<div style="background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><div style="font-size:13px;font-weight:700">Fechamento ${mesLabel} — ${uFilt?.nome||''}</div><div style="font-size:11px;color:var(--mut2)">${srcMes.length} ordens no mês${srcAnteriores.length>0?' · '+srcAnteriores.length+' pendentes de meses anteriores':''}</div></div></div>`;
       const botoes = `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-acc" onclick="salvarFechamento()">💾 Salvar Fechamento</button><button class="btn" onclick="imprimirFechamento()">🖨️ Imprimir Resumo</button><button class="btn" onclick="document.getElementById('fechFiltroVend').value='';calcularFechamento()">👁 Ver todos</button></div>`;
       (_fechCardsEl||document.getElementById('fechResultado')).innerHTML = cabecalho + fnCard() + botoes;
     } else {
