@@ -5879,6 +5879,7 @@ function _recalcularCard(uid){
   let novoTotal;
   if(bloco.modelo==='ricardo'){
     novoTotal = ordsAtivas.length * 15;
+    _updTxt('fech_cnt_'+uid, ordsAtivas.length+' ordem(ns) selecionada(s)');
 
   } else if(bloco.modelo==='claudia'){
     const aposDesc = Math.max(novoLL - 1000 - anuncio, 0);
@@ -5903,10 +5904,14 @@ function _recalcularCard(uid){
   } else if(bloco.modelo==='douglas'){
     const ll60 = novoLL * 0.6;
     novoTotal = (f.totalTaxaAdm||0) + (f.claudia?.splitDouglas||0) + (f.sandra?.splitDouglas||0) + ll60;
+    _upd('fech_dou_ll60_'+uid, ll60);
+    _updTxt('fech_dou_ll60_'+uid+'_label', '60% LL próprias ordens ('+ordsAtivas.length+' OS)');
 
   } else {
     // luciana / leticia
     novoTotal = novoLL;
+    _upd('fech_soma_'+uid, novoTotal);
+    _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+bloco.ordens.length+' ordens)');
   }
 
   // Atualizar topo e contador
@@ -6131,7 +6136,7 @@ async function calcularFechamento(){
   // LUCIANA
   if(f.luciana.vendedor){
     const _lucAtivas = f.luciana.ordens.filter(({c})=>(!window._fechDesmarcar[c.id]&&(c.pago||c.comissao_liberada))||window._fechDesmarcar[c.id+'_ativo']);
-    const linhas = _linha('Total geral ('+f.luciana.ordens.length+' ordens)',f.luciana.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)')
+    const linhas = _linha('Total geral ('+f.luciana.ordens.length+' ordens)',f.luciana.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)','fech_soma_'+f.luciana.vendedor.id)
       + _tabelaOrdens(f.luciana.ordens, f.luciana.vendedor?.id||'luc','luciana');
     html += _card('Luciana','var(--g)','👩',f.luciana.vendedor.email||'',_lucAtivas.reduce((s,{ll})=>s+ll,0),linhas,'100% do lucro líquido',f.luciana.vendedor.id);
   }
@@ -6139,7 +6144,7 @@ async function calcularFechamento(){
   // LETICIA
   if(f.leticia && f.leticia.vendedor){
     const _letAtivas = f.leticia.ordens.filter(({c})=>(!window._fechDesmarcar[c.id]&&(c.pago||c.comissao_liberada))||window._fechDesmarcar[c.id+'_ativo']);
-    const linhas = _linha('Total geral ('+f.leticia.ordens.length+' ordens)',f.leticia.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)')
+    const linhas = _linha('Total geral ('+f.leticia.ordens.length+' ordens)',f.leticia.ordens.reduce((s,{ll})=>s+ll,0),'var(--mut2)','fech_soma_'+f.leticia.vendedor.id)
       + _tabelaOrdens(f.leticia.ordens, f.leticia.vendedor?.id||'let','luciana');
     html += _card('Leticia','var(--g)','👩',f.leticia.vendedor.email||'',_letAtivas.reduce((s,{ll})=>s+ll,0),linhas,'100% do lucro líquido',f.leticia.vendedor.id);
   }
@@ -6166,13 +6171,17 @@ async function calcularFechamento(){
 
   // DOUGLAS
   if(f.douglas?.vendedor){
+    const _douAtivas = _ordsAtivasFech(f.douglas.ordens);
+    const _douLL60 = _douAtivas.reduce((s,{ll})=>s+ll,0)*0.6;
+    const _douTotal = (f.douglas.totalTaxaAdm||0) + (f.claudia?.splitDouglas||0) + (f.sandra?.splitDouglas||0) + _douLL60;
+    const _duid = f.douglas.vendedor.id||'dou';
     const linhas =
       _linha('R$'+(_taxaAdmin||10)+' × '+f.totalOrdens+' ordens (taxa adm)', f.douglas.totalTaxaAdm, 'var(--g)')
-      + _linha('50% split Claudia', f.douglas.splitClaudia, 'var(--b)')
-      + _linha('30% split Sandra', f.douglas.splitSandra, 'var(--acc)')
-      + _linha('60% LL próprias ordens ('+f.douglas.ordens.length+' OS)', f.douglas.ll60, 'var(--g)')
-      + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, f.douglas.vendedor?.id||'dou','douglas') : '');
-    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',f.douglas.totalVendedor,linhas,'R$10/ordem + splits + 60% LL próprio',f.douglas.vendedor.id);
+      + _linha('50% split Claudia', f.douglas.splitClaudia||0, 'var(--b)')
+      + _linha('30% split Sandra', f.douglas.splitSandra||0, 'var(--acc)')
+      + _linha('60% LL próprias ordens ('+_douAtivas.length+' OS)', _douLL60, 'var(--g)', 'fech_dou_ll60_'+_duid)
+      + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, _duid,'douglas') : '');
+    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$10/ordem + splits + 60% LL próprio',_duid);
   }
 
   // RICARDO
