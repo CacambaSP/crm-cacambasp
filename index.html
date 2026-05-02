@@ -5980,28 +5980,33 @@ function _recalcularCard(uid){
   const elCnt = document.getElementById('fech_cnt_'+uid);
   if(elCnt) elCnt.textContent = ordsAtivas.length+' ordem(ns) selecionada(s)';
 
-  // Se mudou Claudia ou Sandra, recalcular Douglas também
-  if(bloco.modelo==='claudia' || bloco.modelo==='sandra'){
-    if(f.douglas?.vendedor){
-      const dUid    = f.douglas.vendedor.id;
-      const dAtivas = _ativas(f.douglas);
-      const dLL60   = parseFloat((dAtivas.reduce((s,{ll})=>s+ll,0)*0.6).toFixed(2));
-      const dTaxAdm = parseFloat((dAtivas.length * (_taxaAdmin||10)).toFixed(2));
-      // splits atuais
-      const cA2 = f.claudia?.vendedor ? _ativas(f.claudia) : [];
-      const cLL2 = parseFloat(cA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
-      const cApos2 = parseFloat(Math.max(cLL2 - 1000 - (f.claudia?.anuncio||0), 0).toFixed(2));
-      const cSplit2 = parseFloat((cApos2/2).toFixed(2));
-      const sA2 = f.sandra?.vendedor ? _ativas(f.sandra) : [];
-      const sLL2 = parseFloat(sA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
-      const sApos2 = parseFloat(Math.max(sLL2 - (f.sandra?.anuncio||0), 0).toFixed(2));
-      const sSplit2 = parseFloat((sApos2*0.30).toFixed(2));
-      const dTotal = parseFloat((dTaxAdm + cSplit2 + sSplit2 + dLL60).toFixed(2));
-      _upd('fech_dou_ll60_'+dUid, dLL60);
-      _upd('fech_dou_taxaadm_'+dUid, dTaxAdm);
-      const elTotalD = document.getElementById('fech_total_'+dUid);
-      if(elTotalD) elTotalD.textContent = 'R$ '+fmt(dTotal);
-    }
+  // Se mudou qualquer vendedor, recalcular Douglas também
+  if(f.douglas?.vendedor){
+    const dUid    = f.douglas.vendedor.id;
+    const dAtivas = _ativas(f.douglas);
+    const dLL60   = parseFloat((dAtivas.reduce((s,{ll})=>s+ll,0)*0.6).toFixed(2));
+    // Taxa adm = TODAS as ordens marcadas de todos os vendedores
+    const _todosAtvRC = [f.luciana,f.leticia,f.claudia,f.sandra,f.ricardo,f.douglas]
+      .filter(b=>b?.vendedor)
+      .reduce((s,b)=>s+_ativas(b).length,0);
+    const dTaxAdm = parseFloat((_todosAtvRC * (_taxaAdmin||10)).toFixed(2));
+    // Splits atuais
+    const cA2 = f.claudia?.vendedor ? _ativas(f.claudia) : [];
+    const cLL2 = parseFloat(cA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const cApos2 = parseFloat(Math.max(cLL2 - 1000 - (f.claudia?.anuncio||0), 0).toFixed(2));
+    const cSplit2 = parseFloat((cApos2/2).toFixed(2));
+    const sA2 = f.sandra?.vendedor ? _ativas(f.sandra) : [];
+    const sLL2 = parseFloat(sA2.reduce((s,{ll})=>s+ll,0).toFixed(2));
+    const sApos2 = parseFloat(Math.max(sLL2 - (f.sandra?.anuncio||0), 0).toFixed(2));
+    const sSplit2 = parseFloat((sApos2*0.30).toFixed(2));
+    const dTotal = parseFloat((dTaxAdm + cSplit2 + sSplit2 + dLL60).toFixed(2));
+    _upd('fech_dou_ll60_'+dUid, dLL60);
+    _upd('fech_dou_taxaadm_'+dUid, dTaxAdm);
+    _updTxt('fech_dou_taxaadm_'+dUid+'_label', 'R$'+(_taxaAdmin||10)+' × '+_todosAtvRC+' ordens selecionadas (taxa adm)');
+    _upd('fech_dou_splitcla_'+dUid, cSplit2);
+    _upd('fech_dou_splitsna_'+dUid, sSplit2);
+    const elTotalD = document.getElementById('fech_total_'+dUid);
+    if(elTotalD) elTotalD.textContent = 'R$ '+fmt(dTotal);
   }
 }
 
@@ -6338,13 +6343,31 @@ async function calcularFechamento(){
     const mapaVend = {
       [f.douglas?.vendedor?.id||'_nulD']: () => {
         if(!f.douglas?.vendedor) return '';
+        const _duid2 = f.douglas.vendedor.id;
+        const _dAtivas2 = _ordsAtivasFech(f.douglas.ordens);
+        const _dLL602 = parseFloat((_dAtivas2.reduce((s,{ll})=>s+ll,0)*0.6).toFixed(2));
+        // Taxa adm = todas as ordens marcadas de todos os vendedores
+        const _todosAtvM = [f.luciana,f.leticia,f.claudia,f.sandra,f.ricardo,f.douglas]
+          .filter(b=>b?.vendedor)
+          .reduce((s,b)=>s+_ordsAtivasFech(b.ordens).length,0);
+        const _dTaxAdm2 = parseFloat((_todosAtvM*(_taxaAdmin||10)).toFixed(2));
+        // Splits atuais
+        const _cAM = f.claudia?.vendedor ? _ordsAtivasFech(f.claudia.ordens) : [];
+        const _cLLM = parseFloat(_cAM.reduce((s,{ll})=>s+ll,0).toFixed(2));
+        const _cAposM = parseFloat(Math.max(_cLLM-1000-(f.claudia?.anuncio||0),0).toFixed(2));
+        const _cSplitM = parseFloat((_cAposM/2).toFixed(2));
+        const _sAM = f.sandra?.vendedor ? _ordsAtivasFech(f.sandra.ordens) : [];
+        const _sLLM = parseFloat(_sAM.reduce((s,{ll})=>s+ll,0).toFixed(2));
+        const _sAposM = parseFloat(Math.max(_sLLM-(f.sandra?.anuncio||0),0).toFixed(2));
+        const _sSplitM = parseFloat((_sAposM*0.30).toFixed(2));
+        const _dTotal2 = parseFloat((_dTaxAdm2+_cSplitM+_sSplitM+_dLL602).toFixed(2));
         const linhas =
-          _linha('R$'+(_taxaAdmin||10)+' × '+f.totalOrdens+' ordens (taxa adm)', f.douglas.totalTaxaAdm, 'var(--g)')
-          + _linha('50% split Claudia', f.douglas.splitClaudia, 'var(--b)')
-          + _linha('30% split Sandra', f.douglas.splitSandra, 'var(--acc)')
-          + _linha('60% LL próprias ordens ('+f.douglas.ordens.length+' OS)', f.douglas.ll60, 'var(--g)')
-          + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, f.douglas.vendedor?.id||'dou','douglas') : '');
-        return _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',f.douglas.totalVendedor,linhas,'R$10/ordem + splits + 60% LL próprio',f.douglas.vendedor.id);
+          _linha('R$'+(_taxaAdmin||10)+' × '+_todosAtvM+' ordens selecionadas (taxa adm)', _dTaxAdm2, 'var(--g)', 'fech_dou_taxaadm_'+_duid2)
+          + _linha('50% split Claudia', _cSplitM, 'var(--b)', 'fech_dou_splitcla_'+_duid2)
+          + _linha('30% split Sandra', _sSplitM, 'var(--acc)', 'fech_dou_splitsna_'+_duid2)
+          + _linha('60% LL próprias ordens ('+_dAtivas2.length+' OS)', _dLL602, 'var(--g)', 'fech_dou_ll60_'+_duid2)
+          + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, _duid2,'douglas') : '');
+        return _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_dTotal2,linhas,'R$'+(_taxaAdmin||10)+'/ordem + splits + 60% LL próprio',_duid2);
       },
       [f.luciana?.vendedor?.id||'_nul1']: () => {
         if(!f.luciana.vendedor) return '';
