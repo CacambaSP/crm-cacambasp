@@ -114,6 +114,9 @@ input,select,textarea,button{font-family:var(--font)}
 .ac-sel{width:22px;height:22px;border-radius:6px;border:2px solid var(--bor2);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
 .ac-sel.on{background:var(--acc);border-color:var(--acc)}
 .ac-sel.on::after{content:'✓';font-size:13px;font-weight:800;color:#000}
+.alerta-valor-venda{display:flex;align-items:center;gap:8px;background:#FAEEDA;border:0.5px solid #EF9F27;border-radius:8px;padding:8px 10px;margin-top:8px;cursor:pointer}
+.alerta-pulso{width:8px;height:8px;border-radius:50%;background:#BA7517;flex-shrink:0;animation:pulsoValor 1.2s ease-in-out infinite}
+@keyframes pulsoValor{0%,100%{opacity:1}50%{opacity:0.3}}
 .action-card{position:relative}
 .ag-lote-btn{background:transparent;border:1px solid var(--bor);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;margin-left:auto}
 .ag-lote-btn.on{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
@@ -2582,7 +2585,12 @@ function getOrdensComAcao(ordens) {
   ordens.forEach(o => {
     if(o.col==='concluido') return;
     if(o.col==='orcamento') { grupos.orcamento.push(o); return; }
-    if(!o.forn_id && o.col==='contratar') grupos.contratar.push(o);
+    // Vendedor vê suas ordens em contratar (admin vê as sem fornecedor)
+    if(o.col==='contratar') {
+      if(isAdmin()) { if(!o.forn_id) grupos.contratar.push(o); }
+      else if(o.usuario_id===uid()) grupos.contratar.push(o);
+      return;
+    }
     if(o.col==='ag_entrega') grupos.entregar.push(o);
     const cobradoHoje = o.cobrado_em && new Date(o.cobrado_em).toDateString()===new Date().toDateString();
     if(!o.pago && !cobradoHoje && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||o.col==='receber_cliente'||diasAberto(o)>=3)) grupos.cobrar.push(o);
@@ -2724,6 +2732,7 @@ function renderFilaAcoes(ordens) {
         <span class="ag-icon">${g.icon}</span>
         <span class="ag-title">${g.label}</span>
         <span class="ag-count">${lista.length}</span>
+        ${g.key==='contratar'&&!isAdmin()&&lista.filter(o=>!parseFloat(o.rec||0)).length>0?`<span style="background:#FAEEDA;color:#A32D2D;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid #EF9F27;animation:pulsoValor 1.2s ease-in-out infinite">${lista.filter(o=>!parseFloat(o.rec||0)).length} sem valor</span>`:''}
         ${isCobrar ? `<button class="ag-lote-btn${todosSelec?' on':''}" onclick="event.stopPropagation();selecionarTodosLote('cobrar')">${todosSelec?'✓ Todos':'Sel. todos'}</button>` : ''}
         <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${g.key}">▼</span>
       </div>
@@ -2927,12 +2936,33 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
       if(diffH < 1) return Math.round(diffH*60)+'min restantes';
       return Math.floor(diffH)+'h restantes';
     })() : '';
+    const semValor = !parseFloat(o.rec||0);
+    // Vendedor: card simplificado com alerta de valor
+    if(!isAdmin()){
+      const alertaHTML = semValor
+        ? `<div class="alerta-valor-venda" onclick="event.stopPropagation();abrirInformarValor('${o.id}')">
+            <span class="alerta-pulso"></span>
+            <span style="font-size:12px;font-weight:600;color:#633806">Informe o valor da venda</span>
+            <button class="ac-btn ac-btn-primary" style="margin-left:auto;padding:4px 10px;font-size:11px" onclick="event.stopPropagation();abrirInformarValor('${o.id}')">+ Valor</button>
+           </div>`
+        : `<div style="background:var(--card);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--mut)">✅ Valor informado — aguardando fornecedor</div>`;
+      return `<div class="action-card" onclick="abrirDetalhe('${o.id}')">
+        <div class="ac-row">
+          <div class="ac-main">
+            <div class="ac-name">${o.nome||'—'}</div>
+            <div class="ac-addr">${o.logradouro||''} · ${o.bairro||''}</div>
+            ${o.data?`<div style="font-size:11px;color:var(--mut);margin-top:2px">📅 ${dateF(o.data)}</div>`:''}
+          </div>
+          <div class="ac-val" style="color:${semValor?'var(--r)':'var(--g)'}">${semValor?'—':'R$ '+fmt(o.rec)}</div>
+        </div>
+        ${alertaHTML}
+      </div>`;
+    }
     acoes = `
       ${_modoSimples?'':` <button class="ac-btn ac-btn-primary" onclick="event.stopPropagation();abrirAtribuirForn('${o.id}')">Contratar fornecedor</button>`}
       ${tel?`<a class="ac-btn ac-btn-ghost" href="tel:+55${tel}" onclick="event.stopPropagation()">Ligar</a>`:''}
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
       ${!_modoSimples?`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();copiarOS('${o.id}')">Copiar OS</button>`:''}`.replace(/\n\s*\n/g,'\n');
-    // Inject urgency style into card via inline — returned as data attr for rendering
     return `<div class="action-card" onclick="abrirDetalhe('${o.id}')" style="${urg>0?`background:${urgColors[urg]};border-left:3px solid ${urgBorderColors[urg]};border-color:${urgBorderColors[urg]}`:''}" >
       <div class="ac-row">
         <div class="ac-main">
@@ -5081,12 +5111,29 @@ function enviarPixWA() {
 }
 
 // ── WHATSAPP ──
+
+function abrirInformarValor(id) {
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  const val = prompt('💰 Informe o valor cobrado do cliente (sem NF):\nOS: '+o.crm_id+'\n'+o.logradouro, o.rec||'');
+  if(val === null) return;
+  const num = parseFloat(val.replace(',','.'));
+  if(isNaN(num) || num <= 0) { toast('Valor inválido','err'); return; }
+  api('ordens?id=eq.'+id,'PATCH',{rec:num},tok())
+    .then(()=>{
+      o.rec = num;
+      toast('✅ Valor salvo — R$ '+fmt(num),'ok');
+      renderCurrentView();
+    })
+    .catch(e=>toast('Erro: '+e.message,'err'));
+}
+
 function enviarWA(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   const d = diasAberto(o);
-  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id) : '';
+  const _tParam = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id);
+  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+_tParam : '';
   let msg;
   if(o.col==='inadimp') {
     msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
@@ -5121,7 +5168,8 @@ function enviarTracking(id) {
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){toast('Celular não cadastrado','warn');return;}
   if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
-  const url = 'https://cacambasp-crm.vercel.app/tracking.html?id='+encodeURIComponent(o.crm_id);
+  const _tP = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id);
+  const url = 'https://cacambasp-crm.vercel.app/tracking.html?'+_tP;
   const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
