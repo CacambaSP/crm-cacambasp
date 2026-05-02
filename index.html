@@ -5902,8 +5902,12 @@ function _recalcularCard(uid){
     _upd('fech_splitD_'+uid, aposAnuncio*0.3);
 
   } else if(bloco.modelo==='douglas'){
+    // Taxa adm e splits são fixos — só o 60% LL muda ao marcar/desmarcar
     const ll60 = novoLL * 0.6;
-    novoTotal = (f.totalTaxaAdm||0) + (f.claudia?.splitDouglas||0) + (f.sandra?.splitDouglas||0) + ll60;
+    const taxaAdmFixa = f.totalTaxaAdm||0;
+    const splitClaFixo = f.claudia?.splitDouglas||0;
+    const splitSanFixo = f.sandra?.splitDouglas||0;
+    novoTotal = taxaAdmFixa + splitClaFixo + splitSanFixo + ll60;
     _upd('fech_dou_ll60_'+uid, ll60);
     _updTxt('fech_dou_ll60_'+uid+'_label', '60% LL próprias ordens ('+ordsAtivas.length+' OS)');
 
@@ -5911,7 +5915,7 @@ function _recalcularCard(uid){
     // luciana / leticia
     novoTotal = novoLL;
     _upd('fech_soma_'+uid, novoTotal);
-    _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+bloco.ordens.length+' ordens)');
+    _updTxt('fech_soma_'+uid+'_label', 'Total geral ('+bloco.ordens.length+' ordens — '+ordsAtivas.length+' selecionadas)');
   }
 
   // Atualizar topo e contador
@@ -6171,17 +6175,22 @@ async function calcularFechamento(){
 
   // DOUGLAS
   if(f.douglas?.vendedor){
+    const _duid = f.douglas.vendedor.id||'dou';
     const _douAtivas = _ordsAtivasFech(f.douglas.ordens);
     const _douLL60 = _douAtivas.reduce((s,{ll})=>s+ll,0)*0.6;
-    const _douTotal = (f.douglas.totalTaxaAdm||0) + (f.claudia?.splitDouglas||0) + (f.sandra?.splitDouglas||0) + _douLL60;
-    const _duid = f.douglas.vendedor.id||'dou';
+    const _taxAdm = f.douglas.totalTaxaAdm||0;
+    const _splitCla = f.claudia?.splitDouglas||0;
+    const _splitSan = f.sandra?.splitDouglas||0;
+    const _douTotal = _taxAdm + _splitCla + _splitSan + _douLL60;
+    // Contar ordens pagas do mês para taxa adm
+    const _ordsPagas = src.filter(c=>c.pago && c.col!=='orcamento').length;
     const linhas =
-      _linha('R$'+(_taxaAdmin||10)+' × '+f.totalOrdens+' ordens (taxa adm)', f.douglas.totalTaxaAdm, 'var(--g)')
-      + _linha('50% split Claudia', f.douglas.splitClaudia||0, 'var(--b)')
-      + _linha('30% split Sandra', f.douglas.splitSandra||0, 'var(--acc)')
+      _linha('R$'+(_taxaAdmin||10)+' × '+_ordsPagas+' ordens pagas (taxa adm — fixo)', _taxAdm, 'var(--g)')
+      + _linha('50% split Claudia (fixo)', _splitCla, 'var(--b)')
+      + _linha('30% split Sandra (fixo)', _splitSan, 'var(--acc)')
       + _linha('60% LL próprias ordens ('+_douAtivas.length+' OS)', _douLL60, 'var(--g)', 'fech_dou_ll60_'+_duid)
       + (f.douglas.ordens.length ? _tabelaOrdens(f.douglas.ordens, _duid,'douglas') : '');
-    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$10/ordem + splits + 60% LL próprio',_duid);
+    html += _card('Douglas','var(--cyan)','👨',f.douglas.vendedor.email||'',_douTotal,linhas,'R$10/ordem pagas + splits fixos + 60% LL próprio',_duid);
   }
 
   // RICARDO
