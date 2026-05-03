@@ -6573,6 +6573,11 @@ async function salvarVendedor(uid){
       valor_vendedor: bloco.totalVendedor,
       valor_douglas: bloco.splitDouglas||0,
       valor_claudia_extra:0};
+  } else if(modelo==='douglas'){
+    reg = {...reg, valor_anuncio:0, fixo_garantido:0,
+      lucro_liquido: f.totalDouglas||0,
+      valor_vendedor: f.totalDouglas||0,
+      valor_douglas: 0, valor_claudia_extra:0};
   }
 
   try{
