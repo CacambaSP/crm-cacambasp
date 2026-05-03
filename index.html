@@ -5987,19 +5987,21 @@ function calcularFechamento(){
 
 async function salvarFechamento(){
   if(!_fechamentoAtual){ toast('Calcule o fechamento primeiro','warn'); return; }
-  // Recalcula com os dados atuais antes de salvar, garantindo que qualquer
-  // marcação feita após o último cálculo seja refletida corretamente
+  // Recalcula antes de salvar para garantir que marcações feitas após o
+  // último cálculo sejam refletidas — usa os mesmos parâmetros do calcularFechamento
   const anuncioC = parseFloat(document.getElementById('fechAnuncioClaudia')?.value)||0;
   const anuncioS = parseFloat(document.getElementById('fechAnuncioSandra')?.value)||0;
-  const [ano,mes2] = _fechamentoAtual.mes.split('-').map(Number);
+  const mesVal = _fechamentoAtual.mes; // ex: "2026-04"
+  const [ano,mes2] = mesVal.split('-').map(Number);
   const src = ordens.filter(c => {
     if(!c.pago || !c.pago_em || c.col==='orcamento') return false;
     const d = new Date(c.pago_em);
     return d.getMonth()+1===mes2 && d.getFullYear()===ano;
   });
-  _fechamentoAtual = _calcFechamento(src, anuncioC, anuncioS);
-  _fechamentoAtual.mes = ano+'-'+(String(mes2).padStart(2,'0'));
-  _fechamentoAtual.totalOrdens = src.length;
+  const recalc = _calcFechamento(src, anuncioC, anuncioS);
+  recalc.mes = mesVal;
+  recalc.totalOrdens = src.length;
+  _fechamentoAtual = recalc;
   const f = _fechamentoAtual;
   const mes = f.mes+'-01'; // ex: 2026-03-01
 
