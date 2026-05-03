@@ -6563,7 +6563,7 @@ async function salvarVendedor(uid){
   } else if(modelo==='claudia'){
     reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:1000,
       lucro_liquido: bloco.apos_anuncio||0,
-      valor_vendedor: bloco.totalVendedor+(f.totalClaudiaExtra||0),
+      valor_vendedor: bloco.totalVendedor,
       valor_douglas: bloco.totalDouglas||0,
       valor_claudia_extra: f.totalClaudiaExtra||0};
   } else if(modelo==='sandra'){
