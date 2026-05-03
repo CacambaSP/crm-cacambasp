@@ -122,7 +122,7 @@ select option{background:#191c26;color:#e6e8f0}
       </div>
     </div>
 
-    <div class="section">📍 Endereço de entrega da caçamba</div>
+    <div class="section">Endereço do serviço</div>
 
     <div class="fr">
       <label>CEP</label>
@@ -130,9 +130,8 @@ select option{background:#191c26;color:#e6e8f0}
     </div>
 
     <div class="fr">
-      <label>Endereço de entrega da caçamba (rua e número) <span class="req">*</span></label>
+      <label>Endereço (rua e número) <span class="req">*</span></label>
       <input type="text" id="c_end" placeholder="Rua das Flores, 123" autocomplete="street-address">
-      <div style="font-size:12px;color:#f5a623;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:6px;padding:7px 10px;margin-top:6px">⚠️ Informe o endereço <strong>onde a caçamba será entregue</strong>, não o seu endereço residencial ou comercial.</div>
       <div class="err-msg" id="err_end">Inclua o número do endereço (ex: Rua das Flores, 123 ou s/n)</div>
     </div>
 
@@ -508,6 +507,7 @@ async function enviarCadastro(){
     const {base, num} = await getNextCrmId(prefixo);
     const codigos = [];
 
+    const tokensCriados = [];  // guarda tokens gerados pelo banco (para link de tracking)
     for(let i=0; i<qtd; i++){
       const crmId = base + String(num + i).padStart(4,'0');
       codigos.push(crmId);
@@ -536,16 +536,22 @@ async function enviarCadastro(){
         criado_em: new Date(Date.now() + i * 1000).toISOString()
       };
 
-      await fetch(SUPA_URL+'/rest/v1/ordens', {
+      const respOrdem = await fetch(SUPA_URL+'/rest/v1/ordens', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPA_KEY,
           'Authorization': 'Bearer ' + SUPA_KEY,
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
         body: JSON.stringify(ordem)
       });
+      // Captura o tracking_token gerado pelo banco para usar no link
+      try{
+        const dataResp = await respOrdem.json();
+        const tk = Array.isArray(dataResp) ? dataResp[0]?.tracking_token : dataResp?.tracking_token;
+        tokensCriados.push(tk||null);
+      }catch(e){ tokensCriados.push(null); }
     }
 
     // Busca fornecedor e preco_cli para o bairro informado
@@ -635,7 +641,7 @@ async function enviarCadastro(){
       if(precoCliAuto > 0){
         const valorFmt = 'R$ '+precoCliAuto.toFixed(2).replace('.',',');
         const nomeCliente = nome.split(' ')[0];
-        const trackLink = 'https://cacambasp-crm.vercel.app/tracking.html?id='+codigos[0];
+        const trackLink = 'https://cacambasp-crm.vercel.app/tracking.html?token='+(tokensCriados[0]?encodeURIComponent(tokensCriados[0]):'id='+encodeURIComponent(codigos[0]));
         const msgCli = 'Olá '+nomeCliente+'! 👋\n\nSeu pedido de caçamba em *'+bairro+'* foi confirmado.\n\n💰 *Valor: '+valorFmt+'* (caçamba 4m³)\n\nAcompanhe seu pedido e pague via Pix pelo link:\n🔗 '+trackLink+'\n\n_'+_marca.nome+'_';
         const celNum = cel.replace(/\D/g,'');
         try{ window.open('https://web.whatsapp.com/send?phone=55'+celNum+'&text='+encodeURIComponent(msgCli),'_blank'); }catch(e){}
