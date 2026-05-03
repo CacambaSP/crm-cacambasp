@@ -30,6 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .prog-label{font-size:9px;color:var(--mut);text-align:center;max-width:52px;line-height:1.3}
 .ord-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bor)}
 .ord-item:last-child{border-bottom:none}
+.ord-item-check{width:22px;height:22px;margin-right:12px;cursor:pointer;accent-color:var(--acc);flex-shrink:0}
 .ord-item-left{flex:1}
 .ord-item-end{font-size:13px;font-weight:600;color:var(--txt)}
 .ord-item-info{font-size:11px;color:var(--mut);margin-top:2px}
@@ -374,7 +375,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
       const valCli=(parseFloat(o.rec)||0)+acr;
       const nfInfo=o.nf_num?('<span class="badge-nf">🧾 NF '+o.nf_num+'</span> '):'';
       if(pago) return '<div class="ord-item">'        +'<div class="ord-item-left">'        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'        +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'        +'</div>'        +'<div style="font-size:12px;color:var(--g);font-weight:700;margin-left:10px">✅ Pago</div>'        +'</div>';
-      return '<div class="ord-item">'        +'<div class="ord-item-left">'        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'        +'<div class="ord-item-info">'+nfInfo+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'        +'</div>'        +'<div class="ord-item-right">'        +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'        +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(\'' + (o.crm_id||'') + '\',' + valCli + ')">💳 Pagar esta</button>'        +'</div>'        +'</div>';
+      return '<div class="ord-item">'        +'<input type="checkbox" class="ord-item-check" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'        +'<div class="ord-item-left">'        +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'        +'<div class="ord-item-info">'+nfInfo+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'        +'</div>'        +'<div class="ord-item-right">'        +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'        +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(\'' + (o.crm_id||'') + '\',' + valCli + ')">💳 Pagar esta</button>'        +'</div>'        +'</div>';
     }).join('');
     const btnTudo=document.getElementById('btn-pagar-tudo');
     if(pendentes.length>1){
@@ -401,6 +402,49 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   window._reciboOrd = ord;
   window._reciboVend = vend;
 }
+function atualizarSelecao(){
+  // Recalcula soma das ordens marcadas e atualiza botão + QR Code
+  const checks = document.querySelectorAll('.ord-item-check');
+  let total = 0, qtd = 0;
+  const crmsSelecionados = [];
+  checks.forEach(cb=>{
+    if(cb.checked){
+      total += parseFloat(cb.dataset.val||0);
+      qtd++;
+      crmsSelecionados.push(cb.dataset.crm);
+    }
+  });
+  const btnTudo = document.getElementById('btn-pagar-tudo');
+  if(!btnTudo) return;
+  if(qtd === 0){
+    btnTudo.textContent = '☐ Selecione ao menos uma caçamba';
+    btnTudo.disabled = true;
+    btnTudo.style.opacity = '0.5';
+    btnTudo.style.cursor = 'not-allowed';
+  }else{
+    const totalChecks = checks.length;
+    btnTudo.textContent = (qtd === totalChecks)
+      ? '💳 Pagar tudo junto — R$ '+fmt(total)
+      : '💳 Pagar selecionados ('+qtd+') — R$ '+fmt(total);
+    btnTudo.disabled = false;
+    btnTudo.style.opacity = '1';
+    btnTudo.style.cursor = 'pointer';
+  }
+  // Atualiza estado guardado e regenera QR caso esteja exibindo o total
+  if(_pixTotalEstado && qtd > 0){
+    // Gera txid baseado no primeiro crm selecionado para conciliação
+    const novoTxid = ('GRP'+(crmsSelecionados[0]||'').replace(/\D/g,'')).substring(0,25);
+    _pixTotalEstado.totalRec = total;
+    _pixTotalEstado.txid = novoTxid;
+    _pixTotalEstado.subtitulo = qtd+' caçamba(s) · QR Code do total';
+    // Se a tela atual é a do total (não a individual), regenera o QR
+    const titulo = document.getElementById('pix-card-title')?.textContent||'';
+    if(titulo === 'Total em aberto'){
+      document.getElementById('pix-card-sub').textContent = _pixTotalEstado.subtitulo;
+      renderPix(total, novoTxid, false, _pixTotalEstado.ultimoPagoEm);
+    }
+  }
+}
 function pagarOrdemIndividual(crmId, valCli){
   const o = _ordensTracking.find(x=>x.crm_id===crmId) || null;
   const pixId = crmId;
@@ -418,6 +462,7 @@ function pagarOrdemIndividual(crmId, valCli){
 document.addEventListener('DOMContentLoaded',()=>{
   const btnTudo=document.getElementById('btn-pagar-tudo');
   if(btnTudo) btnTudo.onclick=()=>{
+    if(btnTudo.disabled) return;
     document.getElementById('pix-ord-info').style.display='none';
     document.getElementById('pix-card-title').textContent='Total em aberto';
     // Regenera QR Code com o valor TOTAL (corrige bug do QR ficar com valor individual)
