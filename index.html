@@ -6534,12 +6534,13 @@ async function salvarVendedor(uid){
     (f.leticia?.vendedor?.id===uid && f.leticia) ||
     (f.claudia?.vendedor?.id===uid && f.claudia) ||
     (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
-    (f.sandra?.vendedor?.id===uid && f.sandra);
+    (f.sandra?.vendedor?.id===uid && f.sandra) ||
+    (f.douglas?.vendedor?.id===uid && f.douglas);
 
   if(!bloco || !bloco.vendedor){ toast('Vendedor não encontrado','warn'); return; }
 
   const ativ = _ordsAtivasFech(bloco.ordens);
-  if(!ativ.length){ toast('Nenhuma ordem selecionada','warn'); return; }
+  if(!ativ.length && bloco.modelo!=='douglas'){ toast('Nenhuma ordem selecionada','warn'); return; }
 
   let reg = {
     mes, usuario_id: uid,
