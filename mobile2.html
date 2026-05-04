@@ -796,6 +796,12 @@ input,select,textarea,button{font-family:var(--font)}
       </div>
       <!-- Tab valores -->
       <div class="edit-panel" id="epanel-valores">
+        <div class="mfi"><label>Nota Fiscal *</label>
+          <div class="nf-choice">
+            <button type="button" class="nf-btn" id="ed-btn-nf-sim" onclick="setEdNF(true)">🧾 Com NF</button>
+            <button type="button" class="nf-btn" id="ed-btn-nf-nao" onclick="setEdNF(false)">✅ Sem NF</button>
+          </div>
+        </div>
         <div class="mfi"><label>Valor cliente (R$)</label><input type="number" id="ed_rec" step="0.01" inputmode="decimal" placeholder="0,00"></div>
         <div class="mfi"><label>Custo fornecedor (R$)</label><input type="number" id="ed_cst" step="0.01" inputmode="decimal" placeholder="0,00"></div>
         <div class="mfi"><label>Fornecedor</label>
@@ -1094,6 +1100,7 @@ let _autoId = null;
 let COBR_DIAS_ALERTA = 3;   // amarelo — atenção (sobrescrito pela config Supabase)
 let COBR_DIAS_CRITICO = 7;  // vermelho — crítico (sobrescrito pela config Supabase)
 let _novaTemNF = null;
+let _edTemNF = null; // Estado da NF na tela de Editar
 let _novaFornSug = null;
 let _toggleMode = 'pendentes'; // 'pendentes' | 'tudo'
 let _searchOpen = false;
@@ -1873,12 +1880,21 @@ function abrirEditar(id) {
   document.getElementById('ed_obs').value = o.obs||'';
   document.getElementById('ed_rec').value = o.rec||'';
   document.getElementById('ed_cst').value = o.cst||'';
+  // Inicializar estado da NF baseado no nf_num atual
+  _edTemNF = !!(o.nf_num);
+  setEdNF(_edTemNF);
   // Preencher select de fornecedores
   const fSel = document.getElementById('ed_forn');
   fSel.innerHTML = '<option value="">— Sem fornecedor —</option>' +
     _forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('');
   setEditTab('cliente');
   openModal('editarModal');
+}
+
+function setEdNF(v) {
+  _edTemNF = v;
+  document.getElementById('ed-btn-nf-sim').className = 'nf-btn'+(v?' sel-sim':'');
+  document.getElementById('ed-btn-nf-nao').className = 'nf-btn'+(!v?' sel-nao':'');
 }
 
 async function salvarEdicao() {
@@ -1889,6 +1905,25 @@ async function salvarEdicao() {
   if(!nome){ toast('Nome obrigatório','err'); setEditTab('cliente'); return; }
   if(!cel){  toast('Celular obrigatório','err'); setEditTab('cliente'); return; }
   const fornId = document.getElementById('ed_forn').value||null;
+  let recVal = parseFloat(document.getElementById('ed_rec').value)||0;
+  // Tratar mudança de NF — comportamento igual à tela "Nova Ordem"
+  const nfAntes = !!(o.nf_num);
+  const nfDepois = !!_edTemNF;
+  let nfNumNovo = o.nf_num;
+  let nfTaxaNova = o.nf_taxa || 0;
+  if(nfAntes !== nfDepois){
+    if(nfDepois){
+      // Estava SEM NF e agora TEM → adiciona acréscimo + marca '000'
+      recVal = (parseFloat(document.getElementById('ed_rec').value)||0) + (_nfAcrescimo||0);
+      nfNumNovo = '000';
+      nfTaxaNova = _nfAcrescimo || 11;
+    } else {
+      // Estava COM NF e agora NÃO TEM → remove acréscimo + limpa nf_num
+      recVal = Math.max(0, (parseFloat(document.getElementById('ed_rec').value)||0) - (_nfAcrescimo||0));
+      nfNumNovo = '';
+      nfTaxaNova = 0;
+    }
+  }
   const upd = {
     nome, cel: cel.replace(/\D/g,''),
     cpf:       document.getElementById('ed_cpf').value.trim()||null,
@@ -1898,9 +1933,11 @@ async function salvarEdicao() {
     tipo:      document.getElementById('ed_tipo').value,
     data:      document.getElementById('ed_data').value||null,
     obs:       document.getElementById('ed_obs').value.trim()||null,
-    rec:       parseFloat(document.getElementById('ed_rec').value)||0,
+    rec:       recVal,
     cst:       parseFloat(document.getElementById('ed_cst').value)||0,
     forn_id:   fornId,
+    nf_num:    nfNumNovo,
+    nf_taxa:   nfTaxaNova,
   };
   // Se atribuiu fornecedor novo e estava em contratar, avança coluna
   if(fornId && fornId !== o.forn_id && o.col==='contratar') upd.col = 'ag_entrega';
