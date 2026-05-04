@@ -4766,9 +4766,10 @@ async function salvarNovaOrdem() {
       const res = await api('ordens','POST',bodyQ,tok());
       if(res?.[0]) _ordens.unshift(res[0]);
       ids_criados.push(crm_q);
+      // Notifica push para nova ordem em "Contratar"
+      if(bodyQ.col==='contratar'){ try{ pushContratar(res?.[0]||bodyQ); }catch(e){} }
     }
     toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
-    body_list.filter(o=>o.col==='contratar').forEach(o=>pushContratar(o));
     setView('inicio');
   } catch(e) {
     toast('Erro ao salvar: '+e.message,'err');
@@ -4940,6 +4941,7 @@ async function duplicarOrdem(id) {
   if(!ok) return;
   try {
     const crm_id = await nextCrmId();
+    // Monta body com spread, mas remove campos que não devem ser copiados
     const body = {
       ...o,
       id: uidGen(), crm_id,
@@ -4952,13 +4954,32 @@ async function duplicarOrdem(id) {
       pago: false, pago_em: null, pago_valor: null, pago_obs: null,
       forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
       entrega_confirmada: false, orc_convertido_em: null,
+      // NF: se original tinha, duplicada nasce com '000' (precisa emitir nova)
+      nf_num: o.nf_num ? '000' : '',
+      nf_taxa: o.nf_num ? (o.nf_taxa || 0) : 0,
+      // Limpar observação da original (era específica daquela OS)
+      obs: '',
+      // Campos gerados pelo banco — não enviar
+      tracking_token: undefined,
+      atualizado_em: undefined,
+      concluido_em: null,
+      entrega_em: null,
+      comissao_liberada: false,
+      grp_id: null,
     };
+    // Remove campos undefined explicitamente para o banco gerar/usar default
+    delete body.tracking_token;
+    delete body.atualizado_em;
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
     toast(`Ordem ${crm_id} criada em Contratar!`,'ok');
-    pushContratar(body);
+    try{ pushContratar(res?.[0]||body); }catch(e){}
     setView('inicio');
-  } catch(e){toast('Erro ao duplicar','err');}
+  } catch(e){
+    console.error('🔴 ERRO DUPLICAR:', e);
+    const msg = e?.message || e?.error_description || e?.toString() || 'desconhecido';
+    toast('ERRO: '+String(msg).substring(0,250),'err',12000);
+  }
 }
 
 async function arquivarOrdem(id) {
