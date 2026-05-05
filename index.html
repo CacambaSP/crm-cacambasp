@@ -7270,7 +7270,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado,outraCidade){
   const checks=os.map(o=>`<div class="nfsel-item">
       <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado&&!outraCidade?'checked':''} onchange="_nfSelAtualizarTotal()">
       <div class="nfsel-item-info"><div class="nfsel-item-id">${o.crm_id||'—'}</div><div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div></div>
-      <div class="nfsel-item-val">R$ ${fmt((parseFloat(o.rec)||0)+(_nfAcrescimo||0))}</div>
+      <div class="nfsel-item-val">R$ ${fmt(!o.nf_num?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
     </div>`).join('');
   return `<div class="nfsel-grupo"><div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)"><input type="checkbox" id="nfgrp_${grupoId}" ${marcado&&!outraCidade?'checked':''} onclick="event.stopPropagation();_nfSelToggleGrupo('${grupoId}',this.checked)"><span>📍 ${label}</span><span style="margin-left:auto;font-weight:400;color:var(--mut2)">${os.length} OS</span></div>${alertaHtml}${checks}</div>`;
 }
@@ -7286,7 +7286,11 @@ function _nfSelToggleGrupo(grupoId,marcar){
 function _nfSelAtualizarTotal(){
   const chks=document.querySelectorAll('#nfsel_grupos input[type=checkbox][id^="nfchk_"]:checked');
   let total=0;
-  chks.forEach(cb=>{ const o=ordens.find(x=>x.id===cb.value); if(!o) return; total+=(parseFloat(o.rec)||0)+(_nfAcrescimo||0); });
+  chks.forEach(cb=>{
+    const o=ordens.find(x=>x.id===cb.value); if(!o) return;
+    // Se nf_num vazio: rec ainda não tem acréscimo; se tem 000/número: já tem
+    total += !o.nf_num ? (parseFloat(o.rec)||0)+(_nfAcrescimo||0) : (parseFloat(o.rec)||0);
+  });
   document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
 }
 
@@ -7318,7 +7322,12 @@ function _abrirModalNF(ids){
   else { disc+=' OS agrupadas:'; osLista.forEach(o=>{ disc+=' '+(o.crm_id||o.id)+(o.data?' ('+dateF(o.data)+')':'')+';'; }); }
   disc+=trackLink?'\n\nAcompanhe pelo link: '+trackLink:'';
   document.getElementById('nfem_disc').textContent=disc;
-  const recTotal=osLista.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(_nfAcrescimo||0),0);
+  // Valor: se nf_num já existe (000 ou número), o rec JÁ inclui acréscimo no banco
+  // Se nf_num vazio, ainda não foi somado → soma agora só para exibição
+  const recTotal=osLista.reduce((s,o)=>{
+    const r=parseFloat(o.rec)||0;
+    return s + (!o.nf_num ? r+(_nfAcrescimo||0) : r);
+  },0);
   const iss=recTotal*0.024;
   document.getElementById('nfem_valor').textContent='R$ '+fmt(recTotal);
   document.getElementById('nfem_base').textContent='R$ '+fmt(recTotal);
