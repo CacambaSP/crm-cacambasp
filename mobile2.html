@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP Mobile v2.0 — Fila de Ações -->
+<!DOCTYPE html><!-- CaçambaSP Mobile v2.1 — Mensagens WA por coluna -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -5192,24 +5192,49 @@ function enviarWA(id) {
   const d = diasAberto(o);
   const _tParam = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id);
   const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+_tParam : '';
+  const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+  const nome = (o.nome||'').split(' ')[0];
   let msg;
-  if(o.col==='inadimp') {
-    msg = `Olá ${o.nome||''}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
+
+  // ── COLUNA 1: Contratar — confirmação de pedido ──
+  if(o.col === 'contratar') {
+    msg = `Olá ${nome}! 😊 Recebemos seu pedido e já estamos providenciando.\n\n`
+        + `Por favor, confirme se os dados abaixo estão corretos. Caso não responda, consideraremos que está tudo certo.\n\n`
+        + `📋 *OS:* ${o.crm_id||'—'}\n`
+        + `📅 *Data:* ${o.data ? dateF(o.data) : '—'}\n`
+        + `📍 *Endereço de entrega:* ${endereco||'—'}\n`
+        + `🪣 *Serviço:* ${o.tipo||'Locação'}\n`
+        + `\n_CaçambaSP_`;
+
+  // ── COLUNA 2: Ag. Entrega — pedido em execução ──
+  } else if(o.col === 'ag_entrega') {
+    msg = `Olá ${nome}! 🚛 Seu pedido já está em execução.\n\n`
+        + `Em breve você receberá sua caçamba no endereço cadastrado:\n`
+        + `📍 *${endereco||'—'}*\n`
+        + `\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+
+  // ── COLUNA 3+: Cobrança ──
+  } else if(o.col==='inadimp') {
+    msg = `Olá ${nome}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
   } else if(d>=5) {
-    msg = `Olá ${o.nome||''}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+    msg = `Olá ${nome}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
   } else {
-    msg = `Olá ${o.nome||''}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+    msg = `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
   }
+
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-  // Marcar como cobrado hoje — todas as ordens do mesmo cel
-  const hoje = new Date().toISOString();
-  const celLimpo = tel;
-  _ordens.forEach(ord => {
-    if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
-      ord.cobrado_em = hoje;
-      api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
-    }
-  });
+
+  // Marcar como cobrado hoje — só para colunas de cobrança
+  if(o.col !== 'contratar' && o.col !== 'ag_entrega') {
+    const hoje = new Date().toISOString();
+    const celLimpo = tel;
+    _ordens.forEach(ord => {
+      if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
+        ord.cobrado_em = hoje;
+        api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
+      }
+    });
+  }
   setTimeout(()=>renderCurrentView(), 500);
 }
 
