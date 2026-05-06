@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP CRM v3.0.8 -->
+<!DOCTYPE html><!-- CaçambaSP CRM v3.1.0 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1841,6 +1841,29 @@ function getHoraEntrega(c){
   return base;
 }
 
+// Calcula quando a ordem deve avançar de entrega → pagar automaticamente
+function getLimiteAvanco(c){
+  if(!c.entrega_em && !c.criado_em) return null;
+  const turno = getTurnoOrdem(c);
+  const fechado = new Date(c.entrega_em || c.criado_em);
+  const hora = fechado.getHours() + fechado.getMinutes()/60;
+  const limite = new Date(fechado);
+  if(turno === 'noturno'){
+    // Noturna: sempre às 6h do dia seguinte
+    limite.setDate(limite.getDate()+1);
+    limite.setHours(6,0,0,0);
+  } else {
+    // Diurna: antes do meio-dia → 17h mesmo dia; a partir do meio-dia → meio-dia do dia seguinte
+    if(hora < 12){
+      limite.setHours(17,0,0,0);
+    } else {
+      limite.setDate(limite.getDate()+1);
+      limite.setHours(12,0,0,0);
+    }
+  }
+  return limite;
+}
+
 function deveConfirmarEntrega(c){
   if(c.col!=='entrega'||c.entrega_confirmada) return false;
   return !!c.forn_id;
@@ -2330,16 +2353,17 @@ async function _rodarFluxoAutomatico(){
       }
     }
 
-    // 2) entrega → pagar (24h sem confirmação — deduz OK)
+    // 2) entrega → pagar (prazo por turno sem confirmação — deduz OK)
     if(c.col==='entrega' && !c.entrega_confirmada){
-      const entradaEntrega = c.entrega_em ? new Date(c.entrega_em) : null;
-      if(entradaEntrega && (agora - entradaEntrega) >= 24*60*60*1000){
+      const limite = getLimiteAvanco(c);
+      if(limite && agora >= limite){
         c.col = 'pagar';
         c.entrega_confirmada = true;
+        autoColPagamento(c);
         try{
-          await api('ordens?id=eq.'+c.id,'PATCH',{col:'pagar', entrega_confirmada: true}, tok_);
-          addLog(c.id,'Pagar automático','24h sem ação na Entrega — deduzido OK');
-          toast('⏱️ '+( c.crm_id||'Ordem')+' movida para Pagar (24h sem confirmação)','info');
+          await api('ordens?id=eq.'+c.id,'PATCH',{col:c.col, entrega_confirmada: true}, tok_);
+          addLog(c.id,'Pagar automático','Prazo por turno atingido — deduzido OK');
+          toast('⏱️ '+(c.crm_id||'Ordem')+' movida para Pagar (prazo de entrega atingido)','info');
         }catch(e){}
         continue;
       }
@@ -2887,6 +2911,32 @@ async function oDrop(e,colId){
   if(!_dragId) return;
   const c=ordens.find(x=>x.id===_dragId);
   if(c&&c.col!==colId){
+    // Confirmação ao arrastar para entrega
+    if(colId==='entrega' && c.col==='ag_entrega'){
+      const confirmou = await showConfirm({
+        ico:'📦',
+        title:'Confirmar entrega',
+        body:'A caçamba de <strong>'+(c.nome||'—')+'</strong> foi entregue?',
+        ok:'✅ Sim, foi entregue',
+        okClass:'g',
+        cancel:'Não, cancelar'
+      });
+      if(!confirmou){_dragId=null;return;}
+      // Marca entrega confirmada direto
+      const agora_iso = new Date().toISOString();
+      c.col='pagar'; c.entrega_confirmada=true; c.entrega_em=agora_iso;
+      autoColPagamento(c);
+      renderBoard(); renderStats(); renderFinanceiro();
+      try{
+        setSyncDot('sync');
+        await api('ordens?id=eq.'+c.id,'PATCH',{col:c.col, entrega_confirmada:true, entrega_em:agora_iso},tok());
+        setSyncDot('ok');
+        toast('✅ Entrega confirmada — movido para Pagar');
+        addLog(c.id,'Entrega confirmada','Confirmado via arraste manual');
+      }catch(err){setSyncDot('err');toast('Erro: '+((err.message||'').slice(0,80)),'err');}
+      _dragId=null;
+      return;
+    }
     c.col=colId; renderBoard(); renderStats(); renderFinanceiro();
     try{
       setSyncDot('sync');
@@ -8454,8 +8504,8 @@ async function confirmarBaixaExtrato(){
       const vp=nOrdens===1?item.valorPago:Math.round((parseFloat(o.rec)||0)/totalRec*item.valorPago*100)/100;
       o.pago=true;o.pago_em=agora;o.pago_valor=vp;
       o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
-      o.col='baixar';
-      try{await api('ordens?id=eq.'+o.id,'PATCH',{pago:true,pago_em:agora,pago_valor:vp,pago_obs:o.pago_obs,col:'baixar'},tok());addLog(o.id,'Conciliado','Extrato Itaú · R$ '+fmt(vp));cnt++;}
+      autoColPagamento(o);
+      try{await api('ordens?id=eq.'+o.id,'PATCH',{pago:true,pago_em:agora,pago_valor:vp,pago_obs:o.pago_obs,col:o.col},tok());addLog(o.id,'Conciliado','Extrato Itaú · R$ '+fmt(vp));cnt++;}
       catch(e){toast('Erro: '+o.crm_id,'err');}
     }
   }
