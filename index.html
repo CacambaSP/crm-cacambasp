@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP CRM v3.0.6 -->
+<!DOCTYPE html><!-- CaçambaSP CRM v3.0.7 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1540,6 +1540,8 @@ input[type=checkbox]:checked::after{
       <!-- Templates -->
       <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Modelo de mensagem</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="waTemplates">
+        <button class="btn btn-sm" onclick="aplicarTemplate('pedido')" id="wtpl_pedido">🟠 Pedido recebido</button>
+        <button class="btn btn-sm" onclick="aplicarTemplate('entregando')" id="wtpl_entregando">🚛 A caminho</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('cobranca')" id="wtpl_cobranca">💰 Cobrança</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('pix')" id="wtpl_pix">⚡ Pix</button>
         <button class="btn btn-sm" onclick="aplicarTemplate('entrega')" id="wtpl_entrega">📦 Entrega</button>
@@ -5088,7 +5090,7 @@ function enviarWA(id){
   document.getElementById('wa_sub').textContent=(c.nome||'Cliente')+' · '+(c.cel||'');
   // Destacar template padrão conforme status
   document.querySelectorAll('#waTemplates .btn').forEach(b=>b.classList.remove('btn-acc'));
-  const tpl=c.col==='inadimp'?'inadimp':c.pago?'recebido':'cobranca';
+  const tpl=c.col==='contratar'?'pedido':c.col==='ag_entrega'?'entregando':c.col==='inadimp'?'inadimp':c.pago?'recebido':'cobranca';
   aplicarTemplate(tpl);
   openModal('waModal');
 }
@@ -5168,6 +5170,16 @@ function enviarTracking(id){
 }
 
 const _waTpl={
+  pedido:(c)=>{
+    const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
+    const nome=(c.nome||'').split(' ')[0];
+    return `Olá ${nome}! 😊 Recebemos seu pedido e já estamos providenciando.\n\nPor favor, confirme se os dados abaixo estão corretos. Caso não responda, consideraremos que está tudo certo.\n\n📋 *OS:* ${c.crm_id||'—'}\n📅 *Data:* ${dateF(c.data)}\n📍 *Endereço de entrega:* ${end||'—'}\n🪣 *Serviço:* ${c.tipo||'Locação'}\n\n_CaçambaSP_`;
+  },
+  entregando:(c)=>{
+    const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
+    const nome=(c.nome||'').split(' ')[0];
+    return `Olá ${nome}! 🚛 Seu pedido já está em execução.\n\nEm breve você receberá sua caçamba no endereço cadastrado:\n📍 *${end||'—'}*\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+  },
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
     const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
