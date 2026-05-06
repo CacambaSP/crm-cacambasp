@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP Mobile v2.2 — Mensagens WA por coluna -->
+<!DOCTYPE html><!-- CaçambaSP Mobile v2.3 — Mensagens WA por coluna -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -2201,9 +2201,10 @@ async function loadApp() {
           renderCurrentView();
         }
         await verificarAutoEntregas();
+        atualizarBadge();
         setSyncDot('ok');
       }catch(e){setSyncDot('err');}
-    },15000);
+    },5000);
   } catch(e) {
     clearTimeout(_loadSafety);
     console.error('loadApp error:', e);
