@@ -12387,6 +12387,22 @@ function _gerarPDFAgrupado(){
 
 function _confirmarPDFAgrupado(ids){
   const orcs = ids.map(id => ordens.find(o=>o.id===id)).filter(Boolean);
+  // Validar — bloquear se algum valor estiver zerado
+  const semValor = [];
+  orcs.forEach((o,i)=>{
+    const inp = document.getElementById('agrup-val-'+i);
+    const base = parseFloat(inp?.value)||0;
+    if(!(base>0)){
+      semValor.push(o.crm_id||('Linha '+(i+1)));
+      if(inp){ inp.style.border='2px solid var(--r)'; inp.focus(); }
+    } else {
+      if(inp) inp.style.border='';
+    }
+  });
+  if(semValor.length>0){
+    toast('⚠️ Informe o valor de: '+semValor.join(', '),'warn');
+    return;
+  }
   // Pegar valores do modal incluindo acréscimo NF
   orcs.forEach((o,i)=>{
     const inp = document.getElementById('agrup-val-'+i);
