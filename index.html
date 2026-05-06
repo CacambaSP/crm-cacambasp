@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP CRM v3.1.1 -->
+<!DOCTYPE html><!-- CaçambaSP CRM v3.1.0 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1322,7 +1322,7 @@ input[type=checkbox]:checked::after{
     <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Pagar Fornecedor</div><div class="mh-sub">Preencha os dados do pagamento</div></div><button class="mx" onclick="closeModal('pagarFornModal')">✕</button></div>
     <div class="mb">
       <div class="fi-row">
-        <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01"></div>
+        <div class="fi"><label>Valor pago (R$)</label><input type="number" id="pf_val" step="0.01" oninput="document.getElementById('pf_val_alerta').style.display=parseFloat(this.value)>0?'none':'flex'"><div id="pf_val_alerta" style="display:flex;align-items:center;gap:6px;margin-top:4px;background:rgba(255,168,0,.1);border:1px solid rgba(255,168,0,.3);border-radius:8px;padding:6px 10px;font-size:12px;color:#ffb020">⚠️ Informe o valor antes de confirmar — você pode alterar agora.</div></div>
         <div class="fi"><label>Data do pagamento</label><input type="date" id="pf_data"></div>
       </div>
       <div class="fi-row">
@@ -2838,6 +2838,7 @@ function cardHTML(c,color){
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
     ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
+    ${c.forn_id&&!(parseFloat(c.cst||0)>0)&&!c.forn_pago?`<div style="font-size:9px;color:#ffb020;font-weight:700;margin-bottom:2px">⚠️ Custo forn. não informado</div>`:''}
     ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-right:28px;margin-bottom:2px">Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
     <div style="display:flex;align-items:center;gap:6px;padding-right:4px">
     <div class="card-addr" style="flex:1;min-width:0">${c.logradouro||'Sem endereço'}</div>
@@ -4934,6 +4935,9 @@ function _gerarEtiquetaForn(f){
 function openPagarForn(callback){
   const c=ordens.find(x=>x.id===_detailId);if(!c)return;
   document.getElementById('pf_val').value=c.cst||'';
+  // Mostrar/ocultar alerta de valor zerado
+  const _pfAlerta=document.getElementById('pf_val_alerta');
+  if(_pfAlerta) _pfAlerta.style.display=parseFloat(c.cst||0)>0?'none':'flex';
   document.getElementById('pf_data').value=new Date().toISOString().slice(0,10);
   const f=forns.find(s=>s.id===c.forn_id);
   // Gerar etiqueta automática
@@ -4959,11 +4963,11 @@ async function salvarPagoForn(){
   for(const id of todos){
     const ord=ordens.find(x=>x.id===id);if(!ord)continue;
     const valOrd=val;
-    ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;
+    ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;ord.cst=valOrd;
     autoColPagamento(ord);
     try{
       setSyncDot('sync');
-      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef,col:ord.col},tok());
+      await api('ordens?id=eq.'+id,'PATCH',{forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef,cst:valOrd,col:ord.col},tok());
       setSyncDot('ok'); ok++;
       addLog(id,'Fornecedor pago','R$ '+fmt(valOrd)+(ref?' · '+ref:''));
     }catch(e){setSyncDot('err');}
@@ -8662,7 +8666,7 @@ function pgfornAtualizarRodape(){
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid||c.forn_pago||(c.cst||0)<=0||c.col==='orcamento') return false;
+    if(c.forn_id!==fid||c.forn_pago||c.col==='orcamento') return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
