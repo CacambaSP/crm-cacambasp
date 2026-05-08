@@ -7390,7 +7390,7 @@ function _abrirModalNF(ids){
   // Se nf_num vazio, ainda não foi somado → soma agora só para exibição
   const recTotal=osLista.reduce((s,o)=>{
     const r=parseFloat(o.rec)||0;
-    return s + (!o.nf_num ? r+(_nfAcrescimo||0) : r);
+    return s + (_semNF(o.nf_num) ? r+(_nfAcrescimo||0) : r);
   },0);
   const iss=recTotal*0.024;
   document.getElementById('nfem_valor').textContent='R$ '+fmt(recTotal);
