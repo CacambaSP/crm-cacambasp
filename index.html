@@ -6272,15 +6272,24 @@ async function calcularFechamento(){
     return d.getMonth()+1===mes && d.getFullYear()===ano;
   });
 
-  // 2) Ordens de meses ANTERIORES não pagas — vêm sem check por padrão
+  // 2) Ordens de meses ANTERIORES:
+  //    a) Não pagas — vêm sem check por padrão
+  //    b) Pagas APÓS o fechamento do mês anterior (pago_em >= 1º dia do mês atual) — vêm com check
+  const _iniciodoMes = new Date(ano, mes-1, 1); // ex: 1/mai/2026
   const srcAnteriores = ordens.filter(c => {
-    if(c.pago || !_validaOrdem(c)) return false;
+    if(!_validaOrdem(c)) return false;
     if(!c.data) return false;
     const d = new Date(c.data+'T12:00:00');
-    return d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
+    const ehAnterior = d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
+    if(!ehAnterior) return false;
+    if(!c.pago) return true; // não paga → entra desmarcada
+    // Paga: só entra se foi paga a partir do 1º dia do mês atual (pagamento veio depois do fechamento anterior)
+    if(!c.pago_em) return false;
+    const pagoEm = new Date(c.pago_em);
+    return pagoEm >= _iniciodoMes;
   });
 
-  // Junta tudo — mês atual + anteriores não pagas
+  // Junta tudo — mês atual + anteriores (não pagas ou pagas após fechamento)
   const src = [...srcMes, ...srcAnteriores];
 
   document.getElementById('fechResultado').innerHTML = '<div id="fechCards"></div>';
