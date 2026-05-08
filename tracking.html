@@ -291,7 +291,7 @@ async function carregar(){
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
       try{
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa&order=data.asc');
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa,cancel_motivo&order=data.asc');
         todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
