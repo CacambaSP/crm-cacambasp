@@ -1986,10 +1986,11 @@ async function remarcarEntrega(id){
 
 async function cancelarOrdem(id){
   track('btn_cancelar_ordem');
-  const motivo=prompt('Motivo do cancelamento:','');
+  const motivo=prompt('Motivo do cancelamento (obrigatorio):','');
   if(motivo===null)return;
+  if(!motivo.trim()){toast('Informe o motivo do cancelamento.','warn');return;}
   const c=ordens.find(x=>x.id===id);if(!c)return;
-  c.col='concluido';c.concluido_em=nowISO();c.cancel_motivo=motivo||'Cancelado';
+  c.col='concluido';c.concluido_em=nowISO();c.cancel_motivo=motivo.trim();
   renderBoard();renderStats();
   try{const _patchCanc={col:'concluido',concluido_em:c.concluido_em,cancel_motivo:c.cancel_motivo};if(!c.forn_pago&&c.forn_id){_patchCanc.forn_id=null;_patchCanc.cst=null;c.forn_id=null;c.cst=null;}await api('ordens?id=eq.'+id,'PATCH',_patchCanc,tok());addLog(id,'Cancelado',motivo||'');toast('🗑️ Ordem cancelada e arquivada');}
   catch(e){toast('Erro ao cancelar','err');}
@@ -8521,21 +8522,22 @@ async function confirmarBaixaExtrato(){
   if(!itens.length)return;
   // ── PROTEÇÃO: bloquear conciliação de OS canceladas ──
   const todasOrdensParaBaixar=itens.flatMap(r=>(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)));
-  const ordensCanceladas=todasOrdensParaBaixar.filter(o=>o.cancel_motivo);
+  // Bloquear OS canceladas (com cancel_motivo) OU arquivadas sem pagamento (col=concluido sem pago)
+  const ordensCanceladas=todasOrdensParaBaixar.filter(o=>o.cancel_motivo||(o.col==='concluido'&&!o.pago));
   if(ordensCanceladas.length>0){
-    const listaCanc=ordensCanceladas.map(o=>o.crm_id+' ('+o.cancel_motivo+')').join('\n');
+    const listaCanc=ordensCanceladas.map(o=>o.crm_id+' ('+(o.cancel_motivo||'arquivada sem pagamento')+')').join('\n');
     const prosseguir=await showConfirm({
       ico:'⚠️',
       title:'Atenção — OS cancelada(s) incluída(s)',
-      body:'As seguintes ordens estão canceladas e não deveriam ser conciliadas:\n\n'+listaCanc+'\n\nDeseja remover essas ordens e continuar apenas com as válidas?',
-      ok:'✅ Remover canceladas e continuar',
+      body:'As seguintes ordens estão canceladas ou arquivadas e não deveriam ser conciliadas:\n\n'+listaCanc+'\n\nDeseja remover essas ordens e continuar apenas com as válidas?',
+      ok:'✅ Remover e continuar',
       okClass:'btn-acc',
       cancel:'❌ Cancelar tudo'
     });
     if(!prosseguir)return;
-    // Marcar as canceladas como excluídas da baixa
+    // Marcar as problemáticas como excluídas da baixa
     ordensCanceladas.forEach(o=>desmarcadasGrp.add(o.id));
-    const aindaValidas=todasOrdensParaBaixar.filter(o=>!o.cancel_motivo);
+    const aindaValidas=todasOrdensParaBaixar.filter(o=>!o.cancel_motivo&&!(o.col==='concluido'&&!o.pago));
     if(!aindaValidas.length){toast('Nenhuma ordem válida para baixar após remover canceladas.','warn');return;}
   }
   const totalOrdens=itens.reduce((s,r)=>s+(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)).length,0);
