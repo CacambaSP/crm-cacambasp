@@ -6418,12 +6418,28 @@ async function calcularFechamento(){
           const _opaco = !_marcado;
           const _dataOrd = c.data ? c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4) : '—';
           const _statusLabel = c.col==='concluido'&&c.pago ? '🏆 Quitado' : c.pago ? '✅ Pago' : c.comissao_liberada ? '⭐ Liberado' : '⏳ Não pago';
+          // Badge de mês: indica ordens de mês anterior ou que irão para o próximo
+          const _badgeMes = (()=>{
+            if(!_fechamentoAtual?.mes) return '';
+            const [_fAno,_fMes] = _fechamentoAtual.mes.split('-').map(Number);
+            const _dOrd = c.data ? new Date(c.data+'T12:00:00') : null;
+            const _isPagoOrd = c.pago || c.comissao_liberada;
+            // Veio de mês anterior
+            if(_dOrd && (_dOrd.getFullYear() < _fAno || (_dOrd.getFullYear()===_fAno && _dOrd.getMonth()+1 < _fMes))) {
+              return '<span style="font-size:10px;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);border-radius:4px;padding:1px 6px;margin-left:5px;white-space:nowrap">⬅️ Mês anterior</span>';
+            }
+            // Não paga — vai para próximo mês
+            if(!_isPagoOrd) {
+              return '<span style="font-size:10px;background:rgba(245,166,35,.12);color:#ba7517;border:1px solid rgba(245,166,35,.3);border-radius:4px;padding:1px 6px;margin-left:5px;white-space:nowrap">➡️ Próximo mês</span>';
+            }
+            return '';
+          })();
           return `<tr id="fechrow_${c.id}" class="fechrow_uid_${uid}" style="border-top:1px solid var(--bor);opacity:${_opaco?'0.35':'1'};transition:opacity .15s">
             <td style="padding:6px 4px;text-align:center">
               <input type="checkbox" ${_marcado?'checked':''} id="fchk_${c.id}" onchange="_toggleOrdemFech('${c.id}','${uid}',${_isPago})" style="width:15px;height:15px;accent-color:var(--g);cursor:pointer">
             </td>
             <td style="padding:6px 8px">
-              <span style="font-weight:600">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}</span><br>
+              <span style="font-weight:600">${c.logradouro||c.nome||'-'}${c.bairro?' · '+c.bairro:''}${_badgeMes}</span><br>
               <span style="font-size:10px;color:var(--mut2)">${c.crm_id||''} · ${_dataOrd} · ${_statusLabel}${c.nf_num?' · 🧾 NF':''}</span>
             </td>
             <td style="padding:6px 8px;text-align:right;color:var(--g);font-family:var(--mono)">R$ ${fmt(recVal)}</td>
