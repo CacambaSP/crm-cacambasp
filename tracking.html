@@ -481,7 +481,7 @@ function mostrarErro(msg){
   document.getElementById('erro-txt').innerHTML=msg;
 }
 async function abrirReciboTracking(){
-  const ordens = _todasOrdensTracking||_ordensTracking||[];
+  const ordens = (_todasOrdensTracking||_ordensTracking||[]).filter(o=>!o.cancel_motivo);
   const ord    = window._reciboOrd||{};
   const vend   = window._reciboVend||{};
   if(!ordens.length){alert('Nenhuma ordem encontrada.');return;}
