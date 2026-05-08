@@ -8519,6 +8519,25 @@ async function confirmarBaixaExtrato(){
   );
   const itens=_extratoConfirm.filter(r=>ids.includes(r.id)&&r.ordens&&r.ordens.length);
   if(!itens.length)return;
+  // ── PROTEÇÃO: bloquear conciliação de OS canceladas ──
+  const todasOrdensParaBaixar=itens.flatMap(r=>(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)));
+  const ordensCanceladas=todasOrdensParaBaixar.filter(o=>o.cancel_motivo);
+  if(ordensCanceladas.length>0){
+    const listaCanc=ordensCanceladas.map(o=>o.crm_id+' ('+o.cancel_motivo+')').join('\n');
+    const prosseguir=await showConfirm({
+      ico:'⚠️',
+      title:'Atenção — OS cancelada(s) incluída(s)',
+      body:'As seguintes ordens estão canceladas e não deveriam ser conciliadas:\n\n'+listaCanc+'\n\nDeseja remover essas ordens e continuar apenas com as válidas?',
+      ok:'✅ Remover canceladas e continuar',
+      okClass:'btn-acc',
+      cancel:'❌ Cancelar tudo'
+    });
+    if(!prosseguir)return;
+    // Marcar as canceladas como excluídas da baixa
+    ordensCanceladas.forEach(o=>desmarcadasGrp.add(o.id));
+    const aindaValidas=todasOrdensParaBaixar.filter(o=>!o.cancel_motivo);
+    if(!aindaValidas.length){toast('Nenhuma ordem válida para baixar após remover canceladas.','warn');return;}
+  }
   const totalOrdens=itens.reduce((s,r)=>s+(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)).length,0);
   const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+totalOrdens+' ordem'+(totalOrdens!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
   if(!ok)return;
@@ -9255,8 +9274,8 @@ function _reciboFiltrar(q) {
 function _reciboSelecionarCliente(chaveEnc) {
   const chave = decodeURIComponent(chaveEnc);
   document.getElementById('reciboAC').style.display = 'none';
-  // Pegar todas as ordens deste cliente
-  _reciboClienteOrdens = ordens.filter(o => (o.cel||o.nome||o.id) === chave)
+  // Pegar todas as ordens deste cliente — excluir canceladas (não devem aparecer no recibo)
+  _reciboClienteOrdens = ordens.filter(o => (o.cel||o.nome||o.id) === chave && !o.cancel_motivo)
     .sort((a,b) => (a.data||'').localeCompare(b.data||''));
   _reciboSelecionados = new Set(_reciboClienteOrdens.map(o=>o.id));
   _reciboRenderLista();
