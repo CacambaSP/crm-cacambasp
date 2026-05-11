@@ -8410,14 +8410,14 @@ function renderExtratoRevisao(){
         // Fallback 1: CPF/CNPJ do pagador
         const cpfPag=(linha.cpf||'').replace(/\D/g,'');
         if(cpfPag.length>=11){
-          const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
+          const porCpf=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&!c.cancel_motivo&&(c.cpf||'').replace(/\D/g,'')===cpfPag);
           if(porCpf.length){ordemMatch=porCpf;matchTipo='cpf';}
         }
         // Fallback 2: primeira palavra do nome (4+ chars, match exato)
         if(!ordemMatch){
           const nomePag=(linha.pagador||'').toLowerCase().split(' ')[0]||'';
           if(nomePag.length>=4){
-            const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&
+            const cands=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&!c.cancel_motivo&&
               (c.nome||'').toLowerCase().split(' ')[0]===nomePag);
             if(cands.length>=1){ordemMatch=cands;matchTipo='nome';}
           }
@@ -8599,7 +8599,7 @@ async function confirmarBaixaExtrato(){
   renderConcExtrato();
 }
 function renderConcManual(){
-  const pend=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const pend=ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&!c.cancel_motivo).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   if(!pend.length){document.getElementById('concPanel-manual').innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">🎉 Todos os negócios estão pagos!</div>';return;}
   document.getElementById('concPanel-manual').innerHTML=pend.map(c=>`
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:13px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
