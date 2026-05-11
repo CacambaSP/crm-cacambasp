@@ -8382,7 +8382,7 @@ function renderExtratoRevisao(){
         const celRef=(crmGrp.cel||'').replace(/\D/g,'');
         // Todas as ordens pendentes do mesmo celular (sem filtro de número)
         const todasGrp=ordens.filter(c=>c.col!=='orcamento'&&(c.cel||'').replace(/\D/g,'')===celRef&&celRef);
-        let pendGrp=todasGrp.filter(c=>!c.pago);
+        let pendGrp=todasGrp.filter(c=>!c.pago&&c.col!=='concluido');
         // ── Seleção automática por valor: marcar só as ordens que somam exatamente o valor pago ──
         if(pendGrp.length>0&&linha.valorPago>0){
           const vPago=Math.round(linha.valorPago*100);
