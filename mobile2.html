@@ -413,10 +413,11 @@ input,select,textarea,button{font-family:var(--font)}
 .bnb-badge{position:absolute;top:8px;right:50%;transform:translateX(15px);background:var(--r);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:8px;min-width:16px;text-align:center;box-shadow:0 0 8px rgba(255,60,90,.5)}
 
 /* ── SYNC DOT GLOW ── */
-.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;border:none;padding:0;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent}
+.sync-dot::before{content:'';position:absolute;inset:-12px;border-radius:50%}
 .sync-dot.ok{background:var(--g);box-shadow:0 0 6px var(--g)}
 .sync-dot.loading{background:var(--acc);animation:pulse-dot .8s infinite;box-shadow:0 0 6px var(--acc)}
-.sync-dot.err{background:var(--r);box-shadow:0 0 6px var(--r)}
+.sync-dot.err{background:var(--r);box-shadow:0 0 6px var(--r);animation:pulse-dot .8s infinite}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── IA ALERTAS ── */
@@ -578,7 +579,7 @@ input,select,textarea,button{font-family:var(--font)}
       <div class="topbar-sub" id="topbarSub"></div>
     </div>
     <div class="topbar-right">
-      <div class="sync-dot ok" id="syncDot"></div>
+      <button class="sync-dot ok" id="syncDot" onclick="manualRefresh()" title="Toque para reconectar"></button>
       <button class="topbar-search" id="searchBtn" onclick="toggleSearch()">🔍</button>
       <button class="topbar-search" id="notifBtn" onclick="reativarNotificacoes()" title="Ativar notificações">🔔</button>
       <div class="topbar-avatar" id="userAvatar" onclick="doLogout()"></div>
@@ -1147,7 +1148,47 @@ function setSyncDot(state) {
   const d = document.getElementById('syncDot');
   if(!d) return;
   d.className = 'sync-dot '+state;
-  d.title = state==='ok'?'Sincronizado':state==='loading'?'Atualizando...':'Erro de conexão';
+  d.title = state==='ok'?'Toque para atualizar':state==='loading'?'Atualizando...':'Sem conexão — toque para tentar novamente';
+}
+
+// ── REFRESH MANUAL (toque na bolinha) ──
+let _refreshing = false;
+async function manualRefresh() {
+  if(_refreshing) return;
+  _refreshing = true;
+  setSyncDot('loading');
+  toast('🔄 Atualizando...','info',1500);
+  try {
+    const path = isAdmin()
+      ? 'ordens?order=criado_em.desc'
+      : 'ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc';
+    const [novasOrdens, novosForn, novosCfg] = await Promise.all([
+      api(path,'GET',null,tok()),
+      api('fornecedores?order=nome.asc','GET',null,tok()),
+      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
+    ]);
+    if(novasOrdens) _ordens = novasOrdens;
+    if(novosForn)   _forns  = novosForn;
+    if(novosCfg?.length) {
+      novosCfg.forEach(row => {
+        if(row.chave==='nf_acrescimo')      _nfAcrescimo     = parseFloat(row.valor)||40;
+        if(row.chave==='limite_diurno')     _limiteDiurno    = row.valor||'09:00';
+        if(row.chave==='limite_noturno')    _limiteNoturno   = row.valor||'16:00';
+        if(row.chave==='cobr_dias_alerta')  COBR_DIAS_ALERTA = parseInt(row.valor)||3;
+        if(row.chave==='cobr_dias_critico') COBR_DIAS_CRITICO = parseInt(row.valor)||7;
+      });
+    }
+    await verificarAutoEntregas();
+    atualizarBadge();
+    renderCurrentView();
+    setSyncDot('ok');
+    toast('✅ Dados atualizados','ok');
+  } catch(e) {
+    setSyncDot('err');
+    toast('❌ Sem conexão — toque novamente para tentar','err');
+  } finally {
+    _refreshing = false;
+  }
 }
 
 // ── TOAST ──
