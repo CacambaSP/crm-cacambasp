@@ -75,6 +75,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #erro-ico{font-size:48px}
 #erro-txt{color:var(--mut);font-size:14px;line-height:1.6}
 #footer{margin-top:28px;text-align:center;font-size:11px;color:var(--mut);opacity:.6}
+.nf-grupo{border:1.5px solid rgba(249,115,22,.45);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.nf-grupo:last-child{margin-bottom:0}
+.nf-grupo-hd{background:rgba(249,115,22,.18);padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.nf-grupo-hd input[type=checkbox]{width:22px;height:22px;cursor:pointer;accent-color:var(--acc);flex-shrink:0}
+.nf-grupo-hd-label{flex:1;font-size:13px;font-weight:800;color:#ffb347;letter-spacing:.2px}
+.nf-grupo-hd-val{font-size:13px;font-weight:800;color:#f5a623;white-space:nowrap}
+.nf-grupo .ord-item{padding:10px 14px;border-bottom:1px solid rgba(42,45,58,.9);margin:0;display:flex;align-items:center;justify-content:space-between}
+.nf-grupo .ord-item:last-child{border-bottom:none}
+.nf-grupo .ord-item-end{font-size:13px;font-weight:700;color:#e8eaf0}
+.nf-grupo .ord-item-info{font-size:11px;color:#a0a3b8;margin-top:3px}
 </style>
 </head>
 <body>
@@ -369,53 +379,91 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     // txid agrupado: GRP + crm_id da primeira ordem pendente — concilia no extrato Itaú
     const _primeiraOrdPend = pendentes[0]||emAberto[0];
     const txidGrupo = ('GRP'+(_primeiraOrdPend?.crm_id||'').replace(/\D/g,'')).substring(0,25);
-    // Agrupa OS por NF — OS sem NF ficam individualmente
-    const _grupos={};
+    // Agrupa por NF e ordena: grupos com NF (por número crescente) + sem NF no final
+    const _gruposMap={};
     emAberto.forEach(o=>{
       const chave=o.nf_num?('NF_'+o.nf_num):'SEM_'+o.id;
-      if(!_grupos[chave])_grupos[chave]={nf:o.nf_num||null,ordens:[]};
-      _grupos[chave].ordens.push(o);
+      if(!_gruposMap[chave])_gruposMap[chave]={nf:o.nf_num||null,ordens:[]};
+      _gruposMap[chave].ordens.push(o);
+    });
+    // Ordena: NFs numericamente crescente + sem NF no final
+    const _grpsSorted=Object.values(_gruposMap).sort((a,b)=>{
+      if(a.nf&&b.nf) return parseInt(a.nf)||0 > parseInt(b.nf)||0 ? 1 : -1;
+      if(a.nf&&!b.nf) return -1;
+      if(!a.nf&&b.nf) return 1;
+      return 0;
     });
     let listaHTML='';
-    Object.values(_grupos).forEach(grp=>{
+    let _gi=0;
+    _grpsSorted.forEach(grp=>{
       const temNF=!!grp.nf;
-      const totalGrp=grp.ordens.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
-      const todasPagasGrp=grp.ordens.every(o=>o.pago);
-      const algumaPendGrp=grp.ordens.some(o=>!o.pago);
-      // Cabeçalho do grupo NF (só mostra se tiver NF e mais de 1 OS)
-      if(temNF&&grp.ordens.length>1){
-        listaHTML+='<div style="margin:12px 0 4px;padding:6px 10px;background:rgba(249,115,22,.1);border-left:3px solid #f97316;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
-          +'<span style="font-size:12px;font-weight:700;color:#f97316">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</span>'
-          +(algumaPendGrp?'<span style="font-size:12px;font-weight:700;color:var(--acc)">R$ '+fmt(grp.ordens.filter(o=>!o.pago).reduce((s,o)=>s+(parseFloat(o.rec)||0)+_nfAcrescimo,0))+'</span>':'<span style="font-size:12px;color:var(--g);font-weight:700">✅ Pago</span>')
+      const pendGrp=grp.ordens.filter(o=>!o.pago);
+      const totalGrpPend=pendGrp.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+      const todasPagasGrp=pendGrp.length===0;
+      const gid='nfgrp_'+(_gi++);
+      if(temNF){
+        const hdCheck=todasPagasGrp?'':'<input type="checkbox" id="'+gid+'" class="nf-grupo-hd-chk" checked onclick="event.stopPropagation();_toggleGrupoNF(&apos;'+gid+'&apos;)">';
+        const hdVal=todasPagasGrp?'<span style="font-size:12px;color:var(--g);font-weight:800">✅ Pago</span>':'<span class="nf-grupo-hd-val">R$ '+fmt(totalGrpPend)+'</span>';
+        listaHTML+='<div class="nf-grupo">'
+          +'<div class="nf-grupo-hd" onclick="_toggleGrupoNF(&apos;'+gid+'&apos;)">'
+          +hdCheck
+          +'<span class="nf-grupo-hd-label">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</span>'
+          +hdVal
           +'</div>';
+        grp.ordens.forEach(o=>{
+          const pago=o.pago;
+          const valCli=(parseFloat(o.rec)||0)+_nfAcrescimo;
+          if(pago){
+            listaHTML+='<div class="ord-item">'
+              +'<div class="ord-item-left">'
+              +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'</div>'
+              +'<div style="font-size:12px;color:var(--g);font-weight:700;padding-right:4px">✅ Pago</div>'
+              +'</div>';
+          } else {
+            listaHTML+='<div class="ord-item">'
+              +'<input type="checkbox" class="ord-item-check nf-grp-item" data-grp="'+gid+'" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'
+              +'<div class="ord-item-left">'
+              +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'</div>'
+              +'<div class="ord-item-right">'
+              +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
+              +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(''+(o.crm_id||'')+'','+valCli+')">💳 Pagar esta</button>'
+              +'</div>'
+              +'</div>';
+          }
+        });
+        listaHTML+='</div>';
+      } else {
+        // OS sem NF — individual
+        grp.ordens.forEach(o=>{
+          const pago=o.pago;
+          const valCli=(parseFloat(o.rec)||0);
+          if(pago){
+            listaHTML+='<div class="ord-item">'
+              +'<div class="ord-item-left">'
+              +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'</div>'
+              +'<div style="font-size:12px;color:var(--g);font-weight:700;padding-right:4px">✅ Pago</div>'
+              +'</div>';
+          } else {
+            listaHTML+='<div class="ord-item">'
+              +'<input type="checkbox" class="ord-item-check" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'
+              +'<div class="ord-item-left">'
+              +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'</div>'
+              +'<div class="ord-item-right">'
+              +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
+              +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(''+(o.crm_id||'')+'','+valCli+')">💳 Pagar esta</button>'
+              +'</div>'
+              +'</div>';
+          }
+        });
       }
-      grp.ordens.forEach(o=>{
-        const pago=o.pago;
-        const acr=o.nf_num?_nfAcrescimo:0;
-        const valCli=(parseFloat(o.rec)||0)+acr;
-        const nfInfo=(temNF&&grp.ordens.length===1)?('<span class="badge-nf">🧾 NF '+o.nf_num+'</span> '):'';
-        if(pago){
-          listaHTML+='<div class="ord-item">'
-            +'<div class="ord-item-left">'
-            +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-            +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
-            +'</div>'
-            +'<div style="font-size:12px;color:var(--g);font-weight:700;margin-left:10px">✅ Pago</div>'
-            +'</div>';
-        } else {
-          listaHTML+='<div class="ord-item">'
-            +'<input type="checkbox" class="ord-item-check" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'
-            +'<div class="ord-item-left">'
-            +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-            +'<div class="ord-item-info">'+nfInfo+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
-            +'</div>'
-            +'<div class="ord-item-right">'
-            +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
-            +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(\''+(o.crm_id||'')+'\','+valCli+')">💳 Pagar esta</button>'
-            +'</div>'
-            +'</div>';
-        }
-      });
     });
     document.getElementById('lista-ordens-agrupadas').innerHTML=listaHTML;
     const btnTudo=document.getElementById('btn-pagar-tudo');
@@ -442,6 +490,11 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   // Guardar dados para o recibo
   window._reciboOrd = ord;
   window._reciboVend = vend;
+}
+function _toggleGrupoNF(gid){
+  const chk=document.getElementById(gid); if(!chk) return;
+  document.querySelectorAll('.nf-grp-item[data-grp="'+gid+'"]').forEach(cb=>cb.checked=chk.checked);
+  atualizarSelecao();
 }
 function atualizarSelecao(){
   // Recalcula soma das ordens marcadas e atualiza botão + QR Code
