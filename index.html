@@ -8331,7 +8331,7 @@ function processarXLS(input){
       const iPagoEm= cab.findIndex(c=>c.includes('pago em'));
       const iEmit  = cab.findIndex(c=>c.includes('emitido'));
       const iPagoV = cab.findIndex(c=>c.includes('valor pago'));
-      const isId=s=>/^(LC|GRP)\d{6,}/i.test(String(s).trim());
+      const isId=s=>/^(LC|GRP|RC)\d{6,}/i.test(String(s).trim());
       const linhas=[];
       for(let i=cabIdx+1;i<rows.length;i++){
         const r=rows[i];
