@@ -402,10 +402,10 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
       const todasPagasGrp=pendGrp.length===0;
       const gid='nfgrp_'+(_gi++);
       if(temNF){
-        const hdCheck=todasPagasGrp?'':'<input type="checkbox" id="'+gid+'" class="nf-grupo-hd-chk" checked onclick="event.stopPropagation();_toggleGrupoNF(&apos;'+gid+'&apos;)">';
+        const hdCheck=todasPagasGrp?'':'<input type="checkbox" id="'+gid+'" class="nf-grupo-hd-chk" data-gid="'+gid+'" checked>';
         const hdVal=todasPagasGrp?'<span style="font-size:12px;color:var(--g);font-weight:800">✅ Pago</span>':'<span class="nf-grupo-hd-val">R$ '+fmt(totalGrpPend)+'</span>';
         listaHTML+='<div class="nf-grupo">'
-          +'<div class="nf-grupo-hd" onclick="_toggleGrupoNF(&apos;'+gid+'&apos;)">'
+          +'<div class="nf-grupo-hd" data-gid="'+gid+'">'
           +hdCheck
           +'<span class="nf-grupo-hd-label">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</span>'
           +hdVal
@@ -493,9 +493,23 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
 }
 function _toggleGrupoNF(gid){
   const chk=document.getElementById(gid); if(!chk) return;
-  document.querySelectorAll('.nf-grp-item[data-grp="'+gid+'"]').forEach(cb=>cb.checked=chk.checked);
+  document.querySelectorAll('.nf-grp-item[data-grp="'+gid+'"]').forEach(cb=>{cb.checked=chk.checked;});
   atualizarSelecao();
 }
+// Delegação de eventos para os cabeçalhos dos grupos NF
+document.addEventListener('click',function(e){
+  const hd=e.target.closest('.nf-grupo-hd');
+  if(!hd) return;
+  const gid=hd.dataset.gid; if(!gid) return;
+  if(e.target.classList.contains('nf-grupo-hd-chk')){
+    e.stopPropagation();
+    _toggleGrupoNF(gid);
+    return;
+  }
+  const chk=document.getElementById(gid); if(!chk) return;
+  chk.checked=!chk.checked;
+  _toggleGrupoNF(gid);
+});
 function atualizarSelecao(){
   // Recalcula soma das ordens marcadas e atualiza botão + QR Code
   const checks = document.querySelectorAll('.ord-item-check');
