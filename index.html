@@ -8467,7 +8467,7 @@ function renderExtratoRevisao(){
           : r.matchTipo==='nome'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;margin-left:6px">⚠️ Casado por nome — confirme!</span>`
           : '';
-        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>s+(parseFloat(o.rec)||0)+(parseFloat(o.nf_taxa)||0),0);
         // Ordens individuais do GRP — checkboxes para selecionar quais baixar
         // r.ordens já vem pré-selecionadas pelo algoritmo de valor exato
         // r.ordensExcluidas = ordens do mesmo cel que foram deixadas de fora por não caber no valor
@@ -8501,7 +8501,14 @@ function renderExtratoRevisao(){
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${_nomeCliente}${_matchBadge}</div>
           <div style="font-size:11px;color:var(--mut2)">${_grpInfo} · ${r.dataVenc||r.dataPago||'-'}</div></div>
           <div style="text-align:right;flex-shrink:0"><div style="font-weight:800;color:var(--g);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
-          ${Math.abs(r.valorPago-_totalOS)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`:''}</div>
+          ${Math.abs(r.valorPago-_totalOS)>0.01?(()=>{
+            const _ord0=(r.ordens||[r.ordem]).filter(Boolean)[0];
+            const _nfTaxa=parseFloat(_ord0?.nf_taxa||0);
+            const _recBase=parseFloat(_ord0?.rec||0);
+            return _nfTaxa>0.01
+              ? `<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_recBase)} + NF R$ ${fmt(_nfTaxa)} = R$ ${fmt(_totalOS)}</div>`
+              : `<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`;
+          })():''}</div>
           </label>
           ${_subOrdens}
           ${_avisoValorRC}
