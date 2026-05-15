@@ -8428,9 +8428,14 @@ function renderExtratoRevisao(){
       const _st=_oa.length===0?'nao_encontrado':(_tp?'ja_pago':'encontrado');
       return{...linha,ordens:_oa,ordem:_oa[0]||null,status:_st,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
     }else{
-      // RC = pagamento individual — casa pelo crm_id e verifica divergência considerando rec + nf_taxa
-      const _rcMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
+      // RC = QR Code individual gerado pelo tracking (RC20266385 → LC20266385)
+      // Extrai só o número e busca a OS correspondente independente do prefixo
+      const _numRC=idLimpo.replace(/^RC/,'');
+      const _rcMatch=idLimpo.startsWith('RC')
+        ? ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===_numRC&&c.col!=='orcamento')
+        : ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
       if(_rcMatch){
+        // Verifica divergência de valor considerando rec + nf_taxa
         const _recTotal=(parseFloat(_rcMatch.rec)||0)+(parseFloat(_rcMatch.nf_taxa)||0);
         const _difRC=Math.abs(linha.valorPago-_recTotal);
         if(_difRC>0.01) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
