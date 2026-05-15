@@ -430,7 +430,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
               +'</div>'
               +'<div class="ord-item-right">'
               +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
-              +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(''+(o.crm_id||'')+'','+valCli+')">💳 Pagar esta</button>'
+              +'<button class="btn-pagar-ord" data-crm2="'+(o.crm_id||'')+'" data-val2="'+valCli+'" onclick="var b=this;pagarOrdemIndividual(b.dataset.crm2,parseFloat(b.dataset.val2))">💳 Pagar esta</button>'
               +'</div>'
               +'</div>';
           }
@@ -458,7 +458,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
               +'</div>'
               +'<div class="ord-item-right">'
               +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
-              +'<button class="btn-pagar-ord" onclick="pagarOrdemIndividual(''+(o.crm_id||'')+'','+valCli+')">💳 Pagar esta</button>'
+              +'<button class="btn-pagar-ord" data-crm2="'+(o.crm_id||'')+'" data-val2="'+valCli+'" onclick="var b=this;pagarOrdemIndividual(b.dataset.crm2,parseFloat(b.dataset.val2))">💳 Pagar esta</button>'
               +'</div>'
               +'</div>';
           }
