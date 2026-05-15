@@ -8428,7 +8428,14 @@ function renderExtratoRevisao(){
       const _st=_oa.length===0?'nao_encontrado':(_tp?'ja_pago':'encontrado');
       return{...linha,ordens:_oa,ordem:_oa[0]||null,status:_st,tipo,matchTipo,ordensExcluidas:_grpExcluidas[idLimpo]||[]};
     }else{
-      ordemMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
+      // RC = pagamento individual — casa pelo crm_id e verifica divergência considerando rec + nf_taxa
+      const _rcMatch=ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
+      if(_rcMatch){
+        const _recTotal=(parseFloat(_rcMatch.rec)||0)+(parseFloat(_rcMatch.nf_taxa)||0);
+        const _difRC=Math.abs(linha.valorPago-_recTotal);
+        if(_difRC>0.01) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
+      }
+      ordemMatch=_rcMatch;
     }
     const _ordens_arr=Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
     const _todas_pagas=_ordens_arr.length>0&&_ordens_arr.every(o=>o.pago);
@@ -8466,6 +8473,9 @@ function renderExtratoRevisao(){
         const _avisoValor = r.tipo==='grp' && _difValor > 0.01
           ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 4px 28px">⚠️ Soma das ordens (R$ ${fmt(_somaAutosel)}) difere do Pix (R$ ${fmt(r.valorPago)}) — revise manualmente</div>`
           : (r.tipo==='grp' && _ordsExcl.length>0 ? `<div style="font-size:10px;color:var(--g);padding:2px 0 4px 28px">✅ Valor exato · ${_ordsExcl.length} ordem${_ordsExcl.length>1?'ns':''} com pagamento futuro mantida${_ordsExcl.length>1?'s':''} pendente${_ordsExcl.length>1?'s':''}</div>` : '');
+        const _avisoValorRC = r.tipo!=='grp' && r._aviso_valor_rc
+          ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 4px 28px">${r._aviso_valor_rc}</div>`
+          : '';
         const _subOrdens = r.tipo==='grp' && (_ordsGrp.length > 1 || _ordsExcl.length > 0)
           ? [
               ..._ordsGrp.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 28px;cursor:pointer">
@@ -8489,6 +8499,7 @@ function renderExtratoRevisao(){
           ${Math.abs(r.valorPago-_totalOS)>0.01?`<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`:''}</div>
           </label>
           ${_subOrdens}
+          ${_avisoValorRC}
         </div>`;}).join('')}
       <button class="btn btn-g btn-block" style="margin-top:12px" onclick="confirmarBaixaExtrato()">✅ Dar baixa nas selecionadas</button>
     </div>`:''}
