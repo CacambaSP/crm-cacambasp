@@ -7360,7 +7360,7 @@ function _nfSelGrupoHTML(grupoId,label,os,marcado,outraCidade){
   const checks=os.map(o=>`<div class="nfsel-item">
       <input type="checkbox" id="nfchk_${o.id}" value="${o.id}" ${marcado&&!outraCidade?'checked':''} onchange="_nfSelAtualizarTotal()">
       <div class="nfsel-item-info"><div class="nfsel-item-id">${o.crm_id||'—'}</div><div class="nfsel-item-det">${o.data?dateF(o.data):'—'}${o.logradouro?' · '+o.logradouro:''}${o.bairro?' · '+o.bairro:''}</div></div>
-      <div class="nfsel-item-val">R$ ${fmt(!o.nf_num?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
+      <div class="nfsel-item-val">R$ ${fmt(_semNF(o.nf_num)?(parseFloat(o.rec)||0)+(_nfAcrescimo||0):(parseFloat(o.rec)||0))}</div>
     </div>`).join('');
   return `<div class="nfsel-grupo"><div class="nfsel-grupo-hd" onclick="_nfSelToggleGrupo('${grupoId}',!document.getElementById('nfgrp_${grupoId}').checked)"><input type="checkbox" id="nfgrp_${grupoId}" ${marcado&&!outraCidade?'checked':''} onclick="event.stopPropagation();_nfSelToggleGrupo('${grupoId}',this.checked)"><span>📍 ${label}</span><span style="margin-left:auto;font-weight:400;color:var(--mut2)">${os.length} OS</span></div>${alertaHtml}${checks}</div>`;
 }
@@ -7378,8 +7378,8 @@ function _nfSelAtualizarTotal(){
   let total=0;
   chks.forEach(cb=>{
     const o=ordens.find(x=>x.id===cb.value); if(!o) return;
-    // Se nf_num vazio: rec ainda não tem acréscimo; se tem 000/número: já tem
-    total += !o.nf_num ? (parseFloat(o.rec)||0)+(_nfAcrescimo||0) : (parseFloat(o.rec)||0);
+    // _semNF detecta vazio e '000' — ambos ainda não têm acréscimo no banco
+    total += _semNF(o.nf_num) ? (parseFloat(o.rec)||0)+(_nfAcrescimo||0) : (parseFloat(o.rec)||0);
   });
   document.getElementById('nfsel_total').textContent='R$ '+fmt(total);
 }
