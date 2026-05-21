@@ -8436,7 +8436,8 @@ function renderExtratoRevisao(){
         : ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
       if(_rcMatch){
         // Verifica divergência de valor considerando rec + nf_taxa
-        const _recTotal=(parseFloat(_rcMatch.rec)||0)+(parseFloat(_rcMatch.nf_taxa)||0);
+        const _temNF=_rcMatch.nf_num&&_rcMatch.nf_num!=='000'&&_rcMatch.nf_num.trim()!=='';
+        const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(parseFloat(_rcMatch.nf_taxa)||0):0);
         const _difRC=Math.abs(linha.valorPago-_recTotal);
         if(_difRC>0.01) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
       }
