@@ -8468,13 +8468,13 @@ function renderExtratoRevisao(){
           : r.matchTipo==='nome'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;margin-left:6px">⚠️ Casado por nome — confirme!</span>`
           : '';
-        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>s+(parseFloat(o.rec)||0)+(parseFloat(o.nf_taxa)||0),0);
+        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>{const _nfVal=(o.nf_num&&o.nf_num!=='000'&&o.nf_num.trim()!=='')?(parseFloat(o.nf_taxa)||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
         // Ordens individuais do GRP — checkboxes para selecionar quais baixar
         // r.ordens já vem pré-selecionadas pelo algoritmo de valor exato
         // r.ordensExcluidas = ordens do mesmo cel que foram deixadas de fora por não caber no valor
         const _ordsGrp = (r.ordens||[r.ordem]).filter(Boolean).filter(o=>!o.pago);
         const _ordsExcl = (r.ordensExcluidas||[]);
-        const _somaAutosel = _ordsGrp.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+        const _somaAutosel = _ordsGrp.reduce((s,o)=>{const _nfVal=(o.nf_num&&o.nf_num!=='000'&&o.nf_num.trim()!=='')?(parseFloat(o.nf_taxa)||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
         const _difValor = Math.abs(r.valorPago - _somaAutosel);
         const _avisoValor = r.tipo==='grp' && _difValor > 0.01
           ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 4px 28px">⚠️ Soma das ordens (R$ ${fmt(_somaAutosel)}) difere do Pix (R$ ${fmt(r.valorPago)}) — revise manualmente</div>`
