@@ -1672,13 +1672,23 @@ input[type=checkbox]:checked::after{
           <div style="font-size:11px;font-weight:700;color:var(--mut2);margin-top:2px" id="nfem_ret_subst">—</div>
         </div>
       </div>
+      <div id="nfem_verificar_box" style="display:none;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.45);border-radius:var(--rad3);padding:12px;margin-top:4px">
+        <div style="font-weight:700;color:#f59e0b;font-size:13px;margin-bottom:4px">⛔ Classifique este município antes de emitir</div>
+        <div style="font-size:12px;color:var(--mut2);margin-bottom:8px">Cidade: <b id="nfem_verif_cidade">—</b>. Confirme a regra de retenção do ISS (serviço 7.09) na lei municipal e marque abaixo:</div>
+        <input type="text" id="nfem_verif_obs" placeholder="Base legal / observação (ex: Lei municipal nº...)" style="width:100%;padding:8px 10px;border-radius:var(--rad3);border:1px solid var(--bor2);background:var(--card);color:var(--txt);font-size:12px;margin-bottom:8px">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-acc" style="flex:1;justify-content:center;font-size:13px" onclick="_issClassificar('sim')">🧾 Cliente PJ RETÉM (SIM)</button>
+          <button class="btn btn-g" style="flex:1;justify-content:center;font-size:13px" onclick="_issClassificar('nao')">✅ NÃO retém</button>
+        </div>
+        <div style="font-size:10px;color:var(--mut2);margin-top:6px">Depois de classificar, vale automaticamente para todas as próximas NFs desta cidade.</div>
+      </div>
       <div class="nfem-footer">
         <div class="nfem-footer-title">✅ Depois de emitir, registre o número aqui</div>
         <div style="font-size:12px;color:var(--mut2);margin-bottom:6px">1. Clique "Abrir prefeitura" abaixo<br>2. Preencha os dados, resolva o captcha e clique Emitir<br>3. Digite o número da NF gerada e clique Salvar</div>
-        <button class="btn btn-acc" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir prefeitura de Osasco</button>
+        <button class="btn btn-acc" id="nfem_btn_pref" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir prefeitura de Osasco</button>
         <div class="nfem-save-row">
           <input type="text" id="nfem_numero_input" placeholder="Nº da NF emitida (ex: 1234)" inputmode="numeric">
-          <button class="btn btn-g" onclick="_nfSalvarNumero()" style="white-space:nowrap">💾 Salvar nº NF</button>
+          <button class="btn btn-g" id="nfem_btn_salvar" onclick="_nfSalvarNumero()" style="white-space:nowrap">💾 Salvar nº NF</button>
         </div>
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="nfem_saved_ok">✓ Número da NF salvo com sucesso</div>
       </div>
@@ -2258,6 +2268,8 @@ async function loadApp(){
 function initUI(){
   _carregarComissoes(); // localStorage primeiro (rápido)
   _carregarComissoesSupabase(); // depois atualiza do Supabase
+  _carregarIssMunicipios(); // tabela de retenção ISS (local)
+  _carregarIssMunicipiosSupabase(); // atualiza do Supabase
   const nome=_perfil?.nome||_currentUser?.user?.email||'';
   document.getElementById('sbNome').textContent=nome;
   document.getElementById('sbRole').textContent=isAdmin()?'Admin':'Operador';
@@ -7332,6 +7344,110 @@ function _nfNormEnd(s){
   return _nrm(s||'').replace(/^(rua|r\.|av\.|avenida|al\.|alameda|travessa|tv\.|estrada|est\.|rod\.|rodovia)\s*/,'').trim();
 }
 
+// ══════════════════════════════════════════════════════════════
+// RETENÇÃO DE ISS — tabela de municípios (auto-aprendizado)
+// Empresa prestadora = Simples Nacional. A retenção depende do
+// município ONDE O SERVIÇO É PRESTADO (onde a caçamba ficou) e do
+// tipo do tomador (PJ/PF). Cidade desconhecida → VERIFICAR (trava).
+// O sistema nunca decide sozinho: só usa o que foi confirmado.
+// ══════════════════════════════════════════════════════════════
+let _issMunicipios = {
+  'sao paulo':          {ret:'sim', cond:false, obs:'Lei 13.701/2003'},
+  'itaquaquecetuba':    {ret:'sim', cond:false, obs:'LC Municipal, Art. 132, III'},
+  'braganca paulista':  {ret:'sim', cond:false, obs:''},
+  'sao jose dos campos':{ret:'sim', cond:true,  obs:'LC 644/2021 + Decreto 18.825/2021'},
+  'santos':             {ret:'sim', cond:true,  obs:'Lei 3.750/71 (confirmar artigo)'},
+  'sao vicente':        {ret:'sim', cond:true,  obs:'(confirmar artigo no código municipal)'},
+  'osasco':             {ret:'verificar', cond:false, obs:'Reclassificar pela lei municipal, não pelo regime'}
+};
+
+function _carregarIssMunicipios(){
+  try{ const ls=localStorage.getItem('crm_iss_municipios'); if(ls){ const d=JSON.parse(ls); if(d&&typeof d==='object') _issMunicipios=Object.assign(_issMunicipios,d); } }catch(e){}
+}
+async function _carregarIssMunicipiosSupabase(){
+  if(!tok()) return;
+  try{
+    const res = await api('config?chave=eq.crm_iss_municipios',undefined,undefined,tok());
+    if(res && res[0]?.valor){
+      const d=JSON.parse(res[0].valor);
+      if(d&&typeof d==='object'){ _issMunicipios=Object.assign(_issMunicipios,d); localStorage.setItem('crm_iss_municipios',JSON.stringify(_issMunicipios)); }
+    }
+  }catch(e){ _carregarIssMunicipios(); }
+}
+async function _salvarIssMunicipios(){
+  try{ localStorage.setItem('crm_iss_municipios',JSON.stringify(_issMunicipios)); }catch(e){}
+  if(!tok()) return;
+  try{
+    const val=JSON.stringify(_issMunicipios);
+    const existe=await api('config?chave=eq.crm_iss_municipios',undefined,undefined,tok());
+    if(existe && existe.length>0){ await api('config?chave=eq.crm_iss_municipios','PATCH',{valor:val},tok()); }
+    else{ await api('config','POST',{chave:'crm_iss_municipios',valor:val},tok()); }
+  }catch(e){ console.warn('Erro ao salvar tabela ISS',e); }
+}
+
+// Decide a retenção a partir da cidade (local da prestação) e do tipo do tomador
+function _issDecidir(cidadeRaw, tipo){
+  const cidade=_nrm(cidadeRaw||'');
+  if(tipo!=='PJ'){
+    return {status:'nao', classe:'nfem-ret-ok', bloqueado:false,
+      titulo:'✅ Retenção: NÃO — cliente paga valor integral',
+      corpo:'Tomador Pessoa Física: sem retenção por substituição. ISS recolhido pela sua empresa (Simples Nacional) via PGDAS/DAS.',
+      subst:'Subst.Trib./Ret: NÃO · Tomador PF'};
+  }
+  const m=_issMunicipios[cidade];
+  if(!m || m.ret==='verificar'){
+    return {status:'verificar', classe:'nfem-ret-warn', bloqueado:true, cidadeNrm:cidade,
+      titulo:'⛔ VERIFICAR — município ainda não classificado',
+      corpo:'Serviço em '+(cidadeRaw||'(cidade não informada)')+'. O sistema NÃO decide sozinho. Confirme a lei municipal do ISS para o serviço 7.09 e classifique abaixo antes de emitir.',
+      subst:'Subst.Trib./Ret: ? · Classifique o município'};
+  }
+  if(m.ret==='sim'){
+    const cond=m.cond?' ⚠️ Confirme se ESTE cliente está na lista de substitutos da prefeitura.':'';
+    return {status:'sim', classe:(m.cond?'nfem-ret-warn':'nfem-ret-info'), bloqueado:false,
+      titulo:'🧾 Retenção: SIM — o tomador (cliente PJ) retém o ISS',
+      corpo:'Serviço em '+(cidadeRaw||cidade)+': o cliente retém o ISS e recolhe para o município. Você recebe o valor já com o ISS descontado.'+(m.obs?' ['+m.obs+']':'')+cond,
+      subst:'Subst.Trib./Ret: SIM · Tomador recolhe o ISS'+(m.cond?' (confirmar cliente)':'')};
+  }
+  return {status:'nao', classe:'nfem-ret-ok', bloqueado:false,
+    titulo:'✅ Retenção: NÃO — cliente paga valor integral',
+    corpo:'Serviço em '+(cidadeRaw||cidade)+': sem retenção pelo tomador. ISS recolhido pela sua empresa via PGDAS/DAS.'+(m.obs?' ['+m.obs+']':''),
+    subst:'Subst.Trib./Ret: NÃO · Recolhimento pela prestadora'};
+}
+
+let _nfRetCidade='', _nfRetTipo='PF', _issCidadeAtual='';
+function _nfRenderRetencao(){
+  const dec=_issDecidir(_nfRetCidade,_nfRetTipo);
+  const bloco=document.getElementById('nfem_retencao_bloco');
+  if(bloco) bloco.className='nfem-retencao '+dec.classe;
+  const t=document.getElementById('nfem_ret_titulo'); if(t)t.textContent=dec.titulo;
+  const cp=document.getElementById('nfem_ret_corpo'); if(cp)cp.textContent=dec.corpo;
+  const sb=document.getElementById('nfem_ret_subst'); if(sb)sb.textContent=dec.subst;
+  const vbox=document.getElementById('nfem_verificar_box');
+  const bP=document.getElementById('nfem_btn_pref');
+  const bS=document.getElementById('nfem_btn_salvar');
+  const inp=document.getElementById('nfem_numero_input');
+  if(dec.bloqueado){
+    _issCidadeAtual=dec.cidadeNrm||'';
+    const vc=document.getElementById('nfem_verif_cidade'); if(vc)vc.textContent=_nfRetCidade||'(não informada)';
+    const vo=document.getElementById('nfem_verif_obs'); if(vo)vo.value='';
+    if(vbox)vbox.style.display='block';
+    [bP,bS].forEach(b=>{ if(b){b.disabled=true;b.style.opacity='.4';b.style.pointerEvents='none';} });
+    if(inp)inp.disabled=true;
+  }else{
+    if(vbox)vbox.style.display='none';
+    [bP,bS].forEach(b=>{ if(b){b.disabled=false;b.style.opacity='';b.style.pointerEvents='';} });
+    if(inp)inp.disabled=false;
+  }
+}
+function _issClassificar(valor){
+  const cid=_issCidadeAtual; if(!cid){ toast('Cidade não informada na ordem','warn'); return; }
+  const obs=(document.getElementById('nfem_verif_obs')?.value||'').trim();
+  _issMunicipios[cid]={ret:valor, cond:false, obs:obs};
+  _salvarIssMunicipios();
+  toast('✅ "'+cid+'" classificado: '+(valor==='sim'?'tomador RETÉM (SIM)':'NÃO retém')+'. Vale para as próximas NFs desta cidade.','ok',5000);
+  _nfRenderRetencao();
+}
+
 function abrirEmitirNF(id){
   const c=ordens.find(x=>x.id===id);
   if(!c){ toast('Ordem não encontrada','warn'); return; }
@@ -7422,24 +7538,9 @@ function _abrirModalNF(ids){
   document.getElementById('nfem_valor').textContent='R$ '+fmt(recTotal);
   document.getElementById('nfem_base').textContent='R$ '+fmt(recTotal);
   document.getElementById('nfem_iss').textContent='R$ '+fmt(iss);
-  const tipo=ehPJ?'PJ':'PF', cidade=_nrm(c.cidade||'osasco');
-  const bloco=document.getElementById('nfem_retencao_bloco');
-  const retTit=document.getElementById('nfem_ret_titulo');
-  const retCorp=document.getElementById('nfem_ret_corpo');
-  const retSubst=document.getElementById('nfem_ret_subst');
-  bloco.className='nfem-retencao';
-  if(cidade==='osasco'||cidade===''){
-    bloco.classList.add('nfem-ret-ok'); retTit.textContent='✅ Subst. Trib.: NÃO — cliente paga valor integral';
-    retCorp.textContent='Simples Nacional: ISS recolhido via PGDAS/DAS. Cliente paga o valor cheio da NF.';
-    retSubst.textContent='Subst.Trib./Ret: NÃO · Regime: Auto-Lançado | Simples Nacional';
-  } else if(cidade==='sao paulo'||cidade==='sp'){
-    if(tipo==='PJ'){ bloco.classList.add('nfem-ret-info'); retTit.textContent='⚠️ Subst. Trib.: SIM — tomador PJ desconta ISS'; retCorp.textContent='SP + PJ: cliente retém o ISS (2,4%) e recolhe para SP. Você recebe o valor já com ISS descontado.'; retSubst.textContent='Subst.Trib./Ret: SIM · Tomador recolhe o ISS para SP'; }
-    else { bloco.classList.add('nfem-ret-ok'); retTit.textContent='✅ Subst. Trib.: NÃO — cliente paga valor integral'; retCorp.textContent='SP + PF: sem retenção. ISS recolhido pela sua empresa via PGDAS/DAS.'; retSubst.textContent='Subst.Trib./Ret: NÃO · Recolhimento pela prestadora via PGDAS'; }
-  } else {
-    bloco.classList.add('nfem-ret-warn'); retTit.textContent='⚠️ Subst. Trib.: NÃO — verificar legislação local';
-    retCorp.textContent='Serviço em '+(c.cidade||'outro município')+': confirme a regra de retenção com a prefeitura local.';
-    retSubst.textContent='Subst.Trib./Ret: NÃO · Confirme alíquota local';
-  }
+  const tipo=ehPJ?'PJ':'PF';
+  _nfRetCidade=c.cidade||''; _nfRetTipo=tipo;
+  _nfRenderRetencao();
   document.getElementById('nfem_numero_input').value='';
   document.getElementById('nfem_saved_ok').style.display='none';
   document.getElementById('nfEmitirModal').classList.add('open');
