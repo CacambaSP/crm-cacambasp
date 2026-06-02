@@ -8490,7 +8490,7 @@ function renderExtratoRevisao(){
           const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
           let acc=0;const sel=[];
           for(const o of sorted){
-            const v=Math.round((parseFloat(o.rec)||0)*100);
+            const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
             if(acc+v<=vPago){sel.push(o);acc+=v;}
             if(acc===vPago)break;
           }
@@ -8536,9 +8536,9 @@ function renderExtratoRevisao(){
         ? ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===_numRC&&c.col!=='orcamento')
         : ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
       if(_rcMatch){
-        // Verifica divergência de valor considerando rec + nf_taxa
-        const _temNF=_rcMatch.nf_num&&_rcMatch.nf_num!=='000'&&_rcMatch.nf_num.trim()!=='';
-        const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(parseFloat(_rcMatch.nf_taxa)||0):0);
+        // Verifica divergência de valor considerando rec + acréscimo fixo da NF (R$)
+        const _temNF=_rcMatch.nf_num&&String(_rcMatch.nf_num).trim()!=='';
+        const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(_nfAcrescimo||0):0);
         const _difRC=Math.abs(linha.valorPago-_recTotal);
         if(_difRC>0.01) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
       }
@@ -8569,13 +8569,13 @@ function renderExtratoRevisao(){
           : r.matchTipo==='nome'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;margin-left:6px">⚠️ Casado por nome — confirme!</span>`
           : '';
-        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>{const _nfVal=(o.nf_num&&o.nf_num!=='000'&&o.nf_num.trim()!=='')?(parseFloat(o.nf_taxa)||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
+        const _totalOS=(r.ordens||[r.ordem]).filter(Boolean).reduce((s,o)=>{const _nfVal=(o.nf_num&&String(o.nf_num).trim()!=='')?(_nfAcrescimo||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
         // Ordens individuais do GRP — checkboxes para selecionar quais baixar
         // r.ordens já vem pré-selecionadas pelo algoritmo de valor exato
         // r.ordensExcluidas = ordens do mesmo cel que foram deixadas de fora por não caber no valor
         const _ordsGrp = (r.ordens||[r.ordem]).filter(Boolean).filter(o=>!o.pago);
         const _ordsExcl = (r.ordensExcluidas||[]);
-        const _somaAutosel = _ordsGrp.reduce((s,o)=>{const _nfVal=(o.nf_num&&o.nf_num!=='000'&&o.nf_num.trim()!=='')?(parseFloat(o.nf_taxa)||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
+        const _somaAutosel = _ordsGrp.reduce((s,o)=>{const _nfVal=(o.nf_num&&String(o.nf_num).trim()!=='')?(_nfAcrescimo||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
         const _difValor = Math.abs(r.valorPago - _somaAutosel);
         const _avisoValor = r.tipo==='grp' && _difValor > 0.01
           ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 4px 28px">⚠️ Soma das ordens (R$ ${fmt(_somaAutosel)}) difere do Pix (R$ ${fmt(r.valorPago)}) — revise manualmente</div>`
@@ -8605,10 +8605,10 @@ function renderExtratoRevisao(){
           <div style="text-align:right;flex-shrink:0"><div style="font-weight:800;color:var(--g);font-family:var(--mono)">R$ ${fmt(r.valorPago)}</div>
           ${Math.abs(r.valorPago-_totalOS)>0.01?(()=>{
             const _ord0=(r.ordens||[r.ordem]).filter(Boolean)[0];
-            const _nfTaxa=parseFloat(_ord0?.nf_taxa||0);
+            const _temNF0=_ord0&&_ord0.nf_num&&String(_ord0.nf_num).trim()!=='';
             const _recBase=parseFloat(_ord0?.rec||0);
-            return _nfTaxa>0.01
-              ? `<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_recBase)} + NF R$ ${fmt(_nfTaxa)} = R$ ${fmt(_totalOS)}</div>`
+            return _temNF0
+              ? `<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_recBase)} + NF R$ ${fmt(_nfAcrescimo)} = R$ ${fmt(_totalOS)}</div>`
               : `<div style="font-size:10px;color:var(--acc)">OS: R$ ${fmt(_totalOS)}</div>`;
           })():''}</div>
           </label>
