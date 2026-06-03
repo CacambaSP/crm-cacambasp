@@ -1998,10 +1998,16 @@ async function remarcarEntrega(id){
 
 async function cancelarOrdem(id){
   track('btn_cancelar_ordem');
+  const c=ordens.find(x=>x.id===id);if(!c)return;
+  // Aviso obrigatório quando a OS tem NF
+  if(c.nf_num&&c.nf_num.trim()!==''){
+    const _nfLabel=c.nf_num==='000'?'NF solicitada (ainda não emitida)':'NF '+c.nf_num;
+    const _ok=await showConfirm({ico:'⚠️',title:'Atenção — Ordem com Nota Fiscal',body:'Esta OS possui '+_nfLabel+'. O cancelamento de uma OS com NF tem implicações fiscais — a nota precisa ser cancelada separadamente junto à contabilidade. Deseja continuar com o cancelamento?',ok:'Sim, cancelar mesmo assim',okClass:'btn-r',cancel:'Não, voltar'});
+    if(!_ok)return;
+  }
   const motivo=prompt('Motivo do cancelamento (obrigatorio):','');
   if(motivo===null)return;
   if(!motivo.trim()){toast('Informe o motivo do cancelamento.','warn');return;}
-  const c=ordens.find(x=>x.id===id);if(!c)return;
   c.col='concluido';c.concluido_em=nowISO();c.cancel_motivo=motivo.trim();
   renderBoard();renderStats();
   try{const _patchCanc={col:'concluido',concluido_em:c.concluido_em,cancel_motivo:c.cancel_motivo};if(!c.forn_pago&&c.forn_id){_patchCanc.forn_id=null;_patchCanc.cst=null;c.forn_id=null;c.cst=null;}await api('ordens?id=eq.'+id,'PATCH',_patchCanc,tok());addLog(id,'Cancelado',motivo||'');toast('🗑️ Ordem cancelada e arquivada');}
