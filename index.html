@@ -5721,6 +5721,7 @@ function _modeloComissao(u){
   if(n.startsWith('claudia')||n.startsWith('cláudia')) return 'claudia';
   if(n.startsWith('ricardo')) return 'ricardo';
   if(n.startsWith('gustavo')) return 'gustavo';
+  if(n.startsWith('pc')) return 'pc';
   if(n.startsWith('sandra'))  return 'sandra';
   if(n.startsWith('douglas')) return 'douglas';
   return 'outro';
@@ -5814,6 +5815,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   const uClaudia = usuarios.find(u => _modeloComissao(u)==='claudia');
   const uRicardo = usuarios.find(u => _modeloComissao(u)==='ricardo');
   const uGustavo = usuarios.find(u => _modeloComissao(u)==='gustavo');
+  const uPC      = usuarios.find(u => _modeloComissao(u)==='pc');
   const uSandra  = usuarios.find(u => _modeloComissao(u)==='sandra');
   const uDouglas = usuarios.find(u => _modeloComissao(u)==='douglas');
 
@@ -5871,6 +5873,20 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
       totalVendedor: total,
       totalDouglas: 0,
       modelo: 'gustavo'
+    };
+  }
+
+  // ── PC — R$40 fixo por ordem paga ou liberada ──
+  let pc = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+  if(uPC){
+    const ords = ordens_mes.filter(c => c.usuario_id===uPC.id);
+    const total = ords.length * 40;
+    pc = {
+      vendedor: uPC,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:40, liberada:!c.pago&&c.comissao_liberada})),
+      totalVendedor: total,
+      totalDouglas: 0,
+      modelo: 'pc'
     };
   }
 
@@ -5950,7 +5966,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   };
 
   return {
-    luciana, leticia, ricardo, gustavo, claudia, sandra, douglas,
+    luciana, leticia, ricardo, gustavo, pc, claudia, sandra, douglas,
     totalTaxaAdm, totalDouglas, totalClaudiaExtra,
     totalOrdens: todasOrdens.length,
     anuncioClaudia: anuncioClaudia||0,
@@ -6591,6 +6607,14 @@ async function calcularFechamento(){
     html += _card('Gustavo','var(--g)','👨',f.gustavo.vendedor.email||'',f.gustavo.totalVendedor,linhas,'R$40 fixo por ordem',f.gustavo.vendedor.id);
   }
 
+  // PC
+  if(f.pc && f.pc.vendedor){
+    const linhas = _linha('Ordens pagas',f.pc.ordens.length,'var(--txt)')
+      + _linha('R$40 × '+f.pc.ordens.length+' ordens',f.pc.totalVendedor,'var(--acc)')
+      + _tabelaOrdens(f.pc.ordens, f.pc.vendedor?.id||'pc','pc');
+    html += _card('PC - Padrão Caçamba','var(--g)','🌐',f.pc.vendedor.email||'',f.pc.totalVendedor,linhas,'R$40 fixo por ordem',f.pc.vendedor.id);
+  }
+
   // SANDRA
   if(f.sandra.vendedor){
     const _sanAtivas2 = _ordsAtivasFech(f.sandra.ordens);
@@ -6706,6 +6730,20 @@ async function calcularFechamento(){
           + _linha('R$15 × '+f.ricardo.ordens.length+' ordens',f.ricardo.totalVendedor,'var(--acc)')
           + _tabelaOrdens(f.ricardo.ordens, f.ricardo.vendedor?.id||'ric','ricardo');
         return _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem',f.ricardo.vendedor.id);
+      },
+      [f.gustavo?.vendedor?.id||'_nul6']: () => {
+        if(!f.gustavo?.vendedor) return '';
+        const linhas = _linha('Ordens pagas',f.gustavo.ordens.length,'var(--txt)')
+          + _linha('R$40 × '+f.gustavo.ordens.length+' ordens',f.gustavo.totalVendedor,'var(--acc)')
+          + _tabelaOrdens(f.gustavo.ordens, f.gustavo.vendedor?.id||'gus','gustavo');
+        return _card('Gustavo','var(--g)','👨',f.gustavo.vendedor.email||'',f.gustavo.totalVendedor,linhas,'R$40 fixo por ordem',f.gustavo.vendedor.id);
+      },
+      [f.pc?.vendedor?.id||'_nul7']: () => {
+        if(!f.pc?.vendedor) return '';
+        const linhas = _linha('Ordens pagas',f.pc.ordens.length,'var(--txt)')
+          + _linha('R$40 × '+f.pc.ordens.length+' ordens',f.pc.totalVendedor,'var(--acc)')
+          + _tabelaOrdens(f.pc.ordens, f.pc.vendedor?.id||'pc','pc');
+        return _card('PC - Padrão Caçamba','var(--g)','🌐',f.pc.vendedor.email||'',f.pc.totalVendedor,linhas,'R$40 fixo por ordem',f.pc.vendedor.id);
       },
       [f.sandra?.vendedor?.id||'_nul4']: () => {
         if(!f.sandra.vendedor) return '';
@@ -6953,6 +6991,19 @@ async function salvarFechamento(){
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.gustavo.totalVendedor,
       valor_vendedor: f.gustavo.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+  if(f.pc && f.pc.vendedor && f.pc.ordens.length && _deveIncluir(f.pc.vendedor)){
+    registros.push({
+      mes, usuario_id: f.pc.vendedor.id,
+      total_ordens: f.pc.ordens.length,
+      valor_bruto: f.pc.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.pc.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.pc.totalVendedor,
+      valor_vendedor: f.pc.totalVendedor,
       valor_douglas: 0, valor_claudia_extra: 0,
       status: 'pendente'
     });
