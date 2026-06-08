@@ -5720,6 +5720,7 @@ function _modeloComissao(u){
   if(n.startsWith('leticia')||n.startsWith('letícia')) return 'luciana'; // mesmo modelo da Luciana
   if(n.startsWith('claudia')||n.startsWith('cláudia')) return 'claudia';
   if(n.startsWith('ricardo')) return 'ricardo';
+  if(n.startsWith('gustavo')) return 'gustavo';
   if(n.startsWith('sandra'))  return 'sandra';
   if(n.startsWith('douglas')) return 'douglas';
   return 'outro';
@@ -5812,6 +5813,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   const uLeticia = usuarios.find(u => _modeloComissao(u)==='luciana' && _nomeUsuario(u).startsWith('leticia'));
   const uClaudia = usuarios.find(u => _modeloComissao(u)==='claudia');
   const uRicardo = usuarios.find(u => _modeloComissao(u)==='ricardo');
+  const uGustavo = usuarios.find(u => _modeloComissao(u)==='gustavo');
   const uSandra  = usuarios.find(u => _modeloComissao(u)==='sandra');
   const uDouglas = usuarios.find(u => _modeloComissao(u)==='douglas');
 
@@ -5855,6 +5857,20 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
       totalVendedor: total,
       totalDouglas: 0,
       modelo: 'ricardo'
+    };
+  }
+
+  // ── GUSTAVO — R$40 fixo por ordem paga ou liberada ──
+  let gustavo = { vendedor:null, ordens:[], totalVendedor:0, totalDouglas:0 };
+  if(uGustavo){
+    const ords = ordens_mes.filter(c => c.usuario_id===uGustavo.id);
+    const total = ords.length * 40;
+    gustavo = {
+      vendedor: uGustavo,
+      ordens: ords.map(c=>({c, ll:ll(c), comissao:40, liberada:!c.pago&&c.comissao_liberada})),
+      totalVendedor: total,
+      totalDouglas: 0,
+      modelo: 'gustavo'
     };
   }
 
@@ -5934,7 +5950,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   };
 
   return {
-    luciana, leticia, ricardo, claudia, sandra, douglas,
+    luciana, leticia, ricardo, gustavo, claudia, sandra, douglas,
     totalTaxaAdm, totalDouglas, totalClaudiaExtra,
     totalOrdens: todasOrdens.length,
     anuncioClaudia: anuncioClaudia||0,
@@ -6567,6 +6583,14 @@ async function calcularFechamento(){
     html += _card('Ricardo','var(--cyan)','👨',f.ricardo.vendedor.email||'',f.ricardo.totalVendedor,linhas,'R$15 fixo por ordem',f.ricardo.vendedor.id);
   }
 
+  // GUSTAVO
+  if(f.gustavo && f.gustavo.vendedor){
+    const linhas = _linha('Ordens pagas',f.gustavo.ordens.length,'var(--txt)')
+      + _linha('R$40 × '+f.gustavo.ordens.length+' ordens',f.gustavo.totalVendedor,'var(--acc)')
+      + _tabelaOrdens(f.gustavo.ordens, f.gustavo.vendedor?.id||'gus','gustavo');
+    html += _card('Gustavo','var(--g)','👨',f.gustavo.vendedor.email||'',f.gustavo.totalVendedor,linhas,'R$40 fixo por ordem',f.gustavo.vendedor.id);
+  }
+
   // SANDRA
   if(f.sandra.vendedor){
     const _sanAtivas2 = _ordsAtivasFech(f.sandra.ordens);
@@ -6916,6 +6940,19 @@ async function salvarFechamento(){
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.ricardo.totalVendedor,
       valor_vendedor: f.ricardo.totalVendedor,
+      valor_douglas: 0, valor_claudia_extra: 0,
+      status: 'pendente'
+    });
+  }
+  if(f.gustavo && f.gustavo.vendedor && f.gustavo.ordens.length && _deveIncluir(f.gustavo.vendedor)){
+    registros.push({
+      mes, usuario_id: f.gustavo.vendedor.id,
+      total_ordens: f.gustavo.ordens.length,
+      valor_bruto: f.gustavo.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: f.gustavo.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      valor_anuncio: 0, fixo_garantido: 0,
+      lucro_liquido: f.gustavo.totalVendedor,
+      valor_vendedor: f.gustavo.totalVendedor,
       valor_douglas: 0, valor_claudia_extra: 0,
       status: 'pendente'
     });
