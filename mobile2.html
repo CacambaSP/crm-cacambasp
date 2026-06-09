@@ -4831,7 +4831,7 @@ async function salvarNovaOrdem() {
       cst: parseFloat(document.getElementById('nv_cst')?.value||0),
       forn_id: document.getElementById('nv_forn')?.value||null,
       obs: document.getElementById('nv_obs')?.value?.trim()||null,
-      nf_num: _novaTemNF ? '1' : '',
+      nf_num: _novaTemNF ? '000' : '',
       nf_taxa: 0,
       col: 'contratar', pago: false,
       criado_em: nowISO()
