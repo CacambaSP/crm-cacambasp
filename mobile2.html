@@ -1954,13 +1954,11 @@ async function salvarEdicao() {
   let nfTaxaNova = o.nf_taxa || 0;
   if(nfAntes !== nfDepois){
     if(nfDepois){
-      // Estava SEM NF e agora TEM → adiciona acréscimo + marca '000'
-      recVal = (parseFloat(document.getElementById('ed_rec').value)||0) + (_nfAcrescimo||0);
+      // Estava SEM NF e agora TEM → marca '000' (rec NAO muda — R$40 somado so na exibicao, regra central v3.0.7)
       nfNumNovo = '000';
-      nfTaxaNova = _nfAcrescimo || 11;
+      nfTaxaNova = 0;
     } else {
-      // Estava COM NF e agora NÃO TEM → remove acréscimo + limpa nf_num
-      recVal = Math.max(0, (parseFloat(document.getElementById('ed_rec').value)||0) - (_nfAcrescimo||0));
+      // Estava COM NF e agora NAO TEM → limpa nf_num (rec NAO muda — regra central v3.0.7)
       nfNumNovo = '';
       nfTaxaNova = 0;
     }
@@ -4818,7 +4816,7 @@ async function salvarNovaOrdem() {
     const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
     const crm_id = await nextCrmId();
     let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
-    if(_novaTemNF) recVal += _nfAcrescimo;
+    // rec salvo SEM acréscimo NF — R$40 somado apenas na exibição (regra central v3.0.7)
     const body = {
       id: uidGen(), crm_id,
       usuario_id: uid2, nome,
