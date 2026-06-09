@@ -3865,7 +3865,7 @@ async function salvarOrdem(){
       const _patchEdit={
         nome:c.nome,cel:c.cel,cpf:c.cpf,email_cli:c.email_cli,
         logradouro:c.logradouro,bairro:c.bairro,cidade:c.cidade,cep:c.cep,
-        tipo:c.tipo,data:c.data,obs:c.obs,rec:c.rec,cst:c.cst,forn_id:c.forn_id,col:c.col,nf_num:''
+        tipo:c.tipo,data:c.data,obs:c.obs,rec:c.rec,cst:c.cst,forn_id:c.forn_id,col:c.col,nf_num:c.nf_num
       };
       if(c.pago && recEdit!==parseFloat(c.pago_valor||0)){
         c.pago_valor=recEdit;
