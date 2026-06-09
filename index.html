@@ -7543,12 +7543,12 @@ function abrirEmitirNF(id){
   _nfEmitirId=id;
   // Se já tem NF real emitida (não é vazio nem 000), redirecionar para co-ordens pendentes
   if(!_semNF(c.nf_num)){
-    const _prox=ordens.find(o=>o.id!==id&&o.nome===c.nome&&_semNF(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&(parseFloat(o.rec)||0)>0);
+    const _prox=ordens.find(o=>o.id!==id&&o.nome===c.nome&&_semNF(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&!o.cancel_motivo&&(parseFloat(o.rec)||0)>0);
     if(_prox){ toast('ℹ️ '+c.crm_id+' já tem NF '+c.nf_num+'. Abrindo OS pendentes...','ok',3000); abrirEmitirNF(_prox.id); return; }
     toast('ℹ️ '+c.crm_id+' já possui NF '+c.nf_num+' emitida — nenhuma OS pendente neste cliente.','warn',3000);
     return;
   }
-  const semNF=ordens.filter(o=>o.id!==id&&o.nome===c.nome&&_semNF(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&(parseFloat(o.rec)||0)>0);
+  const semNF=ordens.filter(o=>o.id!==id&&o.nome===c.nome&&_semNF(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&!o.cancel_motivo&&(parseFloat(o.rec)||0)>0);
   if(!semNF.length){ _nfEmitirIds=[id]; _abrirModalNF([id]); return; }
   const endBase=_nfNormEnd(c.logradouro), cepBase=(c.cep||'').replace(/\D/g,''), cidBase=_nrm(c.cidade||'');
   const grupoMesmoEnd=semNF.filter(o=>{ const endO=_nfNormEnd(o.logradouro),cepO=(o.cep||'').replace(/\D/g,''); return (cepBase&&cepO&&cepBase===cepO)||(endBase&&endO&&endBase===endO); });
