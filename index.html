@@ -671,9 +671,19 @@ input[type=checkbox]:checked::after{
           <button class="btn btn-sm" id="btnMinhasOrdens" onclick="toggleMinhasOrdens()" title="Mostrar só minhas ordens">👤 Minhas</button>
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
           <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" style="color:var(--mut2)" title="Alternar visão simples/detalhada">👁 Simples</button>
+          <button class="btn btn-sm" id="btnAgendaContratar" onclick="toggleAgendaContratar()" style="color:var(--mut2)" title="Agenda de contratações">📅 Agenda <span id="agendaContratarBadge" style="display:none;background:#f59e0b;color:#000;border-radius:20px;padding:0 6px;font-size:10px;font-weight:700;margin-left:2px">0</span></button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
         </div>
         <div class="stats-bar" id="statsBar"></div>
+        <!-- AGENDA DE CONTRATAÇÕES -->
+        <div id="agendaContratarPanel" style="display:none;padding:12px 16px;border-bottom:1px solid var(--bor);background:var(--bg)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:700;color:var(--txt)">📅 Agenda de contratações</div>
+            <div id="agendaContratarSub" style="font-size:12px;color:var(--mut2)"></div>
+            <button class="btn btn-sm" onclick="toggleAgendaContratar()" style="margin-left:auto;color:var(--mut2)">✕ Fechar</button>
+          </div>
+          <div id="agendaContratarBody"></div>
+        </div>
         <div class="kanban-wrap">
           <div class="board" id="board"></div>
         </div>
@@ -1845,6 +1855,97 @@ function urgenciaContratar(c){
   return 0; // folgado
 }
 
+// Retorna true se a ordem está na coluna contratar SEM fornecedor e a entrega é daqui +2 dias (além de amanhã)
+function isCardFuturo(c){
+  if(c.col!=='contratar'||c.forn_id||!c.data) return false;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const amanha=new Date(hoje); amanha.setDate(amanha.getDate()+1);
+  const dataEntrega=new Date(c.data+'T12:00:00'); dataEntrega.setHours(0,0,0,0);
+  return dataEntrega>amanha;
+}
+
+// ── AGENDA DE CONTRATAÇÕES ──
+let _agendaAberta=false;
+function toggleAgendaContratar(){
+  _agendaAberta=!_agendaAberta;
+  const panel=document.getElementById('agendaContratarPanel');
+  const btn=document.getElementById('btnAgendaContratar');
+  if(!panel||!btn) return;
+  panel.style.display=_agendaAberta?'block':'none';
+  btn.style.color=_agendaAberta?'var(--acc)':'var(--mut2)';
+  btn.style.borderColor=_agendaAberta?'var(--acc)':'var(--bor)';
+  if(_agendaAberta) renderAgendaContratar();
+}
+
+function renderAgendaContratar(){
+  const body=document.getElementById('agendaContratarBody');
+  const sub=document.getElementById('agendaContratarSub');
+  const badge=document.getElementById('agendaContratarBadge');
+  if(!body) return;
+  // Todas ordens contratar sem fornecedor com data
+  const src=ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&c.data).sort((a,b)=>a.data.localeCompare(b.data));
+  // Atualizar badge (ordens futuras = +2 dias)
+  const futuras=src.filter(c=>isCardFuturo(c)).length;
+  if(badge){badge.textContent=src.length;badge.style.display=src.length?'inline':'none';}
+  if(sub) sub.textContent=src.length+' ordem'+(src.length!==1?'ns':'')+' para contratar nos próximos dias';
+  if(!src.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--mut2);font-size:13px">Nenhuma ordem aguardando fornecedor 🎉</div>';return;}
+  // Agrupar por data
+  const grupos={};
+  src.forEach(c=>{const d=c.data.slice(0,10); if(!grupos[d]) grupos[d]=[]; grupos[d].push(c);});
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const amanha=new Date(hoje); amanha.setDate(amanha.getDate()+1);
+  const fmtDia=d=>{
+    const dt=new Date(d+'T12:00:00'); dt.setHours(0,0,0,0);
+    const diff=Math.round((dt-hoje)/(1000*60*60*24));
+    const semana=['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
+    const label=dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    if(diff===0) return {txt:'Hoje, '+label,urgente:true,emoji:'☀️'};
+    if(diff===1) return {txt:'Amanhã, '+label,urgente:true,emoji:'⏰'};
+    return {txt:semana[dt.getDay()]+', '+label,urgente:false,emoji:'📅'};
+  };
+  let html='<div style="display:flex;flex-direction:column;gap:14px">';
+  Object.keys(grupos).sort().forEach(d=>{
+    const itens=grupos[d];
+    const info=fmtDia(d);
+    html+=`<div>
+      <div style="font-size:11px;font-weight:700;color:${info.urgente?'var(--acc)':'var(--mut2)'};text-transform:uppercase;letter-spacing:.5px;padding:4px 0;border-bottom:1px solid var(--bor);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        ${info.emoji} ${info.txt}
+        <span style="font-size:10px;background:${info.urgente?'rgba(245,158,11,.15)':'var(--bg2)'};color:${info.urgente?'#f59e0b':'var(--mut2)'};border-radius:20px;padding:1px 8px;margin-left:4px">${itens.length} ordem${itens.length!==1?'ns':''}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">`;
+    itens.forEach(c=>{
+      const forn=forns.find(f=>f.id===c.forn_id);
+      const temForn=!!forn;
+      html+=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px;display:flex;align-items:center;gap:10px;${info.urgente?'border-left:3px solid #f59e0b;':''}cursor:pointer" onclick="onCardClick(event,'${c.id}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.logradouro||'Sem endereço'}</div>
+          <div style="font-size:11px;color:var(--mut2)">${c.bairro||''}${c.bairro&&c.tipo?' · ':''}${c.tipo||''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+          ${temForn
+            ?`<span style="font-size:10px;color:var(--g);background:rgba(34,197,94,.1);border-radius:20px;padding:2px 8px">✅ ${forn.nome.split(' ')[0]}</span>`
+            :`<span style="font-size:10px;color:#f59e0b;background:rgba(245,158,11,.1);border-radius:20px;padding:2px 8px">Sem fornecedor</span>`
+          }
+          ${info.urgente?`<button class="btn btn-sm btn-b" style="font-size:11px;padding:3px 10px" onclick="event.stopPropagation();abrirPopupForn(event,'${c.id}')">🚛 Atribuir</button>`:''}
+        </div>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  html+='</div>';
+  body.innerHTML=html;
+}
+
+// Atualizar badge da agenda sempre que renderBoard rodar
+function _atualizarAgendaBadge(){
+  const badge=document.getElementById('agendaContratarBadge');
+  if(!badge) return;
+  const total=ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&c.data).length;
+  badge.textContent=total;
+  badge.style.display=total?'inline':'none';
+  if(_agendaAberta) renderAgendaContratar();
+}
+
 function getHoraEntrega(c){
   if(!c.data) return null;
   const base=new Date(c.data+'T12:00:00');
@@ -2783,6 +2884,10 @@ function renderBoard(){
   board.innerHTML='';
   COLS.filter(col=>!col.hidden).forEach(col=>{
     const cc=src.filter(c=>c.col===col.id);
+    // Separar cards futuros (contratar +2 dias) dos ativos (hoje/amanhã)
+    const _ativos=col.id==='contratar'?cc.filter(c=>!isCardFuturo(c)):cc;
+    const _futuros=col.id==='contratar'?cc.filter(c=>isCardFuturo(c)):[];
+    const _separador=_futuros.length?`<div style="text-align:center;font-size:10px;color:var(--mut2);padding:6px 0;letter-spacing:.3px;border-top:1px dashed var(--bor);margin-top:4px">— ${_futuros.length} ordem${_futuros.length!==1?'ns':''} aguardando data —</div>`:'';
     const tv=cc.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
     // Urgência máxima na coluna contratar
     const maxUrg=col.id==='contratar'?Math.max(0,...cc.map(c=>urgenciaContratar(c))):0;
@@ -2801,10 +2906,13 @@ function renderBoard(){
         ondrop="oDrop(event,'${col.id}')"
         ondragleave="if(!event.currentTarget.contains(event.relatedTarget))event.currentTarget.classList.remove('drag-over')">
         ${cc.length===0?'<div class="empty-col">📭 Vazio</div>':''}
-        ${cc.map(c=>cardHTML(c,col.color)).join('')}
+        ${_ativos.map(c=>cardHTML(c,col.color)).join('')}
+        ${_separador}
+        ${_futuros.map(c=>cardHTML(c,col.color)).join('')}
       </div>`;
     board.appendChild(d);
   });
+  _atualizarAgendaBadge();
 }
 
 function cardBtnsPagamento(c,precisaConfirmar){
@@ -2849,7 +2957,7 @@ function cardHTML(c,color){
   // Cor da barra: urgência sobrepõe cor da coluna
   const barColor = urg>=3?'#ef4444':urg===2?'#f97316':urg===1?'#eab308':color;
 
-  return `<div class="card${c.pago?' pago':''}" id="card_${c.id}" draggable="true" style="position:relative"
+  return `<div class="card${c.pago?' pago':''}${isCardFuturo(c)?' card-futuro':''}" id="card_${c.id}" draggable="true" style="position:relative${isCardFuturo(c)?';opacity:.35;filter:grayscale(.4)':''}"
     ondragstart="oDragStart(event,'${c.id}')" ondragend="oDragEnd()" ondragover="event.preventDefault();event.stopPropagation();this.closest('.col-cards')?.classList.add('drag-over')" ondrop="event.stopPropagation();oDrop(event,this.closest('.col-cards')?.id.replace('col_',''))" ontouchstart="oTouchStart(event,'${c.id}')"
     onclick="onCardClick(event,'${c.id}')">
     <div style="${maskStyle}"></div>
