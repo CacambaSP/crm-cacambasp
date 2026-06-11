@@ -657,11 +657,13 @@ async function abrirReciboTracking(){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
     const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
     const dataPag=tipo==='pago'&&o.pago_em?' · pago em '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
+    const nfNum=(o.nf_num||'').replace(/^0+/,'');
     return `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${o.tipo||'Caçamba'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${dateF(o.data)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${end}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">${nfNum?`<span style="color:#1d4ed8;font-weight:700">${nfNum}</span>`:'<span style="color:#d1d5db">—</span>'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace">${tipo==='pago'?'<span style="color:#16a34a">':'<span style="color:#dc2626">'}R$ ${fmt(val)}</span></td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right">${tipo==='pago'?`<span style="color:#16a34a;font-weight:700">✅ Pago${dataPag}</span>`:'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
@@ -702,7 +704,7 @@ th.r{text-align:right}
 </div>
 <table style="margin-bottom:12px">
   <thead><tr>
-    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>
+    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">NF</th><th class="r">Valor</th><th class="r">Situação</th>
   </tr></thead>
   <tbody>
     ${pagas.map(o=>linhaOrdem(o,'pago')).join('')}
