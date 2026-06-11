@@ -9762,7 +9762,8 @@ async function gerarReciboImprimir() {
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+(o.tipo||'Caçamba')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+dateF(o.data)+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+end+'</td>'
-      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span>'+(nfNum?'<div style="font-size:9px;color:#6b7280;margin-top:2px">🧾 NF '+nfNum+'</div>':'')+'</td>'
+      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">'+(nfNum?'<span style="color:#1d4ed8;font-weight:700">'+nfNum+'</span>':'<span style="color:#d1d5db">—</span>')+'</td>'
+      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span></td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:10px;text-align:right">'+statusCell+'</td>'
       +'</tr>';
   }
@@ -9825,7 +9826,7 @@ async function gerarReciboImprimir() {
     +'</div>'
     // Tabela
     +'<table style="margin-bottom:10px"><thead><tr>'
-      +'<th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">Valor</th><th class="r">Situação</th>'
+      +'<th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">NF</th><th class="r">Valor</th><th class="r">Situação</th>'
     +'</tr></thead><tbody>'
       +pagas.map(o=>linhaOrdem(o,'pago')).join('')
       +pendentes.map(o=>linhaOrdem(o,'pendente')).join('')
