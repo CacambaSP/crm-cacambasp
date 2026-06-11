@@ -2806,7 +2806,10 @@ function renderFilaAcoes(ordens) {
     // Na coluna contratar: separar ativos (hoje/amanhã) dos futuros (+2 dias)
     const listaAtivos  = g.key==='contratar' ? lista.filter(o=>!isCardFuturo(o)) : lista;
     const listaFuturos = g.key==='contratar' ? lista.filter(o=>isCardFuturo(o))  : [];
+    // Só exibe o grupo se tiver ativos OU futuros
     if(!lista.length) return;
+    // Se só tem futuros e nenhum ativo, não mostra o grupo como pendente — só badge agendadas
+    const contadorGrupo = g.key==='contratar' ? listaAtivos.length : lista.length;
     algumGrupo = true;
 
     if(_groupStates[g.key] === undefined) {
@@ -2820,8 +2823,8 @@ function renderFilaAcoes(ordens) {
       <div class="ag-header${collapsed?' collapsed':''}" id="ag-header-${g.key}" onclick="toggleGrupo('${g.key}')">
         <span class="ag-icon">${g.icon}</span>
         <span class="ag-title">${g.label}</span>
-        <span class="ag-count">${lista.length}</span>
-        ${g.key==='contratar'&&listaFuturos.length>0?`<span style="background:rgba(245,158,11,.25);color:#f59e0b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid rgba(245,158,11,.5)">${listaAtivos.length>0?listaAtivos.length+' agora · ':''} ${listaFuturos.length} agendada${listaFuturos.length!==1?'s':''}</span>`:''}
+        <span class="ag-count">${contadorGrupo}</span>
+        ${g.key==='contratar'&&listaFuturos.length>0?`<span style="background:rgba(245,158,11,.25);color:#f59e0b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid rgba(245,158,11,.5)">${listaFuturos.length} agendada${listaFuturos.length!==1?'s':''}</span>`:''}
         ${g.key==='contratar'&&!isAdmin()&&lista.filter(o=>!parseFloat(o.rec||0)).length>0?`<span style="background:#FAEEDA;color:#A32D2D;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid #EF9F27;animation:pulsoValor 1.2s ease-in-out infinite">${lista.filter(o=>!parseFloat(o.rec||0)).length} sem valor</span>`:''}
         ${isCobrar ? `<button class="ag-lote-btn${todosSelec?' on':''}" onclick="event.stopPropagation();selecionarTodosLote('cobrar')">${todosSelec?'✓ Todos':'Sel. todos'}</button>` : ''}
         <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${g.key}">▼</span>
