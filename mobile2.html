@@ -2839,10 +2839,13 @@ function renderFilaAcoes(ordens) {
     });
     // Cards futuros: separador + visual apagado
     if(g.key==='contratar' && listaFuturos.length>0){
-      h += `<div style="text-align:center;font-size:11px;color:var(--mut);padding:8px 0 4px;letter-spacing:.3px;border-top:1px dashed var(--bor);margin-top:4px">— ${listaFuturos.length} ordem${listaFuturos.length!==1?'ns':''} aguardando data —</div>`;
+      const futurasId = `futuras-contratar-${Date.now()}`;
+      h += `<div style="text-align:center;font-size:11px;color:var(--mut);padding:8px 0 4px;letter-spacing:.3px;border-top:1px dashed var(--bor);margin-top:4px;cursor:pointer" onclick="const el=document.getElementById('${futurasId}');el.style.display=el.style.display==='none'?'block':'none'">— ${listaFuturos.length} ordem${listaFuturos.length!==1?'s':''} aguardando data — ▼</div>`;
+      h += `<div id="${futurasId}" style="display:none">`;
       listaFuturos.forEach(o => {
         h += `<div style="opacity:.35;filter:grayscale(.4);pointer-events:auto">${actionCardHTML(o, g.key)}</div>`;
       });
+      h += `</div>`;
     }
     if(g.key === 'pagar_forn') h += fornPayCards(lista);
     h += `</div></div>`;
