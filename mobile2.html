@@ -2821,7 +2821,7 @@ function renderFilaAcoes(ordens) {
         <span class="ag-icon">${g.icon}</span>
         <span class="ag-title">${g.label}</span>
         <span class="ag-count">${lista.length}</span>
-        ${g.key==='contratar'&&listaFuturos.length>0?`<span style="background:rgba(245,158,11,.15);color:#92400e;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid rgba(245,158,11,.4)">${listaAtivos.length} agora · ${listaFuturos.length} futuras</span>`:''}
+        ${g.key==='contratar'&&listaFuturos.length>0?`<span style="background:rgba(245,158,11,.25);color:#f59e0b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid rgba(245,158,11,.5)">${listaAtivos.length>0?listaAtivos.length+' agora · ':''} ${listaFuturos.length} agendada${listaFuturos.length!==1?'s':''}</span>`:''}
         ${g.key==='contratar'&&!isAdmin()&&lista.filter(o=>!parseFloat(o.rec||0)).length>0?`<span style="background:#FAEEDA;color:#A32D2D;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid #EF9F27;animation:pulsoValor 1.2s ease-in-out infinite">${lista.filter(o=>!parseFloat(o.rec||0)).length} sem valor</span>`:''}
         ${isCobrar ? `<button class="ag-lote-btn${todosSelec?' on':''}" onclick="event.stopPropagation();selecionarTodosLote('cobrar')">${todosSelec?'✓ Todos':'Sel. todos'}</button>` : ''}
         <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${g.key}">▼</span>
