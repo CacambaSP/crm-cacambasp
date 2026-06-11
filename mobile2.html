@@ -2539,6 +2539,15 @@ function urgenciaContratar(o) {
   return 0;
 }
 
+// Retorna true se a ordem está em contratar sem fornecedor e entrega é daqui +2 dias
+function isCardFuturo(o){
+  if(o.col!=='contratar'||o.forn_id||!o.data) return false;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const amanha=new Date(hoje); amanha.setDate(amanha.getDate()+1);
+  const dataEntrega=new Date(o.data+'T12:00:00'); dataEntrega.setHours(0,0,0,0);
+  return dataEntrega>amanha;
+}
+
 function getHoraEntrega(o) {
   if(!o.data) return null;
   const base = new Date(o.data+'T12:00:00');
@@ -2794,6 +2803,9 @@ function renderFilaAcoes(ordens) {
 
   GRUPOS.forEach((g, idx) => {
     const lista = grupos[g.key];
+    // Na coluna contratar: separar ativos (hoje/amanhã) dos futuros (+2 dias)
+    const listaAtivos  = g.key==='contratar' ? lista.filter(o=>!isCardFuturo(o)) : lista;
+    const listaFuturos = g.key==='contratar' ? lista.filter(o=>isCardFuturo(o))  : [];
     if(!lista.length) return;
     algumGrupo = true;
 
@@ -2809,13 +2821,14 @@ function renderFilaAcoes(ordens) {
         <span class="ag-icon">${g.icon}</span>
         <span class="ag-title">${g.label}</span>
         <span class="ag-count">${lista.length}</span>
+        ${g.key==='contratar'&&listaFuturos.length>0?`<span style="background:rgba(245,158,11,.15);color:#92400e;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid rgba(245,158,11,.4)">${listaAtivos.length} agora · ${listaFuturos.length} futuras</span>`:''}
         ${g.key==='contratar'&&!isAdmin()&&lista.filter(o=>!parseFloat(o.rec||0)).length>0?`<span style="background:#FAEEDA;color:#A32D2D;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:0.5px solid #EF9F27;animation:pulsoValor 1.2s ease-in-out infinite">${lista.filter(o=>!parseFloat(o.rec||0)).length} sem valor</span>`:''}
         ${isCobrar ? `<button class="ag-lote-btn${todosSelec?' on':''}" onclick="event.stopPropagation();selecionarTodosLote('cobrar')">${todosSelec?'✓ Todos':'Sel. todos'}</button>` : ''}
         <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${g.key}">▼</span>
       </div>
       <div class="ag-body${collapsed?' collapsed':''}" id="ag-body-${g.key}">`;
 
-    lista.forEach(o => {
+    listaAtivos.forEach(o => {
       if(isCobrar) {
         h += actionCardHTML(o, g.key, _loteSelected.size > 0);
       } else if(g.key === 'pagar_forn') {
@@ -2824,6 +2837,13 @@ function renderFilaAcoes(ordens) {
         h += actionCardHTML(o, g.key);
       }
     });
+    // Cards futuros: separador + visual apagado
+    if(g.key==='contratar' && listaFuturos.length>0){
+      h += `<div style="text-align:center;font-size:11px;color:var(--mut);padding:8px 0 4px;letter-spacing:.3px;border-top:1px dashed var(--bor);margin-top:4px">— ${listaFuturos.length} ordem${listaFuturos.length!==1?'ns':''} aguardando data —</div>`;
+      listaFuturos.forEach(o => {
+        h += `<div style="opacity:.35;filter:grayscale(.4);pointer-events:auto">${actionCardHTML(o, g.key)}</div>`;
+      });
+    }
     if(g.key === 'pagar_forn') h += fornPayCards(lista);
     h += `</div></div>`;
   });
