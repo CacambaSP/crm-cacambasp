@@ -8745,14 +8745,39 @@ function renderExtratoRevisao(){
         const _temNF=_rcMatch.nf_num&&String(_rcMatch.nf_num).trim()!=='';
         const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(_nfAcrescimo||0):0);
         const _difRC=Math.abs(linha.valorPago-_recTotal);
-        if(_difRC>0.01) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
+        if(_difRC>0.01){
+          // ── Fallback: o pagamento pode ser a soma de várias ordens do mesmo cliente ──
+          // (mesma lógica de seleção exata já usada no fluxo GRP)
+          let _expandiu=false;
+          if(!_rcMatch.pago){
+            const celRef=(_rcMatch.cel||'').replace(/\D/g,'');
+            const pendGrp=celRef?ordens.filter(c=>!c.pago&&c.col!=='orcamento'&&c.col!=='concluido'&&(c.cel||'').replace(/\D/g,'')===celRef):[];
+            if(pendGrp.length>1&&linha.valorPago>0){
+              const vPago=Math.round(linha.valorPago*100);
+              const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
+              let acc=0;const sel=[];
+              for(const o of sorted){
+                const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
+                if(acc+v<=vPago){sel.push(o);acc+=v;}
+                if(acc===vPago)break;
+              }
+              if(acc===vPago&&sel.length>1){
+                ordemMatch=sel;
+                tipo='grp';
+                _grpExcluidas[idLimpo]=pendGrp.filter(o=>!sel.find(s=>s.id===o.id));
+                _expandiu=true;
+              }
+            }
+          }
+          if(!_expandiu) linha._aviso_valor_rc=`⚠️ Valor pago (R$ ${fmt(linha.valorPago)}) difere do esperado (R$ ${fmt(_recTotal)}) — verifique`;
+        }
       }
-      ordemMatch=_rcMatch;
+      if(!ordemMatch) ordemMatch=_rcMatch;
     }
     const _ordens_arr=Array.isArray(ordemMatch)?ordemMatch:(ordemMatch?[ordemMatch]:[]);
     const _todas_pagas=_ordens_arr.length>0&&_ordens_arr.every(o=>o.pago);
     const status=_ordens_arr.length===0?'nao_encontrado':(_todas_pagas?'ja_pago':'encontrado');
-    return{...linha,ordens:_ordens_arr,ordem:_ordens_arr[0]||null,status,tipo,matchTipo:'id'};
+    return{...linha,ordens:_ordens_arr,ordem:_ordens_arr[0]||null,status,tipo,matchTipo:'id',ordensExcluidas:_grpExcluidas[idLimpo]||[]};
   });
   const enc=resultado.filter(r=>r.status==='encontrado');
   const jp=resultado.filter(r=>r.status==='ja_pago');
