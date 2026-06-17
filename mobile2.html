@@ -5515,7 +5515,6 @@ async function _salvarDadosOrcMob() {
 }
 
 async function gerarOrcMobPDF() {
-  await _salvarDadosOrcMob();
   const o = _ordens.find(x=>x.id===_orcMobId);
   if(!o) return;
   const vend = _usuarios.find(u=>u.id===o.usuario_id)||_perfil;
@@ -5741,8 +5740,6 @@ async function gerarOrcMobPDF() {
   else toast('Permita popups para abrir o PDF','warn');
 }
 async function salvarEEnviarOrcMob() {
-  const ok = await _salvarDadosOrcMob();
-  if(!ok) return;
   const id = _orcMobId; if(!id) return;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
