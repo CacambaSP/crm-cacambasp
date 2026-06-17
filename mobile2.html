@@ -5357,6 +5357,39 @@ window.addEventListener('load', restoreSession);
 
 let _orcMobId = null;
 
+// Encontra outras caçambas do mesmo pedido (mesmo telefone, endereço e data) ainda em orçamento
+function _orcSiblings(o) {
+  if(!o) return [];
+  const cel = (o.cel||o.wh||'').replace(/\D/g,'');
+  const end = (o.logradouro||'').trim().toLowerCase();
+  if(!cel || !end) return [];
+  return _ordens.filter(x =>
+    x.id !== o.id &&
+    x.col === 'orcamento' &&
+    (x.cel||x.wh||'').replace(/\D/g,'') === cel &&
+    (x.logradouro||'').trim().toLowerCase() === end &&
+    (x.data||'') === (o.data||'')
+  );
+}
+
+// Monta a lista de itens do orçamento: o pedido principal + caçambas irmãs marcadas
+function _orcMobItens(o) {
+  const itens = [{
+    crm_id: o.crm_id,
+    tipo: document.getElementById('om_tipo')?.value || o.tipo || '—',
+    valor: parseFloat(document.getElementById('om_valor')?.value||0) || null
+  }];
+  document.querySelectorAll('[id^="om_sib_chk_"]:checked').forEach(chk => {
+    const sid = chk.dataset.sibid;
+    const s = _ordens.find(x=>x.id===sid);
+    if(!s) return;
+    const valInp = document.getElementById('om_sib_val_'+sid);
+    const v = parseFloat(valInp?.value||0) || null;
+    itens.push({ crm_id: s.crm_id, tipo: s.tipo||'—', valor: v });
+  });
+  return itens;
+}
+
 function abrirOrcMob(id) {
   _orcMobId = id;
   setView('orc-mob');
@@ -5383,6 +5416,24 @@ function renderOrcMob() {
   const endereco = [o.logradouro, o.bairro, o.cidade||'São Paulo'].filter(Boolean).join(', ');
   const telFmt = o.cel||'';
   const cpfFmt = o.cpf||'';
+
+  const siblings = _orcSiblings(o);
+  const siblingsHtml = siblings.length ? `
+      <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🔗 Outra(s) caçamba(s) deste pedido</div>
+        ${siblings.map(s=>{
+          const valIni = s.orc_valor || s.rec || '';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bor)">
+            <input type="checkbox" id="om_sib_chk_${s.id}" data-sibid="${s.id}" style="width:16px;height:16px;accent-color:var(--acc);flex-shrink:0;cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--txt)">${s.crm_id||'—'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${s.tipo||'—'}</div>
+            </div>
+            <input type="number" id="om_sib_val_${s.id}" value="${valIni}" step="0.01" placeholder="0,00" style="width:88px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:6px 8px;font-family:var(--font);font-size:12px;color:var(--txt);text-align:right;outline:none">
+          </div>`;
+        }).join('')}
+        <div style="font-size:11px;color:var(--mut2);margin-top:8px">Marque para incluir no mesmo orçamento — o PDF e a mensagem somam os valores.</div>
+      </div>` : '';
 
   el.innerHTML = `
     <div style="padding:14px 14px 32px">
@@ -5434,6 +5485,8 @@ function renderOrcMob() {
         </div>
       </div>
 
+      ${siblingsHtml}
+
       <!-- Botões de ação -->
       <button onclick="gerarOrcMobPDF()" style="width:100%;padding:14px;background:#2563EB;border:none;border-radius:var(--rad2);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">📄 Abrir PDF / Imprimir</button>
       <button onclick="salvarEEnviarOrcMob()" style="width:100%;padding:13px;background:rgba(37,211,102,.15);border:1px solid #25d366;border-radius:var(--rad2);color:#25d366;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">💬 Salvar e Enviar WhatsApp</button>
@@ -5484,6 +5537,11 @@ async function gerarOrcMobPDF() {
   const crmId   = o.crm_id||'';
   const valorFmt= valor?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
   const validFmt= validade?new Date(validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
+  const itens      = _orcMobItens(o);
+  const multi      = itens.length > 1;
+  const totalValor = itens.reduce((s,it)=>s+(it.valor||0),0);
+  const totalFmt   = totalValor>0 ? 'R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const valorSidebarFmt = multi ? totalFmt : valorFmt;
   const fontLink= `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
   const printCss= `@media print{.no-print{display:none!important} body{padding:0}}`;
   const btnPrint= `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
@@ -5496,14 +5554,32 @@ async function gerarOrcMobPDF() {
   }
 
   function _bloco(tc){
+    let servHtml;
+    if(!multi){
+      servHtml = `<div class="serv-row">
+        <div><div class="sr-desc">📦 1 caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}</div></div>
+        <div class="sr-val">${valorFmt}</div>
+      </div>`;
+    } else {
+      const linhas = itens.map((it,i)=>{
+        const vFmt = it.valor!=null ? 'R$ '+it.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+        return `<div class="serv-row"${i>0?' style="border-top:1px solid #eee"':''}>
+          <div><div class="sr-desc">📦 OS ${it.crm_id||'—'}</div><div class="sr-detail">${it.tipo}</div></div>
+          <div class="sr-val">${vFmt}</div>
+        </div>`;
+      }).join('');
+      const totalRow = `<div class="serv-row" style="border-top:2px solid ${marcaCor}">
+        <div class="sr-desc" style="font-weight:800">Total · ${itens.length} caçambas</div>
+        <div class="sr-val" style="font-weight:800">${totalFmt}</div>
+      </div>`;
+      servHtml = linhas + totalRow;
+    }
     return `
     <div class="serv-card">
       <div class="serv-hd"><div class="sh-lbl">Descrição do serviço</div><div class="sh-lbl sh-val">Valor</div></div>
-      <div class="serv-row">
-        <div><div class="sr-desc">📦 1 caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}</div></div>
-        <div class="sr-val">${valorFmt}</div>
-      </div>
+      ${servHtml}
     </div>
+    ${multi&&obs?`<div style="font-size:11px;color:#777;margin:-10px 2px 16px">📝 ${obs}</div>`:''}
     <div class="perm-grid">
       <div class="perm-box"><div class="perm-lbl">Permanência na rua</div><div class="perm-val">${permRua}</div><div class="perm-sub">dias úteis</div></div>
       <div class="perm-box"><div class="perm-lbl">Permanência no canteiro</div><div class="perm-val">${permCant}</div><div class="perm-sub">dias úteis</div></div>
@@ -5511,7 +5587,7 @@ async function gerarOrcMobPDF() {
     <div class="meta-row">
       <div class="meta-b"><div class="meta-lbl">Válido até</div><div class="meta-val">${validFmt}</div></div>
       <div class="meta-b"><div class="meta-lbl">Emitido em</div><div class="meta-val">${new Date().toLocaleDateString('pt-BR')}</div></div>
-      <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${crmId}</div></div>
+      <div class="meta-b"><div class="meta-lbl">OS</div><div class="meta-val" style="font-family:monospace">${multi?itens.map(i=>i.crm_id).join(' · '):crmId}</div></div>
     </div>`;
   }
 
@@ -5581,7 +5657,7 @@ async function gerarOrcMobPDF() {
         <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${permRua} dias úteis</div></div>
         <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${permCant} dias úteis</div></div>
         <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${validFmt}</div></div>
-        <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorFmt}</div></div>
+        <div class="s-item"><div class="s-lbl">${multi?'Total':'Valor'}</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorSidebarFmt}</div></div>
       </div>
       <div class="main">
         <div class="no-print" style="margin-bottom:14px">${btnPrint}</div>
@@ -5671,6 +5747,10 @@ async function salvarEEnviarOrcMob() {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
   if(!tel){ toast('Sem telefone cadastrado','warn'); return; }
+  const itens = _orcMobItens(o);
+  const multi = itens.length > 1;
+  const totalValor = itens.reduce((s,it)=>s+(it.valor||0),0);
+  const totalFmt = totalValor>0 ? 'R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const valor = parseFloat(document.getElementById('om_valor')?.value||0)||null;
   const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const validade = document.getElementById('om_validade')?.value||null;
@@ -5679,16 +5759,22 @@ async function salvarEEnviarOrcMob() {
   const permCant = document.getElementById('om_perm_canteiro')?.value||'5';
   const tipo = document.getElementById('om_tipo')?.value||o.tipo||'';
   const end = [o.logradouro,o.bairro].filter(Boolean).join(', ');
+
+  const blocoServico = multi
+    ? `📦 ${itens.length} caçambas\n`+itens.map(it=>'• OS '+(it.crm_id||'—')+' — '+(it.tipo||'—')+' — '+(it.valor!=null?'R$ '+it.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—')).join('\n')
+    : `📦 1 caçamba 4m³\n🪣 ${tipo}`;
+  const osLinha = multi ? itens.map(i=>i.crm_id).join(' · ') : (o.crm_id||'');
+  const valorLinha = multi ? `💰 *Total: ${totalFmt}*` : `💰 *Valor: ${valorFmt}*`;
+
   const msg = `Olá ${o.nome||''}! 👋
 
 Segue o orçamento solicitado:
 
-📦 1 caçamba 4m³
-🪣 ${tipo}
+${blocoServico}
 📍 ${end}
-📋 OS: ${o.crm_id||''}
+📋 OS: ${osLinha}
 
-💰 *Valor: ${valorFmt}*
+${valorLinha}
 📅 Permanência na rua: *${permRua} dias úteis*
 🏗️ Permanência no canteiro: *${permCant} dias úteis*
 ✅ Proposta válida até: *${validFmt}*
