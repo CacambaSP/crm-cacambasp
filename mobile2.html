@@ -5111,8 +5111,9 @@ async function desarquivarOrdem(id) {
 async function quickPagarCard(id) {
   _detalheId = id;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
-  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
-  document.getElementById('pc_val').value = o.rec||'';
+  const _recNF1 = (parseFloat(o.rec)||0)+(o.nf_num?40:0);
+  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(_recNF1);
+  document.getElementById('pc_val').value = _recNF1||'';
   document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
   document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
   document.getElementById('pc_obs').value = '';
@@ -5123,8 +5124,9 @@ async function quickPagarCard(id) {
 function abrirPagarCli(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _detalheId = id;
-  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(o.rec);
-  document.getElementById('pc_val').value = o.rec||'';
+  const _recNF2 = (parseFloat(o.rec)||0)+(o.nf_num?40:0);
+  document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(_recNF2);
+  document.getElementById('pc_val').value = _recNF2||'';
   document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
   document.getElementById('pc_hora').value = new Date().toTimeString().slice(0,5);
   document.getElementById('pc_obs').value = '';
