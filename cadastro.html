@@ -516,7 +516,7 @@ async function enviarCadastro(){
         id: crypto.randomUUID(),
         crm_id: crmId,
         col: colDestino,
-        nome, cpf, cel,
+        nome, cpf, cel: cel.replace(/\D/g,''),
         email_cli: '',
         logradouro: end,
         bairro,
