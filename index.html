@@ -4991,12 +4991,14 @@ function openPagarCli(callback){
   _pcTipo='total';
   const jaRec=parseFloat(c.pago_parcial_valor)||0;
   const falta=Math.max(0,(parseFloat(c.rec)||0)-jaRec);
-  document.getElementById('pc_rec_original').textContent='R$ '+fmt(c.rec);
+  document.getElementById('pc_rec_original').textContent='R$ '+fmt((parseFloat(c.rec)||0)+(c.nf_num?40:0));
   document.getElementById('pc_saldo_row').style.display=jaRec>0?'flex':'none';
   if(jaRec>0)document.getElementById('pc_ja_recebido').textContent='R$ '+fmt(jaRec);
   document.getElementById('pc_falta_row').style.display=jaRec>0?'flex':'none';
   if(jaRec>0)document.getElementById('pc_falta_val').textContent='R$ '+fmt(falta);
-  document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(c.rec||'');
+  const _nfExtra = c.nf_num ? 40 : 0;
+  const _recComNF = (parseFloat(c.rec)||0) + _nfExtra;
+  document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(_recComNF||'');
   document.getElementById('pc_data').value=new Date().toISOString().slice(0,10);
   document.getElementById('pc_hora').value=new Date().toTimeString().slice(0,5);
   document.getElementById('pc_data_restante').value='';
