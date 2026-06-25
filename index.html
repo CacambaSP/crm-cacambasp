@@ -4204,7 +4204,34 @@ function _fornMatchBairro(f, bairro, cidade){
     const preco = reg.preco > 0 ? reg.preco : (f.preco_padrao||0);
     return {match:'compativel', reg, preco};
   }
-  // Tem bairros cadastrados mas nenhum bateu — mostra como geral mesmo assim
+  // ── Busca por bairro vizinho (fuzzy) ──
+  // Calcula score de similaridade entre o bairro da ordem e cada bairro do fornecedor
+  // Score: % de palavras significativas em comum
+  function _scoreVizinho(a, b){
+    const na = _norm(_expandBairro(a));
+    const nb = _norm(_expandBairro(b));
+    if(!na || !nb) return 0;
+    const wa = na.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
+    const wb = nb.split(' ').filter(x=>x.length>2&&!_STOP.includes(x));
+    if(!wa.length || !wb.length) return 0;
+    const matches = wa.filter(w=>wb.some(w2=>_palavraMatch(w,w2))).length;
+    return matches / Math.max(wa.length, wb.length);
+  }
+  // Só sugere como vizinho se score >= 0.5 (pelo menos metade das palavras batem)
+  let melhorScore = 0, melhorReg = null;
+  regioes.forEach(r => {
+    const rb = r.bairro||r.regiao||r.nome||'';
+    if(!rb) return;
+    const rc = _norm(r.cidade||'');
+    if(rc && cNorm && rc !== cNorm) return;
+    const score = _scoreVizinho(bairro, rb);
+    if(score > melhorScore){ melhorScore = score; melhorReg = r; }
+  });
+  if(melhorScore >= 0.5 && melhorReg){
+    const preco = melhorReg.preco > 0 ? melhorReg.preco : (f.preco_padrao||0);
+    return {match:'vizinho', reg:melhorReg, preco, scoreVizinho:melhorScore};
+  }
+  // Nenhum match — retorna geral
   return {match:'geral', reg:null, preco:f.preco_padrao||0};
 }
 
@@ -4375,15 +4402,17 @@ function _renderFornSugestao(c){
     const m = _fornMatchBairro(f, bairro, cidade);
     if(!m) return {f, preco:0, preco_cli:0, tipo:'geral', reg:null};
     const preco_cli = m.reg?.preco_cli > 0 ? m.reg.preco_cli : 0;
-    return {f, preco:m.preco, preco_cli, tipo:m.match, reg:m.reg};
+    return {f, preco:m.preco, preco_cli, tipo:m.match, reg:m.reg, scoreVizinho:m.scoreVizinho||0};
   }).sort((a,b)=>{
-    if(a.tipo==='compativel'&&b.tipo!=='compativel') return -1;
-    if(a.tipo!=='compativel'&&b.tipo==='compativel') return 1;
+    const ord = {compativel:0, vizinho:1, geral:2};
+    const oa = ord[a.tipo]??2, ob = ord[b.tipo]??2;
+    if(oa!==ob) return oa-ob;
     return a.f.nome.localeCompare(b.f.nome,'pt-BR');
   });
 
   const compativeis = todos.filter(x=>x.tipo==='compativel');
-  const gerais      = todos.filter(x=>x.tipo!=='compativel');
+  const vizinhos    = todos.filter(x=>x.tipo==='vizinho');
+  const gerais      = todos.filter(x=>x.tipo==='geral');
   const labelBairro = c.bairro || 'este bairro';
   const searchId    = 'fs_search_'+c.id;
   const dropId      = 'fs_drop_'+c.id;
@@ -4401,6 +4430,8 @@ function _renderFornSugestao(c){
     const zonaTag=zonas&&s.tipo!=='compativel'?`<span style="font-size:10px;color:var(--mut2)">📍 ${zonas}</span>`:'';
     const compat=s.tipo==='compativel'
       ?`<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(34,197,94,.15);color:#16a34a;font-weight:700">✓ bairro</span>`
+      :s.tipo==='vizinho'
+      ?`<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(251,191,36,.15);color:#d97706;font-weight:700">⚠️ bairro vizinho: ${s.reg?.bairro||''}</span>`
       :`<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:var(--sur);color:var(--mut2)">geral</span>`;
     return `<div onclick="${onclickStr}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bor);transition:background .12s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">`
       +`<span style="width:26px;height:26px;border-radius:6px;background:${cor}33;color:${cor};font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</span>`
@@ -4437,6 +4468,11 @@ function _renderFornSugestao(c){
     inner += compativeis.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('');
   } else {
     inner += `<div style="font-size:11px;color:var(--mut2);margin-bottom:8px;font-style:italic">Nenhum fornecedor com preço cadastrado para ${labelBairro}.</div>`;
+  }
+
+  if(vizinhos.length){
+    inner += `<div style="font-size:10px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.5px;margin-top:10px;margin-bottom:6px">⚠️ Bairros vizinhos (${vizinhos.length})</div>`;
+    inner += vizinhos.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('');
   }
 
   if(gerais.length){
