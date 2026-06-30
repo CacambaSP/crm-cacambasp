@@ -6476,8 +6476,19 @@ async function calcularFechamento(){
 
   // 2) Ordens de meses ANTERIORES:
   //    a) Não pagas — vêm sem check por padrão
-  //    b) Pagas APÓS o fechamento do mês anterior (pago_em >= 1º dia do mês atual) — vêm com check
-  const _iniciodoMes = new Date(ano, mes-1, 1); // ex: 1/mai/2026
+  //    b) Pagas APÓS o fechamento do mês anterior — vêm com check
+  //    O corte usa o horário EXATO em que cada vendedor teve seu mês anterior salvo
+  //    (não apenas a meia-noite do dia 1º), pra não contar a mesma ordem 2x quando
+  //    o fechamento anterior é salvo horas/dias depois da virada do mês.
+  const _iniciodoMes = new Date(ano, mes-1, 1); // ex: 1/mai/2026 — usado só como reserva
+  let _mesAntNum = mes-1, _anoAntNum = ano;
+  if(_mesAntNum===0){ _mesAntNum=12; _anoAntNum--; }
+  const _mesAntStr = _anoAntNum+'-'+String(_mesAntNum).padStart(2,'0')+'-01';
+  let _cortePorVendedor = {};
+  try {
+    const _fechAnt = await api('comissoes_fechamento?mes=eq.'+_mesAntStr, undefined, undefined, tok());
+    (_fechAnt||[]).forEach(r => { if(r.criado_em) _cortePorVendedor[r.usuario_id] = new Date(r.criado_em); });
+  } catch(e) {}
   const srcAnteriores = ordens.filter(c => {
     if(!_validaOrdem(c)) return false;
     if(!c.data) return false;
@@ -6485,10 +6496,11 @@ async function calcularFechamento(){
     const ehAnterior = d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
     if(!ehAnterior) return false;
     if(!c.pago) return true; // não paga → entra desmarcada
-    // Paga: só entra se foi paga a partir do 1º dia do mês atual (pagamento veio depois do fechamento anterior)
+    // Paga: só entra se foi paga depois do corte certo desse vendedor
     if(!c.pago_em) return false;
     const pagoEm = new Date(c.pago_em);
-    return pagoEm >= _iniciodoMes;
+    const _corte = _cortePorVendedor[c.usuario_id] || _iniciodoMes;
+    return pagoEm >= _corte;
   });
 
   // Junta tudo — mês atual + anteriores (não pagas ou pagas após fechamento)
