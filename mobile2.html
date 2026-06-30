@@ -3835,12 +3835,16 @@ function renderDashUsuario(userId) {
 
   // Comissão
   function calcComissao(nome, ordens) {
-    const totalRec = ordens.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.rec||0),0);
-    const totalCst = ordens.filter(o=>o.pago).reduce((s,o)=>s+parseFloat(o.cst||0),0);
-    const lucroLiq = totalRec - totalCst;
+    const pagas = ordens.filter(o=>o.pago);
+    const lucroLiq = pagas.reduce((s,o)=>{
+      const rec = (parseFloat(o.rec)||0) + (o.nf_num ? 40 : 0);
+      const cst = parseFloat(o.cst)||0;
+      const imp = o.nf_num ? rec*0.11 : 0;
+      return s + (rec - cst - 10 - imp);
+    }, 0);
     const n = (nome||'').toLowerCase();
     if(n.includes('luciana')) return { label:'100% lucro líquido', val: lucroLiq };
-    if(n.includes('ricardo')) return { label:'R$15 por ordem paga', val: ordens.filter(o=>o.pago).length * 15 };
+    if(n.includes('ricardo')) return { label:'R$15 por ordem paga', val: pagas.length * 15 };
     if(n.includes('claudia')) return { label:'R$1.000 + 50% lucro', val: 1000 + lucroLiq * 0.5 };
     if(n.includes('sandra'))  return { label:'R$300 + 40% lucro',  val:  300 + lucroLiq * 0.4 };
     if(n.includes('douglas')) return { label:'R$10 por ordem', val: ordens.length * 10 };
