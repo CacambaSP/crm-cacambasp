@@ -8658,6 +8658,23 @@ async function renderConcExtrato(){
     <div id="extratoResultado"></div>`;
 }
 function parseBrFloat(s){if(!s)return 0;return parseFloat(String(s).replace(/\.(?=\d{3})/g,'').replace(',','.'))||0;}
+// ── Casamento por NF: tenta achar um grupo de pedidos com a MESMA nota fiscal cujo total bata
+//    exatamente com o valor pago. Isso evita que o método antigo (soma por ordem de criação)
+//    troque pedidos de notas fiscais diferentes só porque têm o mesmo valor individual. ──
+function matchGrupoPorNF(pendentes,vPagoCentavos){
+  const porNF={};
+  pendentes.forEach(o=>{
+    const nf=(o.nf_num&&String(o.nf_num).trim()!=='')?String(o.nf_num).trim():null;
+    if(!nf)return;
+    (porNF[nf]=porNF[nf]||[]).push(o);
+  });
+  for(const nf in porNF){
+    const grupo=porNF[nf];
+    const total=grupo.reduce((s,o)=>s+Math.round(((parseFloat(o.rec)||0)+(_nfAcrescimo||0))*100),0);
+    if(total===vPagoCentavos) return grupo;
+  }
+  return null;
+}
 function processarXLS(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
@@ -8742,14 +8759,22 @@ function renderExtratoRevisao(){
         // ── Seleção automática por valor: marcar só as ordens que somam exatamente o valor pago ──
         if(pendGrp.length>0&&linha.valorPago>0){
           const vPago=Math.round(linha.valorPago*100);
-          const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
-          let acc=0;const sel=[];
-          for(const o of sorted){
-            const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
-            if(acc+v<=vPago){sel.push(o);acc+=v;}
-            if(acc===vPago)break;
+          // 1) Tenta bater com uma NF inteira primeiro — evita trocar pedidos de notas
+          //    fiscais diferentes quando o valor individual das ordens é igual
+          const porNF=matchGrupoPorNF(pendGrp,vPago);
+          if(porNF){
+            pendGrp=porNF;
+          } else {
+            // 2) Fallback: soma sequencial por ordem de criação (comportamento original)
+            const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
+            let acc=0;const sel=[];
+            for(const o of sorted){
+              const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
+              if(acc+v<=vPago){sel.push(o);acc+=v;}
+              if(acc===vPago)break;
+            }
+            if(acc===vPago&&sel.length>0)pendGrp=sel;
           }
-          if(acc===vPago&&sel.length>0)pendGrp=sel;
         }
         if(pendGrp.length>0){
           const todasPend=todasGrp.filter(c=>!c.pago);
@@ -8804,14 +8829,20 @@ function renderExtratoRevisao(){
             const pendGrp=celRef?ordens.filter(c=>!c.pago&&c.col!=='orcamento'&&c.col!=='concluido'&&(c.cel||'').replace(/\D/g,'')===celRef):[];
             if(pendGrp.length>1&&linha.valorPago>0){
               const vPago=Math.round(linha.valorPago*100);
-              const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
-              let acc=0;const sel=[];
-              for(const o of sorted){
-                const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
-                if(acc+v<=vPago){sel.push(o);acc+=v;}
-                if(acc===vPago)break;
+              // 1) Tenta bater com uma NF inteira primeiro (mesmo motivo do fluxo GRP)
+              let sel=matchGrupoPorNF(pendGrp,vPago);
+              if(!sel){
+                // 2) Fallback: soma sequencial por ordem de criação (comportamento original)
+                const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
+                let acc=0;const _sel=[];
+                for(const o of sorted){
+                  const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
+                  if(acc+v<=vPago){_sel.push(o);acc+=v;}
+                  if(acc===vPago)break;
+                }
+                if(acc===vPago&&_sel.length>1) sel=_sel;
               }
-              if(acc===vPago&&sel.length>1){
+              if(sel&&sel.length>1){
                 ordemMatch=sel;
                 tipo='grp';
                 _grpExcluidas[idLimpo]=pendGrp.filter(o=>!sel.find(s=>s.id===o.id));
