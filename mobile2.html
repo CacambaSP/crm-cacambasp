@@ -1441,7 +1441,7 @@ async function selecionarFornecedor(fornId) {
   const novaCol = (o.col==='contratar' && fornId) ? 'ag_entrega' : o.col;
   // Preencher cst com precoForn somente se cst ainda não foi definido
   const s = _af_compativeis.find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
-  const precoForn = s ? (s.preco_cli>0?s.preco_cli:s.preco) : 0;
+  const precoForn = s && s.preco>0 ? s.preco : 0; // FIX: sempre usar custo real do fornecedor (nunca preco_cli)
   const patch = {forn_id:fornId, col:novaCol};
   if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
   // Preencher rec com preco_cli somente se ainda não definido
