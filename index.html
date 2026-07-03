@@ -8874,7 +8874,8 @@ function renderExtratoRevisao(){
       ${enc.map(r=>{
         const _nomes=(r.ordens||[r.ordem]).filter(Boolean).map(o=>o.crm_id||'').join(', ');
         const _nomeCliente=r.ordem?.nome||r.pagador||'-';
-        const _grpInfo=r.tipo==='grp'&&r.ordens?.length>1?`🔗 ${r.ordens.length} ordens: ${_nomes}`:(r.tipo==='grp'?'🔗 Agrupado · '+r.id:r.id);
+        const _nfUnica=r.ordem&&r.ordem.nf_num&&String(r.ordem.nf_num).trim()!==''?'NF '+r.ordem.nf_num:'sem nf';
+        const _grpInfo=r.tipo==='grp'&&r.ordens?.length>1?`🔗 ${r.ordens.length} ordens: ${_nomes}`:(r.tipo==='grp'?'🔗 Agrupado · '+r.id:r.id+' · '+_nfUnica);
         const _matchBadge = r.matchTipo==='cpf'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#78350f;color:#fcd34d;border:1px solid #f59e0b;margin-left:6px">⚠️ Casado por CPF</span>`
           : r.matchTipo==='nome'
@@ -8898,12 +8899,12 @@ function renderExtratoRevisao(){
           ? [
               ..._ordsGrp.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 28px;cursor:pointer">
               <input type="checkbox" data-grpid="${r.id}" data-ordid="${o.id}" checked style="accent-color:var(--g);width:14px;height:14px;flex-shrink:0">
-              <span style="font-size:11px;color:var(--txt);flex:1">${o.crm_id||'—'} · ${o.logradouro||o.bairro||'—'}</span>
+              <span style="font-size:11px;color:var(--txt);flex:1">${o.crm_id||'—'} · ${o.logradouro||o.bairro||'—'} · ${o.nf_num&&String(o.nf_num).trim()!==''?'NF '+o.nf_num:'sem nf'}</span>
               <span style="font-size:11px;font-family:var(--mono);color:var(--g)">R$ ${fmt(o.rec)}</span>
             </label>`),
               ..._ordsExcl.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 28px;cursor:pointer;opacity:.5">
               <input type="checkbox" data-grpid="${r.id}" data-ordid="${o.id}" style="accent-color:var(--g);width:14px;height:14px;flex-shrink:0">
-              <span style="font-size:11px;color:var(--mut2);flex:1">${o.crm_id||'—'} · ${o.logradouro||o.bairro||'—'}</span>
+              <span style="font-size:11px;color:var(--mut2);flex:1">${o.crm_id||'—'} · ${o.logradouro||o.bairro||'—'} · ${o.nf_num&&String(o.nf_num).trim()!==''?'NF '+o.nf_num:'sem nf'}</span>
               <span style="font-size:11px;font-family:var(--mono);color:var(--mut2)">R$ ${fmt(o.rec)} · não incluso no Pix</span>
             </label>`)
             ].join('')+_avisoValor
