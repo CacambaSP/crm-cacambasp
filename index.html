@@ -5846,6 +5846,7 @@ function _cobrarRow(c, tipo){
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(c.rec)}</span>
+      <button class="btn btn-sm" style="background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="event.stopPropagation();abrirIAAlerta('${c.id}','${c.col==='inadimp'?'inad':(diasEmAberto(c)>=14?'crit':'atencao')}')">🤖 IA</button>
       ${c.cel
         ? `<button class="btn btn-sm ${isOk?'btn-b':'btn-wa'}" onclick="event.stopPropagation();cobrarIndividual('${c.id}')">${isOk?'🔄 Recobrar':'📲 Cobrar'}</button>`
         : `<button class="btn btn-sm" onclick="event.stopPropagation();openDetail('${c.id}')">✏️ Add tel</button>`
