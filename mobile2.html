@@ -2640,6 +2640,39 @@ function foiCobradoHoje(c){
   return d.getFullYear()===hoje.getFullYear() && d.getMonth()===hoje.getMonth() && d.getDate()===hoje.getDate();
 }
 
+// ── ESCADA DE COBRANÇA (S31) ──
+// Níveis por dias em aberto. freq = máximo de cobranças por dia.
+const NIVEIS_COBRANCA = [
+  {id:'prejuridico', emoji:'⚖️', label:'Pré-jurídico',  min:25, max:99999, freq:3, cor:'#a78bfa'},
+  {id:'insistencia', emoji:'⚫', label:'Insistência',   min:20, max:25,    freq:3, cor:'#94a3b8'},
+  {id:'urgente',     emoji:'🔴', label:'Urgente',       min:14, max:20,    freq:1, cor:'#ef4444'},
+  {id:'cobranca',    emoji:'🟠', label:'Cobrança',      min:7,  max:14,    freq:1, cor:'#f97316'},
+  {id:'lembrete',    emoji:'🟡', label:'Lembrete',      min:0,  max:7,     freq:1, cor:'#f5a623'},
+];
+function nivelCobranca(o){
+  if(o.col==='inadimp') return {id:'juridico', emoji:'⚖️', label:'Em cobrança / Jurídico', freq:0, cor:'#ef4444'};
+  const d = diasAberto(o);
+  return NIVEIS_COBRANCA.find(n=>d>=n.min && d<n.max) || NIVEIS_COBRANCA[NIVEIS_COBRANCA.length-1];
+}
+// Janelas do dia para níveis 3x/dia: 0 = manhã (<12h), 1 = tarde (12–16h), 2 = fim do dia (16h+)
+function janelaCobrancaAtual(){
+  const h = new Date().getHours();
+  return h<12 ? 0 : h<16 ? 1 : 2;
+}
+function _janelaDe(dt){ const h=dt.getHours(); return h<12?0:h<16?1:2; }
+// Substitui o "foiCobradoHoje" nas filas de cobrança:
+// níveis 3x/dia voltam à fila em nova janela; 1x/dia seguem regra de 1 por dia.
+function podeCobrarAgora(o){
+  if(!o.cobrado_em) return true;
+  const dt = new Date(o.cobrado_em);
+  const hoje = new Date();
+  const mesmoDia = dt.getFullYear()===hoje.getFullYear() && dt.getMonth()===hoje.getMonth() && dt.getDate()===hoje.getDate();
+  if(!mesmoDia) return true;
+  const n = nivelCobranca(o);
+  if(n.freq>=3) return _janelaDe(dt) !== janelaCobrancaAtual();
+  return false;
+}
+
 function deveConfirmarEntrega(c){
   if(c.col!=='entrega'||c.entrega_confirmada) return false;
   return !!c.forn_id;
@@ -2705,7 +2738,7 @@ function getAcaoPendente(o) {
 }
 
 function getOrdensComAcao(ordens) {
-  const grupos = { orcamento:[], contratar:[], entregar:[], cobrar:[], pagar_forn:[] };
+  const grupos = { orcamento:[], contratar:[], entregar:[], cobrar:[], juridico:[], pagar_forn:[] };
   ordens.forEach(o => {
     if(o.col==='concluido') return;
     if(o.col==='orcamento') { grupos.orcamento.push(o); return; }
@@ -2716,8 +2749,9 @@ function getOrdensComAcao(ordens) {
       return;
     }
     if(o.col==='ag_entrega') grupos.entregar.push(o);
-    const cobradoHoje = o.cobrado_em && new Date(o.cobrado_em).toDateString()===new Date().toDateString();
-    if(!o.pago && !cobradoHoje && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||o.col==='receber_cliente'||diasAberto(o)>=3)) grupos.cobrar.push(o);
+    // Inadimplentes: fora da escada automática — seção Jurídico (ação manual)
+    if(o.col==='inadimp' && !o.pago) { grupos.juridico.push(o); }
+    else if(!o.pago && podeCobrarAgora(o) && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||o.col==='receber_cliente'||diasAberto(o)>=3)) grupos.cobrar.push(o);
     if(o.forn_id && !o.forn_pago && (o.col==='entrega'||o.col==='baixar'||o.col==='pagar') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
   Object.keys(grupos).forEach(k => grupos[k].sort((a,b)=>diasAberto(b)-diasAberto(a)));
@@ -2730,7 +2764,7 @@ function toggleGrupo(key) {
   _groupStates[key] = !_groupStates[key];
 
   // Acordeão nas Ações Pendentes: ao abrir um grupo, fecha os outros
-  const FILA_KEYS = ['contratar','entregar','cobrar','pagar_forn'];
+  const FILA_KEYS = ['contratar','entregar','cobrar','juridico','pagar_forn'];
   if(abrindo && FILA_KEYS.includes(key)) {
     FILA_KEYS.filter(k => k !== key).forEach(k => {
       _groupStates[k] = true; // collapsed
@@ -2833,6 +2867,7 @@ function renderFilaAcoes(ordens) {
     { key:'contratar',  label:'Contratar fornecedor',  icon:'🚛', cls:'ag-contratar' },
     { key:'entregar',   label:'Aguardando entrega',    icon:'📦', cls:'ag-entregar'  },
     { key:'cobrar',     label:'Cobrar cliente',         icon:'💳', cls:'ag-cobrar'   },
+    { key:'juridico',   label:'Em cobrança / Jurídico', icon:'⚖️', cls:'ag-cobrar'   },
     { key:'pagar_forn', label:'Pagar fornecedor',       icon:'💰', cls:'ag-pagar'   },
   ];
 
@@ -2870,14 +2905,41 @@ function renderFilaAcoes(ordens) {
       <div class="ag-body${collapsed?' collapsed':''}" id="ag-body-${g.key}">`;
 
     listaAtivos.forEach(o => {
-      if(isCobrar) {
-        h += actionCardHTML(o, g.key, _loteSelected.size > 0);
+      if(isCobrar || g.key==='juridico') {
+        // renderizado agrupado abaixo
       } else if(g.key === 'pagar_forn') {
         // renderizado condensado abaixo
       } else {
         h += actionCardHTML(o, g.key);
       }
     });
+    // Cobrar cliente: subseções por nível da escada de cobrança
+    if(isCobrar){
+      const porNivel = {};
+      listaAtivos.forEach(o=>{
+        const n = nivelCobranca(o);
+        if(!porNivel[n.id]) porNivel[n.id] = {n, lista:[]};
+        porNivel[n.id].lista.push(o);
+      });
+      ['prejuridico','insistencia','urgente','cobranca','lembrete'].forEach(nid=>{
+        const sec = porNivel[nid]; if(!sec) return;
+        const freqLabel = sec.n.freq>=3 ? ' · até 3x/dia' : '';
+        const faixa = sec.n.max>9999 ? `+${sec.n.min}d` : `${sec.n.min}–${sec.n.max}d`;
+        h += `<div style="display:flex;align-items:center;gap:8px;padding:10px 4px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${sec.n.cor}">
+          <span>${sec.n.emoji} ${sec.n.label}</span>
+          <span style="font-weight:600;color:var(--mut);text-transform:none;letter-spacing:0">${faixa}${freqLabel}</span>
+          <span style="margin-left:auto;background:${sec.n.cor}22;color:${sec.n.cor};padding:1px 8px;border-radius:99px">${sec.lista.length}</span>
+        </div>`;
+        sec.lista.forEach(o => { h += actionCardHTML(o, 'cobrar', _loteSelected.size > 0); });
+      });
+    }
+    // Jurídico: fora da escada automática — casos separados manualmente
+    if(g.key==='juridico'){
+      h += `<div style="font-size:11px;color:var(--mut);padding:8px 4px 6px;line-height:1.5">Casos movidos manualmente para Inadimplente. Não recebem a cobrança automática — use o 🤖 para gerar o resumo do caso.</div>`;
+      listaAtivos.forEach(o => {
+        h += actionCardHTML(o, 'cobrar');
+      });
+    }
     // Cards futuros: separador + visual apagado
     if(g.key==='contratar' && listaFuturos.length>0){
       const futurasId = `futuras-contratar-${Date.now()}`;
@@ -4383,7 +4445,7 @@ async function mobAbrirIAAlerta(id, tipo){
   document.getElementById('iaAlertaBody').innerHTML = '<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>';
   openModal('iaAlertaModal');
 
-  const system = `Você é um assistente de cobrança para locação de caçambas em São Paulo. Responda SOMENTE em JSON válido sem markdown com as chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Máximo 2 frases por campo. Mensagens estilo WhatsApp informal profissional.`;
+  const system = `Você é um assistente de cobrança para locação de caçambas em São Paulo. Responda SOMENTE em JSON válido sem markdown com as chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2","passo 3"]}. Regras: (1) Adapte o tom da msg_cliente aos dias em aberto: 3-7d amigável; 7-14d direto informando valor e dias; 14-20d firme com prazo de 3 dias e aviso de suspensão de novos atendimentos; 20-25d insistente perguntando como resolver; 25+d formal citando "medidas de cobrança cabíveis". (2) NUNCA ofereça parcelamento diretamente na msg_cliente; se fizer sentido, sugira no campo "acao" ou "plano" que o VENDEDOR proponha (ex: entrada + saldo). (3) "plano" = 3 a 5 passos práticos e concretos para os próximos dias: o que fazer se não responder em 24h/48h, quando ligar em vez de WhatsApp, quando oferecer negociação, quando mover para Jurídico. Máximo 2 frases por campo (exceto plano). Mensagens estilo WhatsApp profissional.`;
   const user = `Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Custo forn: R$ ${fmt(c.cst||0)} | Dias aberto: ${dias}\nFornecedor: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'} | Status: ${c.col||'—'}\nObs: ${c.obs||'—'}\nHistórico:\n${logs}`;
 
   try {
@@ -4415,6 +4477,10 @@ async function mobAbrirIAAlerta(id, tipo){
       <div class="ia-bloco acao">
         <div class="ia-bloco-label">✅ Ação recomendada</div>
         <div class="ia-bloco-txt">${r.acao||'—'}</div>
+        ${Array.isArray(r.plano)&&r.plano.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bor)">
+          <div class="ia-bloco-label" style="margin-bottom:6px">🗺️ Plano passo a passo</div>
+          ${r.plano.map((p,i)=>`<div style="display:flex;gap:8px;padding:4px 0;font-size:13px;line-height:1.5"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(127,119,221,.18);color:#a78bfa;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${i+1}</span><span>${p}</span></div>`).join('')}
+        </div>`:''}
         <div class="ia-actions">
           ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="mobArquivarInadimplir('${id}')">🚫 Inadimplente</button>`:''}
           <button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button>
@@ -4438,7 +4504,7 @@ async function mobIaReanalisar(id, tipo){
   const colaForn=(document.getElementById('mcola_forn_'+id)?.value||'').trim();
   if(!colaCli&&!colaForn){toast('Cole ao menos uma conversa antes','warn');return;}
   document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Reanalisando...</div>';
-  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"..."}. Considere as conversas fornecidas.`;
+  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2"]}. Considere as conversas fornecidas. Adapte o tom da msg_cliente aos dias em aberto (3-7d amigável, 7-14d direto, 14-20d firme com prazo, 20-25d insistente, 25+d formal com "medidas de cobrança cabíveis"). Nunca ofereça parcelamento na msg_cliente — apenas sugira ao vendedor no "plano". "plano" = 3 a 5 passos práticos para os próximos dias.`;
   const user=`Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Dias: ${dias} | Forn: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'}\nHistórico sistema:\n${logs}${colaCli?`\nConversa cliente:\n${colaCli}`:''}${colaForn?`\nConversa fornecedor:\n${colaForn}`:''}`;
   try{
     const txt=await _mobIaCall(system,user);
@@ -5341,13 +5407,34 @@ function enviarWA(id) {
         + `📍 *${endereco||'—'}*\n`
         + `\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
 
-  // ── COLUNA 3+: Cobrança ──
-  } else if(o.col==='inadimp') {
-    msg = `Olá ${nome}! 👋\n\nIdentificamos uma pendência no seu pagamento.\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\nEntre em contato para regularizar.\n_CaçambaSP_`;
-  } else if(d>=5) {
-    msg = `Olá ${nome}! 🚨\n\nIdentificamos pagamento em aberto há ${d} dias:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+  // ── COLUNA 3+: Cobrança — escada de tom por dias em aberto ──
   } else {
-    msg = `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento:\n\n📍 *${o.logradouro||o.bairro||'—'}*${trackLink}\n\n_CaçambaSP_`;
+    const n = nivelCobranca(o);
+    const jan = janelaCobrancaAtual();
+    const valor = 'R$ '+fmt((parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||0):0));
+    const endCurto = o.logradouro||o.bairro||'—';
+    const prazo = new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
+    if(n.id==='juridico' || n.id==='prejuridico') {
+      const vars = [
+        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ao débito de ${valor} (${endCurto}), em aberto há ${d} dias. Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${trackLink}\n\n_CaçambaSP_`,
+        `${nome}, conseguiu verificar a pendência de ${valor}? Como podemos resolver essa situação?${trackLink}\n\n_CaçambaSP_`,
+        `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ao débito de ${valor}.${trackLink}\n\n_CaçambaSP_`,
+      ];
+      msg = vars[jan];
+    } else if(n.id==='insistencia') {
+      const vars = [
+        `Prezado(a) ${nome}, o débito de ${valor} (${endCurto}) está em aberto há ${d} dias. Precisamos resolver essa pendência.${trackLink}\n\n_CaçambaSP_`,
+        `${nome}, como podemos resolver essa pendência de ${valor}? Me diz o que está dificultando o pagamento que buscamos uma solução.\n\n_CaçambaSP_`,
+        `${nome}, retomo o contato amanhã. Regularizando hoje, seu cadastro segue liberado para novas locações.${trackLink}\n\n_CaçambaSP_`,
+      ];
+      msg = vars[jan];
+    } else if(n.id==='urgente') {
+      msg = `${nome}, precisamos regularizar o pagamento de ${valor} (${endCurto}), em aberto há ${d} dias. Pedimos a quitação até ${prazo} para evitarmos a suspensão de novos atendimentos e demais providências de cobrança.${trackLink}\n\n_CaçambaSP_`;
+    } else if(n.id==='cobranca') {
+      msg = `Olá ${nome}! Notamos que o pagamento de ${valor} referente à caçamba em ${endCurto} está em aberto há ${d} dias.${trackLink}\n\nSe já pagou, desconsidere e nos envie o comprovante. 🙏\n_CaçambaSP_`;
+    } else {
+      msg = `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento da caçamba em ${endCurto}.${trackLink}\n\nQualquer dúvida estamos à disposição! 😊\n_CaçambaSP_`;
+    }
   }
 
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
