@@ -2640,6 +2640,12 @@ function foiCobradoHoje(c){
   return d.getFullYear()===hoje.getFullYear() && d.getMonth()===hoje.getMonth() && d.getDate()===hoje.getDate();
 }
 
+// Assinatura: marca do vendedor da ordem (white label por perfil)
+function _marcaDe(o){
+  const vend = o && o.usuario_id ? _usuarios.find(u=>u.id===o.usuario_id) : null;
+  return (vend?.marca_nome || _perfil?.marca_nome || 'CaçambaSP');
+}
+
 // ── ESCADA DE COBRANÇA (S31) ──
 // Níveis por dias em aberto. freq = máximo de cobranças por dia.
 const NIVEIS_COBRANCA = [
@@ -5398,14 +5404,14 @@ function enviarWA(id) {
         + `📅 *Data:* ${o.data ? dateF(o.data) : '—'}\n`
         + `📍 *Endereço de entrega:* ${endereco||'—'}\n`
         + `🪣 *Serviço:* ${o.tipo||'Locação'}\n`
-        + `\n_CaçambaSP_`;
+        + `\n_${_marcaDe(o)}_`;
 
   // ── COLUNA 2: Ag. Entrega — pedido em execução ──
   } else if(o.col === 'ag_entrega') {
     msg = `Olá ${nome}! 🚛 Seu pedido já está em execução.\n\n`
         + `Em breve você receberá sua caçamba no endereço cadastrado:\n`
         + `📍 *${endereco||'—'}*\n`
-        + `\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+        + `\nQualquer dúvida, estamos à disposição! 😊\n_${_marcaDe(o)}_`;
 
   // ── COLUNA 3+: Cobrança — escada de tom por dias em aberto ──
   } else {
@@ -5416,24 +5422,24 @@ function enviarWA(id) {
     const prazo = new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     if(n.id==='juridico' || n.id==='prejuridico') {
       const vars = [
-        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ao débito de ${valor} (${endCurto}), em aberto há ${d} dias. Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${trackLink}\n\n_CaçambaSP_`,
-        `${nome}, conseguiu verificar a pendência de ${valor}? Como podemos resolver essa situação?${trackLink}\n\n_CaçambaSP_`,
-        `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ao débito de ${valor}.${trackLink}\n\n_CaçambaSP_`,
+        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ao débito de ${valor} (${endCurto}), em aberto há ${d} dias. Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${trackLink}\n\n_${_marcaDe(o)}_`,
+        `${nome}, conseguiu verificar a pendência de ${valor}? Como podemos resolver essa situação?${trackLink}\n\n_${_marcaDe(o)}_`,
+        `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ao débito de ${valor}.${trackLink}\n\n_${_marcaDe(o)}_`,
       ];
       msg = vars[jan];
     } else if(n.id==='insistencia') {
       const vars = [
-        `Prezado(a) ${nome}, o débito de ${valor} (${endCurto}) está em aberto há ${d} dias. Precisamos resolver essa pendência.${trackLink}\n\n_CaçambaSP_`,
-        `${nome}, como podemos resolver essa pendência de ${valor}? Me diz o que está dificultando o pagamento que buscamos uma solução.\n\n_CaçambaSP_`,
-        `${nome}, retomo o contato amanhã. Regularizando hoje, seu cadastro segue liberado para novas locações.${trackLink}\n\n_CaçambaSP_`,
+        `Prezado(a) ${nome}, o débito de ${valor} (${endCurto}) está em aberto há ${d} dias. Precisamos resolver essa pendência.${trackLink}\n\n_${_marcaDe(o)}_`,
+        `${nome}, como podemos resolver essa pendência de ${valor}? Me diz o que está dificultando o pagamento que buscamos uma solução.\n\n_${_marcaDe(o)}_`,
+        `${nome}, retomo o contato amanhã. Regularizando hoje, seu cadastro segue liberado para novas locações.${trackLink}\n\n_${_marcaDe(o)}_`,
       ];
       msg = vars[jan];
     } else if(n.id==='urgente') {
-      msg = `${nome}, precisamos regularizar o pagamento de ${valor} (${endCurto}), em aberto há ${d} dias. Pedimos a quitação até ${prazo} para evitarmos a suspensão de novos atendimentos e demais providências de cobrança.${trackLink}\n\n_CaçambaSP_`;
+      msg = `${nome}, precisamos regularizar o pagamento de ${valor} (${endCurto}), em aberto há ${d} dias. Pedimos a quitação até ${prazo} para evitarmos a suspensão de novos atendimentos e demais providências de cobrança.${trackLink}\n\n_${_marcaDe(o)}_`;
     } else if(n.id==='cobranca') {
-      msg = `Olá ${nome}! Notamos que o pagamento de ${valor} referente à caçamba em ${endCurto} está em aberto há ${d} dias.${trackLink}\n\nSe já pagou, desconsidere e nos envie o comprovante. 🙏\n_CaçambaSP_`;
+      msg = `Olá ${nome}! Notamos que o pagamento de ${valor} referente à caçamba em ${endCurto} está em aberto há ${d} dias.${trackLink}\n\nSe já pagou, desconsidere e nos envie o comprovante. 🙏\n_${_marcaDe(o)}_`;
     } else {
-      msg = `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento da caçamba em ${endCurto}.${trackLink}\n\nQualquer dúvida estamos à disposição! 😊\n_CaçambaSP_`;
+      msg = `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento da caçamba em ${endCurto}.${trackLink}\n\nQualquer dúvida estamos à disposição! 😊\n_${_marcaDe(o)}_`;
     }
   }
 
@@ -5468,7 +5474,7 @@ function enviarTracking(id) {
   if(!o.crm_id){toast('Ordem sem CRM ID','warn');return;}
   const _tP = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id);
   const url = 'https://cacambasp-crm.vercel.app/tracking.html?'+_tP;
-  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_CaçambaSP_`;
+  const msg = `Olá ${(o.nome||'').split(' ')[0]}! 👋\n\nAcompanhe sua caçamba:\n\n📍 ${url}\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\n_${_marcaDe(o)}_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
