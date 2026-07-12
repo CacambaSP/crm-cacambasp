@@ -313,7 +313,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:10
 .ia-bloco.incompleto{background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25)}
 .ia-bloco.incompleto .ia-bloco-label{color:#f5a623}
 .ia-msg-box{background:var(--bg);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-size:12px;color:var(--mut2);font-style:italic;margin:6px 0;line-height:1.5}
-.ia-cola-toggle{font-size:11px;color:var(--acc);cursor:pointer;text-decoration:underline;display:inline-block;margin-top:4px}
+.ia-cola-toggle{font-size:12px;font-weight:700;color:var(--acc);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:7px 12px;border:1px solid var(--acc3);background:var(--acc2);border-radius:20px}
 .ia-cola-area{margin-top:6px;width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-family:var(--font);font-size:11px;color:var(--txt);resize:vertical;min-height:52px;box-sizing:border-box}
 .ia-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ia-btn-wa-cli{font-size:11px;padding:5px 11px;border-radius:6px;border:1px solid rgba(37,211,102,.35);background:rgba(37,211,102,.1);color:#25d366;cursor:pointer;font-family:var(--font)}
@@ -10899,6 +10899,35 @@ function _iaSugerirPrecos(c){
   return {recSug, recFonte, cstSug, cstFonte};
 }
 
+// ── Parser robusto da resposta da IA: corrige quebras de linha soltas e tenta reparar JSON cortado ──
+function _iaParseJSON(txt){
+  const clean = (txt||'').replace(/```json|```/g,'').trim();
+  try{ return JSON.parse(clean); }catch(e){}
+  // Reparo 1: escapar quebras de linha/tabs que ficaram literais dentro de strings
+  try{
+    let fixed = '';
+    let dentroString = false;
+    for(let i=0;i<clean.length;i++){
+      const ch = clean[i];
+      if(ch === '"' && clean[i-1] !== '\\') dentroString = !dentroString;
+      if(dentroString && (ch === '\n' || ch === '\r' || ch === '\t')){
+        fixed += ch === '\t' ? '\\t' : '\\n';
+      } else fixed += ch;
+    }
+    return JSON.parse(fixed);
+  }catch(e){}
+  // Reparo 2: resposta cortada no meio — fecha aspas/chaves pendentes
+  try{
+    let fixed = clean;
+    const abreAspas = (fixed.match(/(?<!\\)"/g)||[]).length;
+    if(abreAspas % 2 === 1) fixed += '"';
+    const abreChaves = (fixed.match(/\{/g)||[]).length - (fixed.match(/\}/g)||[]).length;
+    for(let i=0;i<abreChaves;i++) fixed += '}';
+    return JSON.parse(fixed);
+  }catch(e){}
+  throw new Error('Resposta da IA veio incompleta ou em formato inválido — tente novamente');
+}
+
 async function _iaCall(systemPrompt, userPrompt){
   const res = await fetch('/api/chat',{
     method:'POST',
@@ -10906,7 +10935,7 @@ async function _iaCall(systemPrompt, userPrompt){
     body: JSON.stringify({
       system: systemPrompt,
       messages:[{role:'user',content:userPrompt}],
-      max_tokens: 2000
+      max_tokens: 3000
     })
   });
   const data = await res.json();
@@ -10941,8 +10970,7 @@ ${logs}`;
 
   try {
     const txt = await _iaCall(system, user);
-    const clean = txt.replace(/```json|```/g,'').trim();
-    const r = JSON.parse(clean);
+    const r = _iaParseJSON(txt);
 
     const nivelCor = r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
 
@@ -10966,7 +10994,7 @@ ${logs}`;
         <div class="ia-actions">
           ${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WhatsApp cliente</button>`:'<span style="font-size:11px;color:var(--mut)">Sem telefone cadastrado</span>'}
         </div>
-        <span class="ia-cola-toggle" onclick="_iaToggleCola(this,'cola_cli_${id}')">+ Colar conversa do cliente para a IA considerar</span>
+        <span class="ia-cola-toggle" onclick="_iaToggleCola(this,'cola_cli_${id}')">💬 Colar conversa do WhatsApp com o cliente</span>
         <textarea id="cola_cli_${id}" class="ia-cola-area" style="display:none" placeholder="Cole aqui as últimas mensagens do WhatsApp com o cliente (opcional)..."></textarea>
       </div>
       <div class="ia-bloco msg-forn">
@@ -10975,7 +11003,7 @@ ${logs}`;
         <div class="ia-actions">
           ${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WhatsApp fornecedor</button>`:'<span style="font-size:11px;color:var(--mut)">Sem telefone cadastrado</span>'}
         </div>
-        <span class="ia-cola-toggle" onclick="_iaToggleCola(this,'cola_forn_${id}')">+ Colar conversa do fornecedor para a IA considerar</span>
+        <span class="ia-cola-toggle" onclick="_iaToggleCola(this,'cola_forn_${id}')">💬 Colar conversa do WhatsApp com o fornecedor</span>
         <textarea id="cola_forn_${id}" class="ia-cola-area" style="display:none" placeholder="Cole aqui as últimas mensagens do WhatsApp com o fornecedor (opcional)..."></textarea>
       </div>
       <div class="ia-bloco acao">
@@ -11022,8 +11050,7 @@ ${colaForn?`\nConversa WhatsApp com FORNECEDOR:\n${colaForn}`:''}`;
 
   try {
     const txt = await _iaCall(system, user);
-    const clean = txt.replace(/```json|```/g,'').trim();
-    const r = JSON.parse(clean);
+    const r = _iaParseJSON(txt);
     const nivelCor = r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
     const telCli=(c.cel||'').replace(/\D/g,'');
     const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
@@ -11083,7 +11110,7 @@ Explique em 1 frase cada sugestão de forma simples.`;
   let explicRec='', explicCst='', obs='';
   try {
     const txt = await _iaCall(system, user);
-    const r = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const r = _iaParseJSON(txt);
     explicRec = r.explicacao_rec||''; explicCst = r.explicacao_cst||''; obs = r.obs||'';
   } catch(e){ explicRec='Maior valor cobrado no '+recFonte; explicCst='Último pago ao fornecedor ('+cstFonte+')'; }
 
