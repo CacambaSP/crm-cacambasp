@@ -10925,7 +10925,7 @@ function _iaParseJSON(txt){
     for(let i=0;i<abreChaves;i++) fixed += '}';
     return JSON.parse(fixed);
   }catch(e){}
-  throw new Error('Resposta da IA veio incompleta ou em formato inválido — tente novamente');
+  throw new Error('Resposta incompleta ('+clean.length+' caracteres). Final recebido: "...'+clean.slice(-180).replace(/\n/g,'⏎')+'"');
 }
 
 async function _iaCall(systemPrompt, userPrompt){
