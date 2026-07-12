@@ -5457,12 +5457,24 @@ const _waTpl={
   },
   // Escada de cobrança: escolhe tom por dias em aberto e janela do dia
   escada:(c,pixPayload,vend)=>{
-    const n = nivelCobranca(c);
+    // Junta todas as ordens em aberto e não pagas deste celular (inclui a própria "c")
+    const pendAgg = _pendenciasCliente(c.cel, null);
+    const todasOrdens = (pendAgg.lista.length ? pendAgg.lista : [c])
+      .filter(x => c.col==='inadimp' ? true : x.col!=='inadimp'); // não mistura casos já em Jurídico
+    const piorOrdem = todasOrdens.reduce((a,b)=> diasEmAberto(b)>diasEmAberto(a)?b:a, todasOrdens[0]);
+    const n = nivelCobranca(piorOrdem);
     const jan = janelaCobrancaAtual();
-    const d = diasEmAberto(c);
+    const d = diasEmAberto(piorOrdem);
     const nome=(c.nome||'').split(' ')[0];
-    const endCurto=c.logradouro||c.bairro||'—';
-    const valor='R$ '+fmt((parseFloat(c.rec)||0)+(c.nf_num?(_nfAcrescimo||0):0));
+    const valorItem = (x)=> (parseFloat(x.rec)||0)+(x.nf_num?(_nfAcrescimo||0):0);
+    const valorTotal = 'R$ '+fmt(todasOrdens.reduce((s,x)=>s+valorItem(x),0));
+    const multiplas = todasOrdens.length > 1;
+    const listaTxt = multiplas
+      ? todasOrdens.map((x,i)=>`${i+1}. ${x.logradouro||x.bairro||'Endereço'} — R$ ${fmt(valorItem(x))} (${diasEmAberto(x)}d)`).join('\n')+'\n'
+      : '';
+    const endCurto = multiplas ? '' : (c.logradouro||c.bairro||'—');
+    const refValor = multiplas ? `${listaTxt}💰 *Total: ${valorTotal}*` : valorTotal;
+    const valor = valorTotal;
     const prazo=new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     const trackLink=c.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+(c.tracking_token?'token='+encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`':trackLink;
@@ -5470,27 +5482,27 @@ const _waTpl={
     const ass='\n\n_'+marcaNome+'_';
     if(n.id==='juridico'||n.id==='prejuridico'){
       const vars=[
-        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ao débito de ${valor} (${endCurto}), em aberto há ${d} dias. Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${pix}${ass}`,
-        `${nome}, conseguiu verificar a pendência de ${valor}? Como podemos resolver essa situação?${pix}${ass}`,
-        `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ao débito de ${valor}.${pix}${ass}`,
+        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ${multiplas?'às pendências abaixo':`ao débito de ${refValor} (${endCurto})`}, em aberto há até ${d} dias.\n\n${multiplas?refValor+'\n':''}Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${pix}${ass}`,
+        `${nome}, conseguiu verificar ${multiplas?'as pendências':'a pendência'} de ${valor}? Como podemos resolver essa situação?${pix}${ass}`,
+        `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ${multiplas?'às pendências':'ao débito'} de ${valor}.${pix}${ass}`,
       ];
       return vars[jan];
     }
     if(n.id==='insistencia'){
       const vars=[
-        `Prezado(a) ${nome}, o débito de ${valor} (${endCurto}) está em aberto há ${d} dias. Precisamos resolver essa pendência.${pix}${ass}`,
-        `${nome}, como podemos resolver essa pendência de ${valor}? Me diz o que está dificultando o pagamento que buscamos uma solução.${ass}`,
+        `Prezado(a) ${nome}, ${multiplas?'as pendências abaixo estão':`o débito de ${refValor} (${endCurto}) está`} em aberto há até ${d} dias.\n\n${multiplas?refValor+'\n':''}Precisamos resolver essa pendência.${pix}${ass}`,
+        `${nome}, como podemos resolver ${multiplas?'essas pendências':'essa pendência'} de ${valor}? Me diz o que está dificultando o pagamento que buscamos uma solução.${ass}`,
         `${nome}, retomo o contato amanhã. Regularizando hoje, seu cadastro segue liberado para novas locações.${pix}${ass}`,
       ];
       return vars[jan];
     }
     if(n.id==='urgente'){
-      return `${nome}, precisamos regularizar o pagamento de ${valor} (${endCurto}), em aberto há ${d} dias. Pedimos a quitação até ${prazo} para evitarmos a suspensão de novos atendimentos e demais providências de cobrança.${pix}${ass}`;
+      return `${nome}, precisamos regularizar ${multiplas?'as pendências abaixo':`o pagamento de ${refValor} (${endCurto})`}, em aberto há até ${d} dias.\n\n${multiplas?refValor+'\n':''}Pedimos a quitação até ${prazo} para evitarmos a suspensão de novos atendimentos e demais providências de cobrança.${pix}${ass}`;
     }
     if(n.id==='cobranca'){
-      return `Olá ${nome}! Notamos que o pagamento de ${valor} referente à caçamba em ${endCurto} está em aberto há ${d} dias.${pix}\n\nSe já pagou, desconsidere e nos envie o comprovante. 🙏${ass}`;
+      return `Olá ${nome}! Notamos que ${multiplas?'os pagamentos abaixo estão':`o pagamento de ${refValor} referente à caçamba em ${endCurto} está`} em aberto há até ${d} dias.\n\n${multiplas?refValor+'\n':''}${pix}\n\nSe já pagou, desconsidere e nos envie o comprovante. 🙏${ass}`;
     }
-    return `Olá ${nome}! 👋\n\nPassando para lembrar do pagamento da caçamba em ${endCurto}.${pix}\n\nQualquer dúvida estamos à disposição! 😊${ass}`;
+    return `Olá ${nome}! 👋\n\nPassando para lembrar ${multiplas?'dos pagamentos abaixo':`do pagamento da caçamba em ${endCurto}`}.\n\n${multiplas?refValor+'\n':''}${pix}\n\nQualquer dúvida estamos à disposição! 😊${ass}`;
   }
 };
 function aplicarTemplate(tipo){
