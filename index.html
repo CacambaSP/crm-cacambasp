@@ -1455,6 +1455,7 @@ input[type=checkbox]:checked::after{
     </div>
     <div class="mb">
       <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--mut2)" id="dup_resumo"></div>
+      <div id="dup_pendencia_aviso" style="display:none;margin-bottom:16px"></div>
       <div class="fi">
         <label>Tipo da nova ordem</label>
         <div style="display:flex;gap:8px;margin-top:4px">
@@ -3833,6 +3834,21 @@ function updNFPreview(){
   prev.style.display='block';
 }
 
+// ── HELPER REUTILIZÁVEL: pendências de um cliente por celular ──
+// Usado no formulário de Nova Ordem, em Duplicar Ordem e em Atribuir Fornecedor
+function _pendenciasCliente(cel, excludeId){
+  const telLimpo=(cel||'').replace(/\D/g,'');
+  if(telLimpo.length<8) return {count:0,total:0,lista:[]};
+  const lista=ordens.filter(c=>c.id!==excludeId&&c.col!=='concluido'&&c.col!=='orcamento'&&!c.pago&&(c.cel||'').replace(/\D/g,'')===telLimpo);
+  const total=lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  return {count:lista.length,total,lista};
+}
+function _pendenciaAvisoHTML(cel, excludeId){
+  const p=_pendenciasCliente(cel, excludeId);
+  if(!p.count) return '';
+  return `<div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad3);padding:9px 12px;font-size:12px;color:var(--r)">⚠️ Este cliente tem <strong>${p.count} ordem${p.count>1?'s':''} em aberto</strong> — total <strong>R$ ${fmt(p.total)}</strong>. Você pode continuar mesmo assim.</div>`;
+}
+
 // ── AVISO INADIMPLENTE ──
 function verificarInadimplente(cel){
   const avisoEl=document.getElementById('o_inad_aviso');
@@ -4491,7 +4507,9 @@ function _renderFornSugestao(c){
   </div>`;
 
   el.style.display = 'block';
-  el.innerHTML = '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
+  const avisoPendForn = _pendenciaAvisoHTML(c.cel, c.id);
+  el.innerHTML = (avisoPendForn?`<div style="margin-bottom:10px">${avisoPendForn}</div>`:'') +
+    '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
 }
 
 // ── Helper: abre WhatsApp do fornecedor (número ou link de grupo) ──
@@ -4903,6 +4921,12 @@ function abrirDuplicarOrdem(){
     `<strong>${c.crm_id||'—'}</strong> · ${c.nome||'—'}<br>`+
     `📍 ${[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—'}<br>`+
     `💰 Receita: R$ ${fmt(c.rec||0)} · Custo: R$ ${fmt(c.cst||0)}`;
+  const dupAvisoEl = document.getElementById('dup_pendencia_aviso');
+  if(dupAvisoEl){
+    const avisoHtml = _pendenciaAvisoHTML(c.cel, null);
+    dupAvisoEl.innerHTML = avisoHtml;
+    dupAvisoEl.style.display = avisoHtml ? 'block' : 'none';
+  }
   document.getElementById('dup_data').value = new Date().toISOString().slice(0,10);
   document.getElementById('dup_obs').value = 'Troca solicitada via WhatsApp';
   closeModal('detailModal');
