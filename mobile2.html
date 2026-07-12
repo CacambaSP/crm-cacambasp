@@ -3208,13 +3208,17 @@ function actionCardHTML(o, tipoAcao, loteMode=false) {
 
   } else if(tipoAcao === 'cobrar') {
     const temRec = parseFloat(o.rec||0) > 0;
+    const _iaTipo = o.col==='inadimp' ? 'inad' : (d>=14 ? 'crit' : 'atencao');
+    const _btnIA = `<button class="ac-btn ac-btn-ghost" style="background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.35)" onclick="event.stopPropagation();mobAbrirIAAlerta('${o.id}','${_iaTipo}')">🤖 IA</button>`;
     acoes = temRec ? `
       <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();abrirPagarCli('${o.id}')">Registrar pagamento</button>
       <button class="ac-btn ac-btn-pix" onclick="event.stopPropagation();abrirPix('${o.id}')">Pix</button>
       <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();enviarWA('${o.id}')">WA</button>
+      ${_btnIA}
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
       ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}` : `
       <button class="ac-btn ac-btn-r" onclick="event.stopPropagation();abrirEditar('${o.id}')">Informar valor</button>
+      ${_btnIA}
       ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirRemarcar('${o.id}')">Remarcar</button>`}
       ${_modoSimples?'':`<button class="ac-btn ac-btn-r" onclick="event.stopPropagation();trocarFornecedor('${o.id}')">Remover Forn.</button>`}`;
   } else if(tipoAcao === 'pagar_forn') {
