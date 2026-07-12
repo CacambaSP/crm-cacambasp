@@ -5476,13 +5476,14 @@ const _waTpl={
     const refValor = multiplas ? `${listaTxt}💰 *Total: ${valorTotal}*` : valorTotal;
     const valor = valorTotal;
     const prazo=new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
+    const cpfLine = c.cpf ? `\n📄 CPF/CNPJ: ${c.cpf}` : '';
     const trackLink=c.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+(c.tracking_token?'token='+encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`':trackLink;
     const marcaNome=vend?.marca_nome||_marcaDe(c);
     const ass='\n\n_'+marcaNome+'_';
     if(n.id==='juridico'||n.id==='prejuridico'){
       const vars=[
-        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ${multiplas?'às pendências abaixo':`ao débito de ${refValor} (${endCurto})`}, em aberto há até ${d} dias.\n\n${multiplas?refValor+'\n':''}Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${pix}${ass}`,
+        `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ${multiplas?'às pendências abaixo':`ao débito de ${refValor} (${endCurto})`}, em aberto há até ${d} dias.${cpfLine}\n\n${multiplas?refValor+'\n':''}Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${pix}${ass}`,
         `${nome}, conseguiu verificar ${multiplas?'as pendências':'a pendência'} de ${valor}? Como podemos resolver essa situação?${pix}${ass}`,
         `${nome}, sem retorno até amanhã, daremos seguimento às medidas de cobrança referentes ${multiplas?'às pendências':'ao débito'} de ${valor}.${pix}${ass}`,
       ];
@@ -10904,7 +10905,8 @@ async function _iaCall(systemPrompt, userPrompt){
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       system: systemPrompt,
-      messages:[{role:'user',content:userPrompt}]
+      messages:[{role:'user',content:userPrompt}],
+      max_tokens: 2000
     })
   });
   const data = await res.json();
@@ -10923,10 +10925,10 @@ async function abrirIAAlerta(id, tipo){
   document.getElementById('iaAlertaBody').innerHTML = '<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando com IA...</div>';
   openModal('iaAlertaModal');
 
-  const system = `Você é um assistente de cobrança para uma empresa de locação de caçambas em São Paulo. Responda SOMENTE em JSON válido, sem markdown, sem explicações fora do JSON, com exatamente estas chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2","passo 3"]}. Regras: (1) Adapte o tom da msg_cliente aos dias em aberto: 3-7d amigável; 7-14d direto informando valor e dias; 14-20d firme com prazo de 3 dias e aviso de suspensão de novos atendimentos; 20-25d insistente perguntando como resolver; 25+d formal citando "medidas de cobrança cabíveis". (2) NUNCA ofereça parcelamento diretamente na msg_cliente; se fizer sentido, sugira no campo "acao" ou "plano" que o VENDEDOR proponha (ex: entrada + saldo). (3) "plano" = 3 a 5 passos práticos e concretos para os próximos dias: o que fazer se não responder em 24h/48h, quando ligar em vez de WhatsApp, quando oferecer negociação, quando mover para Jurídico. Seja direto e prático. Máximo 2 frases por campo (exceto plano). Mensagens no estilo WhatsApp profissional.`;
+  const system = `Você é um assistente de cobrança para uma empresa de locação de caçambas em São Paulo. Responda SOMENTE em JSON válido, sem markdown, sem explicações fora do JSON, com exatamente estas chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2","passo 3"]}. Regras: (1) Adapte o tom da msg_cliente aos dias em aberto: 3-7d amigável; 7-14d direto informando valor e dias; 14-20d firme com prazo de 3 dias e aviso de suspensão de novos atendimentos; 20-25d insistente perguntando como resolver; 25+d formal citando "medidas de cobrança cabíveis" e incluindo o CPF/CNPJ do cliente (se disponível nos dados) na mensagem, para dar peso formal à notificação. (2) NUNCA ofereça parcelamento diretamente na msg_cliente; se fizer sentido, sugira no campo "acao" ou "plano" que o VENDEDOR proponha (ex: entrada + saldo). (3) "plano" = 3 a 5 passos práticos e concretos para os próximos dias: o que fazer se não responder em 24h/48h, quando ligar em vez de WhatsApp, quando oferecer negociação, quando mover para Jurídico. Seja direto e prático. Máximo 2 frases por campo (exceto plano). Mensagens no estilo WhatsApp profissional.`;
 
   const user = `Ordem: ${c.crm_id||'—'}
-Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}
+Cliente: ${c.nome||'—'} | CPF/CNPJ: ${c.cpf||'—'} | Tel: ${c.cel||'—'}
 Endereço: ${c.logradouro||'—'}, ${c.bairro||'—'}
 Valor cliente: R$ ${fmt(c.rec||0)} | Custo fornecedor: R$ ${fmt(c.cst||0)}
 Dias em aberto: ${dias}
