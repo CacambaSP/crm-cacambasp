@@ -4819,7 +4819,7 @@ function cobrarOutrasOrdens(ordemAtualId){
   const todas=[c,...extras];
   const total=todas.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const linhas=todas.map((o,i)=>`*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_';
+  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\nQualquer dúvida, estamos à disposição! 😊\n_'+_marcaDe(c)+'_';
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
@@ -5409,7 +5409,7 @@ function enviarTracking(id){
   if(!c.crm_id){toast('Ordem sem ID CRM','warn');return;}
   const link='https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id));
   const nome=(c.nome||'').split(' ')[0]||'Cliente';
-  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_CaçambaSP_';
+  const msg='Olá '+nome+'! 👋\n\nAcompanhe sua caçamba em tempo real pelo link abaixo:\n\n📍 *'+link+'*\n\n💳 *Neste link você também encontra o QR Code e Pix para pagamento.*\n\nQualquer dúvida, estamos à disposição!\n_'+_marcaDe(c)+'_';
   const tel=c.cel.replace(/\D/g,'');
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
@@ -5418,42 +5418,42 @@ const _waTpl={
   pedido:(c)=>{
     const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
     const nome=(c.nome||'').split(' ')[0];
-    return `Olá ${nome}! 😊 Recebemos seu pedido e já estamos providenciando.\n\nPor favor, confirme se os dados abaixo estão corretos. Caso não responda, consideraremos que está tudo certo.\n\n📋 *OS:* ${c.crm_id||'—'}\n📅 *Data:* ${dateF(c.data)}\n📍 *Endereço de entrega:* ${end||'—'}\n🪣 *Serviço:* ${c.tipo||'Locação'}\n\n_CaçambaSP_`;
+    return `Olá ${nome}! 😊 Recebemos seu pedido e já estamos providenciando.\n\nPor favor, confirme se os dados abaixo estão corretos. Caso não responda, consideraremos que está tudo certo.\n\n📋 *OS:* ${c.crm_id||'—'}\n📅 *Data:* ${dateF(c.data)}\n📍 *Endereço de entrega:* ${end||'—'}\n🪣 *Serviço:* ${c.tipo||'Locação'}\n\n_${_marcaDe(c)}_`;
   },
   entregando:(c)=>{
     const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
     const nome=(c.nome||'').split(' ')[0];
-    return `Olá ${nome}! 🚛 Seu pedido já está em execução.\n\nEm breve você receberá sua caçamba no endereço cadastrado:\n📍 *${end||'—'}*\n\nQualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+    return `Olá ${nome}! 🚛 Seu pedido já está em execução.\n\nEm breve você receberá sua caçamba no endereço cadastrado:\n📍 *${end||'—'}*\n\nQualquer dúvida, estamos à disposição! 😊\n_${_marcaDe(c)}_`;
   },
   cobranca:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
     const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
-    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaNome=vend?.marca_nome||_marcaDe(c);
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
     return 'Olá '+(c.nome||'')+'! 👋\n\nPassando para informar que temos um pagamento em aberto referente ao serviço de caçamba:\n\n'+end+'\n📅 Data: '+dateF(c.data)+pix+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
   },
   pix:(c,pixPayload)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
-    return 'Olá '+(c.nome||'')+'! ⚡\n\nSegue o código Pix para pagamento do serviço de caçamba:\n\n'+end+'\n\n📋 *Copia e cola o código abaixo:*\n`'+(pixPayload||'(gere o Pix primeiro)')+'`\n\nApós o pagamento, nos confirme por aqui! ✅\n_CaçambaSP_';
+    return 'Olá '+(c.nome||'')+'! ⚡\n\nSegue o código Pix para pagamento do serviço de caçamba:\n\n'+end+'\n\n📋 *Copia e cola o código abaixo:*\n`'+(pixPayload||'(gere o Pix primeiro)')+'`\n\nApós o pagamento, nos confirme por aqui! ✅\n_'+_marcaDe(c)+'_';
   },
   entrega:(c)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'')+(c.cidade?'\n🏙️ '+c.cidade:'');
-    return 'Olá '+(c.nome||'')+'! 📦\n\nInformamos que a caçamba foi entregue no endereço:\n\n'+end+'\n📅 '+dateF(c.data)+'\n\nQualquer problema com a entrega, nos avise imediatamente.\n\nObrigado pela preferência! 🙏\n_CaçambaSP_';
+    return 'Olá '+(c.nome||'')+'! 📦\n\nInformamos que a caçamba foi entregue no endereço:\n\n'+end+'\n📅 '+dateF(c.data)+'\n\nQualquer problema com a entrega, nos avise imediatamente.\n\nObrigado pela preferência! 🙏\n_'+_marcaDe(c)+'_';
   },
   inadimp:(c,pixPayload,vend)=>{
     const end='📍 *'+(c.logradouro||'-')+'*'+(c.bairro?', '+c.bairro:'');
     const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`'
               :trackLink?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\n'+trackLink:'';
-    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaNome=vend?.marca_nome||_marcaDe(c);
     const marcaTel=vend?.marca_tel||'(11) 4237-8757';
     return 'Olá '+(c.nome||'')+'! 🚨\n\nIdentificamos que o pagamento do serviço de caçamba ainda não foi efetuado:\n\n'+end+'\n📅 Data do serviço: '+dateF(c.data)+'\n\nPedimos que regularize o pagamento o quanto antes.'+pix+'\n\n_'+marcaNome+' — regularize sua situação_';
   },
   recebido:(c)=>{
     const end='📍 '+(c.logradouro||'-')+(c.cidade?', '+c.cidade:'');
-    return 'Olá '+(c.nome||'')+'! ✅\n\nConfirmamos o recebimento do pagamento referente ao serviço de caçamba:\n\n'+end+'\n💰 Valor pago: *R$ '+fmt(c.pago_valor||c.rec)+'*\n\nMuito obrigado pela confiança! Estamos sempre à disposição. 😊\n_CaçambaSP_';
+    return 'Olá '+(c.nome||'')+'! ✅\n\nConfirmamos o recebimento do pagamento referente ao serviço de caçamba:\n\n'+end+'\n💰 Valor pago: *R$ '+fmt(c.pago_valor||c.rec)+'*\n\nMuito obrigado pela confiança! Estamos sempre à disposição. 😊\n_'+_marcaDe(c)+'_';
   },
   // Escada de cobrança: escolhe tom por dias em aberto e janela do dia
   escada:(c,pixPayload,vend)=>{
@@ -5466,7 +5466,7 @@ const _waTpl={
     const prazo=new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     const trackLink=c.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+(c.tracking_token?'token='+encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
     const pix=pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`':trackLink;
-    const marcaNome=vend?.marca_nome||'CaçambaSP';
+    const marcaNome=vend?.marca_nome||_marcaDe(c);
     const ass='\n\n_'+marcaNome+'_';
     if(n.id==='juridico'||n.id==='prejuridico'){
       const vars=[
@@ -5497,7 +5497,8 @@ function aplicarTemplate(tipo){
   const c=ordens.find(x=>x.id===_waOrdemId);if(!c)return;
   // Tenta usar o payload do pix se já foi gerado para esse card
   const pixPayload=_pixCardId===_waOrdemId?_pixPayload:'';
-  const msg=_waTpl[tipo]?_waTpl[tipo](c,pixPayload):'';
+  const vend=(c.usuario_id?usuarios.find(u=>u.id===c.usuario_id):null)||_perfil||null;
+  const msg=_waTpl[tipo]?_waTpl[tipo](c,pixPayload,vend):'';
   const ta=document.getElementById('waMsgEdit');
   ta.value=msg;
   atualizarContadorWA();
@@ -5662,6 +5663,12 @@ function labelCobradoEm(c){
   if(mesmoDia(d,hoje)) return 'hoje às '+hora;
   if(mesmoDia(d,ontem)) return 'ontem às '+hora;
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+hora;
+}
+
+// Assinatura: marca do vendedor da ordem (white label por perfil)
+function _marcaDe(c){
+  const vend = c && c.usuario_id ? usuarios.find(u=>u.id===c.usuario_id) : null;
+  return (vend?.marca_nome || _perfil?.marca_nome || 'CaçambaSP');
 }
 
 // ── ESCADA DE COBRANÇA (S31) ──
