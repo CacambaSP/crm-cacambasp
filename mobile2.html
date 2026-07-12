@@ -830,6 +830,7 @@ input,select,textarea,button{font-family:var(--font)}
       </div>
       <div class="modal-close" onclick="closeModal('atribuirFornModal')">✕</div>
     </div>
+    <div id="af_pendencia_aviso" style="display:none;margin:10px 20px 0;padding:9px 12px;border-radius:var(--rad3);font-size:12px;background:var(--r2);border:1px solid var(--r3);color:var(--r)"></div>
     <div style="padding:10px 20px 0">
       <input type="text" id="af_busca" placeholder="Filtrar por nome do fornecedor..." 
         oninput="filtrarListaForn(this.value)"
@@ -1355,6 +1356,14 @@ function abrirAtribuirForn(id) {
   const infoLabel = [o.bairro, o.logradouro].filter(Boolean).join(' · ');
   document.getElementById('af_bairro_label').textContent = infoLabel || 'Bairro não informado';
   document.getElementById('af_busca').value = '';
+
+  // Aviso de pendência do cliente (pode ter vindo do cadastro sem passar pela verificação da Nova Ordem)
+  const afAvisoEl = document.getElementById('af_pendencia_aviso');
+  if(afAvisoEl){
+    const avisoTxt = _pendenciaAvisoHTML(o.cel||o.wh, o.id);
+    afAvisoEl.innerHTML = avisoTxt;
+    afAvisoEl.style.display = avisoTxt ? 'block' : 'none';
+  }
 
   // Classificar fornecedores usando matching inteligente
   _af_compativeis = [];
@@ -4737,6 +4746,21 @@ function renderNova() {
     </div>`;
 }
 
+// ── HELPER REUTILIZÁVEL: pendências de um cliente por celular ──
+// Usado no formulário de Nova Ordem, em Duplicar Ordem e em Atribuir Fornecedor
+function _pendenciasCliente(cel, excludeId){
+  const telLimpo=(cel||'').replace(/\D/g,'');
+  if(telLimpo.length<8) return {count:0,total:0,lista:[]};
+  const lista=_ordens.filter(o=>o.id!==excludeId&&o.col!=='concluido'&&o.col!=='orcamento'&&!o.pago&&(o.cel||o.wh||'').replace(/\D/g,'')===telLimpo);
+  const total=lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  return {count:lista.length,total,lista};
+}
+function _pendenciaAvisoHTML(cel, excludeId){
+  const p=_pendenciasCliente(cel, excludeId);
+  if(!p.count) return '';
+  return `⚠️ Este cliente tem <strong>${p.count} ordem${p.count>1?'s':''} em aberto</strong> — total <strong>R$ ${fmt(p.total)}</strong>.`;
+}
+
 // ── PREENCHIMENTO AUTOMÁTICO NOME POR CELULAR ──
 function verificarCelular(cel) {
   const inadEl  = document.getElementById('nv_inad_aviso');
@@ -5069,9 +5093,12 @@ async function moverColuna(id, colId) {
 async function duplicarOrdem(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   // Sempre duplica sem fornecedor, direto para contratar
+  const avisoPendDup = _pendenciaAvisoHTML(o.cel||o.wh, null);
+  const bodyDup = 'Nova OS com os dados do cliente.<br>Irá para <strong>Contratar</strong> sem fornecedor.'
+    + (avisoPendDup ? `<div style="margin-top:10px;padding:9px 12px;border-radius:8px;background:var(--r2);border:1px solid var(--r3);color:var(--r);font-size:12px">${avisoPendDup}</div>` : '');
   const ok = await showConfirm({
     ico:'🔁', title:'Duplicar ordem?',
-    body:'Nova OS com os dados do cliente.<br>Irá para <strong>Contratar</strong> sem fornecedor.',
+    body: bodyDup,
     ok:'📋 Duplicar', okClass:'acc'
   });
   if(!ok) return;
