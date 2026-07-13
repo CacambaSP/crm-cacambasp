@@ -10888,7 +10888,7 @@ function renderNF(){
     const imp=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0)*(taxa/100),0));
     const dataMax=ords.reduce((m,o)=>(o.data||'')>m?(o.data||''):m,'');
     return {num,ords,total,imp,data:dataMax,nome:ords[0].nome,logradouro:ords[0].logradouro};
-  }).sort((a,b)=>b.data.localeCompare(a.data));
+  }).sort((a,b)=>(parseInt(b.num,10)||0)-(parseInt(a.num,10)||0));
 
   const totalImp=_r2(gruposArr.reduce((s,g)=>s+g.imp,0));
   if(resumo) resumo.innerHTML=`
