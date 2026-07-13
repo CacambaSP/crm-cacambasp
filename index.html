@@ -10916,11 +10916,8 @@ function renderNF(){
             <div style="font-weight:700">NF ${g.num} · ${c.nome||'-'}</div>
             <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
-            <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
-            <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
-          </div>
+          <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
+          <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
         </div>`;
       } else {
         const chips=g.ords.map(o=>`<span style="font-size:10px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;color:var(--mut2);cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">${o.crm_id||'-'} · ${dateF(o.data)}</span>`).join('');
@@ -10930,10 +10927,9 @@ function renderNF(){
               <div style="font-weight:700">NF ${g.num} · ${g.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${g.ords.length} OS agrupadas</span></div>
               <div style="font-size:11px;color:var(--mut2)">${g.logradouro||'-'}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
-              <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
-              <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${g.ords[0].id}')">🧾 NF</button>
+            <div style="text-align:right">
+              <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
+              <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div>
             </div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid var(--bor);padding-top:8px">${chips}</div>
