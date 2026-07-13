@@ -10874,21 +10874,23 @@ function renderNF(){
   const resumo=document.getElementById('nfResumo');
   const matchBusca=(texto)=>!q||_nrm(texto).includes(q);
 
+  const _r2=v=>Math.round((v||0)*100)/100;
   const emitidas=ordens.filter(c=>c.nf_num&&!_semNF(c.nf_num));
-  const pendentes=ordens.filter(c=>c.nf_num==='000');
+  // Pendente de emissão = nf_num '000' (já solicitada), com valor real, não cancelada e não orçamento
+  const pendentes=ordens.filter(c=>c.nf_num==='000'&&!['orcamento','cancelado'].includes(c.col)&&!c.cancel_motivo&&(parseFloat(c.rec)||0)>0);
 
   // Agrupa ordens emitidas pelo mesmo nf_num (nota consolidada)
   const gruposMap={};
   emitidas.forEach(c=>{ (gruposMap[c.nf_num]=gruposMap[c.nf_num]||[]).push(c); });
   const gruposArr=Object.entries(gruposMap).map(([num,ords])=>{
-    const total=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+    const total=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0));
     const taxa=_taxaNF||0;
-    const imp=ords.reduce((s,o)=>s+(parseFloat(o.rec)||0)*(taxa/100),0);
+    const imp=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0)*(taxa/100),0));
     const dataMax=ords.reduce((m,o)=>(o.data||'')>m?(o.data||''):m,'');
     return {num,ords,total,imp,data:dataMax,nome:ords[0].nome,logradouro:ords[0].logradouro};
   }).sort((a,b)=>b.data.localeCompare(a.data));
 
-  const totalImp=gruposArr.reduce((s,g)=>s+g.imp,0);
+  const totalImp=_r2(gruposArr.reduce((s,g)=>s+g.imp,0));
   if(resumo) resumo.innerHTML=`
     <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px 16px">
       <div style="font-size:11px;color:var(--mut2);margin-bottom:4px">Pendentes de emissão</div>
@@ -10943,15 +10945,22 @@ function renderNF(){
     pendentes.filter(c=>matchBusca((c.crm_id||'')+' '+(c.nome||'')+' '+(c.logradouro||'')))
       .sort((a,b)=>(b.data||'').localeCompare(a.data||''))
       .forEach(c=>{
-        itensHTML+=`<div class="nf-row" style="cursor:pointer;border-color:var(--acc3)" onclick="openDetail('${c.id}')">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700">${c.crm_id||'-'} · ${c.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span></div>
-            <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+        // Verifica se há outras pendentes do mesmo cliente no mesmo endereço (candidatas a agrupar numa NF só)
+        const endBase=_nfNormEnd(c.logradouro);
+        const outrasMesmoEnd=pendentes.filter(o=>o.id!==c.id&&o.nome===c.nome&&_nfNormEnd(o.logradouro)===endBase&&endBase);
+        const avisoAgrupar=outrasMesmoEnd.length?`<div style="font-size:10px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:2px 6px;margin-top:4px;display:inline-block">🔗 +${outrasMesmoEnd.length} pendente${outrasMesmoEnd.length>1?'s':''} no mesmo endereço · clique em NF pra agrupar</div>`:'';
+        itensHTML+=`<div class="nf-row" style="cursor:pointer;border-color:var(--acc3);flex-direction:column;align-items:stretch" onclick="openDetail('${c.id}')">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700">${c.crm_id||'-'} · ${c.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span></div>
+              <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(c.rec)}</div></div>
+              <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(c.rec)}</div></div>
-            <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
-          </div>
+          ${avisoAgrupar}
         </div>`;
       });
   }
