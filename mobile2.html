@@ -4475,26 +4475,32 @@ async function _mobIaCall(system, userMsg){
 
 async function mobAbrirIAAlerta(id, tipo){
   const c = _ordens.find(x=>x.id===id); if(!c) return;
-  const f = c.forn_id ? _forns.find(x=>x.id===c.forn_id) : null;
   const dias = diasEmAberto(c);
   const logs = (c._logs||[]).slice(-8).map(l=>`${(l.criado_em||'').slice(0,10)} — ${l.acao}`).join('\n')||'Sem histórico';
 
   document.getElementById('iaAlertaTitulo').textContent = '🤖 '+(c.logradouro||c.nome||'Ordem');
   document.getElementById('iaAlertaSub').textContent = (tipo==='inad'?'Inadimplente':tipo==='crit'?'Crítico':'Atenção')+' · '+dias+'d · R$ '+fmt(c.rec||0);
+  document.getElementById('iaAlertaSub').dataset.tipo = tipo;
   document.getElementById('iaAlertaBody').innerHTML = '<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Analisando...</div>';
   openModal('iaAlertaModal');
 
-  const system = `Você é um assistente de cobrança para locação de caçambas em São Paulo. Responda SOMENTE em JSON válido sem markdown com as chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2","passo 3"]}. Regras: (1) Adapte o tom da msg_cliente aos dias em aberto: 3-7d amigável; 7-14d direto informando valor e dias; 14-20d firme com prazo de 3 dias e aviso de suspensão de novos atendimentos; 20-25d insistente perguntando como resolver; 25+d formal citando "medidas de cobrança cabíveis" e incluindo o CPF/CNPJ do cliente (se disponível nos dados) na mensagem, para dar peso formal à notificação. (2) NUNCA ofereça parcelamento diretamente na msg_cliente; se fizer sentido, sugira no campo "acao" ou "plano" que o VENDEDOR proponha (ex: entrada + saldo). (3) "plano" = 3 a 5 passos práticos e concretos para os próximos dias: o que fazer se não responder em 24h/48h, quando ligar em vez de WhatsApp, quando oferecer negociação, quando mover para Jurídico. Máximo 2 frases por campo (exceto plano). Mensagens estilo WhatsApp profissional.`;
-  const user = `Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | CPF/CNPJ: ${c.cpf||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Custo forn: R$ ${fmt(c.cst||0)} | Dias aberto: ${dias}\nFornecedor: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'} | Status: ${c.col||'—'}\nObs: ${c.obs||'—'}\nHistórico:\n${logs}`;
+  const system = `Você é um assistente de cobrança para locação de caçambas em São Paulo. Responda SOMENTE em JSON válido sem markdown com as chaves: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","acao":"...","plano":["passo 1","passo 2","passo 3"]}. Regras: (1) Adapte o tom da msg_cliente aos dias em aberto: 3-7d amigável; 7-14d direto informando valor e dias; 14-20d firme com prazo de 3 dias e aviso de suspensão de novos atendimentos; 20-25d insistente perguntando como resolver; 25+d formal citando "medidas de cobrança cabíveis" e incluindo o CPF/CNPJ do cliente (se disponível nos dados) na mensagem, para dar peso formal à notificação. (2) NUNCA ofereça parcelamento diretamente na msg_cliente; se fizer sentido, sugira no campo "acao" ou "plano" que o VENDEDOR proponha (ex: entrada + saldo). (3) "plano" = 3 a 5 passos práticos e concretos para os próximos dias: o que fazer se não responder em 24h/48h, quando ligar em vez de WhatsApp, quando oferecer negociação, quando mover para Jurídico. Máximo 2 frases por campo (exceto plano). Mensagem estilo WhatsApp profissional.`;
+  const user = `Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | CPF/CNPJ: ${c.cpf||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Dias aberto: ${dias}\nStatus: ${c.col||'—'}\nObs: ${c.obs||'—'}\nHistórico:\n${logs}`;
 
   try {
     const txt = await _mobIaCall(system, user);
     const r = _iaParseJSON(txt);
     const nivelCor = r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
     const telCli=(c.cel||'').replace(/\D/g,'');
-    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
     const waCli=telCli?`https://wa.me/55${telCli}?text=${encodeURIComponent(r.msg_cliente||'')}` :'';
-    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
+
+    // Plano: mantém progresso salvo se já existir; senão salva o novo gerado agora
+    let plano = Array.isArray(c.ia_plano) && c.ia_plano.length ? c.ia_plano : (Array.isArray(r.plano)?r.plano:[]);
+    let passo = Array.isArray(c.ia_plano) && c.ia_plano.length ? (c.ia_plano_passo||0) : 0;
+    if(!(Array.isArray(c.ia_plano) && c.ia_plano.length) && plano.length){
+      c.ia_plano = plano; c.ia_plano_passo = 0;
+      api('ordens?id=eq.'+id,'PATCH',{ia_plano:plano, ia_plano_passo:0, ia_plano_em:new Date().toISOString()},tok()).catch(()=>{});
+    }
 
     document.getElementById('iaAlertaBody').innerHTML = `
       <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
@@ -4503,23 +4509,17 @@ async function mobAbrirIAAlerta(id, tipo){
         <div class="ia-bloco-label">💬 Mensagem — cliente</div>
         <div class="ia-msg-box">${r.msg_cliente||'—'}</div>
         <div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente</button>`:''}</div>
-        <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_cli_${id}')">💬 Colar conversa do WhatsApp com o cliente</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_cli_${id}')">💬 Colar conversa do WhatsApp</span>
+          <span class="ia-cola-toggle" onclick="document.getElementById('mfile_cli_${id}').click()">📎 Importar .txt exportado</span>
+        </div>
+        <input type="file" id="mfile_cli_${id}" accept=".txt,text/plain" style="display:none" onchange="mobIaFileImport(event,'mcola_cli_${id}')">
         <textarea id="mcola_cli_${id}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp com o cliente..."></textarea>
-      </div>
-      <div class="ia-bloco msg-forn">
-        <div class="ia-bloco-label">🏗️ Mensagem — fornecedor</div>
-        <div class="ia-msg-box">${r.msg_fornecedor||'—'}</div>
-        <div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA fornecedor</button>`:''}</div>
-        <span class="ia-cola-toggle" onclick="mobIaToggleCola(this,'mcola_forn_${id}')">💬 Colar conversa do WhatsApp com o fornecedor</span>
-        <textarea id="mcola_forn_${id}" class="ia-cola-area" style="display:none" placeholder="Cole as últimas msgs do WhatsApp com o fornecedor..."></textarea>
       </div>
       <div class="ia-bloco acao">
         <div class="ia-bloco-label">✅ Ação recomendada</div>
         <div class="ia-bloco-txt">${r.acao||'—'}</div>
-        ${Array.isArray(r.plano)&&r.plano.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bor)">
-          <div class="ia-bloco-label" style="margin-bottom:6px">🗺️ Plano passo a passo</div>
-          ${r.plano.map((p,i)=>`<div style="display:flex;gap:8px;padding:4px 0;font-size:13px;line-height:1.5"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(127,119,221,.18);color:#a78bfa;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${i+1}</span><span>${p}</span></div>`).join('')}
-        </div>`:''}
+        <div id="ia_plano_bloco_${id}">${_planoChecklistHTML(id, plano, passo, tipo)}</div>
         <div class="ia-actions">
           ${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="mobArquivarInadimplir('${id}')">🚫 Inadimplente</button>`:''}
           <button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button>
@@ -4527,42 +4527,89 @@ async function mobAbrirIAAlerta(id, tipo){
       </div>
       <div class="ia-rodape">
         <span class="ia-fonte">Dados do sistema · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
-        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaReanalisar('${id}','${tipo}')">🔄 Reanalisar</button>
+        <button class="btn btn-sm" style="font-size:11px;background:rgba(127,119,221,.15);color:#a78bfa;border-color:rgba(127,119,221,.3)" onclick="mobIaReanalisar('${id}','${tipo}')">🔄 Reanalisar com conversa</button>
       </div>`;
   } catch(e){
     document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro na análise.<br><small>${e.message}</small></div>`;
   }
 }
 
+// ── Plano passo a passo (persistido em ordens.ia_plano / ia_plano_passo) ──
+function _planoChecklistHTML(id, plano, passo, tipo){
+  if(!plano || !plano.length) return '';
+  const total = plano.length;
+  const feitos = Math.min(passo, total);
+  const rows = plano.map((p,i)=>{
+    if(i < feitos) return `<div style="display:flex;gap:8px;padding:5px 0;font-size:13px;line-height:1.5;opacity:.5"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(52,199,89,.2);color:#34c759;font-size:11px;display:inline-flex;align-items:center;justify-content:center">✓</span><span style="text-decoration:line-through">${p}</span></div>`;
+    if(i === feitos) return `<div style="display:flex;gap:8px;padding:8px 0;font-size:13px;line-height:1.5"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(127,119,221,.25);color:#a78bfa;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${i+1}</span><div style="flex:1"><div>${p}</div><button class="btn btn-sm" style="margin-top:6px;background:rgba(52,199,89,.15);color:#34c759;border-color:rgba(52,199,89,.3)" onclick="mobPlanoConcluirPasso('${id}')">✅ Concluí este passo</button></div></div>`;
+    return `<div style="display:flex;gap:8px;padding:5px 0;font-size:13px;line-height:1.5;opacity:.35"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--mut);font-size:11px;display:inline-flex;align-items:center;justify-content:center">${i+1}</span><span>${p}</span></div>`;
+  }).join('');
+  const concluido = feitos>=total;
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bor)">
+    <div class="ia-bloco-label" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <span>🗺️ Plano passo a passo (${feitos}/${total})</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--mut2);text-decoration:underline" onclick="mobPlanoResetar('${id}','${tipo||''}')">🔄 Gerar novo plano</span>
+    </div>
+    ${rows}
+    ${concluido?'<div style="text-align:center;padding:8px;color:#34c759;font-size:12px;font-weight:700">✅ Todos os passos concluídos!</div>':''}
+  </div>`;
+}
+async function mobPlanoConcluirPasso(id){
+  const c=_ordens.find(x=>x.id===id); if(!c || !Array.isArray(c.ia_plano)) return;
+  const novoPasso = Math.min((c.ia_plano_passo||0)+1, c.ia_plano.length);
+  c.ia_plano_passo = novoPasso;
+  const bloco = document.getElementById('ia_plano_bloco_'+id);
+  const tipoAtual = document.getElementById('iaAlertaSub')?.dataset?.tipo || '';
+  if(bloco) bloco.innerHTML = _planoChecklistHTML(id, c.ia_plano, novoPasso, tipoAtual);
+  try{ await api('ordens?id=eq.'+id,'PATCH',{ia_plano_passo:novoPasso},tok()); }catch(e){ toast('Progresso salvo só localmente — verifique a conexão','warn'); }
+}
+async function mobPlanoResetar(id, tipo){
+  const c=_ordens.find(x=>x.id===id); if(!c) return;
+  c.ia_plano = null; c.ia_plano_passo = 0;
+  try{ await api('ordens?id=eq.'+id,'PATCH',{ia_plano:null, ia_plano_passo:0},tok()); }catch(e){}
+  mobAbrirIAAlerta(id, tipo);
+}
+// ── Importar arquivo .txt exportado do WhatsApp ──
+function mobIaFileImport(ev, targetId){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const area = document.getElementById(targetId);
+    if(area){ area.value = reader.result; area.style.display='block'; area.scrollIntoView({behavior:'smooth',block:'center'}); }
+  };
+  reader.onerror = () => toast('Não foi possível ler o arquivo','err');
+  reader.readAsText(file, 'utf-8');
+}
+
 async function mobIaReanalisar(id, tipo){
   const c=_ordens.find(x=>x.id===id); if(!c) return;
-  const f=c.forn_id?_forns.find(x=>x.id===c.forn_id):null;
   const dias=diasEmAberto(c);
   const logs=(c._logs||[]).slice(-8).map(l=>`${(l.criado_em||'').slice(0,10)} — ${l.acao}`).join('\n')||'Sem histórico';
   const colaCli=(document.getElementById('mcola_cli_'+id)?.value||'').trim();
-  const colaForn=(document.getElementById('mcola_forn_'+id)?.value||'').trim();
-  if(!colaCli&&!colaForn){toast('Cole ao menos uma conversa antes','warn');return;}
+  if(!colaCli){toast('Cole ou importe a conversa antes','warn');return;}
   document.getElementById('iaAlertaBody').innerHTML='<div style="text-align:center;padding:32px;color:var(--mut2)">⏳ Reanalisando...</div>';
-  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","msg_fornecedor":"...","acao":"...","plano":["passo 1","passo 2"]}. Considere as conversas fornecidas. Adapte o tom da msg_cliente aos dias em aberto (3-7d amigável, 7-14d direto, 14-20d firme com prazo, 20-25d insistente, 25+d formal com "medidas de cobrança cabíveis"). Nunca ofereça parcelamento na msg_cliente — apenas sugira ao vendedor no "plano". "plano" = 3 a 5 passos práticos para os próximos dias.`;
-  const user=`Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Dias: ${dias} | Forn: ${f?f.nome:'—'} | Forn pago: ${c.forn_pago?'Sim':'Não'}\nHistórico sistema:\n${logs}${colaCli?`\nConversa cliente:\n${colaCli}`:''}${colaForn?`\nConversa fornecedor:\n${colaForn}`:''}`;
+  const system=`Você é um assistente de cobrança para locação de caçambas em SP. Responda SOMENTE em JSON válido sem markdown: {"diagnostico":"...","risco":"...","nivel_risco":"alta|media|baixa","msg_cliente":"...","acao":"...","plano":["passo 1","passo 2"]}. Considere a conversa de WhatsApp fornecida. Adapte o tom da msg_cliente aos dias em aberto (3-7d amigável, 7-14d direto, 14-20d firme com prazo, 20-25d insistente, 25+d formal com "medidas de cobrança cabíveis" incluindo CPF/CNPJ se disponível). Nunca ofereça parcelamento na msg_cliente — apenas sugira ao vendedor no "plano". "plano" = 3 a 5 passos práticos para os próximos dias, considerando o que já foi dito na conversa.`;
+  const user=`Ordem: ${c.crm_id||'—'} | Cliente: ${c.nome||'—'} | CPF/CNPJ: ${c.cpf||'—'} | Tel: ${c.cel||'—'}\nEndereço: ${c.logradouro||'—'}, ${c.bairro||'—'}\nValor: R$ ${fmt(c.rec||0)} | Dias: ${dias}\nHistórico sistema:\n${logs}\nConversa WhatsApp com o cliente:\n${colaCli}`;
   try{
     const txt=await _mobIaCall(system,user);
     const r=_iaParseJSON(txt);
     const nivelCor=r.nivel_risco==='alta'?'var(--r)':r.nivel_risco==='media'?'var(--acc)':'var(--g)';
     const telCli=(c.cel||'').replace(/\D/g,'');
-    const telForn=f?((f.wa_link||f.tel||'').replace(/\D/g,'')):'';
     const waCli=telCli?`https://wa.me/55${telCli}?text=${encodeURIComponent(r.msg_cliente||'')}` :'';
-    const waForn=telForn?`https://wa.me/55${telForn}?text=${encodeURIComponent(r.msg_fornecedor||'')}` :'';
+    // Reanálise com conversa nova → plano é regerado do zero
+    const plano = Array.isArray(r.plano)?r.plano:[];
+    c.ia_plano = plano.length?plano:null; c.ia_plano_passo = 0;
+    if(plano.length) api('ordens?id=eq.'+id,'PATCH',{ia_plano:plano, ia_plano_passo:0, ia_plano_em:new Date().toISOString()},tok()).catch(()=>{});
     document.getElementById('iaAlertaBody').innerHTML=`
-      <div style="font-size:11px;background:rgba(127,119,221,.12);border:1px solid rgba(127,119,221,.3);color:#a78bfa;border-radius:8px;padding:6px 10px;margin-bottom:6px">🔄 Reanalisado com conversas do WhatsApp</div>
+      <div style="font-size:11px;background:rgba(127,119,221,.12);border:1px solid rgba(127,119,221,.3);color:#a78bfa;border-radius:8px;padding:6px 10px;margin-bottom:6px">🔄 Reanalisado com a conversa do WhatsApp</div>
       <div class="ia-bloco diag"><div class="ia-bloco-label">🔍 Diagnóstico</div><div class="ia-bloco-txt">${r.diagnostico||'—'}</div></div>
       <div class="ia-bloco risco"><div class="ia-bloco-label">⚠️ Risco — <span style="color:${nivelCor}">${(r.nivel_risco||'').toUpperCase()}</span></div><div class="ia-bloco-txt">${r.risco||'—'}</div></div>
       <div class="ia-bloco msg-cli"><div class="ia-bloco-label">💬 Mensagem — cliente</div><div class="ia-msg-box">${r.msg_cliente||'—'}</div><div class="ia-actions">${waCli?`<button class="ia-btn-wa-cli" onclick="window.open('${waCli}','_blank')">📲 WA cliente</button>`:''}</div></div>
-      <div class="ia-bloco msg-forn"><div class="ia-bloco-label">🏗️ Mensagem — fornecedor</div><div class="ia-msg-box">${r.msg_fornecedor||'—'}</div><div class="ia-actions">${waForn?`<button class="ia-btn-wa-forn" onclick="window.open('${waForn}','_blank')">📲 WA fornecedor</button>`:''}</div></div>
       <div class="ia-bloco acao"><div class="ia-bloco-label">✅ Ação recomendada</div><div class="ia-bloco-txt">${r.acao||'—'}</div>
+        <div id="ia_plano_bloco_${id}">${_planoChecklistHTML(id, plano, 0, tipo)}</div>
         <div class="ia-actions">${tipo!=='atencao'?`<button class="ia-btn-inad" onclick="mobArquivarInadimplir('${id}')">🚫 Inadimplente</button>`:''}<button class="btn btn-sm" onclick="closeModal('iaAlertaModal');abrirDetalhe('${id}')">Ver ordem</button></div>
       </div>
-      <div class="ia-rodape"><span class="ia-fonte">Reanalisado com conversas · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+      <div class="ia-rodape"><span class="ia-fonte">Reanalisado com conversa · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
   }catch(e){document.getElementById('iaAlertaBody').innerHTML=`<div style="padding:20px;color:var(--r);text-align:center">❌ Erro.<br><small>${e.message}</small></div>`;}
 }
 
