@@ -2197,6 +2197,23 @@ const api=async(path,method='GET',body=null,token=null,prefer=null)=>{
   if(!r.ok){const e=await r.text();throw new Error(e);}
   const t=await r.text(); return t?JSON.parse(t):null;
 };
+// Busca TODAS as linhas em blocos de 1000 via Range header — o Supabase trava
+// qualquer "limit=" no valor de "Max Rows" do projeto (padrão 1000), então só
+// paginação real (múltiplas requisições) traz mais que isso.
+const apiPaginado=async(pathBase,token=null)=>{
+  const BLOCO=1000;
+  let offset=0, tudo=[];
+  while(true){
+    const h={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY),'Range-Unit':'items','Range':offset+'-'+(offset+BLOCO-1)};
+    const r=await fetch(SUPA_URL+'/rest/v1/'+pathBase,{method:'GET',headers:h});
+    if(!r.ok){const e=await r.text();throw new Error(e);}
+    const t=await r.text(); const bloco=t?JSON.parse(t):[];
+    tudo=tudo.concat(bloco);
+    if(bloco.length<BLOCO) break;
+    offset+=BLOCO;
+  }
+  return tudo;
+};
 const authApi=async(path,body)=>{
   const r=await fetch(SUPA_URL+'/auth/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY},body:JSON.stringify(body)});
   return r.json();
@@ -2373,8 +2390,8 @@ async function loadApp(){
     setLoadProg(60,'Carregando dados...');
     const [dbOrdens,dbForns,dbUsrs,dbConfig]=await Promise.all([
       isAdmin()
-        ? api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
-        : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc&limit=20000',undefined,undefined,tok()),
+        ? apiPaginado('ordens?order=criado_em.asc',tok())
+        : apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
       api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
@@ -2530,8 +2547,8 @@ async function _pollOrdens(forcar){
     setSyncDot('sync');
     const uid=_currentUser?.user?.id;
     const novos=isAdmin()
-      ? await api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
-      : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc&limit=20000',undefined,undefined,tok());
+      ? await apiPaginado('ordens?order=criado_em.asc',tok())
+      : await apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok());
     if(!novos){setSyncDot('err');return;}
     const _snap=c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor+(c.nf_num||'')+(c.data||'')+(c.nome||'')+(c.forn_pago?'1':'0')+(c.obs||'').slice(0,20);
     const antes=JSON.stringify(ordens.map(_snap));
@@ -4082,8 +4099,8 @@ async function openDetail(id){
   // Refresh forçado para garantir dados atualizados
   try{
     const novos = isAdmin()
-      ? await api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
-      : await api('ordens?usuario_id=eq.'+(_currentUser?.user?.id)+'&order=criado_em.asc&limit=20000',undefined,undefined,tok());
+      ? await apiPaginado('ordens?order=criado_em.asc',tok())
+      : await apiPaginado('ordens?usuario_id=eq.'+(_currentUser?.user?.id)+'&order=criado_em.asc',tok());
     if(novos) ordens=novos;
   }catch(e){}
   const c=ordens.find(x=>x.id===id);if(!c)return;
