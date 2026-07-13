@@ -10867,6 +10867,14 @@ function nfSetFiltro(f){
   renderNF();
 }
 
+function _nfToggleClienteCard(headerEl){
+  const body=headerEl.nextElementSibling;
+  const estavaAberto=body.style.display==='block';
+  body.style.display=estavaAberto?'none':'block';
+  const chev=headerEl.querySelector('.nf-cli-chev');
+  if(chev) chev.textContent=estavaAberto?'▸':'▾';
+}
+
 function renderNF(){
   const filtro=window._nfFiltro||'todas';
   const q=_nrm((document.getElementById('nfBusca')||{}).value||'');
@@ -10908,31 +10916,73 @@ function renderNF(){
   let itensHTML='';
 
   if(filtro==='todas'||filtro==='emitidas'){
-    gruposArr.filter(g=>matchBusca(g.num+' '+g.nome+' '+g.logradouro)).forEach(g=>{
-      if(g.ords.length===1){
-        const c=g.ords[0];
-        itensHTML+=`<div class="nf-row" style="cursor:pointer" onclick="openDetail('${c.id}')">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700">NF ${g.num} · ${c.nome||'-'}</div>
-            <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
-          </div>
-          <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
-          <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
-        </div>`;
-      } else {
-        const chips=g.ords.map(o=>`<span style="font-size:10px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;color:var(--mut2);cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">${o.crm_id||'-'} · ${dateF(o.data)}</span>`).join('');
-        itensHTML+=`<div class="nf-row" style="flex-direction:column;align-items:stretch;cursor:default">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    // Agrupa também por cliente — clientes com mais de uma NF ganham um card com dropdown
+    const porCliente={};
+    gruposArr.forEach(g=>{ (porCliente[g.nome]=porCliente[g.nome]||[]).push(g); });
+    const clientesArr=Object.values(porCliente).map(grupos=>{
+      const totalGeral=_r2(grupos.reduce((s,g)=>s+g.total,0));
+      const impGeral=_r2(grupos.reduce((s,g)=>s+g.imp,0));
+      const maxNum=Math.max(...grupos.map(g=>parseInt(g.num,10)||0));
+      return {nome:grupos[0].nome,logradouro:grupos[0].logradouro,grupos,totalGeral,impGeral,maxNum};
+    }).sort((a,b)=>b.maxNum-a.maxNum);
+
+    clientesArr.forEach(cli=>{
+      const gruposMatch=cli.grupos.filter(g=>matchBusca(g.num+' '+g.nome+' '+g.logradouro));
+      if(!gruposMatch.length) return;
+
+      if(cli.grupos.length===1){
+        const g=gruposMatch[0];
+        if(g.ords.length===1){
+          const c=g.ords[0];
+          itensHTML+=`<div class="nf-row" style="cursor:pointer" onclick="openDetail('${c.id}')">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700">NF ${g.num} · ${g.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${g.ords.length} OS agrupadas</span></div>
-              <div style="font-size:11px;color:var(--mut2)">${g.logradouro||'-'}</div>
+              <div style="font-weight:700">NF ${g.num} · ${c.nome||'-'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+            </div>
+            <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
+            <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
+          </div>`;
+        } else {
+          const chips=g.ords.map(o=>`<span style="font-size:10px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;color:var(--mut2);cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">${o.crm_id||'-'} · ${dateF(o.data)}</span>`).join('');
+          itensHTML+=`<div class="nf-row" style="flex-direction:column;align-items:stretch;cursor:default">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700">NF ${g.num} · ${g.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${g.ords.length} OS agrupadas</span></div>
+                <div style="font-size:11px;color:var(--mut2)">${g.logradouro||'-'}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
+                <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid var(--bor);padding-top:8px">${chips}</div>
+          </div>`;
+        }
+      } else {
+        const subLinhas=gruposMatch.map(g=>`
+          <div style="border-top:1px solid var(--bor);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="event.stopPropagation();openDetail('${g.ords[0].id}')">
+            <div>
+              <div style="font-weight:700;font-size:12px">NF ${g.num}</div>
+              <div style="font-size:10px;color:var(--mut2)">${g.ords.length} OS agrupada${g.ords.length>1?'s':''}</div>
             </div>
             <div style="text-align:right">
-              <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
-              <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div>
+              <div style="font-weight:800;font-family:var(--mono);font-size:12px">R$ ${fmt(g.total)}</div>
+              <div style="font-size:9px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div>
+            </div>
+          </div>`).join('');
+        itensHTML+=`<div class="nf-row" style="flex-direction:column;align-items:stretch;padding:0;cursor:default;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_nfToggleClienteCard(this)">
+            <span class="nf-cli-chev" style="display:inline-block;font-size:12px;color:var(--mut2)">▸</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700">${cli.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${gruposMatch.length} notas</span></div>
+              <div style="font-size:11px;color:var(--mut2)">${cli.logradouro||'-'}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(cli.totalGeral)}</div>
+              <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(cli.impGeral)}</div>
             </div>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid var(--bor);padding-top:8px">${chips}</div>
+          <div style="display:none">${subLinhas}</div>
         </div>`;
       }
     });
