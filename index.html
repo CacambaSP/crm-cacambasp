@@ -1299,6 +1299,11 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
       <div class="fi" style="max-width:240px">
+        <label>Desconto de ISS (2,4%)</label>
+        <button class="btn btn-sm" id="d_iss_btn" style="width:100%" onclick="toggleDescontaISS(_detailId)">🏛️ Carregando...</button>
+        <div style="font-size:10px;color:var(--mut2);margin-top:4px">Quando ligado, o cliente paga já descontando 2,4% de ISS (recolhe direto na prefeitura). Se a ordem faz parte de uma NF agrupada, aplica em todas as OS da nota.</div>
+      </div>
+      <div class="fi" style="max-width:240px">
         <label>Nº Nota Fiscal</label>
         <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
@@ -1322,6 +1327,7 @@ input[type=checkbox]:checked::after{
     <div class="mb">
       <div id="pc_resumo" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:14px;font-size:12px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mut2)">Valor da ordem</span><span id="pc_rec_original" style="font-weight:700;color:var(--acc);font-family:var(--mono)">—</span></div>
+        <div id="pc_iss_aviso" style="display:none;font-size:11px;color:#f97316;margin-bottom:4px">🏛️ Cliente desconta ISS (2,4%) — valor abaixo já considera isso</div>
         <div id="pc_saldo_row" style="display:none;justify-content:space-between"><span style="color:var(--mut2)">Já recebido</span><span id="pc_ja_recebido" style="font-weight:700;color:var(--g);font-family:var(--mono)">—</span></div>
         <div id="pc_falta_row" style="display:none;justify-content:space-between;border-top:1px solid var(--bor);margin-top:6px;padding-top:6px"><span style="color:var(--r);font-weight:600">Falta receber</span><span id="pc_falta_val" style="font-weight:700;color:var(--r);font-family:var(--mono)">—</span></div>
       </div>
@@ -3017,6 +3023,7 @@ function cardHTML(c,color){
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
     ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
+    ${isAdmin()&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.pago?`<div onclick="event.stopPropagation();toggleDescontaISS('${c.id}')" style="display:inline-block;cursor:pointer;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-bottom:2px;${c.desconta_iss?'color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)':'color:var(--mut2);background:rgba(255,255,255,.04);border:1px solid var(--bor)'}">🏛️ ${c.desconta_iss?'Desconta ISS':'Cobrar cheio'}</div>`:''}
     ${!(parseFloat(c.rec||0)>0)&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:var(--r);font-weight:700;margin-bottom:2px">⚠️ Valor do cliente não informado</div>`:''}
     ${c.forn_id&&!(parseFloat(c.cst||0)>0)&&!c.forn_pago&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:#ffb020;font-weight:700;margin-bottom:2px">⚠️ Custo forn. não informado</div>`:''}
     ${c.pago_parcial_valor&&!c.pago?`<div style="font-size:9px;color:var(--acc);font-weight:700;padding-right:28px;margin-bottom:2px">Entrada R$ ${fmt(c.pago_parcial_valor)} · Falta R$ ${fmt(Math.max(0,(parseFloat(c.rec)||0)-c.pago_parcial_valor))}</div>`:''}
@@ -4175,6 +4182,18 @@ function fillDetail(c){
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
   }
   document.getElementById('d_nf').value=c.nf_num||'';
+  {
+    const _issBtn=document.getElementById('d_iss_btn');
+    if(_issBtn){
+      if(c.desconta_iss){
+        _issBtn.textContent='🏛️ Descontando ISS (2,4%) — clique pra cobrar cheio';
+        _issBtn.style.background='rgba(249,115,22,.12)'; _issBtn.style.color='#f97316'; _issBtn.style.borderColor='rgba(249,115,22,.35)';
+      } else {
+        _issBtn.textContent='🏛️ Cobrando valor cheio — clique pra descontar ISS';
+        _issBtn.style.background=''; _issBtn.style.color=''; _issBtn.style.borderColor='';
+      }
+    }
+  }
   // Parcial
   const parcialWrap=document.getElementById('d_parcial_wrap');
   if(parcialWrap){
@@ -5077,6 +5096,21 @@ async function voltarOrcamentoDetail(){
   }catch(e){toast('Erro ao mover ordem','err');}
 }
 
+// ── DESCONTO DE ISS (2,4%) — cliente recolhe direto, desconta na hora de pagar ──
+async function toggleDescontaISS(id){
+  const c=ordens.find(x=>x.id===id); if(!c) return;
+  const novoValor=!c.desconta_iss;
+  // Se a ordem já tem NF real (não vazia, não '000'), aplica em todas as OS da mesma NF
+  const grupo=(c.nf_num&&!_semNF(c.nf_num))?ordens.filter(o=>o.nf_num===c.nf_num):[c];
+  try{
+    await Promise.all(grupo.map(o=>api('ordens?id=eq.'+o.id,'PATCH',{desconta_iss:novoValor},tok())));
+    grupo.forEach(o=>o.desconta_iss=novoValor);
+    toast(novoValor?('🏛️ ISS será descontado (2,4%)'+(grupo.length>1?' — aplicado a '+grupo.length+' OS da NF '+c.nf_num:'')):'🏛️ Desconto de ISS removido','ok');
+    renderBoard();
+    if(_detailId===id) openDetail(id);
+  }catch(e){ toast('Erro ao salvar desconto de ISS','err'); }
+}
+
 // ── DELETAR ──
 async function confirmarDeletar(id){
   if(!isAdmin()){toast('Apenas administradores podem excluir ordens','warn');return;}
@@ -5099,13 +5133,15 @@ function openPagarCli(callback){
   const jaRec=parseFloat(c.pago_parcial_valor)||0;
   const falta=Math.max(0,(parseFloat(c.rec)||0)-jaRec);
   document.getElementById('pc_rec_original').textContent='R$ '+fmt((parseFloat(c.rec)||0)+(c.nf_num?40:0));
+  const _pcIssAviso=document.getElementById('pc_iss_aviso'); if(_pcIssAviso) _pcIssAviso.style.display=c.desconta_iss?'block':'none';
   document.getElementById('pc_saldo_row').style.display=jaRec>0?'flex':'none';
   if(jaRec>0)document.getElementById('pc_ja_recebido').textContent='R$ '+fmt(jaRec);
   document.getElementById('pc_falta_row').style.display=jaRec>0?'flex':'none';
   if(jaRec>0)document.getElementById('pc_falta_val').textContent='R$ '+fmt(falta);
   const _nfExtra = c.nf_num ? 40 : 0;
   const _recComNF = (parseFloat(c.rec)||0) + _nfExtra;
-  document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(_recComNF||'');
+  const _recComDesconto = c.desconta_iss ? _recComNF*(1-0.024) : _recComNF;
+  document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(_recComDesconto?_recComDesconto.toFixed(2):'');
   document.getElementById('pc_data').value=new Date().toISOString().slice(0,10);
   document.getElementById('pc_hora').value=new Date().toTimeString().slice(0,5);
   document.getElementById('pc_data_restante').value='';
