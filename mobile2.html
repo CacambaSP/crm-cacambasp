@@ -1139,6 +1139,13 @@ const authApi = async (path, body) => {
   return r.json();
 };
 
+// ── LOG DE AUDITORIA (mesmo padrão do desktop) ──
+async function addLog(orderId,acao,detalhe=''){
+  const entry={ts:nowISO(),usuario:_perfil?.nome||'Sistema',acao,detalhe};
+  try{ await api('ordens_log','POST',{ordem_id:orderId,ts:entry.ts,usuario:entry.usuario,acao,detalhe},tok()); }
+  catch(e){}
+}
+
 // ── LOADING ──
 function setLoad(pct, txt) {
   document.getElementById('loadFill').style.width = pct+'%';
@@ -1486,6 +1493,7 @@ async function trocarFornecedor(id) {
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',{col:'contratar',forn_id:null,entrega_confirmada:false},tok());
     const oldFornId = o.forn_id;
+    addLog(id,'Fornecedor removido','mobile: voltou para Contratar'+(forn?' (era '+forn.nome+')':''));
     o.col='contratar'; o.forn_id=null; o.entrega_confirmada=false;
     toast('🔄 Fornecedor removido','ok');
     renderCurrentView();
@@ -1865,6 +1873,7 @@ async function confirmarPagoForn() {
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
     try {
       await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+      addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:''));
       Object.assign(ord, upd);
       ok++;
     } catch(e){ toast('Erro em '+ord.crm_id,'err'); }
@@ -1889,6 +1898,7 @@ async function confirmarEntrega(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',{col:'pagar', entrega_confirmada:true},tok());
+    addLog(id,'Entrega confirmada','mobile');
     o.col='pagar'; o.entrega_confirmada=true;
     toast('✅ Entrega confirmada!','ok');
     renderCurrentView();
@@ -1925,6 +1935,7 @@ async function confirmarCancelar() {
     const upd = {col:'concluido', concluido_em:nowISO(), cancel_motivo:motivo};
     if(!o.forn_pago && o.forn_id){ upd.forn_id=null; upd.cst=null; }
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    addLog(id,'Cancelada','mobile: motivo — '+motivo);
     Object.assign(o, upd);
     closeModal('cancelarModal');
     toast('🗑️ Ordem cancelada','ok');
@@ -2607,6 +2618,7 @@ async function verificarAutoEntregas() {
   for(const o of pendentes) {
     try {
       await api(`ordens?id=eq.${o.id}`,'PATCH',{col:'pagar', entrega_confirmada:true},tok());
+      addLog(o.id,'Entrega confirmada','mobile: automático (horário atingido)');
       o.col='pagar'; o.entrega_confirmada=true;
     } catch(e){}
   }
@@ -4708,6 +4720,7 @@ async function mobArquivarInadimplir(id){
   try{
     setSyncDot('sync');
     await api('ordens?id=eq.'+id,'PATCH',{col:'inadimp'},tok());
+    addLog(id,'Marcado inadimplente','mobile');
     setSyncDot('ok');
     toast('🚫 Movido para inadimplente');
     closeModal('iaAlertaModal');
@@ -5079,6 +5092,7 @@ async function salvarNovaOrdem() {
       const res = await api('ordens','POST',bodyQ,tok());
       if(res?.[0]) _ordens.unshift(res[0]);
       ids_criados.push(crm_q);
+      addLog(bodyQ.id,'Criado','Nova ordem manual (mobile)'+(qtd>1?` (${q+1}/${qtd})`:''));
       // Notifica push para nova ordem em "Contratar"
       if(bodyQ.col==='contratar'){ try{ pushContratar(res?.[0]||bodyQ); }catch(e){} }
     }
@@ -5135,6 +5149,7 @@ async function voltarOrcamento(id) {
     const patchV = {col:'orcamento', orc_convertido_em:null};
     if(!o.forn_pago && o.forn_id){ patchV.forn_id=null; patchV.cst=null; }
     await api(`ordens?id=eq.${id}`,'PATCH',patchV,tok());
+    addLog(id,'Voltou para Orçamento','mobile');
     Object.assign(o, patchV);
     toast('↩️ Voltou para Orçamentos','ok');
     goBack();
@@ -5236,8 +5251,11 @@ function renderDetalhe(id) {
 // ── AÇÕES DA ORDEM ──
 async function moverColuna(id, colId) {
   try {
+    const o0 = _ordens.find(x=>x.id===id);
+    const colAntiga = o0?.col||'?';
     await api(`ordens?id=eq.${id}`,'PATCH',{col:colId},tok());
     const o = _ordens.find(x=>x.id===id); if(o) o.col=colId;
+    addLog(id,'Mudança de status','mobile: '+colAntiga+' → '+colId);
     renderDetalhe(id);
     toast('Etapa atualizada','ok');
   } catch(e){toast('Erro ao mover','err');}
@@ -5288,6 +5306,7 @@ async function duplicarOrdem(id) {
     delete body.atualizado_em;
     const res = await api('ordens','POST',body,tok());
     if(res?.[0]) _ordens.unshift(res[0]);
+    addLog(body.id,'Duplicada de '+(o.crm_id||'-'),'via mobile');
     toast(`Ordem ${crm_id} criada em Contratar!`,'ok');
     try{ pushContratar(res?.[0]||body); }catch(e){}
     setView('inicio');
@@ -5306,6 +5325,7 @@ async function arquivarOrdem(id) {
     const patchA = {col:'concluido'};
     if(oA && !oA.forn_pago && oA.forn_id){ patchA.forn_id=null; patchA.cst=null; }
     await api(`ordens?id=eq.${id}`,'PATCH',patchA,tok());
+    addLog(id,'Arquivada','mobile: movida para concluído');
     if(oA) Object.assign(oA, patchA);
     toast('Ordem arquivada','ok');
     goBack();
@@ -5315,6 +5335,7 @@ async function arquivarOrdem(id) {
 async function desarquivarOrdem(id) {
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',{col:'baixar'},tok());
+    addLog(id,'Desarquivada','mobile: reaberta para baixar');
     const o=_ordens.find(x=>x.id===id); if(o) o.col='baixar';
     toast('Ordem reaberta','ok');
     renderDetalhe(id);
@@ -5359,6 +5380,7 @@ async function confirmarPagoCli() {
     const novaCol = (o?.col==='pagar'||o?.col==='entrega'||o?.col==='faltapg'||o?.col==='ag_entrega')?'baixar':(o?.col||'baixar');
     const upd = {pago:true,pago_em:pagoEmISO,pago_valor:val,pago_obs:obs||null,col:novaCol};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    addLog(id,'Pagamento confirmado','mobile: R$ '+val.toFixed(2)+(obs?' · '+obs:''));
     if(o) Object.assign(o,upd);
     closeModal('pagarCliModal');
     toast('Pagamento registrado!','ok');
@@ -5380,6 +5402,7 @@ async function desfazerPagoCli(id) {
   try {
     const upd = {pago:false, pago_em:null, pago_valor:null, pago_obs:null, col:'pagar'};
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
+    addLog(id,'Pagamento desfeito','mobile');
     Object.assign(o,upd);
     toast('↩️ Pagamento desfeito','ok');
     renderDetalhe(id);
