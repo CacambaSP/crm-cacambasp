@@ -134,6 +134,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="pix-pago-ok"><div class="ok-ico">✅</div><div class="ok-txt">Pagamento confirmado!</div><div class="ok-sub">Obrigado pelo pagamento. Tudo certo!</div></div>
     <div id="pix-pendente">
       <div class="pix-valor" id="pix-valor-txt">R$ 0,00</div>
+      <div id="pix-iss-nota" style="display:none;text-align:center;font-size:12px;color:#f97316;margin:-10px 0 12px">🏛️ Valor já com desconto de ISS (2,4%)</div>
       <div id="qrcode-wrap"></div>
       <div class="pix-copy-row"><div id="pix-codigo"></div><button id="btn-copiar-pix" onclick="copiarPix()">Copiar</button></div>
     </div>
@@ -269,6 +270,11 @@ function copiarLink(){
   });
 }
 let _nfAcrescimo=40;
+// Valor que o cliente efetivamente paga: rec + acréscimo NF, com desconto de 2,4% de ISS se marcado
+function valorCliente(o){
+  const base=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
+  return o.desconta_iss ? base*(1-0.024) : base;
+}
 async function carregar(){
   const params=new URLSearchParams(window.location.search);
   const token=params.get('token');
@@ -280,9 +286,9 @@ async function carregar(){
     // Buscar ordem por token (seguro) ou crm_id (legado)
     let ordens;
     if(token){
-      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,desconta_iss&limit=1');
     }else{
-      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num&limit=1');
+      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,desconta_iss&limit=1');
     }
     const crmId=ordens&&ordens.length?ordens[0].crm_id:(crmIdParam||'');
     if(!ordens||!ordens.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
@@ -301,7 +307,7 @@ async function carregar(){
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
       try{
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa,cancel_motivo&order=data.asc');
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa,cancel_motivo,desconta_iss&order=data.asc');
         todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
@@ -365,7 +371,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   }
   // PIX agrupado ou simples
   const pendentes=emAberto.filter(o=>!o.pago);
-  const totalRec=pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+  const totalRec=pendentes.reduce((s,o)=>s+valorCliente(o),0);
   const todasPagas=pendentes.length===0;
   const cardDetalhes=document.getElementById('card-detalhes');
   if(emAberto.length>1){
@@ -398,7 +404,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     _grpsSorted.forEach(grp=>{
       const temNF=!!grp.nf;
       const pendGrp=grp.ordens.filter(o=>!o.pago);
-      const totalGrpPend=pendGrp.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+      const totalGrpPend=pendGrp.reduce((s,o)=>s+valorCliente(o),0);
       const todasPagasGrp=pendGrp.length===0;
       const gid='nfgrp_'+(_gi++);
       if(temNF){
@@ -412,7 +418,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
           +'</div>';
         grp.ordens.forEach(o=>{
           const pago=o.pago;
-          const valCli=(parseFloat(o.rec)||0)+_nfAcrescimo;
+          const valCli=valorCliente(o);
           if(pago){
             listaHTML+='<div class="ord-item">'
               +'<div class="ord-item-left">'
@@ -426,7 +432,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
               +'<input type="checkbox" class="ord-item-check nf-grp-item" data-grp="'+gid+'" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'
               +'<div class="ord-item-left">'
               +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+(o.desconta_iss?' · <span style="color:#f97316">ISS descontado</span>':'')+'</div>'
               +'</div>'
               +'<div class="ord-item-right">'
               +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
@@ -440,7 +446,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
         // OS sem NF — individual
         grp.ordens.forEach(o=>{
           const pago=o.pago;
-          const valCli=(parseFloat(o.rec)||0);
+          const valCli=valorCliente(o);
           if(pago){
             listaHTML+='<div class="ord-item">'
               +'<div class="ord-item-left">'
@@ -454,7 +460,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
               +'<input type="checkbox" class="ord-item-check" data-crm="'+(o.crm_id||'')+'" data-val="'+valCli+'" checked onchange="atualizarSelecao()">'
               +'<div class="ord-item-left">'
               +'<div class="ord-item-end">'+(o.logradouro||'—')+(o.bairro?', '+o.bairro:'')+'</div>'
-              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+'</div>'
+              +'<div class="ord-item-info">'+(o.crm_id||'')+(o.tipo?' · '+o.tipo:'')+' · '+dateF(o.data)+(o.desconta_iss?' · <span style="color:#f97316">ISS descontado</span>':'')+'</div>'
               +'</div>'
               +'<div class="ord-item-right">'
               +'<span class="ord-item-val">R$ '+fmt(valCli)+'</span>'
@@ -481,7 +487,8 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     document.getElementById('card-lista-agrupada').style.display='none';
     document.getElementById('pix-card-title').textContent='Pagamento via Pix';
     document.getElementById('pix-card-sub').textContent='Escaneie o QR Code ou copie o código';
-    const recSimples=(parseFloat(ord.rec||0))+(ord.nf_num?_nfAcrescimo:0);
+    const recSimples=valorCliente(ord);
+    const _notaIss=document.getElementById('pix-iss-nota'); if(_notaIss) _notaIss.style.display=ord.desconta_iss?'block':'none';
     renderPix(recSimples,ord.crm_id,ord.pago,ultimoPagoEm);
   }
   const cont=document.getElementById('conteudo');
@@ -615,7 +622,7 @@ async function abrirReciboTracking(){
   const pagas    = ordens.filter(o=>o.pago);
   const pendentes= ordens.filter(o=>!o.pago);
   const totalPago= pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
-  const totalPend= pendentes.reduce((s,o)=>s+(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),0);
+  const totalPend= pendentes.reduce((s,o)=>s+valorCliente(o),0);
   const totalGeral=totalPago+totalPend;
 
   // Pix payload para pendentes
@@ -655,7 +662,7 @@ async function abrirReciboTracking(){
 
   function linhaOrdem(o,tipo){
     const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
-    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
+    const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:valorCliente(o);
     const dataPag=tipo==='pago'&&o.pago_em?' · pago em '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const nfNum=(o.nf_num||'').replace(/^0+/,'');
     return `<tr>
