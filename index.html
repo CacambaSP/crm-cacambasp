@@ -5746,9 +5746,10 @@ function renderCobrancaAuto(){
   }
 
   // Separa cobrados hoje/nesta janela (não entram nos contadores de alerta)
-  const juridico  = todos.filter(c => c.col==='inadimp');
+  const juridicoTodos = todos.filter(c => c.col==='inadimp');
+  const juridico = juridicoTodos.filter(c => podeCobrarAgora(c));
   const escadaTodos = todos.filter(c => c.col!=='inadimp' && c.col!=='orcamento');
-  const cobradosHoje = escadaTodos.filter(c => !podeCobrarAgora(c));
+  const cobradosHoje = escadaTodos.filter(c => !podeCobrarAgora(c)).concat(juridicoTodos.filter(c => !podeCobrarAgora(c)));
   const pendentes = escadaTodos.filter(c => podeCobrarAgora(c));
 
   // Agrupa por nível da escada
