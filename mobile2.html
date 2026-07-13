@@ -2755,8 +2755,9 @@ function getOrdensComAcao(ordens) {
       return;
     }
     if(o.col==='ag_entrega') grupos.entregar.push(o);
-    // Inadimplentes: fora da escada automática — seção Jurídico (ação manual)
-    if(o.col==='inadimp' && !o.pago) { grupos.juridico.push(o); }
+    // Inadimplentes: fora da escada automática de cobrança repetida (ação manual),
+    // mas some da lista no mesmo padrão após cobrar (via cobrado_em) e volta no dia seguinte
+    if(o.col==='inadimp' && !o.pago && podeCobrarAgora(o)) { grupos.juridico.push(o); }
     else if(!o.pago && podeCobrarAgora(o) && (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg'||o.col==='baixar'||o.col==='receber_cliente'||diasAberto(o)>=3)) grupos.cobrar.push(o);
     if(o.forn_id && !o.forn_pago && (o.col==='entrega'||o.col==='baixar'||o.col==='pagar') && (o.pago || o.entrega_confirmada)) grupos.pagar_forn.push(o);
   });
