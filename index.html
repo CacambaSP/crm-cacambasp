@@ -2365,8 +2365,8 @@ async function loadApp(){
     setLoadProg(60,'Carregando dados...');
     const [dbOrdens,dbForns,dbUsrs,dbConfig]=await Promise.all([
       isAdmin()
-        ? api('ordens?order=criado_em.asc',undefined,undefined,tok())
-        : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok()),
+        ? api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
+        : api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc&limit=20000',undefined,undefined,tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
       api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
@@ -2522,8 +2522,8 @@ async function _pollOrdens(forcar){
     setSyncDot('sync');
     const uid=_currentUser?.user?.id;
     const novos=isAdmin()
-      ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
-      : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',undefined,undefined,tok());
+      ? await api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
+      : await api('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc&limit=20000',undefined,undefined,tok());
     if(!novos){setSyncDot('err');return;}
     const _snap=c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor+(c.nf_num||'')+(c.data||'')+(c.nome||'')+(c.forn_pago?'1':'0')+(c.obs||'').slice(0,20);
     const antes=JSON.stringify(ordens.map(_snap));
@@ -4074,8 +4074,8 @@ async function openDetail(id){
   // Refresh forçado para garantir dados atualizados
   try{
     const novos = isAdmin()
-      ? await api('ordens?order=criado_em.asc',undefined,undefined,tok())
-      : await api('ordens?usuario_id=eq.'+(_currentUser?.user?.id)+'&order=criado_em.asc',undefined,undefined,tok());
+      ? await api('ordens?order=criado_em.asc&limit=20000',undefined,undefined,tok())
+      : await api('ordens?usuario_id=eq.'+(_currentUser?.user?.id)+'&order=criado_em.asc&limit=20000',undefined,undefined,tok());
     if(novos) ordens=novos;
   }catch(e){}
   const c=ordens.find(x=>x.id===id);if(!c)return;
