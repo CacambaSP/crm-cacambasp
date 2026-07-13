@@ -10989,27 +10989,59 @@ function renderNF(){
   }
 
   if(filtro==='todas'||filtro==='pendentes'){
-    pendentes.filter(c=>matchBusca((c.crm_id||'')+' '+(c.nome||'')+' '+(c.logradouro||'')))
-      .sort((a,b)=>(b.data||'').localeCompare(a.data||''))
-      .forEach(c=>{
-        // Verifica se há outras pendentes do mesmo cliente no mesmo endereço (candidatas a agrupar numa NF só)
-        const endBase=_nfNormEnd(c.logradouro);
-        const outrasMesmoEnd=pendentes.filter(o=>o.id!==c.id&&o.nome===c.nome&&_nfNormEnd(o.logradouro)===endBase&&endBase);
-        const avisoAgrupar=outrasMesmoEnd.length?`<div style="font-size:10px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:2px 6px;margin-top:4px;display:inline-block">🔗 +${outrasMesmoEnd.length} pendente${outrasMesmoEnd.length>1?'s':''} no mesmo endereço · clique em NF pra agrupar</div>`:'';
-        itensHTML+=`<div class="nf-row" style="cursor:pointer;border-color:var(--acc3);flex-direction:column;align-items:stretch" onclick="openDetail('${c.id}')">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700">${c.crm_id||'-'} · ${c.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span></div>
-              <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+    const pendMatch=pendentes.filter(c=>matchBusca((c.crm_id||'')+' '+(c.nome||'')+' '+(c.logradouro||'')));
+    const grupoPend={};
+    pendMatch.forEach(c=>{
+      const key=(c.nome||'')+'||'+_nfNormEnd(c.logradouro);
+      (grupoPend[key]=grupoPend[key]||[]).push(c);
+    });
+    const gruposPendArr=Object.values(grupoPend).map(ords=>{
+      const total=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0));
+      const dataMax=ords.reduce((m,o)=>(o.data||'')>m?(o.data||''):m,'');
+      return {ords,total,data:dataMax,nome:ords[0].nome,logradouro:ords[0].logradouro};
+    }).sort((a,b)=>b.data.localeCompare(a.data));
+
+    gruposPendArr.forEach(gp=>{
+      if(gp.ords.length===1){
+        const c=gp.ords[0];
+        itensHTML+=`<div class="nf-row" style="cursor:pointer;border-color:var(--acc3)" onclick="openDetail('${c.id}')">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700">${c.crm_id||'-'} · ${c.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span></div>
+            <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(c.rec)}</div></div>
+            <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
+          </div>
+        </div>`;
+      } else {
+        const subLinhas=gp.ords.map(o=>`
+          <div style="border-top:1px solid var(--bor);padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
+            <div style="cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">
+              <div style="font-weight:700;font-size:12px">${o.crm_id||'-'}</div>
+              <div style="font-size:10px;color:var(--mut2)">${dateF(o.data)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(c.rec)}</div></div>
-              <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
+              <div style="font-weight:800;font-family:var(--mono);font-size:12px">R$ ${fmt(o.rec)}</div>
+              <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap;font-size:10px;padding:3px 8px" onclick="event.stopPropagation();abrirEmitirNF('${o.id}')">🧾 NF</button>
+            </div>
+          </div>`).join('');
+        itensHTML+=`<div class="nf-row" style="flex-direction:column;align-items:stretch;padding:0;cursor:default;overflow:hidden;border-color:var(--acc3)">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer" onclick="_nfToggleClienteCard(this)">
+            <span class="nf-cli-chev" style="display:inline-block;font-size:12px;color:var(--mut2)">▸</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700">${gp.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span> <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${gp.ords.length} ordens</span></div>
+              <div style="font-size:11px;color:var(--mut2)">${gp.logradouro||'-'}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(gp.total)}</div></div>
+              <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${gp.ords[0].id}')">🧾 Agrupar e emitir</button>
             </div>
           </div>
-          ${avisoAgrupar}
+          <div style="display:none">${subLinhas}</div>
         </div>`;
-      });
+      }
+    });
   }
 
   lista.innerHTML=itensHTML||'<div style="text-align:center;padding:40px;color:var(--mut)">Nenhuma NF encontrada</div>';
