@@ -608,7 +608,7 @@ input[type=checkbox]:checked::after{
             <div class="sb-name">CaçambaSP</div>
             <div class="sb-ver">v3.0.7</div>
           </div>
-          <div class="sync-dot ok" id="syncDot" title="Sincronizado"></div>
+          <div class="sync-dot ok" id="syncDot" title="Sincronizado · clique para forçar atualização" style="cursor:pointer" onclick="forcarSincronizacao()"></div>
         </div>
       </div>
       <div class="sb-nav">
@@ -2222,7 +2222,15 @@ function toast(msg,type='ok',dur=0){
 // ── SYNC DOT ──
 function setSyncDot(s){
   const d=document.getElementById('syncDot');
-  if(d){d.className='sync-dot '+s;}
+  if(!d) return;
+  d.className='sync-dot '+s;
+  const titulos={ok:'Sincronizado · clique para forçar atualização',sync:'Sincronizando...',err:'Falha ao sincronizar · clique para tentar de novo'};
+  d.title=titulos[s]||'Clique para forçar atualização';
+}
+async function forcarSincronizacao(){
+  toast('🔄 Atualizando...','info',1500);
+  await _pollOrdens(true);
+  toast('✅ Atualizado','ok',2000);
 }
 
 // ── CONFIRM ──
