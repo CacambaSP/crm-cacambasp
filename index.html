@@ -823,7 +823,7 @@ input[type=checkbox]:checked::after{
         <div class="pw">
           <div class="ph"><div class="ph-title">Notas Fiscais</div></div>
           <div id="nfResumo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <div class="rel-tabs" style="margin-bottom:0">
               <button class="rel-tab on" id="nfTab-todas" onclick="nfSetFiltro('todas')">Todas</button>
               <button class="rel-tab" id="nfTab-pendentes" onclick="nfSetFiltro('pendentes')">Pendentes de emissão</button>
@@ -834,6 +834,16 @@ input[type=checkbox]:checked::after{
               <input id="nfBusca" type="text" placeholder="Buscar por NF, cliente ou endereço…" oninput="renderNF()"
                 style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px 8px 32px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)">
             </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+            <select id="nfFiltroVend" onchange="renderNF()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 11px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+              <option value="">Todos os vendedores</option>
+            </select>
+            <span style="font-size:11px;color:var(--mut2)">De</span>
+            <input id="nfDataDe" type="date" onchange="renderNF()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 9px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+            <span style="font-size:11px;color:var(--mut2)">até</span>
+            <input id="nfDataAte" type="date" onchange="renderNF()" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:6px 9px;font-family:var(--font);font-size:12px;color:var(--txt);outline:none">
+            <button class="btn btn-xs" onclick="document.getElementById('nfFiltroVend').value='';document.getElementById('nfDataDe').value='';document.getElementById('nfDataAte').value='';renderNF()">Limpar período/vendedor</button>
           </div>
           <div id="nfLista" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
@@ -2580,7 +2590,7 @@ function setView(v){
   if(v==='conc') renderConc();
   if(v==='pgforn') initPgForn();
   if(v==='rel') renderRel();
-  if(v==='nf') renderNF();
+  if(v==='nf'){ _popularFiltroVend('nfFiltroVend'); renderNF(); }
   if(v==='config') renderConfig();
   if(v==='forn') renderForns();
   if(v==='cobr'){ renderCobrancaAuto(); initCobrancaConfig(); }
@@ -10878,14 +10888,23 @@ function _nfToggleClienteCard(headerEl){
 function renderNF(){
   const filtro=window._nfFiltro||'todas';
   const q=_nrm((document.getElementById('nfBusca')||{}).value||'');
+  const vendSel=(document.getElementById('nfFiltroVend')||{}).value||'';
+  const dataDe=(document.getElementById('nfDataDe')||{}).value||'';
+  const dataAte=(document.getElementById('nfDataAte')||{}).value||'';
   const lista=document.getElementById('nfLista');
   const resumo=document.getElementById('nfResumo');
   const matchBusca=(texto)=>!q||_nrm(texto).includes(q);
+  const matchVendPeriodo=(c)=>{
+    if(vendSel&&c.usuario_id!==vendSel) return false;
+    if(dataDe&&(!c.data||c.data<dataDe)) return false;
+    if(dataAte&&(!c.data||c.data>dataAte)) return false;
+    return true;
+  };
 
   const _r2=v=>Math.round((v||0)*100)/100;
-  const emitidas=ordens.filter(c=>c.nf_num&&!_semNF(c.nf_num));
+  const emitidas=ordens.filter(c=>c.nf_num&&!_semNF(c.nf_num)&&matchVendPeriodo(c));
   // Pendente de emissão = nf_num '000' (já solicitada), com valor real, não cancelada e não orçamento
-  const pendentes=ordens.filter(c=>c.nf_num==='000'&&!['orcamento','cancelado'].includes(c.col)&&!c.cancel_motivo&&(parseFloat(c.rec)||0)>0);
+  const pendentes=ordens.filter(c=>c.nf_num==='000'&&!['orcamento','cancelado'].includes(c.col)&&!c.cancel_motivo&&(parseFloat(c.rec)||0)>0&&matchVendPeriodo(c));
 
   // Agrupa ordens emitidas pelo mesmo nf_num (nota consolidada)
   const gruposMap={};
