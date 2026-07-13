@@ -10900,6 +10900,8 @@ function renderNF(){
     if(dataAte&&(!c.data||c.data>dataAte)) return false;
     return true;
   };
+  const _vendNome=(c)=>(usuarios.find(u=>u.id===c.usuario_id)||{}).nome||'-';
+  const _vendUniforme=(ords)=>{ const nomes=[...new Set(ords.map(_vendNome))]; return nomes.length===1?nomes[0]:'vários vendedores'; };
 
   const _r2=v=>Math.round((v||0)*100)/100;
   const emitidas=ordens.filter(c=>c.nf_num&&!_semNF(c.nf_num)&&matchVendPeriodo(c));
@@ -10956,18 +10958,18 @@ function renderNF(){
           itensHTML+=`<div class="nf-row" style="cursor:pointer" onclick="openDetail('${c.id}')">
             <div style="flex:1;min-width:0">
               <div style="font-weight:700">NF ${g.num} · ${c.nome||'-'}</div>
-              <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)} · ${_vendNome(c)}</div>
             </div>
             <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
             <div style="font-size:10px;color:var(--r)">Imposto: R$ ${fmt(g.imp)}</div></div>
           </div>`;
         } else {
-          const chips=g.ords.map(o=>`<span style="font-size:10px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;color:var(--mut2);cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">${o.crm_id||'-'} · ${dateF(o.data)}</span>`).join('');
+          const chips=g.ords.map(o=>`<span style="font-size:10px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;color:var(--mut2);cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">${o.crm_id||'-'} · ${dateF(o.data)} · ${_vendNome(o)}</span>`).join('');
           itensHTML+=`<div class="nf-row" style="flex-direction:column;align-items:stretch;cursor:default">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <div style="flex:1;min-width:0">
                 <div style="font-weight:700">NF ${g.num} · ${g.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${g.ords.length} OS agrupadas</span></div>
-                <div style="font-size:11px;color:var(--mut2)">${g.logradouro||'-'}</div>
+                <div style="font-size:11px;color:var(--mut2)">${g.logradouro||'-'} · ${_vendUniforme(g.ords)}</div>
               </div>
               <div style="text-align:right">
                 <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(g.total)}</div>
@@ -10982,7 +10984,7 @@ function renderNF(){
           <div style="border-top:1px solid var(--bor);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="event.stopPropagation();openDetail('${g.ords[0].id}')">
             <div>
               <div style="font-weight:700;font-size:12px">NF ${g.num}</div>
-              <div style="font-size:10px;color:var(--mut2)">${g.ords.length} OS agrupada${g.ords.length>1?'s':''}</div>
+              <div style="font-size:10px;color:var(--mut2)">${g.ords.length} OS agrupada${g.ords.length>1?'s':''} · ${_vendUniforme(g.ords)}</div>
             </div>
             <div style="text-align:right">
               <div style="font-weight:800;font-family:var(--mono);font-size:12px">R$ ${fmt(g.total)}</div>
@@ -10994,7 +10996,7 @@ function renderNF(){
             <span class="nf-cli-chev" style="display:inline-block;font-size:12px;color:var(--mut2)">▸</span>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700">${cli.nome||'-'} <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${gruposMatch.length} notas</span></div>
-              <div style="font-size:11px;color:var(--mut2)">${cli.logradouro||'-'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${cli.logradouro||'-'} · ${_vendUniforme(gruposMatch.flatMap(g=>g.ords))}</div>
             </div>
             <div style="text-align:right">
               <div style="font-weight:800;color:var(--acc);font-family:var(--mono)">R$ ${fmt(cli.totalGeral)}</div>
@@ -11026,11 +11028,7 @@ function renderNF(){
         itensHTML+=`<div class="nf-row" style="cursor:pointer;border-color:var(--acc3)" onclick="openDetail('${c.id}')">
           <div style="flex:1;min-width:0">
             <div style="font-weight:700">${c.crm_id||'-'} · ${c.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span></div>
-            <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(c.rec)}</div></div>
-            <button class="btn btn-xs" style="background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3);white-space:nowrap" onclick="event.stopPropagation();abrirEmitirNF('${c.id}')">🧾 NF</button>
+            <div style="font-size:11px;color:var(--mut2)">${c.logradouro||'-'} · ${dateF(c.data)} · ${_vendNome(c)}</div>
           </div>
         </div>`;
       } else {
@@ -11038,7 +11036,7 @@ function renderNF(){
           <div style="border-top:1px solid var(--bor);padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
             <div style="cursor:pointer" onclick="event.stopPropagation();openDetail('${o.id}')">
               <div style="font-weight:700;font-size:12px">${o.crm_id||'-'}</div>
-              <div style="font-size:10px;color:var(--mut2)">${dateF(o.data)}</div>
+              <div style="font-size:10px;color:var(--mut2)">${dateF(o.data)} · ${_vendNome(o)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <div style="font-weight:800;font-family:var(--mono);font-size:12px">R$ ${fmt(o.rec)}</div>
@@ -11050,7 +11048,7 @@ function renderNF(){
             <span class="nf-cli-chev" style="display:inline-block;font-size:12px;color:var(--mut2)">▸</span>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700">${gp.nome||'-'} <span style="font-size:9px;color:var(--acc);background:var(--acc2);border:1px solid var(--acc3);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px">PENDENTE</span> <span style="font-weight:600;color:var(--mut2);font-size:11px">· ${gp.ords.length} ordens</span></div>
-              <div style="font-size:11px;color:var(--mut2)">${gp.logradouro||'-'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${gp.logradouro||'-'} · ${_vendUniforme(gp.ords)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <div style="text-align:right"><div style="font-weight:800;color:var(--txt);font-family:var(--mono)">R$ ${fmt(gp.total)}</div></div>
