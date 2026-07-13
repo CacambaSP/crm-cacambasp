@@ -2242,8 +2242,8 @@ async function loadApp() {
     _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
     const [dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
       isAdmin()
-        ? api('ordens?order=criado_em.desc','GET',null,tok())
-        : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc','GET',null,tok()),
+        ? api('ordens?order=criado_em.desc&limit=20000','GET',null,tok())
+        : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc&limit=20000','GET',null,tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
       api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
