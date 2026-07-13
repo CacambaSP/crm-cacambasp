@@ -1134,6 +1134,23 @@ const api = async (path, method='GET', body=null, token=null, prefer=null) => {
   if(!r.ok){const e=await r.text();throw new Error(e);}
   const t = await r.text(); return t?JSON.parse(t):null;
 };
+// Busca TODAS as linhas em blocos de 1000 via Range header — o Supabase trava
+// qualquer "limit=" no valor de "Max Rows" do projeto (padrão 1000), então só
+// paginação real (múltiplas requisições) traz mais que isso.
+const apiPaginado = async (pathBase, token=null) => {
+  const BLOCO = 1000;
+  let offset = 0, tudo = [];
+  while(true){
+    const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY),'Range-Unit':'items','Range':offset+'-'+(offset+BLOCO-1)};
+    const r = await fetch(SUPA_URL+'/rest/v1/'+pathBase,{method:'GET',headers:h});
+    if(!r.ok){const e=await r.text();throw new Error(e);}
+    const t = await r.text(); const bloco = t?JSON.parse(t):[];
+    tudo = tudo.concat(bloco);
+    if(bloco.length < BLOCO) break;
+    offset += BLOCO;
+  }
+  return tudo;
+};
 const authApi = async (path, body) => {
   const r = await fetch(SUPA_URL+'/auth/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY},body:JSON.stringify(body)});
   return r.json();
@@ -1168,11 +1185,8 @@ async function manualRefresh() {
   setSyncDot('loading');
   toast('🔄 Atualizando...','info',1500);
   try {
-    const path = isAdmin()
-      ? 'ordens?order=criado_em.desc'
-      : 'ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc';
     const [novasOrdens, novosForn, novosCfg] = await Promise.all([
-      api(path,'GET',null,tok()),
+      isAdmin() ? apiPaginado('ordens?order=criado_em.desc',tok()) : apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
     ]);
@@ -2242,8 +2256,8 @@ async function loadApp() {
     _perfil = perfis?.[0] || {id:uid(),nome:_user.user.email?.split('@')[0]||'',nivel:'operador'};
     const [dbOrdens,dbForns,dbUsrs,dbCfg] = await Promise.all([
       isAdmin()
-        ? api('ordens?order=criado_em.desc&limit=20000','GET',null,tok())
-        : api('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc&limit=20000','GET',null,tok()),
+        ? apiPaginado('ordens?order=criado_em.desc',tok())
+        : apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
       api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
@@ -2279,10 +2293,9 @@ async function loadApp() {
     _autoId = setInterval(async()=>{
       try{
         setSyncDot('loading');
-        const path = isAdmin()
-          ? 'ordens?order=criado_em.desc'
-          : 'ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc';
-        const novo = await api(path,'GET',null,tok());
+        const novo = isAdmin()
+          ? await apiPaginado('ordens?order=criado_em.desc',tok())
+          : await apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok());
         const _snapMob=o=>o.id+o.col+o.pago+(o.forn_id||'')+(o.nf_num||'')+(o.data||'')+(o.forn_pago?'1':'0')+(o.rec||'0');
         if(novo && JSON.stringify(novo.map(_snapMob)) !== JSON.stringify(_ordens.map(_snapMob))){
           _ordens = novo;
