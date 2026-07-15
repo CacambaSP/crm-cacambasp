@@ -9332,14 +9332,26 @@ async function confirmarBaixaExtrato(){
   const checks=[...document.querySelectorAll('#extratoResultado input[type=checkbox]:checked')];
   if(!checks.length){toast('Nenhuma ordem selecionada','warn');return;}
   const ids=checks.filter(ch=>ch.dataset.crmid).map(ch=>ch.dataset.crmid);
-  // Ordens individuais desmarcadas dentro de GRPs
-  const desmarcadasGrp=new Set(
-    [...document.querySelectorAll('#extratoResultado input[data-ordid]:not(:checked)')].map(ch=>ch.dataset.ordid)
-  );
   const itens=_extratoConfirm.filter(r=>ids.includes(r.id)&&r.ordens&&r.ordens.length);
   if(!itens.length)return;
+  // ── Ordens individuais desmarcadas dentro de GRPs — ESCOPADO POR GRUPO (data-grpid) ──
+  // Antes isto olhava a tela inteira: como a mesma ordem aparece "não incluso" (desmarcada)
+  // como referência em OUTROS grupos do mesmo cliente, ela acabava sendo excluída até do
+  // grupo em que estava corretamente marcada. Agora cada grupo só enxerga seus próprios checkboxes.
+  const desmarcadasPorItem={};
+  itens.forEach(item=>{
+    desmarcadasPorItem[item.id]=new Set(
+      [...document.querySelectorAll('#extratoResultado input[data-ordid]')]
+        .filter(ch=>ch.dataset.grpid===item.id&&!ch.checked)
+        .map(ch=>ch.dataset.ordid)
+    );
+  });
+  const desmarcadasDe=(itemId,ordId)=>(desmarcadasPorItem[itemId]||new Set()).has(ordId);
+  // Conjunto global (união de todos os itens) — usado só para o aviso de OS canceladas e para
+  // o agrupamento automático das ordens que sobraram de verdade (desmarcadasGrp abaixo)
+  const desmarcadasGrp=new Set(Object.values(desmarcadasPorItem).flatMap(s=>[...s]));
   // ── PROTEÇÃO: bloquear conciliação de OS canceladas ──
-  const todasOrdensParaBaixar=itens.flatMap(r=>(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)));
+  const todasOrdensParaBaixar=itens.flatMap(r=>(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasDe(r.id,o.id)));
   // Bloquear OS canceladas (com cancel_motivo) OU arquivadas sem pagamento (col=concluido sem pago)
   const ordensCanceladas=todasOrdensParaBaixar.filter(o=>o.cancel_motivo||(o.col==='concluido'&&!o.pago));
   if(ordensCanceladas.length>0){
@@ -9353,17 +9365,25 @@ async function confirmarBaixaExtrato(){
       cancel:'❌ Cancelar tudo'
     });
     if(!prosseguir)return;
-    // Marcar as problemáticas como excluídas da baixa
-    ordensCanceladas.forEach(o=>desmarcadasGrp.add(o.id));
+    // Marcar as problemáticas como excluídas da baixa — em cada item/grupo a que pertencem
+    ordensCanceladas.forEach(o=>{
+      desmarcadasGrp.add(o.id);
+      itens.forEach(item=>{
+        if((item.ordens||[]).some(io=>io.id===o.id)){
+          if(!desmarcadasPorItem[item.id])desmarcadasPorItem[item.id]=new Set();
+          desmarcadasPorItem[item.id].add(o.id);
+        }
+      });
+    });
     const aindaValidas=todasOrdensParaBaixar.filter(o=>!o.cancel_motivo&&!(o.col==='concluido'&&!o.pago));
     if(!aindaValidas.length){toast('Nenhuma ordem válida para baixar após remover canceladas.','warn');return;}
   }
-  const totalOrdens=itens.reduce((s,r)=>s+(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id)).length,0);
+  const totalOrdens=itens.reduce((s,r)=>s+(r.ordens||[]).filter(o=>!o.pago&&!desmarcadasDe(r.id,o.id)).length,0);
   const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+totalOrdens+' ordem'+(totalOrdens!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
   if(!ok)return;
   const agora=nowISO();let cnt=0;
   for(const item of itens){
-    const pendItem=(item.ordens||[]).filter(o=>!o.pago&&!desmarcadasGrp.has(o.id));
+    const pendItem=(item.ordens||[]).filter(o=>!o.pago&&!desmarcadasDe(item.id,o.id));
     const nOrdens=pendItem.length||1;
     const totalRec=pendItem.reduce((s,o)=>s+(parseFloat(o.rec)||0),0)||item.valorPago;
     for(const o of pendItem){
