@@ -5107,6 +5107,24 @@ async function nextCrmId() {
     return prefix + '0001';
   }
 }
+// Gera um crm_id e executa salvarFn(crmId). Se o banco recusar por já existir
+// esse código (corrida entre duas criações quase simultâneas, erro 23505),
+// tenta de novo com um novo número — até 3 vezes — em vez de mostrar erro.
+async function withCrmIdRetry(salvarFn, maxTentativas=3) {
+  let ultimoErro;
+  for(let i=0;i<maxTentativas;i++){
+    const crmId = await nextCrmId();
+    try{
+      return await salvarFn(crmId);
+    }catch(e){
+      ultimoErro = e;
+      const msg = String(e && e.message || e);
+      if(msg.includes('23505') && msg.includes('crm_id') && i<maxTentativas-1) continue;
+      throw e;
+    }
+  }
+  throw ultimoErro;
+}
 
 async function salvarNovaOrdem() {
   const nome  = document.getElementById('nv_nome')?.value?.trim();
@@ -5119,11 +5137,10 @@ async function salvarNovaOrdem() {
   btn.disabled=true; btn.textContent='Salvando...';
   try {
     const uid2 = isAdmin() ? (document.getElementById('nv_user')?.value||uid()) : uid();
-    const crm_id = await nextCrmId();
     let recVal = parseFloat(document.getElementById('nv_rec')?.value||0);
     // rec salvo SEM acréscimo NF — R$40 somado apenas na exibição (regra central v3.0.7)
     const body = {
-      id: uidGen(), crm_id,
+      id: uidGen(), crm_id: '...',
       usuario_id: uid2, nome,
       cel: wh.replace(/\D/g,''),
       cpf: document.getElementById('nv_cpf')?.value?.trim()||null,
@@ -5142,17 +5159,18 @@ async function salvarNovaOrdem() {
     const qtd = Math.max(1, parseInt(document.getElementById('nv_qtd')?.value||1));
     const ids_criados = [];
     for(let q=0; q<qtd; q++) {
-      const crm_q = q===0 ? crm_id : await nextCrmId();
       const tipoQ = qtd>1 ? (document.getElementById('nv_tipo')?.value||'Locação')+` (${q+1}/${qtd})` : (document.getElementById('nv_tipo')?.value||'Locação');
-      const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
-      const res = await api('ordens','POST',bodyQ,tok());
-      if(res?.[0]) _ordens.unshift(res[0]);
-      ids_criados.push(crm_q);
-      addLog(bodyQ.id,'Criado','Nova ordem manual (mobile)'+(qtd>1?` (${q+1}/${qtd})`:''));
-      // Notifica push para nova ordem em "Contratar"
-      if(bodyQ.col==='contratar'){ try{ pushContratar(res?.[0]||bodyQ); }catch(e){} }
+      await withCrmIdRetry(async(crm_q)=>{
+        const bodyQ = {...body, id:uidGen(), crm_id:crm_q, tipo:tipoQ};
+        const res = await api('ordens','POST',bodyQ,tok());
+        if(res?.[0]) _ordens.unshift(res[0]);
+        ids_criados.push(crm_q);
+        addLog(bodyQ.id,'Criado','Nova ordem manual (mobile)'+(qtd>1?` (${q+1}/${qtd})`:''));
+        // Notifica push para nova ordem em "Contratar"
+        if(bodyQ.col==='contratar'){ try{ pushContratar(res?.[0]||bodyQ); }catch(e){} }
+      });
     }
-    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${crm_id} criada!`,'ok',4000);
+    toast(qtd>1?`${qtd} ordens criadas! (${ids_criados.join(', ')})`:`Ordem ${ids_criados[0]} criada!`,'ok',4000);
     setView('inicio');
   } catch(e) {
     toast('Erro ao salvar: '+e.message,'err');
@@ -5179,10 +5197,13 @@ async function converterOrcamento(id) {
   if(!ok) return;
   try {
     const now = new Date().toISOString();
-    const novoCrmId = await nextCrmId();
     // Se já tem fornecedor atribuído, entra direto em ag_entrega
     const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
-    await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:novoCrmId, orc_convertido_em:now},tok());
+    let novoCrmId='';
+    await withCrmIdRetry(async(crmId)=>{
+      novoCrmId = crmId;
+      await api(`ordens?id=eq.${id}`,'PATCH',{col:colInicial, crm_id:crmId, orc_convertido_em:now},tok());
+    });
     o.col=colInicial; o.crm_id=novoCrmId; o.orc_convertido_em=now;
     toast('▶️ Ordem '+novoCrmId+' criada!','ok');
     pushContratar({...o, crm_id: novoCrmId});
@@ -5331,11 +5352,10 @@ async function duplicarOrdem(id) {
   });
   if(!ok) return;
   try {
-    const crm_id = await nextCrmId();
     // Monta body com spread, mas remove campos que não devem ser copiados
     const body = {
       ...o,
-      id: uidGen(), crm_id,
+      id: uidGen(), crm_id: '...',
       usuario_id: uid(),
       col: 'contratar',
       criado_em: nowISO(),
@@ -5361,11 +5381,17 @@ async function duplicarOrdem(id) {
     // Remove campos undefined explicitamente para o banco gerar/usar default
     delete body.tracking_token;
     delete body.atualizado_em;
-    const res = await api('ordens','POST',body,tok());
-    if(res?.[0]) _ordens.unshift(res[0]);
+    let crmIdFinal='';
+    let resFinal=null;
+    await withCrmIdRetry(async(crm_id)=>{
+      crmIdFinal = crm_id;
+      body.crm_id = crm_id;
+      resFinal = await api('ordens','POST',body,tok());
+    });
+    if(resFinal?.[0]) _ordens.unshift(resFinal[0]);
     addLog(body.id,'Duplicada de '+(o.crm_id||'-'),'via mobile');
-    toast(`Ordem ${crm_id} criada em Contratar!`,'ok');
-    try{ pushContratar(res?.[0]||body); }catch(e){}
+    toast(`Ordem ${crmIdFinal} criada em Contratar!`,'ok');
+    try{ pushContratar(resFinal?.[0]||body); }catch(e){}
     setView('inicio');
   } catch(e){
     console.error('🔴 ERRO DUPLICAR:', e);
