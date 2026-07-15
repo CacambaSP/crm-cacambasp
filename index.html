@@ -9020,10 +9020,29 @@ function matchGrupoPorNF(pendentes,vPagoCentavos){
     if(!nf)return;
     (porNF[nf]=porNF[nf]||[]).push(o);
   });
-  for(const nf in porNF){
-    const grupo=porNF[nf];
-    const total=grupo.reduce((s,o)=>s+Math.round(((parseFloat(o.rec)||0)+(_nfAcrescimo||0))*100),0);
-    if(total===vPagoCentavos) return grupo;
+  const nfs=Object.keys(porNF);
+  const grupos=nfs.map(nf=>{
+    const ordensGrupo=porNF[nf];
+    const total=ordensGrupo.reduce((s,o)=>s+Math.round(((parseFloat(o.rec)||0)+(_nfAcrescimo||0))*100),0);
+    return{nf,ordens:ordensGrupo,total};
+  });
+  // 1) Tenta uma única NF que bata sozinha (caso mais comum)
+  const unica=grupos.find(g=>g.total===vPagoCentavos);
+  if(unica) return unica.ordens;
+  // 2) Tenta combinações de NFs completas somando o valor pago — cobre o caso de um
+  //    Pix único que paga mais de uma nota fiscal ao mesmo tempo (ex.: NF 2373 + NF 2409).
+  //    Limitado a 20 notas distintas para não explodir o tempo de cálculo (2^n combinações).
+  const n=grupos.length;
+  if(n>1&&n<=20){
+    for(let mask=1;mask<(1<<n);mask++){
+      let soma=0;
+      for(let i=0;i<n;i++){ if(mask&(1<<i)) soma+=grupos[i].total; }
+      if(soma===vPagoCentavos){
+        const combo=[];
+        for(let i=0;i<n;i++){ if(mask&(1<<i)) combo.push(...grupos[i].ordens); }
+        return combo;
+      }
+    }
   }
   return null;
 }
