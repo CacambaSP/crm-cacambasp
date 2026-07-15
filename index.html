@@ -2151,6 +2151,7 @@ let _confirmResolve=null;
 let _filterTimer=null, _histTimer=null, _cliTimer=null, _nfTimer=null;
 
 let _autoRefreshId=null, _tokenRefreshId=null;
+let _ultimoSyncEm=null, _pollCiclos=0, _pollPausado=false, _visHandlerAtivo=false; // controle de sincronização incremental do polling de ordens
 let _pixSeq=parseInt(localStorage.getItem('crm_pixseq')||'0'); // fallback local
 let _histSelected=new Set(), _histSelMode=false;
 let _ordemEditId=null;
@@ -2363,6 +2364,7 @@ function doLogout(){
   localStorage.removeItem('crm_session');
   clearInterval(_autoRefreshId); clearInterval(_tokenRefreshId);
   _autoRefreshId=null; _tokenRefreshId=null;
+  _ultimoSyncEm=null; _pollCiclos=0; _pollPausado=false;
   if(_realtimeWS){ try{_realtimeWS.close();}catch(e){} _realtimeWS=null; }
   _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[];
   document.getElementById('appPage').style.display='none';
@@ -2456,6 +2458,14 @@ function startAutoRefresh(){
   _iniciarRealtime();
   // Polling a cada 8s como fallback (e para sincronizar se realtime cair)
   _autoRefreshId=setInterval(_pollOrdens, 8000);
+  // Pausa o polling quando a aba fica em segundo plano (evita consumo de uma tela esquecida aberta)
+  if(!_visHandlerAtivo){
+    _visHandlerAtivo=true;
+    document.addEventListener('visibilitychange', ()=>{
+      _pollPausado = document.hidden;
+      if(!document.hidden) _pollOrdens(true); // ao voltar, sincroniza tudo de novo
+    });
+  }
   // Refresh de token a cada 45 min
   _tokenRefreshId=setInterval(async()=>{
     try{
@@ -2549,30 +2559,51 @@ async function _rodarFluxoAutomatico(){
 }
 
 async function _pollOrdens(forcar){
+  if(_pollPausado && !forcar) return;
   try{
     setSyncDot('sync');
     const uid=_currentUser?.user?.id;
-    const novos=isAdmin()
-      ? await apiPaginado('ordens?order=criado_em.asc',tok())
-      : await apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok());
-    if(!novos){setSyncDot('err');return;}
-    const _snap=c=>c.id+c.col+c.pago+c.rec+c.forn_id+c.orc_valor+(c.nf_num||'')+(c.data||'')+(c.nome||'')+(c.forn_pago?'1':'0')+(c.obs||'').slice(0,20);
-    const antes=JSON.stringify(ordens.map(_snap));
-    const depois=JSON.stringify(novos.map(_snap));
-    setSyncDot('ok');
-    if(antes!==depois||forcar){
-      const qtdAntes=ordens.length;
+    const agoraTs=new Date().toISOString();
+    // Resync completo: na primeira vez, quando forçado, ou a cada ~40 ciclos (~5min) como rede de segurança
+    const precisaFull = forcar || !_ultimoSyncEm || (_pollCiclos>0 && _pollCiclos%40===0);
+
+    if(precisaFull){
+      const novos=isAdmin()
+        ? await apiPaginado('ordens?order=criado_em.asc',tok())
+        : await apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok());
+      if(!novos){setSyncDot('err');return;}
+      _pollCiclos++; _ultimoSyncEm=agoraTs;
       const qtdOrcAntes=ordens.filter(c=>c.col==='orcamento').length;
       checarNovasOrdens(novos);
       ordens=novos;
       await _rodarFluxoAutomatico();
       renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge(); _atualizarAlertasBadge();
-      // Detectar nova ordem normal
-      const qtdDepois=novos.filter(c=>c.col!=='orcamento').length;
       const qtdOrcDepois=novos.filter(c=>c.col==='orcamento').length;
-      if(novos.filter(c=>c.col!=='orcamento').length > ordens.filter(c=>c.col!=='orcamento').length) toast('🔔 Nova ordem recebida!','ok');
       if(qtdOrcDepois > qtdOrcAntes) toast('📄 Nova cotação recebida!','info');
+      setSyncDot('ok');
+      return;
     }
+
+    // Sincronização incremental: só traz o que mudou desde a última checagem
+    const filtroBase = isAdmin() ? 'ordens?' : 'ordens?usuario_id=eq.'+uid+'&';
+    const alterados = await apiPaginado(filtroBase+'atualizado_em=gt.'+encodeURIComponent(_ultimoSyncEm)+'&order=atualizado_em.asc',tok());
+    if(!alterados){setSyncDot('err');return;}
+    _pollCiclos++; _ultimoSyncEm=agoraTs;
+    if(alterados.length===0){ setSyncDot('ok'); return; }
+
+    checarNovasOrdens(alterados);
+    const mapa=new Map(ordens.map(o=>[o.id,o]));
+    let novasNormais=0, novasOrc=0;
+    for(const o of alterados){
+      if(!mapa.has(o.id)){ if(o.col==='orcamento') novasOrc++; else novasNormais++; }
+      mapa.set(o.id,o);
+    }
+    ordens=Array.from(mapa.values());
+    await _rodarFluxoAutomatico();
+    renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge(); _atualizarCobrBadge(); _atualizarOrcBadge(); _atualizarAlertasBadge();
+    if(novasNormais>0) toast('🔔 Nova ordem recebida!','ok');
+    if(novasOrc>0) toast('📄 Nova cotação recebida!','info');
+    setSyncDot('ok');
   }catch(e){ setSyncDot('err'); }
 }
 
