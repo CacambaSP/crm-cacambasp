@@ -2191,6 +2191,24 @@ const nextCrmId=async(prefixo='LC')=>{
   _pixSeq++;localStorage.setItem('crm_pixseq',_pixSeq);
   return base+String(_pixSeq).padStart(4,'0');
 };
+// Gera um crm_id e executa salvarFn(crmId). Se o banco recusar por já existir
+// esse código (corrida entre duas criações quase simultâneas, erro 23505),
+// tenta de novo com um novo número — até 3 vezes — em vez de mostrar erro.
+const withCrmIdRetry=async(prefixo,salvarFn,maxTentativas=3)=>{
+  let ultimoErro;
+  for(let i=0;i<maxTentativas;i++){
+    const crmId=await nextCrmId(prefixo);
+    try{
+      return await salvarFn(crmId);
+    }catch(e){
+      ultimoErro=e;
+      const msg=String(e&&e.message||e);
+      if(msg.includes('23505')&&msg.includes('crm_id')&&i<maxTentativas-1) continue;
+      throw e;
+    }
+  }
+  throw ultimoErro;
+};
 const dateF=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
 const nowISO=()=>new Date().toISOString();
 
@@ -4092,11 +4110,10 @@ async function salvarOrdem(){
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const recComNF=rec;
     for(let qi=0;qi<qtd;qi++){
-      const crmId=await nextCrmId('LC');
       const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
       const tipoOrdem=document.getElementById('o_tipo').value+(qtd>1?' ('+(qi+1)+'/'+qtd+')':'');
       const novaOrdem={
-        id:uid(),crm_id:crmId,col:'contratar',
+        id:uid(),crm_id:'...',col:'contratar',
         nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
         logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
         cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
@@ -4113,7 +4130,10 @@ async function salvarOrdem(){
       ordens.push(novaOrdem);
       try{
         setSyncDot('sync');
-        await api('ordens','POST',novaOrdem,tok());
+        await withCrmIdRetry('LC', async(crmId)=>{
+          novaOrdem.crm_id=crmId;
+          await api('ordens','POST',novaOrdem,tok());
+        });
         setSyncDot('ok');
         addLog(novaOrdem.id,'Criado','Nova ordem manual'+(qtd>1?' ('+(qi+1)+'/'+qtd+')':''));
       }catch(e){setSyncDot('err');toast('Erro ao salvar ordem '+(qi+1),'err');}
@@ -5053,16 +5073,18 @@ async function confirmarDuplicarOrdem(){
   setTimeout(()=>{ const el=document.getElementById('card_'+novaOrdem.id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },120);
   try{
     setSyncDot('sync');
-    // Busca o próximo crm_id em paralelo ao render (não bloqueia mais a UI)
-    const crmId = await nextCrmId('LC');
-    novaOrdem.crm_id = crmId;
-    // Atualiza o chip do card que já está no board
-    const chipEl = document.querySelector('#card_'+novaOrdem.id+' .chip.acc');
-    if(chipEl) chipEl.textContent = crmId;
-    await api('ordens','POST',novaOrdem,tok());
+    let crmIdFinal='';
+    await withCrmIdRetry('LC', async(crmId)=>{
+      novaOrdem.crm_id = crmId;
+      crmIdFinal = crmId;
+      // Atualiza o chip do card que já está no board
+      const chipEl = document.querySelector('#card_'+novaOrdem.id+' .chip.acc');
+      if(chipEl) chipEl.textContent = crmId;
+      await api('ordens','POST',novaOrdem,tok());
+    });
     setSyncDot('ok');
     addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
-    toast('✅ Ordem '+crmId+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
+    toast('✅ Ordem '+crmIdFinal+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
   }catch(e){ setSyncDot('err'); toast('Erro ao criar ordem','err'); }
 }
 
@@ -12685,19 +12707,18 @@ async function confirmarConverterOrc(id){
     okClass:'btn-g'
   });
   if(!ok) return;
-  const novoCrmId = await nextCrmId('LC');
   const agora = nowISO();
   // Se já tem fornecedor atribuído, entra direto em ag_entrega; senão, contratar
   const colInicial = o.forn_id ? 'ag_entrega' : 'contratar';
-  const patch = {
-    col: colInicial,
-    crm_id: novoCrmId,
-    orc_convertido_em: agora
-  };
+  let novoCrmId='';
   try{
     setSyncDot('sync');
-    await api('ordens?id=eq.'+id, 'PATCH', patch, tok());
-    Object.assign(o, patch);
+    await withCrmIdRetry('LC', async(crmId)=>{
+      novoCrmId = crmId;
+      const patch = { col: colInicial, crm_id: crmId, orc_convertido_em: agora };
+      await api('ordens?id=eq.'+id, 'PATCH', patch, tok());
+      Object.assign(o, patch);
+    });
     setSyncDot('ok');
     renderBoard();
     renderOrcPend();
