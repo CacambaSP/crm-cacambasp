@@ -4468,9 +4468,9 @@ function abrirPopupForn(e, ordemId){
       // "Outros disponíveis" recolhidos por padrão — expandem ao clicar
       html += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fpGerais_'+ordemId+'\');const a=document.getElementById(\'fpArrow_'+ordemId+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;padding:6px 4px;cursor:pointer;border-radius:6px;transition:background .12s" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'">'
         +'<span>'+(nComp?'Outros disponíveis':'Todos os fornecedores')+' ('+nGeral+')</span>'
-        +'<span id="fpArrow_'+ordemId+'">▼</span>'
+        +'<span id="fpArrow_'+ordemId+'">▲</span>'
         +'</div>'
-        +'<div id="fpGerais_'+ordemId+'" style="display:none">'
+        +'<div id="fpGerais_'+ordemId+'" style="display:block">'
         + gerais.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>')
         +'</div>';
     }
@@ -4496,16 +4496,27 @@ function abrirPopupForn(e, ordemId){
 async function _atribuirFornecedorCard(ordemId, fornId){
   // Fechar popup
   document.getElementById('fornPopup')?.remove(); _popupFornId=null;
-  // Reusar lógica do detail mas sem precisar abrir o detail
   const c = ordens.find(x=>x.id===ordemId); if(!c) return;
   const f = forns.find(x=>x.id===fornId); if(!f) return;
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
   const m = _fornMatchBairro(f, bairro, cidade);
+  // Bairro sem nenhum match (nem exato, nem vizinho): pede preço antes de atribuir
+  if(m.match === 'geral'){
+    _abrirModalPrecoForn(c, f, (custo, cliente)=>{
+      const mNovo = {match:'novo', preco:custo, reg:{bairro:c.bairro, cidade:c.cidade, preco:custo, preco_cli:cliente, turno:'diurno'}};
+      _finalizarAtribuicaoFornecedorCard(c, f, mNovo, true);
+    });
+    return;
+  }
+  await _finalizarAtribuicaoFornecedorCard(c, f, m, m.match==='vizinho');
+}
+
+async function _finalizarAtribuicaoFornecedorCard(c, f, m, deveAdicionarBairro){
   const precoForn = m?.preco || 0;
   const turnoStr = m?.reg ? (m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno') : '';
-  const patch = {forn_id: fornId};
-  c.forn_id = fornId;
+  const patch = {forn_id: f.id};
+  c.forn_id = f.id;
   autoColFornNomeado(c);
   if(precoForn > 0 && !(parseFloat(c.cst) > 0)){ c.cst = precoForn; patch.cst = precoForn; }
   patch.col = c.col;
@@ -4516,6 +4527,11 @@ async function _atribuirFornecedorCard(ordemId, fornId){
     setSyncDot('ok');
     addLog(c.id,'Fornecedor atribuído',f.nome+(patch.cst?' · Custo R$ '+fmt(precoForn)+' preenchido':''));
   }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); return; }
+
+  if(deveAdicionarBairro && m?.reg){
+    await _addBairroAoFornecedor(f, c.bairro, c.cidade, precoForn, m.reg.preco_cli||0, m.reg.turno);
+  }
+
   // Montar texto OS e abrir via detail se estiver aberto, senão abrir modal flutuante
   const end = [c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
   const dataStr = c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
@@ -4610,7 +4626,7 @@ function _renderFornSugestao(c){
 
   if(gerais.length){
     const _geraisHtml = gerais.map(s=>itemHtml(s,'event.stopPropagation();_atribuirFornecedor(\'' + s.f.id + '\'')).join('');
-    inner += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fsGerais_'+c.id+'\');const a=document.getElementById(\'fsArrow_'+c.id+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;padding:6px 4px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'"><span>'+(compativeis.length?'Outros disponíveis':'Todos os fornecedores')+' ('+gerais.length+')</span><span id="fsArrow_'+c.id+'">▼</span></div><div id="fsGerais_'+c.id+'" style="display:none">'+_geraisHtml+'</div>';
+    inner += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fsGerais_'+c.id+'\');const a=document.getElementById(\'fsArrow_'+c.id+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;padding:6px 4px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'"><span>'+(compativeis.length?'Outros disponíveis':'Todos os fornecedores')+' ('+gerais.length+')</span><span id="fsArrow_'+c.id+'">▲</span></div><div id="fsGerais_'+c.id+'" style="display:block">'+_geraisHtml+'</div>';
   }
 
   inner += `<div style="position:relative;margin-top:10px;border-top:1px solid var(--bor);padding-top:10px">
@@ -4679,6 +4695,58 @@ function _waFornCancelarModal(){
   document.getElementById('d_forn_wa_modal').style.display='none';
 }
 
+// ── Adiciona automaticamente um bairro novo ao cadastro de um fornecedor ──
+async function _addBairroAoFornecedor(f, bairro, cidade, preco, precoCli, turno){
+  if(!f || !bairro) return;
+  const regioes = Array.isArray(f.regioes) ? [...f.regioes] : [];
+  if(regioes.some(r=>_bairroMatch(bairro, r.bairro||r.regiao||r.nome||''))) return; // já existe algo equivalente
+  const novaRegiao = {bairro, regiao:bairro, preco:preco>0?preco:0, preco_cli:precoCli>0?precoCli:0, turno:turno||'diurno'};
+  if(cidade) novaRegiao.cidade = cidade;
+  regioes.push(novaRegiao);
+  f.regioes = regioes;
+  try{
+    await api('fornecedores?id=eq.'+f.id,'PATCH',{regioes},tok());
+    toast('📍 Bairro "'+bairro+'" adicionado ao cadastro de '+f.nome);
+  }catch(e){
+    toast('Fornecedor atribuído, mas houve erro ao salvar o novo bairro no cadastro','warn');
+  }
+}
+
+// ── Modal: pede preço fornecedor/cliente quando o bairro não bate com nada cadastrado ──
+let _precoFornCb = null;
+function _abrirModalPrecoForn(c, f, onConfirm){
+  _precoFornCb = onConfirm;
+  let modalEl = document.getElementById('precoFornModal');
+  if(!modalEl){
+    modalEl = document.createElement('div');
+    modalEl.id = 'precoFornModal';
+    modalEl.className = 'mbg';
+    modalEl.addEventListener('click', e=>{ if(e.target===modalEl) closeModal('precoFornModal'); });
+    document.body.appendChild(modalEl);
+  }
+  const labelBairro = c.bairro || 'este bairro';
+  modalEl.innerHTML = `<div class="mbox" style="max-width:340px">
+    <div class="mh"><div class="mh-ico">💰</div><div class="mh-txt"><div class="mh-title">Preço para ${labelBairro}</div><div class="mh-sub">${f.nome} ainda não atende esse bairro</div></div><button class="mx" onclick="closeModal('precoFornModal')">✕</button></div>
+    <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px">
+      <div class="fi"><label>Preço Fornecedor (R$)</label><input type="number" id="pf_custo" min="0" step="1" placeholder="0"></div>
+      <div class="fi"><label>Preço Cliente (R$)</label><input type="number" id="pf_cliente" min="0" step="1" placeholder="0"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn" onclick="closeModal('precoFornModal')">Cancelar</button>
+        <button class="btn btn-acc" onclick="_confirmarModalPrecoForn()">💾 Confirmar e atribuir</button>
+      </div>
+    </div>
+  </div>`;
+  openModal('precoFornModal');
+  setTimeout(()=>document.getElementById('pf_custo')?.focus(),50);
+}
+function _confirmarModalPrecoForn(){
+  const custo = parseFloat(document.getElementById('pf_custo')?.value)||0;
+  const cliente = parseFloat(document.getElementById('pf_cliente')?.value)||0;
+  closeModal('precoFornModal');
+  const cb = _precoFornCb; _precoFornCb = null;
+  if(cb) cb(custo, cliente);
+}
+
 async function _atribuirFornecedor(fornId){
   track('btn_atribuir_forn', fornId);
   const c = ordens.find(x => x.id === _detailId);
@@ -4689,6 +4757,18 @@ async function _atribuirFornecedor(fornId){
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
   const m = _fornMatchBairro(f, bairro, cidade);
+  // Bairro sem nenhum match (nem exato, nem vizinho): pede preço antes de atribuir
+  if(m.match === 'geral'){
+    _abrirModalPrecoForn(c, f, (custo, cliente)=>{
+      const mNovo = {match:'novo', preco:custo, reg:{bairro:c.bairro, cidade:c.cidade, preco:custo, preco_cli:cliente, turno:'diurno'}};
+      _finalizarAtribuicaoFornecedor(c, f, mNovo, true);
+    });
+    return;
+  }
+  await _finalizarAtribuicaoFornecedor(c, f, m, m.match==='vizinho');
+}
+
+async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   const turnoStr = m?.reg ? (m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno') : '';
   const precoForn = m?.preco > 0 ? m.preco : 0;
   const precoCliReg = m?.reg?.preco_cli > 0 ? m.reg.preco_cli : 0;
@@ -4728,6 +4808,10 @@ async function _atribuirFornecedor(fornId){
     addLog(c.id, 'Fornecedor atribuído', logMsg);
     toast('🚛 '+f.nome+' atribuído!');
   }catch(e){ setSyncDot('err'); toast('Erro ao salvar','err'); return; }
+
+  if(deveAdicionarBairro && m?.reg){
+    await _addBairroAoFornecedor(f, c.bairro, c.cidade, precoForn, m.reg.preco_cli||0, m.reg.turno);
+  }
 
   // Abrir modal de envio WA
   _abrirModalWAForn({
