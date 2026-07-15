@@ -260,6 +260,25 @@ let _nfAcrescimo = 40; // Acréscimo fixo R$ no valor ao cliente quando tem NF �
 // Pega uid do vendedor pela URL (?v=xxx)
 const params = new URLSearchParams(window.location.search);
 const VEND_UID = params.get('v') || null;
+// Contexto vindo do site padraocacamba.com.br (opcional)
+const SITE_BAIRRO = params.get('bairro') || '';
+const SITE_PRECO  = params.get('preco')  || '';
+const SITE_ORIGEM = params.get('origem') || '';
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var cb = document.getElementById('c_bairro');
+    if(SITE_BAIRRO && cb && !cb.value) cb.value = SITE_BAIRRO;
+    if(SITE_PRECO){
+      var card = document.getElementById('formCard');
+      if(card){
+        var av = document.createElement('div');
+        av.style.cssText='background:#0d2818;border:1px solid #1e5c38;color:#4ade80;border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:14px;font-weight:600;text-align:center';
+        av.textContent='Caçamba 4m³'+(SITE_BAIRRO?' em '+SITE_BAIRRO:'')+' — '+SITE_PRECO;
+        card.insertBefore(av, card.firstChild);
+      }
+    }
+  }catch(e){}
+});
 
 // Estado global da marca carregada
 let _marca = {
@@ -524,7 +543,7 @@ async function enviarCadastro(){
         cep,
         tipo: qtd > 1 ? tipo + ' (' + (i+1) + '/' + qtd + ')' : tipo,
         data,
-        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + obs,
+        obs: (qtd>1 ? 'Caçamba '+(i+1)+' de '+qtd+' — ' : '') + (residuo && residuo!=='Outros'?'Resíduo: '+residuo+'. ':'') + obs + ((SITE_PRECO||SITE_ORIGEM)?' [Site: '+(SITE_PRECO?'valor '+SITE_PRECO:'')+(SITE_ORIGEM?' · origem '+SITE_ORIGEM:'')+']':''),
         rec: 0, cst: 0,
         pago: false, pago_em: null, pago_valor: null, pago_obs: null,
         forn_id: null,
@@ -585,6 +604,7 @@ async function enviarCadastro(){
       (_cadTemNF?'🧾 *Nota Fiscal:* SIM\n':'🚫 *Nota Fiscal:* Não\n')+
       (residuo?'♻️ *Resíduo:* '+residuo+'\n':'')+
       (precoCliAuto>0?'💰 *Valor cliente (auto):* R$ '+precoCliAuto.toFixed(2).replace('.',',')+'\n':'')+
+      (SITE_PRECO?'🌐 *Valor site:* '+SITE_PRECO+(SITE_ORIGEM?' ('+SITE_ORIGEM+')':'')+'\n':'')+
       (obs?'📝 *Obs:* '+obs+'\n':'')+
       '\n🔑 *Código'+(qtd>1?'s':'')+':* '+codigos.join(', ');
 
