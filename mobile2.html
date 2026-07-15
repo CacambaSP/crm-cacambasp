@@ -1100,6 +1100,7 @@ let _nfAcrescimo = 40;
 let _limiteDiurno = '09:00';
 let _limiteNoturno = '16:00';
 let _autoId = null;
+let _ultimoSyncEmMob=null, _pollCiclosMob=0, _pollPausadoMob=false, _visHandlerAtivoMob=false; // controle de sincronização incremental do polling de ordens
 let COBR_DIAS_ALERTA = 3;   // amarelo — atenção (sobrescrito pela config Supabase)
 let COBR_DIAS_CRITICO = 7;  // vermelho — crítico (sobrescrito pela config Supabase)
 let _novaTemNF = null;
@@ -2235,6 +2236,7 @@ async function doLogout() {
   if(!ok) return;
   localStorage.removeItem('csm_session');
   clearInterval(_autoId);
+  _ultimoSyncEmMob=null; _pollCiclosMob=0; _pollPausadoMob=false;
   _user=null;_perfil=null;_ordens=[];_forns=[];_usuarios=[];
   document.getElementById('appPage').classList.remove('show');
   document.getElementById('loginPage').classList.add('show');
@@ -2289,23 +2291,45 @@ async function loadApp() {
       if(ls) { ls.classList.add('out'); setTimeout(()=>{ ls.style.display='none'; },350); }
     };
     setTimeout(_hideLoad, 300);
-    // Auto-refresh a cada 15s
+    // Marca o ponto de partida da sincronização incremental
+    _ultimoSyncEmMob = new Date().toISOString();
+    // Auto-refresh a cada 5s — busca só o que mudou (não a tabela inteira), com resync completo a cada ~5min por segurança
     _autoId = setInterval(async()=>{
+      if(_pollPausadoMob) return;
       try{
         setSyncDot('loading');
-        const novo = isAdmin()
-          ? await apiPaginado('ordens?order=criado_em.desc',tok())
-          : await apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok());
-        const _snapMob=o=>o.id+o.col+o.pago+(o.forn_id||'')+(o.nf_num||'')+(o.data||'')+(o.forn_pago?'1':'0')+(o.rec||'0');
-        if(novo && JSON.stringify(novo.map(_snapMob)) !== JSON.stringify(_ordens.map(_snapMob))){
-          _ordens = novo;
-          renderCurrentView();
+        const agoraTs = new Date().toISOString();
+        const precisaFull = !_ultimoSyncEmMob || (_pollCiclosMob>0 && _pollCiclosMob%60===0);
+        if(precisaFull){
+          const novo = isAdmin()
+            ? await apiPaginado('ordens?order=criado_em.desc',tok())
+            : await apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok());
+          if(novo){ _ordens = novo; renderCurrentView(); }
+          _pollCiclosMob++; _ultimoSyncEmMob=agoraTs;
+        } else {
+          const filtroBase = isAdmin() ? 'ordens?' : 'ordens?usuario_id=eq.'+uid()+'&';
+          const alterados = await apiPaginado(filtroBase+'atualizado_em=gt.'+encodeURIComponent(_ultimoSyncEmMob)+'&order=atualizado_em.asc',tok());
+          _pollCiclosMob++; _ultimoSyncEmMob=agoraTs;
+          if(alterados && alterados.length>0){
+            const mapa = new Map(_ordens.map(o=>[o.id,o]));
+            alterados.forEach(o=>mapa.set(o.id,o));
+            _ordens = Array.from(mapa.values());
+            renderCurrentView();
+          }
         }
         await verificarAutoEntregas();
         atualizarBadge();
         setSyncDot('ok');
       }catch(e){setSyncDot('err');}
     },5000);
+    // Pausa o polling quando a tela fica em segundo plano (evita consumo de app esquecido aberto)
+    if(!_visHandlerAtivoMob){
+      _visHandlerAtivoMob = true;
+      document.addEventListener('visibilitychange', ()=>{
+        _pollPausadoMob = document.hidden;
+        if(!document.hidden) _ultimoSyncEmMob=null; // força resync completo ao voltar
+      });
+    }
   } catch(e) {
     clearTimeout(_loadSafety);
     console.error('loadApp error:', e);
