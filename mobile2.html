@@ -1453,7 +1453,7 @@ function renderListaForn(filtro, fornAtualId) {
     h += `<div class="forn-section-label">${comp.length||viz.length?'Outros disponíveis':'Todos os fornecedores'} (${ger.length})</div>`;
     ger.forEach(s => { h += fornItemHTML(s, fornAtualId, cores); });
   }
-  if(!comp.length && !ger.length) {
+  if(!comp.length && !viz.length && !ger.length) {
     h = `<div class="empty-state" style="padding:30px 20px"><div class="empty-ico">🔍</div><div class="empty-title">${q?'Nenhum resultado':'Sem fornecedores'}</div></div>`;
   }
   document.getElementById('af_lista').innerHTML = h;
