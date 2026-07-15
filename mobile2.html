@@ -1016,6 +1016,29 @@ input,select,textarea,button{font-family:var(--font)}
   </div>
 </div>
 
+<!-- MODAL: PREÇO FORNECEDOR (quando o bairro não bate com nada cadastrado) -->
+<div class="modal-overlay" id="precoFornModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-ico" style="background:var(--b2)">💰</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-title" id="pf_titulo">Preço do bairro</div>
+        <div style="font-size:12px;color:var(--mut)" id="pf_sub">—</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('precoFornModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="mfi"><label>Preço Fornecedor (R$)</label><input type="number" id="pf_custo" placeholder="0" min="0" step="1"></div>
+      <div class="mfi"><label>Preço Cliente (R$)</label><input type="number" id="pf_cliente" placeholder="0" min="0" step="1"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('precoFornModal')">Cancelar</button>
+        <button class="btn acc" onclick="_confirmarModalPrecoForn()">💾 Confirmar e atribuir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: WA FORNECEDOR (OS / Cancelamento / Agenda) -->
 <div class="modal-overlay" id="waFornModal">
   <div class="modal-box">
@@ -1464,16 +1487,66 @@ function fornItemHTML(s, fornAtualId, cores) {
   </div>`;
 }
 
+// ── Adiciona automaticamente um bairro novo ao cadastro de um fornecedor ──
+async function _addBairroAoFornecedorMobile(f, bairro, cidade, preco, precoCli, turno){
+  if(!f || !bairro) return;
+  let regioes = f.regioes;
+  if(typeof regioes==='string'){try{regioes=JSON.parse(regioes);}catch(e){regioes=[];}}
+  regioes = Array.isArray(regioes) ? [...regioes] : [];
+  if(regioes.some(r=>_bairroMatch(bairro, r.bairro||r.regiao||r.nome||''))) return; // já existe algo equivalente
+  const novaRegiao = {bairro, regiao:bairro, preco:preco>0?preco:0, preco_cli:precoCli>0?precoCli:0, turno:turno||'diurno'};
+  if(cidade) novaRegiao.cidade = cidade;
+  regioes.push(novaRegiao);
+  f.regioes = regioes;
+  try{
+    await api(`fornecedores?id=eq.${f.id}`,'PATCH',{regioes},tok());
+    toast('📍 Bairro "'+bairro+'" adicionado ao cadastro de '+f.nome,'ok');
+  }catch(e){
+    toast('Fornecedor atribuído, mas houve erro ao salvar o novo bairro','err');
+  }
+}
+
+// ── Modal: pede preço fornecedor/cliente quando o bairro não bate com nada cadastrado ──
+let _precoFornCbMobile = null;
+function _abrirModalPrecoForn(o, f, onConfirm){
+  _precoFornCbMobile = onConfirm;
+  document.getElementById('pf_titulo').textContent = 'Preço para ' + (o.bairro||'este bairro');
+  document.getElementById('pf_sub').textContent = f.nome + ' ainda não atende esse bairro';
+  document.getElementById('pf_custo').value = '';
+  document.getElementById('pf_cliente').value = '';
+  openModal('precoFornModal');
+}
+function _confirmarModalPrecoForn(){
+  const custo = parseFloat(document.getElementById('pf_custo')?.value)||0;
+  const cliente = parseFloat(document.getElementById('pf_cliente')?.value)||0;
+  closeModal('precoFornModal');
+  const cb = _precoFornCbMobile; _precoFornCbMobile = null;
+  if(cb) cb(custo, cliente);
+}
+
 async function selecionarFornecedor(fornId) {
   const o = _ordens.find(x=>x.id===_detalheId); if(!o) return;
   const f = _forns.find(x=>x.id===fornId); if(!f) return;
+  const s = _af_compativeis.find(x=>x.f.id===fornId) || (_af_vizinhos||[]).find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
+  // Bairro sem nenhum match (nem exato, nem vizinho): pede preço antes de atribuir
+  if(s && s.tipo==='geral'){
+    closeModal('atribuirFornModal');
+    _abrirModalPrecoForn(o, f, (custo, cliente)=>{
+      const sNovo = {f, preco:custo, preco_cli:cliente, tipo:'novo', reg:{bairro:o.bairro, cidade:o.cidade, preco:custo, preco_cli:cliente, turno:'diurno'}};
+      _finalizarAtribuicaoFornMobile(o, f, sNovo, true);
+    });
+    return;
+  }
   closeModal('atribuirFornModal');
+  await _finalizarAtribuicaoFornMobile(o, f, s, s && s.tipo==='vizinho');
+}
+
+async function _finalizarAtribuicaoFornMobile(o, f, s, deveAdicionarBairro) {
   // autoColFornNomeado: move contratar→ag_entrega se tem fornecedor
-  const novaCol = (o.col==='contratar' && fornId) ? 'ag_entrega' : o.col;
+  const novaCol = (o.col==='contratar' && f.id) ? 'ag_entrega' : o.col;
   // Preencher cst com precoForn somente se cst ainda não foi definido
-  const s = _af_compativeis.find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
-  const precoForn = s && s.preco>0 ? s.preco : 0; // FIX: sempre usar custo real do fornecedor (nunca preco_cli)
-  const patch = {forn_id:fornId, col:novaCol};
+  const precoForn = s && s.preco>0 ? s.preco : 0; // sempre usar custo real do fornecedor (nunca preco_cli)
+  const patch = {forn_id:f.id, col:novaCol};
   if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
   // Preencher rec com preco_cli somente se ainda não definido
   // Se a ordem tem NF, somar o acréscimo de NF ao preco_cli
@@ -1483,12 +1556,15 @@ async function selecionarFornecedor(fornId) {
   }
   try {
     await api(`ordens?id=eq.${o.id}`,'PATCH',patch,tok());
-    o.forn_id=fornId; o.col=novaCol;
+    o.forn_id=f.id; o.col=novaCol;
     if(patch.cst) o.cst=patch.cst;
     if(patch.rec) o.rec=patch.rec;
     toast('🚛 '+f.nome+' atribuído!','ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(o.id);
+    if(deveAdicionarBairro && s?.reg){
+      await _addBairroAoFornecedorMobile(f, o.bairro, o.cidade, precoForn, s.reg.preco_cli||0, s.reg.turno);
+    }
     // Abrir modal WA após fechar o atribuirFornModal (delay para não conflitar)
     setTimeout(() => _abrirWAFornModal(o, f, 'os'), 320);
   } catch(e){ toast('Erro ao salvar','err'); }
