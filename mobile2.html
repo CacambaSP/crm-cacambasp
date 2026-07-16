@@ -5977,7 +5977,7 @@ function renderOrcMob() {
             <input type="number" id="om_qtd" value="${o.orc_qtd||1}" min="1" step="1" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Valor (R$)</label>
+            <label style="font-size:10px;font-weight:700;color:var(--mut2);display:block;margin-bottom:4px">Valor por caçamba (R$)</label>
             <input type="number" id="om_valor" value="${o.orc_valor||o.rec||''}" step="0.01" placeholder="0,00" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--font);font-size:13px;color:var(--txt);outline:none;box-sizing:border-box">
           </div>
         </div>
@@ -6057,6 +6057,8 @@ async function gerarOrcMobPDF() {
   const obs     = document.getElementById('om_obs')?.value||'';
   const crmId   = o.crm_id||'';
   const valorFmt= valor?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  const valorTotal = valor ? valor*qtd : null;
+  const valorTotalFmt = valorTotal?'R$ '+valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
   const validFmt= validade?new Date(validade+'T00:00:00').toLocaleDateString('pt-BR'):'—';
   // Salva a quantidade no banco para ficar sincronizada com o desktop
   try{ await api('ordens?id=eq.'+o.id,'PATCH',{orc_qtd:qtd},tok()); o.orc_qtd=qtd; }catch(e){}
@@ -6064,7 +6066,7 @@ async function gerarOrcMobPDF() {
   const multi      = itens.length > 1;
   const totalValor = itens.reduce((s,it)=>s+(it.valor||0),0);
   const totalFmt   = totalValor>0 ? 'R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-  const valorSidebarFmt = multi ? totalFmt : valorFmt;
+  const valorSidebarFmt = multi ? totalFmt : valorTotalFmt;
   const fontLink= `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
   const printCss= `@media print{.no-print{display:none!important} body{padding:0}}`;
   const btnPrint= `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
@@ -6080,8 +6082,8 @@ async function gerarOrcMobPDF() {
     let servHtml;
     if(!multi){
       servHtml = `<div class="serv-row">
-        <div><div class="sr-desc">📦 ${qtd>1?qtd+'x ':''}caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}</div></div>
-        <div class="sr-val">${valorFmt}</div>
+        <div><div class="sr-desc">📦 ${qtd>1?qtd+'x ':''}caçamba 4m³</div><div class="sr-detail">${tipo}${obs?' · '+obs:''}${qtd>1?' · '+valorFmt+' cada':''}</div></div>
+        <div class="sr-val">${valorTotalFmt}</div>
       </div>`;
     } else {
       const linhas = itens.map((it,i)=>{
@@ -6180,7 +6182,7 @@ async function gerarOrcMobPDF() {
         <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${permRua} dias úteis</div></div>
         <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${permCant} dias úteis</div></div>
         <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${validFmt}</div></div>
-        <div class="s-item"><div class="s-lbl">${multi?'Total':'Valor'}</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorSidebarFmt}</div></div>
+        <div class="s-item"><div class="s-lbl">${(multi||qtd>1)?'Total':'Valor'}</div><div class="s-val" style="font-size:13px;color:${marcaCor}">${valorSidebarFmt}</div></div>
       </div>
       <div class="main">
         <div class="no-print" style="margin-bottom:14px">${btnPrint}</div>
@@ -6273,20 +6275,22 @@ async function salvarEEnviarOrcMob() {
   const totalValor = itens.reduce((s,it)=>s+(it.valor||0),0);
   const totalFmt = totalValor>0 ? 'R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const valor = parseFloat(document.getElementById('om_valor')?.value||0)||null;
+  const qtd = parseInt(document.getElementById('om_qtd')?.value||1)||1;
+  const valorTotal = valor ? valor*qtd : null;
   const valorFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const valorTotalFmt = valorTotal ? 'R$ '+valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const validade = document.getElementById('om_validade')?.value||null;
   const validFmt = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
   const permRua = document.getElementById('om_perm_rua')?.value||'3';
   const permCant = document.getElementById('om_perm_canteiro')?.value||'5';
   const tipo = document.getElementById('om_tipo')?.value||o.tipo||'';
-  const qtd = parseInt(document.getElementById('om_qtd')?.value||1)||1;
   const end = [o.logradouro,o.bairro].filter(Boolean).join(', ');
 
   const blocoServico = multi
     ? `📦 ${itens.length} caçambas\n`+itens.map(it=>'• OS '+(it.crm_id||'—')+' — '+(it.tipo||'—')+' — '+(it.valor!=null?'R$ '+it.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—')).join('\n')
-    : `📦 ${qtd>1?qtd+'x ':''}caçamba 4m³\n🪣 ${tipo}`;
+    : `📦 ${qtd>1?qtd+'x ':''}caçamba 4m³\n🪣 ${tipo}${qtd>1?' ('+valorFmt+' cada)':''}`;
   const osLinha = multi ? itens.map(i=>i.crm_id).join(' · ') : (o.crm_id||'');
-  const valorLinha = multi ? `💰 *Total: ${totalFmt}*` : `💰 *Valor: ${valorFmt}*`;
+  const valorLinha = multi ? `💰 *Total: ${totalFmt}*` : `💰 *Valor: ${valorTotalFmt}*`;
 
   const msg = `Olá ${o.nome||''}! 👋
 
