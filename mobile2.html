@@ -1528,6 +1528,11 @@ function _confirmarModalPrecoForn(){
   if(cb) cb(custo, cliente);
 }
 
+// Retorna ordens do mesmo lote (grp_id) que ainda não têm fornecedor, excluindo a própria ordem
+function _irmasSemFornMobile(o){
+  if(!o.grp_id) return [];
+  return _ordens.filter(x=>x.id!==o.id && x.grp_id===o.grp_id && !x.forn_id && !x.cancel_motivo && x.col!=='concluido');
+}
 async function selecionarFornecedor(fornId) {
   const o = _ordens.find(x=>x.id===_detalheId); if(!o) return;
   const f = _forns.find(x=>x.id===fornId); if(!f) return;
@@ -1569,8 +1574,31 @@ async function _finalizarAtribuicaoFornMobile(o, f, s, deveAdicionarBairro) {
     if(deveAdicionarBairro && s?.reg){
       await _addBairroAoFornecedorMobile(f, o.bairro, o.cidade, precoForn, s.reg.preco_cli||0, s.reg.turno);
     }
+    // Verifica se há ordens irmãs (mesmo lote de duplicação) ainda sem fornecedor
+    const irmas = _irmasSemFornMobile(o);
+    let grupoOrdens = [o];
+    if(irmas.length>0){
+      const okGrupo = await showConfirm({
+        ico:'👥', title:'Ordens irmãs encontradas',
+        body:'Encontrei mais <strong>'+irmas.length+'</strong> ordem(ns) do mesmo lote, ainda sem fornecedor.<br>Atribuir <strong>'+f.nome+'</strong> a todas e gerar uma única mensagem?',
+        ok:'Atribuir a todas ('+(irmas.length+1)+' caçambas)', okClass:'acc', cancel:'Só esta ordem'
+      });
+      if(okGrupo){
+        for(const irma of irmas){
+          const patchIrma = {forn_id:f.id, col:(irma.col==='contratar'?'ag_entrega':irma.col)};
+          if(precoForn>0 && !(parseFloat(irma.cst)>0)) patchIrma.cst = precoForn;
+          try{
+            await api(`ordens?id=eq.${irma.id}`,'PATCH',patchIrma,tok());
+            irma.forn_id=f.id; irma.col=patchIrma.col;
+            if(patchIrma.cst) irma.cst=patchIrma.cst;
+          }catch(e){}
+        }
+        renderCurrentView();
+        grupoOrdens = [o, ...irmas];
+      }
+    }
     // Abrir modal WA após fechar o atribuirFornModal (delay para não conflitar)
-    setTimeout(() => _abrirWAFornModal(o, f, 'os'), 320);
+    setTimeout(() => _abrirWAFornModal(o, f, 'os', grupoOrdens), 320);
   } catch(e){ toast('Erro ao salvar','err'); }
 }
 
@@ -1683,7 +1711,7 @@ async function track(evento, detalhe=''){
 let _waFornModal_fid = null;
 let _waFornModal_dataFiltro = null;
 
-function _abrirWAFornModal(o, f, tipo) {
+function _abrirWAFornModal(o, f, tipo, grupoOrdens) {
   const data = dateF(o.data);
   const turno = (() => {
     let regioes = f.regioes;
@@ -1694,15 +1722,18 @@ function _abrirWAFornModal(o, f, tipo) {
   })();
   const turnoTxt = turno==='noturno'?'🌙 Noturno':turno==='diurno'?'☀️ Diurno':turno||'';
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+  const grupo = (Array.isArray(grupoOrdens) && grupoOrdens.length>0) ? grupoOrdens : [o];
+  const qtdTxt = grupo.length>1 ? grupo.length+' caçambas' : '1 caçamba';
+  const osTxt = grupo.map(x=>x.crm_id||'—').join(', ');
   let texto = '';
   if(tipo === 'os') {
-    texto = `📦 1 caçamba · 📅 ${data}
+    texto = `📦 ${qtdTxt} · 📅 ${data}
 📍 ${endereco}
 👤 ${o.nome||'—'} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
-📋 OS: ${o.crm_id||'—'}
+📋 OS: ${osTxt}
 
-Por favor, confirme o recebimento desta OS.
+Por favor, confirme o recebimento dest${grupo.length>1?'as OS':'a OS'}.
 _CaçambaSP_`;
   } else {
     texto = `❌ CANCELAMENTO · 📦 1 caçamba · 📅 ${data}
@@ -5456,6 +5487,18 @@ async function duplicarOrdem(id) {
     const okQtd = await showConfirm({ico:'🔁',title:'Confirma criar '+qtd+' ordens?',body:'Serão criadas <strong>'+qtd+' ordens duplicadas</strong>, uma para cada caçamba.',ok:'Criar '+qtd+' ordens',okClass:'acc'});
     if(!okQtd) return;
   }
+  // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs.
+  // A ordem original também entra no lote, se ainda não tiver fornecedor.
+  let grpId = null;
+  if(qtd>1){
+    grpId = 'L'+Date.now().toString(36).toUpperCase();
+    if(!o.forn_id){
+      try{
+        await api('ordens?id=eq.'+o.id,'PATCH',{grp_id:grpId},tok());
+        o.grp_id = grpId;
+      }catch(e){}
+    }
+  }
   let criadas = 0, falhas = 0, ultimoCrmId = '';
   for(let i=0;i<qtd;i++){
     try {
@@ -5483,7 +5526,7 @@ async function duplicarOrdem(id) {
         concluido_em: null,
         entrega_em: null,
         comissao_liberada: false,
-        grp_id: null,
+        grp_id: grpId,
       };
       // Remove campos undefined explicitamente para o banco gerar/usar default
       delete body.tracking_token;
