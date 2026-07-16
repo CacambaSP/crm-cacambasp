@@ -13789,7 +13789,7 @@ function renderOrcGerador(id){
           </div>
           <div class="fi-row">
             <div class="fi"><label>Quantidade de caçambas</label><input type="number" id="orc_g_qtd" value="${o?.orc_qtd||1}" min="1" step="1" oninput="atualizarPreviewPDF()"></div>
-            <div class="fi"><label>Valor (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
+            <div class="fi"><label>Valor por caçamba (R$)</label><input type="number" id="orc_g_valor" value="${o?.orc_valor||''}" step="0.01" placeholder="0,00" oninput="atualizarPreviewPDF()"></div>
           </div>
           <div class="fi-row">
             <div class="fi"><label>Telefone / WhatsApp</label><input type="text" id="orc_g_tel" value="${o?.cel||''}" placeholder="(11) 99999-9999" oninput="atualizarPreviewPDF()"></div>
@@ -13835,7 +13835,7 @@ function renderOrcGerador(id){
             <tbody><tr style="border-bottom:1px solid #eee">
               <td style="padding:8px;font-size:10px" id="prev_tipo">${(o?.orc_qtd&&o.orc_qtd>1)?o.orc_qtd+'x ':'1x '}${o?.tipo||'—'}</td>
 
-              <td style="padding:8px;text-align:right;font-weight:800;font-size:13px;color:${marcaCor}" id="prev_valor">${o?.orc_valor?'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+              <td style="padding:8px;text-align:right;font-weight:800;font-size:13px;color:${marcaCor}" id="prev_valor">${o?.orc_valor?'R$ '+(parseFloat(o.orc_valor)*(o?.orc_qtd||1)).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
             </tr></tbody>
           </table>
           <!-- Validade e obs -->
@@ -13857,8 +13857,9 @@ function atualizarPreviewPDF(){
   const tipoVal = document.getElementById('orc_g_tipo')?.value||'—';
   if(elTipo2) elTipo2.textContent = (qtd>1?qtd+'x ':'')+tipoVal;
   const valor = parseFloat(document.getElementById('orc_g_valor')?.value||0);
+  const valorTotal = valor>0 ? valor*qtd : 0;
   const elValor = document.getElementById('prev_valor');
-  if(elValor) elValor.textContent = valor>0?'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
+  if(elValor) elValor.textContent = valorTotal>0?'R$ '+valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
 
   const validade = document.getElementById('orc_g_validade')?.value||'';
   const elValidade = document.getElementById('prev_validade');
@@ -13935,7 +13936,8 @@ function _pdfDados(o, campos){
   const tel       = campos?.tel       || o?.cel || '';
   const cpf       = campos?.cpf       || o?.cpf || '';
   const crmId     = o?.crm_id || '';
-  const valorFmt  = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const valorFmt  = valor ? 'R$ '+(valor*qtd).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  const valorUnitFmt = valor ? 'R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
   const validFmt  = validade ? new Date(validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
   const logoHtml  = marcaLogo ? `<img src="${marcaLogo}" style="height:48px;object-fit:contain;margin-bottom:4px"><br>` : '';
   const slogHtml  = marcaSlogan ? `<div style="font-size:10px;color:#888;margin-top:2px">${marcaSlogan}</div>` : '';
@@ -13944,7 +13946,7 @@ function _pdfDados(o, campos){
   const btnPrint  = `<button style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:${marcaCor};color:#000;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:20px" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>`;
   const printCss  = `@media print{body{padding:16px} .no-print{display:none!important}}`;
   const fontLink  = `<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">`;
-  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,qtd,valor,validade,prazo,permRua,permCant,isCanteiro,tipoPrazoLabel,tipoPrazoDias,obs,tel,cpf,crmId,valorFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
+  return {marcaCor,marcaNome,marcaLogo,marcaSlogan,marcaTema,nome,end,tipo,qtd,valor,validade,prazo,permRua,permCant,isCanteiro,tipoPrazoLabel,tipoPrazoDias,obs,tel,cpf,crmId,valorFmt,valorUnitFmt,validFmt,logoHtml,slogHtml,obsHtml,rodape,btnPrint,printCss,fontLink};
 }
 
 // ── Bloco comum: serviço + permanência + meta ──
@@ -13958,7 +13960,7 @@ function _pdfBlocoServico(d,tc){
     <div class="serv-row">
       <div>
         <div class="sr-desc">📦 ${d.qtd>1?d.qtd+"x ":""}caçamba 4m³</div>
-        <div class="sr-detail">${d.tipo}${d.obs?' · '+d.obs:''}</div>
+        <div class="sr-detail">${d.tipo}${d.obs?' · '+d.obs:''}${d.qtd>1?' · '+d.valorUnitFmt+' cada':''}</div>
       </div>
       <div class="sr-val">${d.valorFmt}</div>
     </div>
@@ -14048,7 +14050,7 @@ function _pdfTemaB(d){
     <div class="s-item"><div class="s-lbl">Via pública</div><div class="s-val">${d.permRua} dias úteis</div></div>
     <div class="s-item"><div class="s-lbl">Canteiro de obras</div><div class="s-val">${d.permCant} dias úteis</div></div>
     <div class="s-item"><div class="s-lbl">Válido até</div><div class="s-val">${d.validFmt}</div></div>
-    <div class="s-item"><div class="s-lbl">Valor</div><div class="s-val" style="font-size:13px;color:${d.marcaCor}">${d.valorFmt}</div></div>
+    <div class="s-item"><div class="s-lbl">${d.qtd>1?'Total':'Valor'}</div><div class="s-val" style="font-size:13px;color:${d.marcaCor}">${d.valorFmt}</div></div>
   </div>
   <div class="main">
     <div class="no-print" style="margin-bottom:14px">${d.btnPrint}</div>
@@ -14213,12 +14215,15 @@ function enviarWaOrc(id){
   const marcaSlogan = vend?.marca_slogan || '';
   const marcaTelRaw = (vend?.marca_tel||'').replace(/\D/g,'');
   const waResposta  = marcaTelRaw.length>=10 ? marcaTelRaw : '551142378757';
-  const valor    = o.orc_valor ? 'R$ '+parseFloat(o.orc_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'a confirmar';
+  const qtd      = o.orc_qtd || 1;
+  const valorUnit= o.orc_valor ? parseFloat(o.orc_valor) : null;
+  const valor    = valorUnit ? 'R$ '+(valorUnit*qtd).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'a confirmar';
   const validade = o.orc_validade ? new Date(o.orc_validade+'T00:00:00').toLocaleDateString('pt-BR') : '—';
   const isCant   = (o.orc_perm_canteiro||0) > 0 && (o.orc_perm_rua||0) === 0;
   const tipoPrazo= isCant ? `Canteiro de obras · 5 dias úteis` : `Via pública · 3 dias úteis`;
   const endFmt   = [o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ')||'—';
-  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento da *${marcaNome}*:\n\n📋 *Orçamento:* ${o.crm_id||''}\n🗑️ *Serviço:* ${o.tipo||'Locação de caçamba'}\n📍 *Endereço:* ${endFmt}\n📅 *Permanência:* ${tipoPrazo}\n💰 *Valor:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Qualquer dúvida, fale comigo aqui pelo WhatsApp! 😊\n\n_${marcaNome}${marcaSlogan?' · '+marcaSlogan:''}_`;
+  const servicoTxt = (qtd>1?qtd+'x ':'')+(o.tipo||'Locação de caçamba')+(qtd>1&&valorUnit?' (R$ '+valorUnit.toLocaleString('pt-BR',{minimumFractionDigits:2})+' cada)':'');
+  const msg = `Olá, ${o.nome||''}! 👋\n\nSegue o orçamento da *${marcaNome}*:\n\n📋 *Orçamento:* ${o.crm_id||''}\n🗑️ *Serviço:* ${servicoTxt}\n📍 *Endereço:* ${endFmt}\n📅 *Permanência:* ${tipoPrazo}\n💰 *${qtd>1?'Total':'Valor'}:* ${valor}\n⏳ *Válido até:* ${validade}\n\n${o.obs?`📝 ${o.obs}\n\n`:''}Qualquer dúvida, fale comigo aqui pelo WhatsApp! 😊\n\n_${marcaNome}${marcaSlogan?' · '+marcaSlogan:''}_`;
   const cel = (o.cel||'').replace(/\D/g,'');
   const celLimpo = cel.startsWith('55') && cel.length>=12 ? cel.slice(2) : cel;
   const numCliente = '55'+celLimpo;
