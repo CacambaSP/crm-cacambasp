@@ -1493,6 +1493,10 @@ input[type=checkbox]:checked::after{
         </div>
       </div>
       <div class="fi">
+        <label>Quantidade de caçambas</label>
+        <input type="number" id="dup_qtd" min="1" max="20" value="1">
+      </div>
+      <div class="fi">
         <label>Data da nova ordem</label>
         <input type="date" id="dup_data">
       </div>
@@ -5130,6 +5134,7 @@ function abrirDuplicarOrdem(){
   }
   document.getElementById('dup_data').value = new Date().toISOString().slice(0,10);
   document.getElementById('dup_obs').value = 'Troca solicitada via WhatsApp';
+  document.getElementById('dup_qtd').value = 1;
   closeModal('detailModal');
   openModal('duplicarModal');
 }
@@ -5138,38 +5143,55 @@ async function confirmarDuplicarOrdem(){
   const tipoNovo = _dupTipo==='troca' ? 'Troca' : (orig.tipo||'Nova coloca');
   const dataNova = document.getElementById('dup_data').value || new Date().toISOString().slice(0,10);
   const obsNova  = document.getElementById('dup_obs').value.trim();
-  // Cria ordem com crm_id temporário para render imediato (sem esperar API)
-  const novaOrdem = {
-    id: uid(), crm_id: '...', col: 'contratar',
-    nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
-    logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
-    tipo: tipoNovo, data: dataNova, obs: obsNova,
-    rec: orig.rec, cst: orig.cst, forn_id: null,
-    pago: false, pago_em: null, pago_valor: null, pago_obs: null,
-    forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
-    nf_num: '', nf_taxa: orig.nf_taxa||_taxaNF,
-    usuario_id: orig.usuario_id,
-    criado_em: nowISO()
-  };
-  ordens.push(novaOrdem);
-  renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
+  let qtd = parseInt(document.getElementById('dup_qtd').value) || 1;
+  if(qtd<1) qtd=1;
+  if(qtd>20) qtd=20;
+  if(qtd>1){
+    const okQtd = await showConfirm({ico:'🔁',title:'Confirma criar '+qtd+' ordens?',body:'Serão criadas <strong>'+qtd+' ordens duplicadas</strong>, uma para cada caçamba.',ok:'Criar '+qtd+' ordens',okClass:'acc'});
+    if(!okQtd) return;
+  }
   closeModal('duplicarModal');
-  setTimeout(()=>{ const el=document.getElementById('card_'+novaOrdem.id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },120);
-  try{
-    setSyncDot('sync');
-    let crmIdFinal='';
-    await withCrmIdRetry('LC', async(crmId)=>{
-      novaOrdem.crm_id = crmId;
-      crmIdFinal = crmId;
-      // Atualiza o chip do card que já está no board
-      const chipEl = document.querySelector('#card_'+novaOrdem.id+' .chip.acc');
-      if(chipEl) chipEl.textContent = crmId;
-      await api('ordens','POST',novaOrdem,tok());
-    });
-    setSyncDot('ok');
-    addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
-    toast('✅ Ordem '+crmIdFinal+' criada ('+ (_dupTipo==='troca'?'Troca':'Nova') +')!','ok');
-  }catch(e){ setSyncDot('err'); toast('Erro ao criar ordem','err'); }
+  let criadas = 0, falhas = 0, ultimoCrmId = '', ultimaId = '';
+  for(let i=0;i<qtd;i++){
+    // Cria ordem com crm_id temporário para render imediato (sem esperar API)
+    const novaOrdem = {
+      id: uid(), crm_id: '...', col: 'contratar',
+      nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
+      logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
+      tipo: tipoNovo, data: dataNova, obs: obsNova,
+      rec: orig.rec, cst: orig.cst, forn_id: null,
+      pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+      forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
+      nf_num: '', nf_taxa: orig.nf_taxa||_taxaNF,
+      usuario_id: orig.usuario_id,
+      criado_em: nowISO()
+    };
+    ordens.push(novaOrdem);
+    renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
+    try{
+      setSyncDot('sync');
+      let crmIdFinal='';
+      await withCrmIdRetry('LC', async(crmId)=>{
+        novaOrdem.crm_id = crmId;
+        crmIdFinal = crmId;
+        // Atualiza o chip do card que já está no board
+        const chipEl = document.querySelector('#card_'+novaOrdem.id+' .chip.acc');
+        if(chipEl) chipEl.textContent = crmId;
+        await api('ordens','POST',novaOrdem,tok());
+      });
+      setSyncDot('ok');
+      addLog(novaOrdem.id,'Duplicada de '+orig.crm_id, tipoNovo);
+      ultimoCrmId = crmIdFinal; ultimaId = novaOrdem.id; criadas++;
+    }catch(e){ setSyncDot('err'); falhas++; }
+  }
+  setTimeout(()=>{ const el=document.getElementById('card_'+ultimaId); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },120);
+  if(criadas>0){
+    const label = (_dupTipo==='troca'?'Troca':'Nova');
+    toast(criadas===1
+      ? '✅ Ordem '+ultimoCrmId+' criada ('+label+')!'
+      : '✅ '+criadas+' ordens criadas ('+label+')!','ok');
+  }
+  if(falhas>0) toast('Erro ao criar '+falhas+' de '+qtd+' ordens','err');
 }
 
 function closeDetail(){closeModal('detailModal');_detailId=null;}
