@@ -782,6 +782,10 @@ input,select,textarea,button{font-family:var(--font)}
         <div class="mfi"><label>Nome *</label><input type="text" id="ed_nome" placeholder="Nome completo" autocomplete="off"></div>
         <div class="mfi"><label>WhatsApp *</label><input type="tel" id="ed_cel" placeholder="(11) 99999-9999" inputmode="tel"></div>
         <div class="mfi"><label>CPF / CNPJ</label><input type="text" id="ed_cpf" placeholder="000.000.000-00" inputmode="numeric" oninput="mascaraCpfCnpj(this)"></div>
+        <div class="mfi" id="ed_vend_wrap" style="display:none">
+          <label>Vendedor</label>
+          <select id="ed_vend" style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:14px 16px;font-size:16px;color:var(--txt);outline:none"></select>
+        </div>
       </div>
       <!-- Tab serviço -->
       <div class="edit-panel" id="epanel-servico">
@@ -2068,6 +2072,15 @@ function abrirEditar(id) {
   const fSel = document.getElementById('ed_forn');
   fSel.innerHTML = '<option value="">— Sem fornecedor —</option>' +
     _forns.map(f=>`<option value="${f.id}"${f.id===o.forn_id?' selected':''}>${f.nome}</option>`).join('');
+  // Preencher select de vendedor (somente admin)
+  const vendWrap = document.getElementById('ed_vend_wrap');
+  if(isAdmin()){
+    vendWrap.style.display='';
+    const vSel = document.getElementById('ed_vend');
+    vSel.innerHTML = _usuarios.map(u=>`<option value="${u.id}"${u.id===o.usuario_id?' selected':''}>${u.nome}</option>`).join('');
+  } else {
+    vendWrap.style.display='none';
+  }
   setEditTab('cliente');
   openModal('editarModal');
 }
@@ -2120,6 +2133,11 @@ async function salvarEdicao() {
   };
   // Se atribuiu fornecedor novo e estava em contratar, avança coluna
   if(fornId && fornId !== o.forn_id && o.col==='contratar') upd.col = 'ag_entrega';
+  // Troca de vendedor (somente admin)
+  if(isAdmin()){
+    const vendSel = document.getElementById('ed_vend');
+    if(vendSel && vendSel.value) upd.usuario_id = vendSel.value;
+  }
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o, upd);
