@@ -4497,6 +4497,11 @@ function abrirPopupForn(e, ordemId){
   setTimeout(()=>{ document.addEventListener('click', function _closePopup(){ document.getElementById('fornPopup')?.remove(); _popupFornId=null; document.removeEventListener('click',_closePopup); }); }, 0);
 }
 
+// Retorna ordens do mesmo lote (grp_id) que ainda não têm fornecedor, excluindo a própria ordem
+function _irmasSemForn(c){
+  if(!c.grp_id) return [];
+  return ordens.filter(x=>x.id!==c.id && x.grp_id===c.grp_id && !x.forn_id && !x.cancel_motivo && x.col!=='concluido');
+}
 async function _atribuirFornecedorCard(ordemId, fornId){
   // Fechar popup
   document.getElementById('fornPopup')?.remove(); _popupFornId=null;
@@ -4536,10 +4541,38 @@ async function _finalizarAtribuicaoFornecedorCard(c, f, m, deveAdicionarBairro){
     await _addBairroAoFornecedor(f, c.bairro, c.cidade, precoForn, m.reg.preco_cli||0, m.reg.turno);
   }
 
-  // Montar texto OS e abrir via detail se estiver aberto, senão abrir modal flutuante
+  // Verifica se há ordens irmãs (mesmo lote de duplicação) ainda sem fornecedor
+  const irmas = _irmasSemForn(c);
+  let grupoOrdens = [c];
+  if(irmas.length>0){
+    const okGrupo = await showConfirm({
+      ico:'👥', title:'Ordens irmãs encontradas',
+      body:'Encontrei mais <strong>'+irmas.length+'</strong> ordem(ns) do mesmo lote, ainda sem fornecedor.<br>Atribuir <strong>'+f.nome+'</strong> a todas e gerar uma única mensagem?',
+      ok:'Atribuir a todas ('+(irmas.length+1)+' caçambas)', okClass:'acc', cancel:'Só esta ordem'
+    });
+    if(okGrupo){
+      for(const irma of irmas){
+        const patchIrma = {forn_id:f.id};
+        if(precoForn>0 && !(parseFloat(irma.cst)>0)){ irma.cst=precoForn; patchIrma.cst=precoForn; }
+        irma.forn_id = f.id;
+        autoColFornNomeado(irma);
+        patchIrma.col = irma.col;
+        try{
+          await api('ordens?id=eq.'+irma.id,'PATCH',patchIrma,tok());
+          addLog(irma.id,'Fornecedor atribuído',f.nome+' · via atribuição em grupo');
+        }catch(e){}
+      }
+      renderBoard();
+      grupoOrdens = [c, ...irmas];
+    }
+  }
+
+  // Montar texto OS (single ou grupo) e abrir via detail se estiver aberto, senão abrir modal flutuante
   const end = [c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ')||'—';
   const dataStr = c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
-  const textoOS = '📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  const qtdTxt = grupoOrdens.length>1 ? grupoOrdens.length+' caçambas' : '1 caçamba';
+  const osTxt = grupoOrdens.map(o=>o.crm_id||'—').join(', ');
+  const textoOS = '📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
   // Abrir modal flutuante de WA
   _abrirModalAgenda(f, textoOS);
 }
@@ -4788,10 +4821,6 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
     c.rec = recNovo;
     patch.rec = recNovo;
   }
-  // Montar texto padrão da OS
-  const end = [c.logradouro, c.bairro, c.cidade].filter(Boolean).join(', ') || '—';
-  const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-  const textoOS='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
 
   // Salvar no banco primeiro
   c.forn_id = fornId;
@@ -4816,6 +4845,39 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   if(deveAdicionarBairro && m?.reg){
     await _addBairroAoFornecedor(f, c.bairro, c.cidade, precoForn, m.reg.preco_cli||0, m.reg.turno);
   }
+
+  // Verifica se há ordens irmãs (mesmo lote de duplicação) ainda sem fornecedor
+  const irmas = _irmasSemForn(c);
+  let grupoOrdens = [c];
+  if(irmas.length>0){
+    const okGrupo = await showConfirm({
+      ico:'👥', title:'Ordens irmãs encontradas',
+      body:'Encontrei mais <strong>'+irmas.length+'</strong> ordem(ns) do mesmo lote, ainda sem fornecedor.<br>Atribuir <strong>'+f.nome+'</strong> a todas e gerar uma única mensagem?',
+      ok:'Atribuir a todas ('+(irmas.length+1)+' caçambas)', okClass:'acc', cancel:'Só esta ordem'
+    });
+    if(okGrupo){
+      for(const irma of irmas){
+        const patchIrma = {forn_id:f.id};
+        if(precoForn>0 && !(parseFloat(irma.cst)>0)){ irma.cst=precoForn; patchIrma.cst=precoForn; }
+        irma.forn_id = f.id;
+        autoColFornNomeado(irma);
+        patchIrma.col = irma.col;
+        try{
+          await api('ordens?id=eq.'+irma.id,'PATCH',patchIrma,tok());
+          addLog(irma.id,'Fornecedor atribuído',f.nome+' · via atribuição em grupo');
+        }catch(e){}
+      }
+      renderBoard();
+      grupoOrdens = [c, ...irmas];
+    }
+  }
+
+  // Montar texto padrão da OS (single ou grupo)
+  const end = [c.logradouro, c.bairro, c.cidade].filter(Boolean).join(', ') || '—';
+  const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const qtdTxt = grupoOrdens.length>1 ? grupoOrdens.length+' caçambas' : '1 caçamba';
+  const osTxt = grupoOrdens.map(o=>o.crm_id||'—').join(', ');
+  const textoOS='📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
 
   // Abrir modal de envio WA
   _abrirModalWAForn({
@@ -5151,6 +5213,18 @@ async function confirmarDuplicarOrdem(){
     if(!okQtd) return;
   }
   closeModal('duplicarModal');
+  // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs.
+  // A ordem original também entra no lote, se ainda não tiver fornecedor.
+  let grpId = null;
+  if(qtd>1){
+    grpId = 'L'+Date.now().toString(36).toUpperCase();
+    if(!orig.forn_id){
+      try{
+        await api('ordens?id=eq.'+orig.id,'PATCH',{grp_id:grpId},tok());
+        orig.grp_id = grpId;
+      }catch(e){}
+    }
+  }
   let criadas = 0, falhas = 0, ultimoCrmId = '', ultimaId = '';
   for(let i=0;i<qtd;i++){
     // Cria ordem com crm_id temporário para render imediato (sem esperar API)
@@ -5159,7 +5233,7 @@ async function confirmarDuplicarOrdem(){
       nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
       logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
       tipo: tipoNovo, data: dataNova, obs: obsNova,
-      rec: orig.rec, cst: orig.cst, forn_id: null,
+      rec: orig.rec, cst: orig.cst, forn_id: null, grp_id: grpId,
       pago: false, pago_em: null, pago_valor: null, pago_obs: null,
       forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
       nf_num: '', nf_taxa: orig.nf_taxa||_taxaNF,
