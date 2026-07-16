@@ -5438,6 +5438,7 @@ async function duplicarOrdem(id) {
   // Sempre duplica sem fornecedor, direto para contratar
   const avisoPendDup = _pendenciaAvisoHTML(o.cel||o.wh, null);
   const bodyDup = 'Nova OS com os dados do cliente.<br>Irá para <strong>Contratar</strong> sem fornecedor.'
+    + '<div style="margin-top:12px;text-align:left"><label style="font-size:12px;color:var(--mut);display:block;margin-bottom:4px">Quantidade de caçambas</label><input type="number" id="dup_qtd_mob" min="1" max="20" value="1" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:14px"></div>'
     + (avisoPendDup ? `<div style="margin-top:10px;padding:9px 12px;border-radius:8px;background:var(--r2);border:1px solid var(--r3);color:var(--r);font-size:12px">${avisoPendDup}</div>` : '');
   const ok = await showConfirm({
     ico:'🔁', title:'Duplicar ordem?',
@@ -5445,53 +5446,68 @@ async function duplicarOrdem(id) {
     ok:'📋 Duplicar', okClass:'acc'
   });
   if(!ok) return;
-  try {
-    // Monta body com spread, mas remove campos que não devem ser copiados
-    const body = {
-      ...o,
-      id: uidGen(), crm_id: '...',
-      usuario_id: uid(),
-      col: 'contratar',
-      criado_em: nowISO(),
-      data: null,
-      forn_id: null,
-      cobrado_em: null, cancel_motivo: null,
-      pago: false, pago_em: null, pago_valor: null, pago_obs: null,
-      forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
-      entrega_confirmada: false, orc_convertido_em: null,
-      // NF: se original tinha, duplicada nasce com '000' (precisa emitir nova)
-      nf_num: o.nf_num ? '000' : '',
-      nf_taxa: o.nf_num ? (o.nf_taxa || 0) : 0,
-      // Limpar observação da original (era específica daquela OS)
-      obs: '',
-      // Campos gerados pelo banco — não enviar
-      tracking_token: undefined,
-      atualizado_em: undefined,
-      concluido_em: null,
-      entrega_em: null,
-      comissao_liberada: false,
-      grp_id: null,
-    };
-    // Remove campos undefined explicitamente para o banco gerar/usar default
-    delete body.tracking_token;
-    delete body.atualizado_em;
-    let crmIdFinal='';
-    let resFinal=null;
-    await withCrmIdRetry(async(crm_id)=>{
-      crmIdFinal = crm_id;
-      body.crm_id = crm_id;
-      resFinal = await api('ordens','POST',body,tok());
-    });
-    if(resFinal?.[0]) _ordens.unshift(resFinal[0]);
-    addLog(body.id,'Duplicada de '+(o.crm_id||'-'),'via mobile');
-    toast(`Ordem ${crmIdFinal} criada em Contratar!`,'ok');
-    try{ pushContratar(resFinal?.[0]||body); }catch(e){}
-    setView('inicio');
-  } catch(e){
-    console.error('🔴 ERRO DUPLICAR:', e);
-    const msg = e?.message || e?.error_description || e?.toString() || 'desconhecido';
-    toast('ERRO: '+String(msg).substring(0,250),'err',12000);
+  let qtd = parseInt(document.getElementById('dup_qtd_mob')?.value) || 1;
+  if(qtd<1) qtd=1;
+  if(qtd>20) qtd=20;
+  if(qtd>1){
+    const okQtd = await showConfirm({ico:'🔁',title:'Confirma criar '+qtd+' ordens?',body:'Serão criadas <strong>'+qtd+' ordens duplicadas</strong>, uma para cada caçamba.',ok:'Criar '+qtd+' ordens',okClass:'acc'});
+    if(!okQtd) return;
   }
+  let criadas = 0, falhas = 0, ultimoCrmId = '';
+  for(let i=0;i<qtd;i++){
+    try {
+      // Monta body com spread, mas remove campos que não devem ser copiados
+      const body = {
+        ...o,
+        id: uidGen(), crm_id: '...',
+        usuario_id: uid(),
+        col: 'contratar',
+        criado_em: nowISO(),
+        data: null,
+        forn_id: null,
+        cobrado_em: null, cancel_motivo: null,
+        pago: false, pago_em: null, pago_valor: null, pago_obs: null,
+        forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
+        entrega_confirmada: false, orc_convertido_em: null,
+        // NF: se original tinha, duplicada nasce com '000' (precisa emitir nova)
+        nf_num: o.nf_num ? '000' : '',
+        nf_taxa: o.nf_num ? (o.nf_taxa || 0) : 0,
+        // Limpar observação da original (era específica daquela OS)
+        obs: '',
+        // Campos gerados pelo banco — não enviar
+        tracking_token: undefined,
+        atualizado_em: undefined,
+        concluido_em: null,
+        entrega_em: null,
+        comissao_liberada: false,
+        grp_id: null,
+      };
+      // Remove campos undefined explicitamente para o banco gerar/usar default
+      delete body.tracking_token;
+      delete body.atualizado_em;
+      let crmIdFinal='';
+      let resFinal=null;
+      await withCrmIdRetry(async(crm_id)=>{
+        crmIdFinal = crm_id;
+        body.crm_id = crm_id;
+        resFinal = await api('ordens','POST',body,tok());
+      });
+      if(resFinal?.[0]) _ordens.unshift(resFinal[0]);
+      addLog(body.id,'Duplicada de '+(o.crm_id||'-'),'via mobile');
+      try{ pushContratar(resFinal?.[0]||body); }catch(e){}
+      ultimoCrmId = crmIdFinal; criadas++;
+    } catch(e){
+      console.error('🔴 ERRO DUPLICAR:', e);
+      falhas++;
+    }
+  }
+  if(criadas>0){
+    toast(criadas===1
+      ? `Ordem ${ultimoCrmId} criada em Contratar!`
+      : `✅ ${criadas} ordens criadas em Contratar!`,'ok');
+    setView('inicio');
+  }
+  if(falhas>0) toast('Erro ao criar '+falhas+' de '+qtd+' ordens','err',12000);
 }
 
 async function arquivarOrdem(id) {
