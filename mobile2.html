@@ -3591,7 +3591,7 @@ function renderFornecedores() {
   setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total');
 
   const searchBar = `<div style="padding:10px 14px 4px">
-    <input type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
+    <input id="fornSearchInput" type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
       style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
   </div>`;
 
@@ -3613,7 +3613,20 @@ function renderFornecedores() {
       ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
       : '';
 
+  // Preserva foco + posição do cursor no campo de busca ao re-renderizar (evita perder o foco a cada tecla)
+  const _fornInputAntigo = document.getElementById('fornSearchInput');
+  const _fornTinhaFoco = _fornInputAntigo && document.activeElement === _fornInputAntigo;
+  const _fornCursorPos = _fornTinhaFoco ? _fornInputAntigo.selectionStart : null;
+
   document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || (h + outrosHTML));
+
+  if(_fornTinhaFoco) {
+    const _fornInputNovo = document.getElementById('fornSearchInput');
+    if(_fornInputNovo) {
+      _fornInputNovo.focus();
+      try { _fornInputNovo.setSelectionRange(_fornCursorPos, _fornCursorPos); } catch(e) {}
+    }
+  }
 }
 
 function _fornCardHTML(f, colors) {
