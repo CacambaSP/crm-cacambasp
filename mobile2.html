@@ -963,7 +963,10 @@ input,select,textarea,button{font-family:var(--font)}
       </div>
       <div class="mfi">
         <label>Etiqueta / Referência</label>
-        <input type="text" id="fpd_ref" placeholder="Ex: FornJuliana25032026" style="font-family:var(--mono);font-size:13px">
+        <div style="display:flex;gap:8px">
+          <input type="text" id="fpd_ref" placeholder="Ex: FornJuliana25032026" style="flex:1;font-family:var(--mono);font-size:13px">
+          <button type="button" onclick="fpCopiarRef()" title="Copiar etiqueta" style="flex-shrink:0;width:44px;border-radius:var(--rad3);border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:16px;cursor:pointer">📋</button>
+        </div>
       </div>
       <div class="mfi">
         <label>Observação (opcional)</label>
@@ -3861,14 +3864,20 @@ function fpAbrirDados(fid) {
   document.getElementById('fpd_val').value = total.toFixed(2);
   document.getElementById('fpd_data').value = new Date().toISOString().slice(0,10);
   document.getElementById('fpd_forma').value = 'Pix';
-  document.getElementById('fpd_ref').value = '';
   document.getElementById('fpd_obs').value = '';
-  // Sugestão de etiqueta: FornNome + data
+  // Sugestão de etiqueta: FornNome + data — já vem preenchida, pronta para copiar no comprovante do banco
   const hoje = new Date();
   const tag = (nome.split(' ')[0]+hoje.getDate().toString().padStart(2,'0')+(hoje.getMonth()+1).toString().padStart(2,'0')+hoje.getFullYear()).replace(/[^A-Za-z0-9]/g,'');
+  document.getElementById('fpd_ref').value = tag;
   document.getElementById('fpd_sugestao').textContent = tag;
   document.getElementById('fpd_ref').placeholder = `Ex: ${tag}`;
   openModal('fpDadosModal');
+}
+
+function fpCopiarRef() {
+  const el = document.getElementById('fpd_ref');
+  if(!el || !el.value) { toast('Nada para copiar','warn'); return; }
+  navigator.clipboard.writeText(el.value).then(()=>toast('📋 Etiqueta copiada!','ok')).catch(()=>toast('Copie manualmente','warn'));
 }
 
 async function fpConfirmarDados() {
