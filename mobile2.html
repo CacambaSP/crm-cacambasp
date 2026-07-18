@@ -3567,6 +3567,7 @@ function renderFornecedores() {
   const colors = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
   const contarAtivas = f => _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col)).length;
+  const pendenteForn = f => _ordens.filter(o => o.forn_id===f.id && !o.forn_pago && (parseFloat(o.cst)||0)>0).reduce((s,o)=>s+parseFloat(o.cst||0),0);
 
   const comOrdens = _forns.filter(f => contarAtivas(f) > 0);
   const semOrdens = _forns.filter(f => contarAtivas(f) === 0);
@@ -3577,8 +3578,13 @@ function renderFornecedores() {
     lista = _forns.filter(f => (f.nome||'').toLowerCase().includes(q))
       .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   } else {
-    // Com ordem em andamento primeiro, ordenados por quem tem mais ativas
-    lista = [...comOrdens].sort((a,b)=> contarAtivas(b)-contarAtivas(a) || (a.nome||'').localeCompare(b.nome||''));
+    // 1º quem tem pagamento pendente ao fornecedor (maior valor primeiro),
+    // 2º quem tem ordem ativa mas já está quitado (esperando só o cliente)
+    const comPendencia = comOrdens.filter(f => pendenteForn(f) > 0)
+      .sort((a,b)=> pendenteForn(b)-pendenteForn(a) || (a.nome||'').localeCompare(b.nome||''));
+    const semPendencia = comOrdens.filter(f => pendenteForn(f) === 0)
+      .sort((a,b)=> contarAtivas(b)-contarAtivas(a) || (a.nome||'').localeCompare(b.nome||''));
+    lista = [...comPendencia, ...semPendencia];
     outros = [...semOrdens].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   }
 
@@ -3713,7 +3719,11 @@ function _fornCardHTML(f, colors) {
           </div>
           <button onclick="fcAbrirPagamento('${f.id}')" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:#22c55e;color:#0b1220;font-size:13px;font-weight:800;cursor:pointer">Pagar selecionadas</button>
         </div>` : ''}
-      </div>` : ''}
+      </div>` : (ativas.length ? `
+      <!-- Fornecedor quitado, só falta o cliente pagar -->
+      <div style="border-top:1px solid var(--bor);padding:8px 14px;font-size:11px;color:var(--mut)">
+        🕓 Fornecedor pago — falta só o cliente
+      </div>` : '')}
     </div>`;
 }
 
