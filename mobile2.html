@@ -5235,7 +5235,7 @@ async function nextCrmId() {
 // Gera um crm_id e executa salvarFn(crmId). Se o banco recusar por já existir
 // esse código (corrida entre duas criações quase simultâneas, erro 23505),
 // tenta de novo com um novo número — até 3 vezes — em vez de mostrar erro.
-async function withCrmIdRetry(salvarFn, maxTentativas=3) {
+async function withCrmIdRetry(salvarFn, maxTentativas=5) {
   let ultimoErro;
   for(let i=0;i<maxTentativas;i++){
     const crmId = await nextCrmId();
@@ -5464,7 +5464,9 @@ async function moverColuna(id, colId) {
   } catch(e){toast('Erro ao mover','err');}
 }
 
+let _duplicandoIds = new Set(); // trava contra duplo toque em "Duplicar"
 async function duplicarOrdem(id) {
+  if(_duplicandoIds.has(id)) { toast('Aguarde, essa ordem já está sendo duplicada...','warn'); return; }
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   // Sempre duplica sem fornecedor, direto para contratar
   const avisoPendDup = _pendenciaAvisoHTML(o.cel||o.wh, null);
@@ -5487,6 +5489,8 @@ async function duplicarOrdem(id) {
     const okQtd = await showConfirm({ico:'🔁',title:'Confirma criar '+qtd+' ordens?',body:'Serão criadas <strong>'+qtd+' ordens duplicadas</strong>, uma para cada caçamba.',ok:'Criar '+qtd+' ordens',okClass:'acc'});
     if(!okQtd) return;
   }
+  _duplicandoIds.add(id);
+  toast('Duplicando...','ok');
   // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs.
   // A ordem original também entra no lote, se ainda não tiver fornecedor.
   let grpId = null;
@@ -5547,6 +5551,7 @@ async function duplicarOrdem(id) {
       falhas++;
     }
   }
+  _duplicandoIds.delete(id);
   if(criadas>0){
     toast(criadas===1
       ? `Ordem ${ultimoCrmId} criada em Contratar!`
