@@ -3521,6 +3521,13 @@ function renderFornecedores() {
       ? regioes.slice(0,3).map(r=>r.bairro||r.regiao||r.nome||'').filter(Boolean).join(', ') + (regioes.length > 3 ? ` +${regioes.length-3}` : '')
       : 'Atende qualquer bairro';
 
+    // Pendências de pagamento deste fornecedor (qualquer etapa, não pago, com custo)
+    const pendForn = _ordens.filter(o => o.forn_id===f.id && !o.forn_pago && (parseFloat(o.cst)||0)>0);
+    if(pendForn.length) fcEnsureState(f.id, pendForn.map(o=>o.id));
+    const fcSt = _fcStates[f.id];
+    const totalPend = pendForn.reduce((s,o)=>s+parseFloat(o.cst||0),0);
+    const totalSel = fcSt ? pendForn.filter(o=>fcSt.selected.has(o.id)).reduce((s,o)=>s+parseFloat(o.cst||0),0) : 0;
+
     h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
       <!-- Header do card -->
       <div style="display:flex;align-items:center;gap:12px;padding:14px">
@@ -3557,6 +3564,34 @@ function renderFornecedores() {
           ⚙️ Editar
         </button>
       </div>
+
+      ${pendForn.length ? `
+      <!-- Faixa de pagamento pendente -->
+      <div style="border-top:1px solid var(--bor)">
+        <div onclick="fcToggleCard('${f.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(34,197,94,.1);cursor:pointer">
+          <span style="font-size:12px;color:#4ade80;font-weight:700">💰 R$ ${fmt(totalPend)} pendente</span>
+          <span style="font-size:12px;font-weight:700;color:#4ade80">Pagar ${fcSt.collapsed?'▾':'▴'}</span>
+        </div>
+        ${!fcSt.collapsed ? `
+        <div style="padding:0 14px 12px;background:rgba(34,197,94,.05)">
+          ${pendForn.map(o=>{
+            const sel = fcSt.selected.has(o.id);
+            return `<div onclick="fcToggleOrdem('${f.id}','${o.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-top:1px solid var(--bor);cursor:pointer">
+              <div style="width:16px;height:16px;border-radius:4px;flex-shrink:0;${sel?'background:#4ade80':'border:1.5px solid #4ade80'}"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;color:var(--txt)">${o.crm_id||''} · ${o.logradouro||o.bairro||'—'}</div>
+                <div style="font-size:10px;color:var(--mut)">${dateF(o.data)}</div>
+              </div>
+              <span style="font-size:12px;color:#4ade80">R$ ${fmt(o.cst)}</span>
+            </div>`;
+          }).join('')}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 4px 4px;margin-top:2px">
+            <span style="font-size:11px;color:var(--mut)">${fcSt.selected.size} selecionada${fcSt.selected.size!==1?'s':''}</span>
+            <span style="font-size:13px;font-weight:800;color:#4ade80">R$ ${fmt(totalSel)}</span>
+          </div>
+          <button onclick="fcAbrirPagamento('${f.id}')" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;border:none;background:#22c55e;color:#0b1220;font-size:13px;font-weight:800;cursor:pointer">Pagar selecionadas</button>
+        </div>` : ''}
+      </div>` : ''}
     </div>`;
   });
 
@@ -3573,6 +3608,35 @@ function renderFornecedores() {
 // ── RENDER EQUIPE ──
 // ── PAGAR FORNECEDOR CONDENSADO ──
 let _fpStates = {}; // { fornId: { collapsed, dtIni, dtFim, selected } }
+
+// ── FAIXA "PAGAR" NO CARTÃO DE FORNECEDOR (tela Fornecedores) ──
+let _fcStates = {}; // { fornId: { collapsed, selected:Set } }
+function fcEnsureState(fid, pendIds) {
+  if(!_fcStates[fid]) {
+    _fcStates[fid] = { collapsed: true, selected: new Set(pendIds) };
+  } else {
+    // Mantém seleção prévia, mas inclui ordens novas que apareceram
+    pendIds.forEach(id => { if(!_fcStates[fid].selected.has(id) && !_fcStates[fid]._removidos?.has(id)) _fcStates[fid].selected.add(id); });
+  }
+}
+function fcToggleCard(fid) {
+  if(!_fcStates[fid]) return;
+  _fcStates[fid].collapsed = !_fcStates[fid].collapsed;
+  renderCurrentView();
+}
+function fcToggleOrdem(fid, oid) {
+  if(!_fcStates[fid]) return;
+  const s = _fcStates[fid].selected;
+  if(s.has(oid)) s.delete(oid); else s.add(oid);
+  renderCurrentView();
+}
+function fcAbrirPagamento(fid) {
+  const st = _fcStates[fid];
+  if(!st || !st.selected.size) { toast('Selecione ao menos uma ordem','warn'); return; }
+  // Reaproveita o modal/lógica já existente de pagamento em lote (fpAbrirDados)
+  _fpStates[fid] = { collapsed:false, dtIni:'', dtFim:'', selected: new Set(st.selected) };
+  fpAbrirDados(fid);
+}
 let _fpPendingFid = null; // fornId aguardando confirmação de dados
 
 function _fpSemanaAtual() {
