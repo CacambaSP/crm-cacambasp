@@ -3905,6 +3905,7 @@ async function fpConfirmarDados() {
   const obs   = document.getElementById('fpd_obs').value.trim();
   const pgRef = [forma, ref, obs].filter(Boolean).join(' | ');
   if(!data) { toast('Informe a data do pagamento','warn'); return; }
+  const forn = _forns.find(f=>f.id===fid);
   const ids = [..._fpStates[fid].selected];
   const ordens = _ordens.filter(o=>ids.includes(o.id));
   closeModal('fpDadosModal');
@@ -3928,7 +3929,22 @@ async function fpConfirmarDados() {
     _fpPendingFid = null;
     toast(`✅ ${ordens.length} pagamento${ordens.length!==1?'s':''} registrado${ordens.length!==1?'s':''}!`,'ok');
     renderCurrentView();
+    _fpAvisarGrupoWA(forn?.nome||'Fornecedor', data, ordens.length, val, ref);
   } catch(e) { toast('Erro ao registrar pagamento','err'); }
+}
+
+// ── Aviso de pagamento no grupo do WhatsApp (copia mensagem + abre o grupo) ──
+function _fpAvisarGrupoWA(nomeForn, dataISO, qtdOrdens, valorTotal, etiqueta) {
+  const [ano,mes,dia] = (dataISO||'').split('-');
+  const dataFmt = (dia && mes && ano) ? `${dia}/${mes}/${ano}` : dataISO;
+  const msg = `✅ *Pagamento a fornecedor*\n🚛 Fornecedor: ${nomeForn}\n📅 Data: ${dataFmt}\n📦 Ordens pagas: ${qtdOrdens}\n💰 Valor total: R$ ${fmt(valorTotal)}\n🏷️ Etiqueta: ${etiqueta||'—'}`;
+  try {
+    navigator.clipboard.writeText(msg);
+    toast('📋 Mensagem copiada — cole no grupo do WhatsApp!','ok');
+  } catch(e) {}
+  setTimeout(()=>{
+    window.open('https://chat.whatsapp.com/GLkhGBpR2Fa7FH7CspDZXp?s=cl&p=a&ilr=1&amv=0','_blank');
+  }, 600);
 }
 
 // ── ABA PAGAMENTOS FORNECEDOR ──
