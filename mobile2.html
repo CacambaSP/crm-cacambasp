@@ -3478,18 +3478,27 @@ function cardHTML(o, tipo='neutral') {
 // ── RENDER FORNECEDORES ──
 let _fornsQuery = ''; // busca na view fornecedores
 
+let _fornsOutrosOpen = false;
+function _toggleFornsOutros() { _fornsOutrosOpen = !_fornsOutrosOpen; renderFornecedores(); }
+
 function renderFornecedores() {
   const colors = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
-  const hoje = new Date().toISOString().slice(0,10);
+  const contarAtivas = f => _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col)).length;
 
-  // Filtrar: só fornecedores com ordens ativas, depois aplicar busca por texto
-  const comOrdens = _forns.filter(f => _ordens.some(o => o.forn_id === f.id && cols.includes(o.col)));
+  const comOrdens = _forns.filter(f => contarAtivas(f) > 0);
+  const semOrdens = _forns.filter(f => contarAtivas(f) === 0);
   const q = (_fornsQuery||'').toLowerCase().trim();
-  const lista = (q
-    ? _forns.filter(f => (f.nome||'').toLowerCase().includes(q))
-    : comOrdens
-  ).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+
+  let lista, outros = [];
+  if(q) {
+    lista = _forns.filter(f => (f.nome||'').toLowerCase().includes(q))
+      .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  } else {
+    // Com ordem em andamento primeiro, ordenados por quem tem mais ativas
+    lista = [...comOrdens].sort((a,b)=> contarAtivas(b)-contarAtivas(a) || (a.nome||'').localeCompare(b.nome||''));
+    outros = [...semOrdens].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  }
 
   setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total');
 
@@ -3498,8 +3507,28 @@ function renderFornecedores() {
       style="width:100%;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:11px 14px;font-size:15px;color:var(--txt);outline:none">
   </div>`;
 
-  let h = '';
-  lista.forEach(f => {
+  const h = lista.map(f => _fornCardHTML(f, colors)).join('');
+
+  const outrosHTML = (!q && outros.length) ? `
+    <div style="margin:10px 14px 6px" onclick="_toggleFornsOutros()">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);cursor:pointer">
+        <span style="font-size:13px;font-weight:700;color:var(--txt)">Ver outros fornecedores (${outros.length})</span>
+        <span style="font-size:12px;color:var(--mut)">${_fornsOutrosOpen?'▴':'▾'}</span>
+      </div>
+    </div>
+    ${_fornsOutrosOpen ? outros.map(f => _fornCardHTML(f, colors)).join('') : ''}` : '';
+
+  const semAgenda = !q && comOrdens.length === 0 && outros.length === 0;
+  const emptyMsg = semAgenda
+    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda hoje</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas no momento.</div></div>`
+    : (q && lista.length === 0)
+      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
+      : '';
+
+  document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || (h + outrosHTML));
+}
+
+function _fornCardHTML(f, colors) {
     const idx = _forns.indexOf(f);
     const cor = colors[idx % colors.length];
     const ini = f.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -3528,7 +3557,7 @@ function renderFornecedores() {
     const totalPend = pendForn.reduce((s,o)=>s+parseFloat(o.cst||0),0);
     const totalSel = fcSt ? pendForn.filter(o=>fcSt.selected.has(o.id)).reduce((s,o)=>s+parseFloat(o.cst||0),0) : 0;
 
-    h += `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
+    return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);margin:6px 14px;overflow:hidden">
       <!-- Header do card -->
       <div style="display:flex;align-items:center;gap:12px;padding:14px">
         <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">${ini}</div>
@@ -3593,16 +3622,6 @@ function renderFornecedores() {
         </div>` : ''}
       </div>` : ''}
     </div>`;
-  });
-
-  const semAgenda = !q && comOrdens.length === 0;
-  const emptyMsg = semAgenda
-    ? `<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-title">Nenhuma agenda hoje</div><div class="empty-desc">Nenhum fornecedor tem ordens ativas no momento.</div></div>`
-    : lista.length === 0
-      ? `<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-title">Nenhum resultado</div><div class="empty-desc">Tente outro nome.</div></div>`
-      : '';
-
-  document.getElementById('fornsContent').innerHTML = searchBar + (emptyMsg || h);
 }
 
 // ── RENDER EQUIPE ──
