@@ -3865,9 +3865,11 @@ function fpAbrirDados(fid) {
   document.getElementById('fpd_data').value = new Date().toISOString().slice(0,10);
   document.getElementById('fpd_forma').value = 'Pix';
   document.getElementById('fpd_obs').value = '';
-  // Sugestão de etiqueta: FornNome + data — já vem preenchida, pronta para copiar no comprovante do banco
+  // Sugestão de etiqueta: FornNome + data + horário — evita repetir a mesma etiqueta em 2 pagamentos no mesmo dia
   const hoje = new Date();
-  const tag = (nome.split(' ')[0]+hoje.getDate().toString().padStart(2,'0')+(hoje.getMonth()+1).toString().padStart(2,'0')+hoje.getFullYear()).replace(/[^A-Za-z0-9]/g,'');
+  const dataParte = hoje.getDate().toString().padStart(2,'0')+(hoje.getMonth()+1).toString().padStart(2,'0')+hoje.getFullYear();
+  const horaParte = hoje.getHours().toString().padStart(2,'0')+hoje.getMinutes().toString().padStart(2,'0');
+  const tag = (nome.split(' ')[0]+dataParte+'-'+horaParte).replace(/[^A-Za-z0-9-]/g,'');
   document.getElementById('fpd_ref').value = tag;
   document.getElementById('fpd_sugestao').textContent = tag;
   document.getElementById('fpd_ref').placeholder = `Ex: ${tag}`;
