@@ -9221,6 +9221,13 @@ function renderExtratoRevisao(){
           ordemMatch=[crmGrp];
           matchTipo='id';
           // Força status ja_pago: não tenta casar pendentes
+          // ── Aviso: cliente pode ter reaproveitado um QR Code antigo — se houver outras
+          //    ordens em aberto do mesmo cliente, avisa para revisão manual ──
+          {
+            const celRefJP=(crmGrp.cel||'').replace(/\D/g,'');
+            const pendJP=celRefJP?ordens.filter(c=>!c.pago&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.cancel_motivo&&(c.cel||'').replace(/\D/g,'')===celRefJP):[];
+            if(pendJP.length>0) linha._aviso_ja_pago_outras_pendentes=pendJP;
+          }
         } else {
         const celRef=(crmGrp.cel||'').replace(/\D/g,'');
         // Todas as ordens pendentes do mesmo celular (sem filtro de número)
@@ -9286,6 +9293,14 @@ function renderExtratoRevisao(){
         ? ordens.find(c=>(c.crm_id||'').replace(/\D/g,'')===_numRC&&c.col!=='orcamento')
         : ordens.find(c=>(c.crm_id||'').toUpperCase()===idLimpo);
       if(_rcMatch){
+        // ── Aviso: se a ordem já está paga, verificar se o mesmo cliente tem outras ordens
+        //    em aberto — o Pix pode ter sido feito com um QR Code antigo/reaproveitado que
+        //    aponta para esta ordem já quitada, mas na verdade se refere a uma cobrança nova ──
+        if(_rcMatch.pago){
+          const celRefJP=(_rcMatch.cel||'').replace(/\D/g,'');
+          const pendJP=celRefJP?ordens.filter(c=>!c.pago&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.cancel_motivo&&(c.cel||'').replace(/\D/g,'')===celRefJP):[];
+          if(pendJP.length>0) linha._aviso_ja_pago_outras_pendentes=pendJP;
+        }
         // Verifica divergência de valor considerando rec + acréscimo fixo da NF (R$)
         const _temNF=_rcMatch.nf_num&&String(_rcMatch.nf_num).trim()!=='';
         const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(_nfAcrescimo||0):0);
@@ -9420,10 +9435,17 @@ function renderExtratoRevisao(){
     </div>`:''}
     ${jp.length?`<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px">
       <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💤 Já registrados como pagos</div>
-      ${jp.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;color:var(--mut2)">
+      ${jp.map(r=>{
+        const _pendOutras=r._aviso_ja_pago_outras_pendentes||[];
+        const _avisoJP=_pendOutras.length
+          ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 6px 0">⚠️ Cliente tem ${_pendOutras.length} ordem${_pendOutras.length>1?'ns':''} pendente${_pendOutras.length>1?'s':''} — confira se este Pix não é para: ${_pendOutras.map(o=>o.crm_id||'—').join(', ')}</div>`
+          : '';
+        return `<div style="padding:6px 0">
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut2)">
         <span style="flex:1">${r.ordem?.nome||r.pagador} — ${r.id}</span>
         <span style="font-family:var(--mono)">R$ ${fmt(r.valorPago)}</span>
-      </div>`).join('')}
+      </div>${_avisoJP}</div>`;
+      }).join('')}
     </div>`:''}`;
   _extratoConfirm=enc;
 }
