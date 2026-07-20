@@ -622,7 +622,7 @@ input[type=checkbox]:checked::after{
         <button class="nb" id="nav-conc" onclick="setViewMob('conc')"><span class="nb-ico">🔄</span> Conciliação</button>
         <button class="nb" id="nav-pgforn" onclick="setViewMob('pgforn')"><span class="nb-ico">💰</span> Pagar Fornecedor</button>
         <button class="nb" id="nav-cobr" onclick="setViewMob('cobr')"><span class="nb-ico">📲</span> Cobrança Auto<span id="cobrVendBadges" class="nb-vend-badges"></span></button>
-        <button class="nb" id="nav-alertas" onclick="setViewMob('alertas')"><span class="nb-ico">🔔</span> Alertas<span id="alertasVendBadges" class="nb-vend-badges"></span></button>
+        <button class="nb" id="nav-alertas" onclick="setViewMob('alertas')"><span class="nb-ico">🔔</span> Alertas<span class="nb-badge" id="inadBadgeAlertas" style="display:none">0</span><span id="alertasVendBadges" class="nb-vend-badges"></span></button>
         <button class="nb admin-only" id="nav-rel" onclick="setViewMob('rel')"><span class="nb-ico">📈</span> Relatórios</button>
         <button class="nb admin-only" id="nav-nf" onclick="setViewMob('nf')"><span class="nb-ico">🧾</span> Notas Fiscais</button>
         <div class="sb-section">Cadastros</div>
@@ -2700,7 +2700,7 @@ function toggleBottomMenu(){
   overlay.style.display=show?'block':'none';
 }
 function _updateBnbBadge(){
-  const n=ordens.filter(c=>c.col==='inadimp').length;
+  const n=ordens.filter(c=>c.col==='contratar' && !c.forn_id).length;
   const b=document.getElementById('bnbBadge');
   if(b){b.textContent=n;b.classList.toggle('show',n>0);}
 }
@@ -2897,9 +2897,12 @@ function renderStats(){
 
 function renderInadBadge(){
   _updateBnbBadge();
-  const n=ordens.filter(c=>c.col==='inadimp').length;
+  const n=ordens.filter(c=>c.col==='contratar' && !c.forn_id).length;
   const b=document.getElementById('inadBadge');
   b.textContent=n; b.style.display=n>0?'inline':'none';
+  const inadN=ordens.filter(c=>c.col==='inadimp').length;
+  const bAlertas=document.getElementById('inadBadgeAlertas');
+  if(bAlertas){ bAlertas.textContent=inadN; bAlertas.style.display=inadN>0?'inline':'none'; }
   _atualizarCobrBadge();
   _atualizarAlertasBadge();
 }
