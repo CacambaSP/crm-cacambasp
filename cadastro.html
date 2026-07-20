@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP Cadastro v4.0 — Bloco 2 -->
+<!DOCTYPE html><!-- CaçambaSP Cadastro v4.1 — corrige código LC duplicado quando salvamento falha -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -565,6 +565,10 @@ async function enviarCadastro(){
         },
         body: JSON.stringify(ordem)
       });
+      if(!respOrdem.ok){
+        const errBody = await respOrdem.text().catch(()=>'');
+        throw new Error('Falha ao salvar pedido '+crmId+' ('+respOrdem.status+'): '+errBody);
+      }
       // Captura o tracking_token gerado pelo banco para usar no link
       try{
         const dataResp = await respOrdem.json();
