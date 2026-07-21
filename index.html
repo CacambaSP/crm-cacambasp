@@ -4082,17 +4082,38 @@ async function salvarOrdem(){
     // EDITAR
     const c=ordens.find(x=>x.id===_ordemEditId);if(!c)return;
     const oldFornId=c.forn_id;
+    const oldData=c.data;
+    const novaData=document.getElementById('o_data').value;
     const nfNumNova=document.getElementById('o_nf').value.trim();
     const recEdit=rec;
+
+    // Se a data mudou e essa ordem faz parte de um lote (grp_id), pergunta se aplica às gêmeas
+    let irmasParaAtualizar=[];
+    if(novaData && novaData!==oldData && c.grp_id){
+      const irmas=ordens.filter(x=>x.grp_id===c.grp_id && x.id!==c.id && !x.cancel_motivo);
+      if(irmas.length>0){
+        const okGemea=await showConfirm({
+          ico:'🔁',
+          title:'Atualizar data das ordens gêmeas?',
+          body:'Essa ordem foi criada junto com <strong>'+irmas.length+' outra(s) ordem(ns)</strong> (mesmo lote). Deseja aplicar a nova data ('+dateF(novaData)+') a ela(s) também?<br><br>'+irmas.map(x=>'• '+(x.crm_id||'...')).join('<br>'),
+          ok:'Sim, atualizar todas',
+          okClass:'acc',
+          cancel:'Não, só esta'
+        });
+        if(okGemea) irmasParaAtualizar=irmas;
+      }
+    }
+
     Object.assign(c,{
       nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
       logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
       cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
-      tipo:document.getElementById('o_tipo').value,data:document.getElementById('o_data').value,
+      tipo:document.getElementById('o_tipo').value,data:novaData,
       obs:document.getElementById('o_obs').value.trim(),rec:recEdit,cst,forn_id:fornId,
       nf_num:nfNumNova
     });
     if(fornId&&fornId!==oldFornId) autoColFornNomeado(c);
+    if(irmasParaAtualizar.length>0){ irmasParaAtualizar.forEach(s=>{ s.data=novaData; }); }
     renderBoard(); closeModal('ordemModal');
     try{
       setSyncDot('sync');
@@ -4108,6 +4129,15 @@ async function salvarOrdem(){
       await api('ordens?id=eq.'+c.id,'PATCH',_patchEdit,tok());
       setSyncDot('ok'); toast('✅ Ordem atualizada!');
       addLog(c.id,'Editado','');
+      if(irmasParaAtualizar.length>0){
+        for(const s of irmasParaAtualizar){
+          try{
+            await api('ordens?id=eq.'+s.id,'PATCH',{data:novaData},tok());
+            addLog(s.id,'Data atualizada (gêmea)','Sincronizada com '+c.crm_id);
+          }catch(e){}
+        }
+        toast('✅ Data também aplicada em '+irmasParaAtualizar.length+' ordem(ns) gêmea(s)!');
+      }
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     // NOVA
