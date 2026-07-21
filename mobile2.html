@@ -2194,11 +2194,36 @@ async function salvarEdicao() {
     const vendSel = document.getElementById('ed_vend');
     if(vendSel && vendSel.value) upd.usuario_id = vendSel.value;
   }
+  // Se a data mudou e a ordem tem gêmeas (mesmo grp_id), pergunta se aplica a todas
+  let irmasParaAtualizar=[];
+  if(upd.data && upd.data!==o.data && o.grp_id){
+    const irmas=_ordens.filter(x=>x.grp_id===o.grp_id && x.id!==o.id && !x.cancel_motivo);
+    if(irmas.length>0){
+      const okGemea=await showConfirm({
+        ico:'🔁',
+        title:'Atualizar data das ordens gêmeas?',
+        body:'Essa ordem foi criada junto com <strong>'+irmas.length+' outra(s) ordem(ns)</strong> (mesmo lote). Deseja aplicar a nova data ('+dateF(upd.data)+') a ela(s) também?<br><br>'+irmas.map(x=>'• '+(x.crm_id||'...')).join('<br>'),
+        ok:'Sim, atualizar todas',
+        okClass:'acc',
+        cancel:'Não, só esta'
+      });
+      if(okGemea) irmasParaAtualizar=irmas;
+    }
+  }
   try {
     await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
     Object.assign(o, upd);
+    if(irmasParaAtualizar.length>0){
+      for(const s of irmasParaAtualizar){
+        try{
+          await api('ordens?id=eq.'+s.id,'PATCH',{data:upd.data},tok());
+          s.data = upd.data;
+          addLog(s.id,'Data atualizada (gêmea)','Sincronizada com '+(o.crm_id||''));
+        }catch(e){}
+      }
+    }
     closeModal('editarModal');
-    toast('✅ Ordem atualizada!','ok');
+    toast(irmasParaAtualizar.length>0 ? '✅ Ordem e '+irmasParaAtualizar.length+' gêmea(s) atualizadas!' : '✅ Ordem atualizada!','ok');
     renderCurrentView();
     renderDetalhe(id);
   } catch(e){ toast('Erro ao salvar: '+e.message,'err'); }
@@ -2220,12 +2245,38 @@ async function confirmarRemarcar() {
   const nd = document.getElementById('rem_data').value;
   if(!nd){ toast('Selecione uma data','err'); return; }
   const o = _ordens.find(x=>x.id===id); if(!o) return;
+  // Se a data mudou e a ordem tem gêmeas (mesmo grp_id), pergunta se aplica a todas
+  let irmasParaAtualizar=[];
+  if(nd!==o.data && o.grp_id){
+    const irmas=_ordens.filter(x=>x.grp_id===o.grp_id && x.id!==o.id && !x.cancel_motivo);
+    if(irmas.length>0){
+      const okGemea=await showConfirm({
+        ico:'🔁',
+        title:'Atualizar data das ordens gêmeas?',
+        body:'Essa ordem foi criada junto com <strong>'+irmas.length+' outra(s) ordem(ns)</strong> (mesmo lote). Deseja remarcar ela(s) também para '+dateF(nd)+'?<br><br>'+irmas.map(x=>'• '+(x.crm_id||'...')).join('<br>'),
+        ok:'Sim, remarcar todas',
+        okClass:'acc',
+        cancel:'Não, só esta'
+      });
+      if(okGemea) irmasParaAtualizar=irmas;
+    }
+  }
   try {
     const voltaCol = (o.col==='entrega'||o.col==='pagar'||o.col==='faltapg') ? 'ag_entrega' : o.col;
     await api(`ordens?id=eq.${id}`,'PATCH',{data:nd, entrega_confirmada:false, col:voltaCol},tok());
     o.data=nd; o.entrega_confirmada=false; o.col=voltaCol;
+    if(irmasParaAtualizar.length>0){
+      for(const s of irmasParaAtualizar){
+        try{
+          const voltaColS = (s.col==='entrega'||s.col==='pagar'||s.col==='faltapg') ? 'ag_entrega' : s.col;
+          await api(`ordens?id=eq.${s.id}`,'PATCH',{data:nd, entrega_confirmada:false, col:voltaColS},tok());
+          s.data=nd; s.entrega_confirmada=false; s.col=voltaColS;
+          addLog(s.id,'Data atualizada (gêmea)','Sincronizada com '+(o.crm_id||''));
+        }catch(e){}
+      }
+    }
     closeModal('remarcarModal');
-    toast('📅 Remarcado para '+dateF(nd),'ok');
+    toast(irmasParaAtualizar.length>0 ? '📅 Remarcado (e '+irmasParaAtualizar.length+' gêmea(s)) para '+dateF(nd) : '📅 Remarcado para '+dateF(nd),'ok');
     renderCurrentView();
     if(_currentView==='detalhe') renderDetalhe(id);
   } catch(e){ toast('Erro','err'); }
