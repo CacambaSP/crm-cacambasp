@@ -1188,6 +1188,7 @@ input[type=checkbox]:checked::after{
         </div>
       </div>
       <div class="fi"><label>Observação</label><textarea id="o_obs"></textarea></div>
+      <div class="fi"><label>Referência/Obra (opcional)</label><input type="text" id="o_obra_ref" placeholder="Ex: REQ 10 - CEI Itaquera B"></div>
     </div>
     <div class="mtab-p" id="otab-financeiro">
       <div class="fi-row">
@@ -2842,7 +2843,7 @@ function doFilter(){
     if(c.col==='concluido') return false;
     if(q){
       const qLimpo=q.replace(/\D/g,'');
-      const _q=_nrm(q);const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num].some(f=>_nrm(f).includes(_q));
+      const _q=_nrm(q);const match=[c.nome,c.logradouro,c.cidade,c.tipo,c.crm_id,c.bairro,c.nf_num,c.obra_ref].some(f=>_nrm(f).includes(_q));
       const celLimpo=(c.cel||'').replace(/\D/g,'');
       const matchCel=qLimpo.length>=4&&celLimpo.includes(qLimpo);
       if(!match&&!matchCel) return false;
@@ -3708,7 +3709,7 @@ function openNovaOrdem(){
   _ordemEditId=null;
   document.getElementById('ordemModalTitle').textContent='Nova Ordem';
   document.getElementById('ordemModalIco').textContent='➕';
-  ['o_nome','o_cel','o_cpf','o_email','o_end','o_bairro','o_cidade','o_cep','o_obs','o_nf'].forEach(id=>document.getElementById(id).value='');
+  ['o_nome','o_cel','o_cpf','o_email','o_end','o_bairro','o_cidade','o_cep','o_obs','o_obra_ref','o_nf'].forEach(id=>document.getElementById(id).value='');
   const _qtdEl=document.getElementById('o_qtd');if(_qtdEl)_qtdEl.value='1';
   const _resEl=document.getElementById('o_residuo');if(_resEl)_resEl.value='';
   _ordemTemNF=null;
@@ -3758,6 +3759,7 @@ function editarOrdemAtual(){
   document.getElementById('o_tipo').value=c.tipo||'Nova coloca';
   document.getElementById('o_data').value=c.data||'';
   document.getElementById('o_obs').value=c.obs||'';
+  document.getElementById('o_obra_ref').value=c.obra_ref||'';
   document.getElementById('o_rec').value=c.rec||'';
   document.getElementById('o_cst').value=c.cst||'';
   document.getElementById('o_nf').value=c.nf_num||'';
@@ -4117,6 +4119,7 @@ async function salvarOrdem(){
       cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
       tipo:document.getElementById('o_tipo').value,data:novaData,
       obs:document.getElementById('o_obs').value.trim(),rec:recEdit,cst,forn_id:fornId,
+      obra_ref:document.getElementById('o_obra_ref').value.trim(),
       nf_num:nfNumNova
     });
     if(fornId&&fornId!==oldFornId) autoColFornNomeado(c);
@@ -4127,7 +4130,7 @@ async function salvarOrdem(){
       const _patchEdit={
         nome:c.nome,cel:c.cel,cpf:c.cpf,email_cli:c.email_cli,
         logradouro:c.logradouro,bairro:c.bairro,cidade:c.cidade,cep:c.cep,
-        tipo:c.tipo,data:c.data,obs:c.obs,rec:c.rec,cst:c.cst,forn_id:c.forn_id,col:c.col,nf_num:c.nf_num
+        tipo:c.tipo,data:c.data,obs:c.obs,obra_ref:c.obra_ref,rec:c.rec,cst:c.cst,forn_id:c.forn_id,col:c.col,nf_num:c.nf_num
       };
       if(c.pago && recEdit!==parseFloat(c.pago_valor||0)){
         c.pago_valor=recEdit;
@@ -4152,6 +4155,7 @@ async function salvarOrdem(){
     const residuo=document.getElementById('o_residuo')?.value||'';
     const obsBase=document.getElementById('o_obs').value.trim();
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
+    const obraRefBase=document.getElementById('o_obra_ref').value.trim();
     const recComNF=rec;
     // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs
     const grpIdLote = qtd>1 ? ('L'+Date.now().toString(36).toUpperCase()) : '';
@@ -4165,7 +4169,7 @@ async function salvarOrdem(){
         cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
         tipo:tipoOrdem,data:document.getElementById('o_data').value,
         obs:obsOrdem,
-        rec:recComNF,cst,forn_id:fornId,grp_id:grpIdLote,
+        rec:recComNF,cst,forn_id:fornId,grp_id:grpIdLote,obra_ref:obraRefBase,
         pago:false,pago_em:null,pago_valor:null,pago_obs:null,
         forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
         nf_num:nfNumBase,
@@ -8273,6 +8277,7 @@ function _abrirModalNF(ids){
   let disc='Locação de caçamba para coleta de entulho. Endereço: '+endDisc+'.';
   if(osLista.length===1){ disc+=(c.crm_id?' OS: '+c.crm_id+'.':''); }
   else { disc+=' OS agrupadas:'; osLista.forEach(o=>{ disc+=' '+(o.crm_id||o.id)+(o.data?' ('+dateF(o.data)+')':'')+';'; }); }
+  if(c.obra_ref) disc+=' Ref: '+c.obra_ref+'.';
   disc+=trackLink?'\n\nAcompanhe pelo link: '+trackLink:'';
   document.getElementById('nfem_disc').textContent=disc;
   // Valor: se nf_num já existe (000 ou número), o rec JÁ inclui acréscimo no banco
