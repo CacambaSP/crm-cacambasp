@@ -1246,11 +1246,8 @@ input[type=checkbox]:checked::after{
         <div><div style="font-size:10px;color:var(--mut2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Código CRM</div><div id="d_crm" style="font-size:12px;font-family:var(--mono);color:var(--acc)">—</div></div>
       </div>
       <div id="d_obs_wrap" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--mut2)"></div>
-      <div id="d_anexo_wrap" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px;align-items:center;justify-content:space-between;gap:8px">
-        <span>📎 Documento anexado</span>
-        <button class="btn btn-xs" onclick="abrirArquivoPrivado(_ordAnexoAtual)">👁️ Ver</button>
-      </div>
-      <input type="file" id="d_anexo_input" style="display:none" onchange="onAnexoOrdemSelecionado(this.files[0])">
+      <div id="d_anexo_wrap" style="display:none;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:12px;font-size:12px"></div>
+      <input type="file" id="d_anexo_input" multiple style="display:none" onchange="onAnexoOrdemSelecionado(this.files)">
       <!-- SUGESTÃO FORNECEDOR -->
       <div id="d_forn_sugestao" style="display:none;margin-bottom:12px"></div>
       <!-- MODAL WA FORNECEDOR -->
@@ -1392,7 +1389,7 @@ input[type=checkbox]:checked::after{
       </div>
       <div class="fi" style="margin-bottom:4px">
         <label>Comprovante de pagamento (opcional)</label>
-        <input type="file" id="pf_comprovante" accept="image/*,application/pdf" style="font-size:12px">
+        <input type="file" id="pf_comprovante" accept="image/*,application/pdf" multiple style="font-size:12px">
       </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);padding:8px 12px">
         💡 <strong>Dica:</strong> Use a mesma etiqueta para todas as ordens do mesmo lote.<br>Ex: <span style="font-family:var(--mono);color:var(--acc)">Uliana_06042026_1432</span>
@@ -1460,7 +1457,7 @@ input[type=checkbox]:checked::after{
       <!-- Comprovante -->
       <div class="fi" style="margin-bottom:14px">
         <label>Comprovante de pagamento (opcional, vale para todas as ordens do lote)</label>
-        <input type="file" id="pflote_comprovante" accept="image/*,application/pdf" style="font-size:12px">
+        <input type="file" id="pflote_comprovante" accept="image/*,application/pdf" multiple style="font-size:12px">
       </div>
       <!-- Total novo -->
       <div style="background:linear-gradient(135deg,rgba(15,52,96,.6),rgba(26,74,128,.4));border:1px solid rgba(78,204,163,.2);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -4248,9 +4245,7 @@ function fillDetail(c){
   document.getElementById('d_crm').textContent=c.crm_id||'-';
   const obsW=document.getElementById('d_obs_wrap');
   if(c.obs){obsW.textContent=c.obs;obsW.style.display='block';}else obsW.style.display='none';
-  _ordAnexoAtual=c.anexo_url||'';
-  const anexoW=document.getElementById('d_anexo_wrap');
-  if(anexoW) anexoW.style.display=_ordAnexoAtual?'flex':'none';
+  _renderAnexosOrdem(c);
   const archBtn=document.getElementById('detailArchBtn');
   archBtn.textContent=c.col==='concluido'?'↩️ Voltar':'🏆 Arquivar';
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
@@ -5528,15 +5523,17 @@ async function salvarPagoForn(){
   const obsPg=document.getElementById('pf_obs_pg')?.value.trim()||'';
   // Montar referência final: "Forma | Referência | Obs"
   const pgRef=[forma, ref, obsPg].filter(Boolean).join(' | ');
-  const compFile=document.getElementById('pf_comprovante')?.files?.[0]||null;
-  let comprovanteUrl='';
-  if(compFile){
+  const compFiles=[...(document.getElementById('pf_comprovante')?.files||[])];
+  let comprovantes=[];
+  if(compFiles.length){
     try{
-      toast('📤 Enviando comprovante...');
-      const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
-      const path=`pagamentos_forn/${c.forn_id||'sem_forn'}_${Date.now()}.${ext}`;
-      await uploadArquivoPrivado(compFile, path);
-      comprovanteUrl=path;
+      toast('📤 Enviando '+compFiles.length+' comprovante(s)...');
+      for(const compFile of compFiles){
+        const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
+        const path=`pagamentos_forn/${c.forn_id||'sem_forn'}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+        await uploadArquivoPrivado(compFile, path);
+        comprovantes.push({path, nome:compFile.name});
+      }
     }catch(e){toast('Erro ao enviar comprovante: '+e.message,'err');}
   }
   closeModal('pagarFornModal');
@@ -5547,15 +5544,15 @@ async function salvarPagoForn(){
     const ord=ordens.find(x=>x.id===id);if(!ord)continue;
     const valOrd=val;
     ord.forn_pago=true;ord.forn_pago_em=data+'T12:00:00';ord.forn_pago_valor=valOrd;ord.forn_pg_ref=pgRef;ord.cst=valOrd;
-    if(comprovanteUrl) ord.forn_comprovante_url=comprovanteUrl;
+    if(comprovantes.length) ord.forn_comprovantes=comprovantes;
     autoColPagamento(ord);
     try{
       setSyncDot('sync');
       const _patchPf={forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:valOrd,forn_pg_ref:pgRef,cst:valOrd,col:ord.col};
-      if(comprovanteUrl) _patchPf.forn_comprovante_url=comprovanteUrl;
+      if(comprovantes.length) _patchPf.forn_comprovantes=comprovantes;
       await api('ordens?id=eq.'+id,'PATCH',_patchPf,tok());
       setSyncDot('ok'); ok++;
-      addLog(id,'Fornecedor pago','R$ '+fmt(valOrd)+(ref?' · '+ref:'')+(comprovanteUrl?' · comprovante anexado':''));
+      addLog(id,'Fornecedor pago','R$ '+fmt(valOrd)+(ref?' · '+ref:'')+(comprovantes.length?' · '+comprovantes.length+' comprovante(s) anexado(s)':''));
     }catch(e){setSyncDot('err');}
   }
   renderBoard(); renderStats(); renderFinanceiro(); initPgForn();
@@ -5575,15 +5572,17 @@ async function salvarPagoFornLote(){
   const forma=document.getElementById('pflote_forma')?.value||'Pix';
   const ref=document.getElementById('pflote_ref')?.value.trim()||'';
   const pgRef=[forma,ref].filter(Boolean).join(' | ');
-  const compFile=document.getElementById('pflote_comprovante')?.files?.[0]||null;
-  let comprovanteUrl='';
-  if(compFile){
+  const compFiles=[...(document.getElementById('pflote_comprovante')?.files||[])];
+  let comprovantes=[];
+  if(compFiles.length){
     try{
-      toast('📤 Enviando comprovante...');
-      const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
-      const path=`pagamentos_forn/${fid}_${Date.now()}.${ext}`;
-      await uploadArquivoPrivado(compFile, path);
-      comprovanteUrl=path;
+      toast('📤 Enviando '+compFiles.length+' comprovante(s)...');
+      for(const compFile of compFiles){
+        const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
+        const path=`pagamentos_forn/${fid}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+        await uploadArquivoPrivado(compFile, path);
+        comprovantes.push({path, nome:compFile.name});
+      }
     }catch(e){toast('Erro ao enviar comprovante: '+e.message,'err');}
   }
   closeModal('pagarFornLoteModal');
@@ -5595,15 +5594,15 @@ async function salvarPagoFornLote(){
     ord.forn_pago_valor=val;
     ord.forn_pg_ref=pgRef;
     ord.cst=val; // sincroniza cst com o valor real pago ao fornecedor
-    if(comprovanteUrl) ord.forn_comprovante_url=comprovanteUrl;
+    if(comprovantes.length) ord.forn_comprovantes=comprovantes;
     autoColPagamento(ord);
     try{
       setSyncDot('sync');
       const _patchLote={forn_pago:true,forn_pago_em:ord.forn_pago_em,forn_pago_valor:val,forn_pg_ref:pgRef,cst:val,col:ord.col};
-      if(comprovanteUrl) _patchLote.forn_comprovante_url=comprovanteUrl;
+      if(comprovantes.length) _patchLote.forn_comprovantes=comprovantes;
       await api('ordens?id=eq.'+ord.id,'PATCH',_patchLote,tok());
       setSyncDot('ok'); ok++;
-      addLog(ord.id,'Fornecedor pago','R$ '+fmt(val)+(ref?' · '+ref:'')+(comprovanteUrl?' · comprovante anexado':''));
+      addLog(ord.id,'Fornecedor pago','R$ '+fmt(val)+(ref?' · '+ref:'')+(comprovantes.length?' · '+comprovantes.length+' comprovante(s) anexado(s)':''));
     }catch(e){setSyncDot('err');}
   }
   // 2. Atualizar/cadastrar bairros no fornecedor
@@ -10113,7 +10112,7 @@ function _relPgtosForn(){
       <td style="font-size:11px;color:var(--mut2);white-space:nowrap">${forn?forn.nome:'-'}</td>
       <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
       <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
-      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}${c.forn_comprovante_url?` <span onclick="event.stopPropagation();abrirArquivoPrivado('${c.forn_comprovante_url}')" style="cursor:pointer;color:var(--acc)" title="Ver comprovante">📎</span>`:''}</td>
+      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}${(c.forn_comprovantes&&c.forn_comprovantes.length)?` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(c.forn_comprovantes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${c.forn_comprovantes.length>1?' x'+c.forn_comprovantes.length:''}</span>`:''}</td>
       <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
   }).join('')}</tbody></table></div>`}`;
@@ -12811,22 +12810,49 @@ function removerLogo(){
 
 // ── ANEXOS PRIVADOS (bucket "anexos", não público) ──
 let _ordAnexoAtual='';
-async function onAnexoOrdemSelecionado(file){
-  if(!file) return;
+function _renderAnexosOrdem(c){
+  const wrap=document.getElementById('d_anexo_wrap'); if(!wrap) return;
+  const lista=Array.isArray(c.anexos)?c.anexos:[];
+  if(!lista.length){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  wrap.style.display='block';
+  wrap.innerHTML='<div style="font-weight:700;margin-bottom:6px">📎 '+lista.length+' anexo'+(lista.length!==1?'s':'')+'</div>'+
+    lista.map((a,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-top:${i>0?'1px solid var(--bor)':'none'}">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${(a.nome||a.path||'').split('/').pop()}</span>
+      <span style="display:flex;gap:8px">
+        <button class="btn btn-xs" onclick="abrirArquivoPrivado('${a.path}')">👁️ Ver</button>
+        <button class="btn btn-xs" style="color:var(--r)" onclick="removerAnexoOrdem(${i})">🗑️</button>
+      </span>
+    </div>`).join('');
+}
+async function onAnexoOrdemSelecionado(files){
+  if(!files || !files.length) return;
   const c=ordens.find(x=>x.id===_detailId); if(!c) return;
+  if(!Array.isArray(c.anexos)) c.anexos=[];
   try{
-    toast('📤 Enviando anexo...');
-    const ext=(file.name.split('.').pop()||'bin').toLowerCase();
-    const path=`ordens/${c.crm_id||c.id}_${Date.now()}.${ext}`;
-    await uploadArquivoPrivado(file, path);
-    c.anexo_url=path;
-    await api('ordens?id=eq.'+c.id,'PATCH',{anexo_url:path},tok());
-    addLog(c.id,'Anexo adicionado',file.name);
-    _ordAnexoAtual=path;
-    const anexoW=document.getElementById('d_anexo_wrap');
-    if(anexoW) anexoW.style.display='flex';
-    toast('📎 Anexo salvo!','ok');
+    toast('📤 Enviando '+files.length+' anexo'+(files.length!==1?'s':'')+'...');
+    for(const file of files){
+      const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+      const path=`ordens/${c.crm_id||c.id}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+      await uploadArquivoPrivado(file, path);
+      c.anexos.push({path, nome:file.name});
+    }
+    await api('ordens?id=eq.'+c.id,'PATCH',{anexos:c.anexos},tok());
+    addLog(c.id,'Anexo adicionado',files.length+' arquivo(s): '+Array.from(files).map(f=>f.name).join(', '));
+    _renderAnexosOrdem(c);
+    toast('📎 Anexo(s) salvo(s)!','ok');
   }catch(e){toast('Erro ao enviar anexo: '+e.message,'err');}
+}
+async function removerAnexoOrdem(idx){
+  const c=ordens.find(x=>x.id===_detailId); if(!c || !Array.isArray(c.anexos)) return;
+  const ok=await showConfirm({ico:'🗑️',title:'Remover anexo?',body:'O arquivo deixará de aparecer na ordem (o arquivo em si continua no armazenamento).',ok:'Remover',okClass:'acc',cancel:'Cancelar'});
+  if(!ok) return;
+  c.anexos.splice(idx,1);
+  try{
+    await api('ordens?id=eq.'+c.id,'PATCH',{anexos:c.anexos},tok());
+    addLog(c.id,'Anexo removido','');
+    _renderAnexosOrdem(c);
+    toast('Anexo removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 async function uploadArquivoPrivado(file, path){
   const res=await fetch(`${SUPA_URL}/storage/v1/object/anexos/${path}`,{
@@ -12836,6 +12862,15 @@ async function uploadArquivoPrivado(file, path){
   });
   if(!res.ok){const e=await res.text();throw new Error(e);}
   return path;
+}
+function abrirComprovantesLista(lista){
+  if(!lista || !lista.length) return;
+  if(lista.length===1){ abrirArquivoPrivado(lista[0].path); return; }
+  showConfirm({
+    ico:'📎', title:'Comprovantes ('+lista.length+')',
+    body: lista.map((a,i)=>'<div style="margin:4px 0"><a href="#" onclick="event.preventDefault();abrirArquivoPrivado(\''+a.path+'\')" style="color:var(--acc)">'+(i+1)+'. '+(a.nome||a.path).split('/').pop()+'</a></div>').join(''),
+    ok:'Fechar', okClass:'acc', cancel:''
+  });
 }
 async function abrirArquivoPrivado(path){
   if(!path){toast('Nenhum arquivo anexado','warn');return;}
