@@ -2172,6 +2172,13 @@ const nextCrmId=async(prefixo='LC')=>{
   const ano=new Date().getFullYear();
   const base=prefixo+ano;
   const anoStr=String(ano);
+  // Método principal: pede o número pro banco via função atômica (next_crm_id),
+  // que nunca repete mesmo com vários pedidos chegando ao mesmo tempo (CRM + site + mobile).
+  try{
+    const id=await api('rpc/next_crm_id','POST',{p_prefixo:prefixo});
+    if(id) return id;
+  }catch(e){ console.warn('nextCrmId: RPC atômica falhou, usando método reserva',e); }
+  // Método reserva (só usado se a função do banco estiver indisponível)
   try{
     // Busca TODOS os crm_ids do ano (LC e ORC) para garantir que o número nunca se repete
     const dados=await api('ordens?select=crm_id&crm_id=like.*'+anoStr+'*');
