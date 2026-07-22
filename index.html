@@ -4134,13 +4134,14 @@ async function salvarOrdem(){
       }
     }
 
+    const obraRefEditFinal=await _autoLinkObraPorEndereco(document.getElementById('o_end').value.trim(),document.getElementById('o_cpf').value.trim(),document.getElementById('o_obra_ref').value.trim(),c.id);
     Object.assign(c,{
       nome,cel,cpf:document.getElementById('o_cpf').value.trim(),email_cli:document.getElementById('o_email').value.trim(),
       logradouro:document.getElementById('o_end').value.trim(),bairro:document.getElementById('o_bairro').value.trim(),
       cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
       tipo:document.getElementById('o_tipo').value,data:novaData,
       obs:document.getElementById('o_obs').value.trim(),rec:recEdit,cst,forn_id:fornId,
-      obra_ref:document.getElementById('o_obra_ref').value.trim(),
+      obra_ref:obraRefEditFinal,
       nf_num:nfNumNova
     });
     if(fornId&&fornId!==oldFornId) autoColFornNomeado(c);
@@ -4179,6 +4180,8 @@ async function salvarOrdem(){
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const obraRefBase=document.getElementById('o_obra_ref').value.trim();
     const recComNF=rec;
+    // Se rua+CPF baterem com outro pedido, vincula automaticamente à mesma Referência/Obra
+    const obraRefFinal=await _autoLinkObraPorEndereco(document.getElementById('o_end').value.trim(),document.getElementById('o_cpf').value.trim(),obraRefBase,null);
     // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs
     const grpIdLote = qtd>1 ? ('L'+Date.now().toString(36).toUpperCase()) : '';
     for(let qi=0;qi<qtd;qi++){
@@ -4191,7 +4194,7 @@ async function salvarOrdem(){
         cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
         tipo:tipoOrdem,data:document.getElementById('o_data').value,
         obs:obsOrdem,
-        rec:recComNF,cst,forn_id:fornId,grp_id:grpIdLote,obra_ref:obraRefBase,
+        rec:recComNF,cst,forn_id:fornId,grp_id:grpIdLote,obra_ref:obraRefFinal,
         pago:false,pago_em:null,pago_valor:null,pago_obs:null,
         forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
         nf_num:nfNumBase,
@@ -4219,7 +4222,7 @@ async function salvarOrdem(){
       if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
     },100);
     toast('✅ Ordem'+(qtd>1?'ns':'')+ ' criada'+(qtd>1?'s':'')+'!');
-    await _salvarLimiteEChecarObra(obraRefBase);
+    await _salvarLimiteEChecarObra(obraRefFinal);
   }
 }
 
@@ -8161,6 +8164,32 @@ function _semNF(v){ const n=(v||'').replace(/^0+/,''); return !n; }
 
 function _nfNormEnd(s){
   return _nrm(s||'').replace(/^(rua|r\.|av\.|avenida|al\.|alameda|travessa|tv\.|estrada|est\.|rod\.|rodovia)\s*/,'').trim();
+}
+// Normaliza só o nome da rua (sem número), pra comparar endereços "iguais"
+function _ruaBase(s){
+  let v=_nfNormEnd(s||'');
+  v=v.split(',')[0];
+  v=v.replace(/\d+.*$/,'').trim();
+  return v;
+}
+// Se rua+CPF/CNPJ batem com outro pedido, vincula automaticamente à mesma Referência/Obra (se houver)
+async function _autoLinkObraPorEndereco(logradouro, cpf, obraRefAtual, idAtual){
+  const ruaBase=_ruaBase(logradouro);
+  const cpfLimpo=(cpf||'').replace(/\D/g,'');
+  if(!ruaBase || !cpfLimpo) return obraRefAtual;
+  const matches=ordens.filter(o=>o.id!==idAtual && !o.cancel_motivo && o.col!=='orcamento' && _ruaBase(o.logradouro)===ruaBase && (o.cpf||'').replace(/\D/g,'')===cpfLimpo);
+  if(!matches.length) return obraRefAtual;
+  if(obraRefAtual){
+    toast('ℹ️ Esse endereço/cliente já tem '+matches.length+' pedido(s) anterior(es)','info',5000);
+    return obraRefAtual;
+  }
+  const comObraRef=matches.find(o=>o.obra_ref);
+  if(comObraRef){
+    toast('🔗 Endereço já tem pedidos na Referência/Obra "'+comObraRef.obra_ref+'" — vinculando automaticamente','ok',6000);
+    return comObraRef.obra_ref;
+  }
+  toast('ℹ️ Esse endereço/cliente já tem '+matches.length+' pedido(s) anterior(es) sem Referência/Obra definida','info',5000);
+  return obraRefAtual;
 }
 
 // ══════════════════════════════════════════════════════════════
