@@ -540,6 +540,8 @@ async function enviarCadastro(){
     const codigos = [];
 
     const tokensCriados = [];  // guarda tokens gerados pelo banco (para link de tracking)
+    // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs
+    const grpIdLote = qtd > 1 ? ('L'+Date.now().toString(36).toUpperCase()) : '';
     for(let i=0; i<qtd; i++){
       let crmId, respOrdem, dataResp;
       // Até 3 tentativas: se dois pedidos pegarem o mesmo número ao mesmo tempo,
@@ -564,7 +566,7 @@ async function enviarCadastro(){
         pago: false, pago_em: null, pago_valor: null, pago_obs: null,
         forn_id: null,
         forn_pago: false, forn_pago_em: null, forn_pago_valor: null,
-        grp_id: '',
+        grp_id: grpIdLote,
         nf_num: _cadTemNF ? '000' : '',
         nf_taxa: _cadTemNF ? 11 : 0,
         usuario_id: VEND_UID,
