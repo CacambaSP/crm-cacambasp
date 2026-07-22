@@ -799,6 +799,7 @@ input,select,textarea,button{font-family:var(--font)}
         </div>
         <div class="mfi"><label>Data de entrega</label><input type="date" id="ed_data"></div>
         <div class="mfi"><label>Observação</label><input type="text" id="ed_obs" placeholder="Observações..."></div>
+        <div class="mfi"><label>Referência/Obra (opcional)</label><input type="text" id="ed_obra_ref" placeholder="Ex: REQ 10 - CEI Itaquera B"></div>
       </div>
       <!-- Tab valores -->
       <div class="edit-panel" id="epanel-valores">
@@ -2174,6 +2175,7 @@ function abrirEditar(id) {
   document.getElementById('ed_tipo').value = o.tipo||'Locação';
   document.getElementById('ed_data').value = o.data||'';
   document.getElementById('ed_obs').value = o.obs||'';
+  document.getElementById('ed_obra_ref').value = o.obra_ref||'';
   document.getElementById('ed_rec').value = o.rec||'';
   document.getElementById('ed_cst').value = o.cst||'';
   // Inicializar estado da NF baseado no nf_num atual
@@ -2236,6 +2238,7 @@ async function salvarEdicao() {
     tipo:      document.getElementById('ed_tipo').value,
     data:      document.getElementById('ed_data').value||null,
     obs:       document.getElementById('ed_obs').value.trim()||null,
+    obra_ref:  document.getElementById('ed_obra_ref').value.trim()||null,
     rec:       recVal,
     cst:       parseFloat(document.getElementById('ed_cst').value)||0,
     forn_id:   fornId,
@@ -2353,6 +2356,7 @@ function renderEditar() {
   document.getElementById('ed_tipo').value  = o.tipo||'Locação';
   document.getElementById('ed_data').value  = o.data||'';
   document.getElementById('ed_obs').value   = o.obs||'';
+  document.getElementById('ed_obra_ref').value = o.obra_ref||'';
   document.getElementById('ed_rec').value   = o.rec||'';
   document.getElementById('ed_cst').value   = o.cst||'';
   const fSel = document.getElementById('ed_forn');
@@ -2428,6 +2432,7 @@ function matchSearch(o) {
     (o.bairro||'').toLowerCase().includes(q) ||
     (qLimpo.length >= 4 && celLimpo.includes(qLimpo)) ||
     (o.crm_id||'').toLowerCase().includes(q) ||
+    (o.obra_ref||'').toLowerCase().includes(q) ||
     (o.nf_num||'').toLowerCase().includes(q);
 }
 
@@ -5771,6 +5776,7 @@ function renderDetalhe(id) {
     ${forn?.tel?`<div class="detail-row"><div class="detail-key">Tel. Forn.</div><div class="detail-val"><a class="phone-link" href="tel:+55${forn.tel.replace(/\D/g,'')}">${forn.tel}</a></div></div>`:''}
     ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
     ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
+    ${o.obra_ref?`<div class="detail-row"><div class="detail-key">Ref/Obra</div><div class="detail-val">${o.obra_ref}</div></div>`:''}
     ${o.anexo_url?`<div class="detail-row"><div class="detail-key">Anexo</div><div class="detail-val"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${o.anexo_url}')">📎 Ver anexo</span></div></div>`:''}
   </div>`;
   if(isAdmin()) {
