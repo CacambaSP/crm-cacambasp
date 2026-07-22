@@ -1520,6 +1520,12 @@ input[type=checkbox]:checked::after{
         <label>Observação</label>
         <input type="text" id="dup_obs" placeholder="Ex: Troca solicitada via WhatsApp">
       </div>
+      <div class="fi" id="dup_obraref_wrap" style="display:none">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="dup_obraref_chk" checked style="width:16px;height:16px">
+          <span>Manter Referência/Obra: <strong id="dup_obraref_label"></strong></span>
+        </label>
+      </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad3)">
         ℹ️ Serão copiados: cliente, endereço, fornecedor e valores.<br>
         Zerados: pagamentos, NF e referências financeiras.
@@ -4227,9 +4233,9 @@ async function salvarOrdem(){
 }
 
 // ── OBRA/REQUISIÇÃO: limite opcional por Referência/Obra ──
-async function _salvarLimiteEChecarObra(obraRef){
+async function _salvarLimiteEChecarObra(obraRef, limiteInputForcado){
   if(!obraRef) return;
-  const limiteInput=parseInt(document.getElementById('o_obra_limite')?.value)||0;
+  const limiteInput=limiteInputForcado!=null?limiteInputForcado:(parseInt(document.getElementById('o_obra_limite')?.value)||0);
   if(limiteInput>0){
     _obraLimites[obraRef]=limiteInput;
     try{
@@ -5288,6 +5294,14 @@ function abrirDuplicarOrdem(){
   document.getElementById('dup_data').value = new Date().toISOString().slice(0,10);
   document.getElementById('dup_obs').value = 'Troca solicitada via WhatsApp';
   document.getElementById('dup_qtd').value = 1;
+  const dupObraWrap=document.getElementById('dup_obraref_wrap');
+  if(c.obra_ref){
+    dupObraWrap.style.display='block';
+    document.getElementById('dup_obraref_label').textContent=c.obra_ref;
+    document.getElementById('dup_obraref_chk').checked=true;
+  }else{
+    dupObraWrap.style.display='none';
+  }
   closeModal('detailModal');
   openModal('duplicarModal');
 }
@@ -5304,6 +5318,10 @@ async function confirmarDuplicarOrdem(){
     if(!okQtd) return;
   }
   closeModal('duplicarModal');
+  // Referência/Obra: herda da original se a caixinha estiver marcada; senão tenta detectar automaticamente pelo endereço
+  const manterObraRef = document.getElementById('dup_obraref_wrap').style.display!=='none' && document.getElementById('dup_obraref_chk').checked;
+  const obraRefDupBase = manterObraRef ? (orig.obra_ref||'') : '';
+  const obraRefDup = await _autoLinkObraPorEndereco(orig.logradouro, orig.cpf, obraRefDupBase, null);
   // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs.
   // A ordem original também entra no lote, se ainda não tiver fornecedor.
   let grpId = null;
@@ -5324,7 +5342,7 @@ async function confirmarDuplicarOrdem(){
       nome: orig.nome, cel: orig.cel, cpf: orig.cpf||'', email_cli: orig.email_cli||'',
       logradouro: orig.logradouro, bairro: orig.bairro, cidade: orig.cidade, cep: orig.cep||'',
       tipo: tipoNovo, data: dataNova, obs: obsNova,
-      rec: orig.rec, cst: orig.cst, forn_id: null, grp_id: grpId,
+      rec: orig.rec, cst: orig.cst, forn_id: null, grp_id: grpId, obra_ref: obraRefDup,
       pago: false, pago_em: null, pago_valor: null, pago_obs: null,
       forn_pago: false, forn_pago_em: null, forn_pago_valor: null, forn_pg_ref: null,
       nf_num: '', nf_taxa: orig.nf_taxa||_taxaNF,
@@ -5357,6 +5375,7 @@ async function confirmarDuplicarOrdem(){
       : '✅ '+criadas+' ordens criadas ('+label+')!','ok');
   }
   if(falhas>0) toast('Erro ao criar '+falhas+' de '+qtd+' ordens','err');
+  if(criadas>0) await _salvarLimiteEChecarObra(obraRefDup, 0);
 }
 
 function closeDetail(){closeModal('detailModal');_detailId=null;}
