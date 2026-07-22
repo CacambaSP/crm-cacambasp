@@ -914,7 +914,7 @@ input,select,textarea,button{font-family:var(--font)}
         </select>
       </div>
       <div class="mfi"><label>Referência / comprovante</label><input type="text" id="pf_ref" placeholder="Ex: Pix 14:32 confirmado"></div>
-      <div class="mfi"><label>Anexar comprovante (foto/PDF, opcional — vale para todas as ordens selecionadas)</label><input type="file" id="pf_comprovante" accept="image/*,application/pdf" style="width:100%;font-size:13px"></div>
+      <div class="mfi"><label>Anexar comprovante (foto/PDF, opcional — vale para todas as ordens selecionadas)</label><input type="file" id="pf_comprovante" accept="image/*,application/pdf" multiple style="width:100%;font-size:13px"></div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
         <button class="btn acc" onclick="confirmarPagoForn()" style="background:var(--cyan);color:#000;border-color:transparent">💰 Confirmar</button>
@@ -1204,20 +1204,32 @@ async function abrirArquivoPrivado(path){
     window.open(url,'_blank');
   }catch(e){toast('Erro ao abrir anexo: '+e.message,'err');}
 }
-async function onAnexoOrdemMobileSelecionado(id, file){
-  if(!file) return;
+async function onAnexoOrdemMobileSelecionado(id, files){
+  if(!files || !files.length) return;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
+  if(!Array.isArray(o.anexos)) o.anexos=[];
   try{
-    toast('📤 Enviando anexo...');
-    const ext=(file.name.split('.').pop()||'bin').toLowerCase();
-    const path=`ordens/${o.crm_id||o.id}_${Date.now()}.${ext}`;
-    await uploadArquivoPrivado(file, path);
-    await api(`ordens?id=eq.${id}`,'PATCH',{anexo_url:path},tok());
-    o.anexo_url = path;
-    addLog(id,'Anexo adicionado','mobile: '+file.name);
-    toast('📎 Anexo salvo!','ok');
+    toast('📤 Enviando '+files.length+' anexo(s)...');
+    for(const file of files){
+      const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+      const path=`ordens/${o.crm_id||o.id}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+      await uploadArquivoPrivado(file, path);
+      o.anexos.push({path, nome:file.name});
+    }
+    await api(`ordens?id=eq.${id}`,'PATCH',{anexos:o.anexos},tok());
+    addLog(id,'Anexo adicionado','mobile: '+Array.from(files).map(f=>f.name).join(', '));
+    toast('📎 Anexo(s) salvo(s)!','ok');
     if(_currentView==='detalhe') renderDetalhe(id);
   }catch(e){toast('Erro ao enviar anexo: '+e.message,'err');}
+}
+function abrirAnexosOrdemLista(lista){
+  if(!lista || !lista.length) return;
+  if(lista.length===1){ abrirArquivoPrivado(lista[0].path); return; }
+  showConfirm({
+    ico:'📎', title:'Anexos ('+lista.length+')',
+    body: lista.map((a,i)=>'<div style="margin:4px 0"><a href="#" onclick="event.preventDefault();abrirArquivoPrivado(\''+a.path+'\')" style="color:var(--cyan)">'+(i+1)+'. '+(a.nome||a.path).split('/').pop()+'</a></div>').join(''),
+    ok:'Fechar', okClass:'acc', cancel:''
+  });
 }
 
 // ── API ──
@@ -2053,16 +2065,18 @@ async function confirmarPagoForn() {
   const ref = document.getElementById('pf_ref').value.trim();
   if(!val){ toast('Informe o valor','err'); return; }
   const pgRef = [forma, ref].filter(Boolean).join(' | ');
-  const compFile = document.getElementById('pf_comprovante')?.files?.[0] || null;
-  let comprovanteUrl = '';
-  if(compFile){
+  const compFiles = [...(document.getElementById('pf_comprovante')?.files||[])];
+  let comprovantes = [];
+  if(compFiles.length){
     try{
-      toast('📤 Enviando comprovante...');
-      const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
+      toast('📤 Enviando '+compFiles.length+' comprovante(s)...');
       const primeiroForn = _ordens.find(x=>x.id===ids[0])?.forn_id || 'sem_forn';
-      const path=`pagamentos_forn/${primeiroForn}_${Date.now()}.${ext}`;
-      await uploadArquivoPrivado(compFile, path);
-      comprovanteUrl = path;
+      for(const compFile of compFiles){
+        const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
+        const path=`pagamentos_forn/${primeiroForn}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+        await uploadArquivoPrivado(compFile, path);
+        comprovantes.push({path, nome:compFile.name});
+      }
     }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
   }
 
@@ -2077,10 +2091,10 @@ async function confirmarPagoForn() {
     if(cli && !['baixar','concluido'].includes(ord.col)) novaCol = 'baixar';
     else if(!cli && ord.col === 'pagar') novaCol = 'faltapg';
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
-    if(comprovanteUrl) upd.forn_comprovante_url = comprovanteUrl;
+    if(comprovantes.length) upd.forn_comprovantes = comprovantes;
     try {
       await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-      addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:'')+(comprovanteUrl?' · comprovante anexado':''));
+      addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:'')+(comprovantes.length?' · '+comprovantes.length+' comprovante(s) anexado(s)':''));
       Object.assign(ord, upd);
       ok++;
     } catch(e){ toast('Erro em '+ord.crm_id,'err'); }
@@ -4149,25 +4163,30 @@ function renderPagamentosInto(container) {
   _renderPgfMobLista();
 }
 
-async function onAnexoLoteMobSelecionado(safeRef, file){
-  if(!file) return;
+async function onAnexoLoteMobSelecionado(safeRef, files){
+  if(!files || !files.length) return;
   const ids = _pgLoteIds[safeRef]||[];
   if(!ids.length){ toast('Ordens do lote não encontradas','err'); return; }
   try{
-    toast('📤 Enviando comprovante...');
-    const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+    toast('📤 Enviando '+files.length+' comprovante(s)...');
     const primeiro=_ordens.find(x=>x.id===ids[0]);
-    const path=`pagamentos_forn/${primeiro?.forn_id||'sem_forn'}_${Date.now()}.${ext}`;
-    await uploadArquivoPrivado(file, path);
+    const existentes = primeiro?.forn_comprovantes||[];
+    const novos=[...existentes];
+    for(const file of files){
+      const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+      const path=`pagamentos_forn/${primeiro?.forn_id||'sem_forn'}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+      await uploadArquivoPrivado(file, path);
+      novos.push({path, nome:file.name});
+    }
     for(const id of ids){
       const ord=_ordens.find(x=>x.id===id); if(!ord) continue;
       try{
-        await api(`ordens?id=eq.${id}`,'PATCH',{forn_comprovante_url:path},tok());
-        ord.forn_comprovante_url=path;
-        addLog(id,'Comprovante anexado','mobile (retroativo): '+file.name);
+        await api(`ordens?id=eq.${id}`,'PATCH',{forn_comprovantes:novos},tok());
+        ord.forn_comprovantes=novos;
+        addLog(id,'Comprovante anexado','mobile (retroativo): '+Array.from(files).map(f=>f.name).join(', '));
       }catch(e){}
     }
-    toast('📎 Comprovante salvo em '+ids.length+' ordem(ns)!','ok');
+    toast('📎 Comprovante(s) salvo(s) em '+ids.length+' ordem(ns)!','ok');
     _renderPgfMobLista();
   }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
 }
@@ -4334,16 +4353,17 @@ function _renderPgfMobLista() {
     _pgLoteIds[safeRef] = list.map(o=>o.id);
     if(_groupStates['pg-'+safeRef] === undefined) _groupStates['pg-'+safeRef] = true;
     const collapsed = _groupStates['pg-'+safeRef] === true;
-    const comprovanteExistente = list.find(o=>o.forn_comprovante_url)?.forn_comprovante_url||'';
+    const comprovantesExistentes = list.find(o=>o.forn_comprovantes&&o.forn_comprovantes.length)?.forn_comprovantes||[];
     h += `<div class="pg-card ${_pgIdx%2===0?'pgz-odd':'pgz-even'}">
       <div class="pg-header" style="cursor:pointer" onclick="toggleGrupo('pg-${safeRef}')">
         <div class="forn-pay-av" style="background:${cor}22;color:${cor};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0">${nome[0]?.toUpperCase()||'?'}</div>
         <div style="flex:1;min-width:0">
           <div class="pg-forn">${nome}</div>
           <div class="pg-meta"><span>📅 ${data}</span><span>💳 ${forma}</span><span>${list.length} ordem${list.length!==1?'s':''}</span>${tag?`<span class="pg-tag">${tag}</span>`:''}
-            ${comprovanteExistente
-              ?`<span onclick="event.stopPropagation();abrirArquivoPrivado('${comprovanteExistente}')" style="cursor:pointer;color:var(--cyan);font-weight:700">📎 Ver comprovante</span>`
-              :`<span onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut)">📎 Anexar comprovante</span><input type="file" id="pgAnexoInput_${safeRef}" style="display:none" accept="image/*,application/pdf" onchange="onAnexoLoteMobSelecionado('${safeRef}', this.files[0])">`}
+            ${comprovantesExistentes.length
+              ?`<span onclick="event.stopPropagation();abrirAnexosOrdemLista(${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--cyan);font-weight:700">📎 Ver comprovante${comprovantesExistentes.length>1?'s ('+comprovantesExistentes.length+')':''}</span> <span onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut)">➕</span>`
+              :`<span onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut)">📎 Anexar comprovante</span>`}
+            <input type="file" id="pgAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="onAnexoLoteMobSelecionado('${safeRef}', this.files)">
           </div>
           ${obs?`<div style="font-size:11px;color:var(--mut);margin-top:3px">💬 ${obs}</div>`:''}
         </div>
@@ -5777,7 +5797,7 @@ function renderDetalhe(id) {
     ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
     ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
     ${o.obra_ref?`<div class="detail-row"><div class="detail-key">Ref/Obra</div><div class="detail-val">${o.obra_ref}</div></div>`:''}
-    ${o.anexo_url?`<div class="detail-row"><div class="detail-key">Anexo</div><div class="detail-val"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${o.anexo_url}')">📎 Ver anexo</span></div></div>`:''}
+    ${(o.anexos&&o.anexos.length)?`<div class="detail-row"><div class="detail-key">Anexo${o.anexos.length!==1?'s':''}</div><div class="detail-val">${o.anexos.map((a,i)=>`<div style="margin-bottom:2px"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${a.path}')">📎 ${(a.nome||a.path).split('/').pop()}</span></div>`).join('')}</div></div>`:''}
   </div>`;
   if(isAdmin()) {
     h+=`<div class="detail-section">
@@ -5806,11 +5826,11 @@ function renderDetalhe(id) {
   h+=`<div style="display:flex;gap:8px;padding:4px 0 4px">
     <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(255,255,255,.08);color:#d1d5db;border:1px solid rgba(255,255,255,.2)" onclick="duplicarOrdem('${o.id}')">Duplicar</button>
     <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="abrirEditar('${o.id}')">Editar</button>
-    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid #8b5cf6" onclick="${o.anexo_url?`abrirArquivoPrivado('${o.anexo_url}')`:`document.getElementById('anexoOrdemInput').click()`}">${o.anexo_url?'👁️ Ver anexo':'📎 Anexar'}</button>
-    ${o.anexo_url?`<button style="padding:12px 10px;border-radius:10px;font-size:16px;cursor:pointer;text-align:center;background:rgba(139,92,246,.1);color:#c4b5fd;border:1px solid rgba(139,92,246,.4)" title="Trocar anexo" onclick="document.getElementById('anexoOrdemInput').click()">🔄</button>`:''}
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid #8b5cf6" onclick="${(o.anexos&&o.anexos.length)?`abrirAnexosOrdemLista(${JSON.stringify(o.anexos).replace(/"/g,'&quot;')})`:`document.getElementById('anexoOrdemInput').click()`}">${(o.anexos&&o.anexos.length)?'👁️ Ver anexo'+(o.anexos.length>1?'s ('+o.anexos.length+')':''):'📎 Anexar'}</button>
+    ${(o.anexos&&o.anexos.length)?`<button style="padding:12px 10px;border-radius:10px;font-size:16px;cursor:pointer;text-align:center;background:rgba(139,92,246,.1);color:#c4b5fd;border:1px solid rgba(139,92,246,.4)" title="Adicionar mais anexos" onclick="document.getElementById('anexoOrdemInput').click()">➕</button>`:''}
     ${o.col==='concluido'?`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="desarquivarOrdem('${o.id}')">Reabrir</button>`:`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid #ef4444" onclick="arquivarOrdem('${o.id}')">Arquivar</button>`}
   </div>
-  <input type="file" id="anexoOrdemInput" style="display:none" accept="image/*,application/pdf" onchange="onAnexoOrdemMobileSelecionado('${o.id}', this.files[0])">
+  <input type="file" id="anexoOrdemInput" multiple style="display:none" accept="image/*,application/pdf" onchange="onAnexoOrdemMobileSelecionado('${o.id}', this.files)">
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
   </div>`:''}
