@@ -913,6 +913,7 @@ input,select,textarea,button{font-family:var(--font)}
         </select>
       </div>
       <div class="mfi"><label>Referência / comprovante</label><input type="text" id="pf_ref" placeholder="Ex: Pix 14:32 confirmado"></div>
+      <div class="mfi"><label>Anexar comprovante (foto/PDF, opcional — vale para todas as ordens selecionadas)</label><input type="file" id="pf_comprovante" accept="image/*,application/pdf" style="width:100%;font-size:13px"></div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('pagarFornModal')">Cancelar</button>
         <button class="btn acc" onclick="confirmarPagoForn()" style="background:var(--cyan);color:#000;border-color:transparent">💰 Confirmar</button>
@@ -1177,6 +1178,45 @@ const fmts = v => parseFloat(v||0).toLocaleString('pt-BR');
 const dateF = d => d ? new Date(d+'T12:00:00').toLocaleDateString('pt-BR') : '—';
 const nowISO = () => new Date().toISOString();
 const uidGen = () => crypto.randomUUID();
+
+// ── ANEXOS PRIVADOS (bucket "anexos", não público) ──
+async function uploadArquivoPrivado(file, path){
+  const res=await fetch(`${SUPA_URL}/storage/v1/object/anexos/${path}`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
+    body:file
+  });
+  if(!res.ok){const e=await res.text();throw new Error(e);}
+  return path;
+}
+async function abrirArquivoPrivado(path){
+  if(!path){toast('Nenhum arquivo anexado','warn');return;}
+  try{
+    toast('📎 Abrindo anexo...');
+    const res=await fetch(`${SUPA_URL}/storage/v1/object/anexos/${path}`,{
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok()}
+    });
+    if(!res.ok) throw new Error('Não foi possível abrir o anexo');
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_blank');
+  }catch(e){toast('Erro ao abrir anexo: '+e.message,'err');}
+}
+async function onAnexoOrdemMobileSelecionado(id, file){
+  if(!file) return;
+  const o = _ordens.find(x=>x.id===id); if(!o) return;
+  try{
+    toast('📤 Enviando anexo...');
+    const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+    const path=`ordens/${o.crm_id||o.id}_${Date.now()}.${ext}`;
+    await uploadArquivoPrivado(file, path);
+    await api(`ordens?id=eq.${id}`,'PATCH',{anexo_url:path},tok());
+    o.anexo_url = path;
+    addLog(id,'Anexo adicionado','mobile: '+file.name);
+    toast('📎 Anexo salvo!','ok');
+    if(_currentView==='detalhe') renderDetalhe(id);
+  }catch(e){toast('Erro ao enviar anexo: '+e.message,'err');}
+}
 
 // ── API ──
 const api = async (path, method='GET', body=null, token=null, prefer=null) => {
@@ -1954,6 +1994,7 @@ function abrirPagarForn(id) {
   document.getElementById('pf_forn_label').textContent = forn?.nome || '—';
   document.getElementById('pf_data').value = new Date().toISOString().split('T')[0];
   document.getElementById('pf_ref').value = o.crm_id ? 'OS '+o.crm_id : '';
+  const _pfComp=document.getElementById('pf_comprovante'); if(_pfComp) _pfComp.value='';
 
   const wrap = document.getElementById('pf_ordens_wrap');
   const lista = document.getElementById('pf_ordens_lista');
@@ -2010,6 +2051,18 @@ async function confirmarPagoForn() {
   const ref = document.getElementById('pf_ref').value.trim();
   if(!val){ toast('Informe o valor','err'); return; }
   const pgRef = [forma, ref].filter(Boolean).join(' | ');
+  const compFile = document.getElementById('pf_comprovante')?.files?.[0] || null;
+  let comprovanteUrl = '';
+  if(compFile){
+    try{
+      toast('📤 Enviando comprovante...');
+      const ext=(compFile.name.split('.').pop()||'bin').toLowerCase();
+      const primeiroForn = _ordens.find(x=>x.id===ids[0])?.forn_id || 'sem_forn';
+      const path=`pagamentos_forn/${primeiroForn}_${Date.now()}.${ext}`;
+      await uploadArquivoPrivado(compFile, path);
+      comprovanteUrl = path;
+    }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
+  }
 
   closeModal('pagarFornModal');
   let ok = 0;
@@ -2022,9 +2075,10 @@ async function confirmarPagoForn() {
     if(cli && !['baixar','concluido'].includes(ord.col)) novaCol = 'baixar';
     else if(!cli && ord.col === 'pagar') novaCol = 'faltapg';
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
+    if(comprovanteUrl) upd.forn_comprovante_url = comprovanteUrl;
     try {
       await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
-      addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:''));
+      addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:'')+(comprovanteUrl?' · comprovante anexado':''));
       Object.assign(ord, upd);
       ok++;
     } catch(e){ toast('Erro em '+ord.crm_id,'err'); }
@@ -5687,6 +5741,7 @@ function renderDetalhe(id) {
     ${forn?.tel?`<div class="detail-row"><div class="detail-key">Tel. Forn.</div><div class="detail-val"><a class="phone-link" href="tel:+55${forn.tel.replace(/\D/g,'')}">${forn.tel}</a></div></div>`:''}
     ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
     ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
+    ${o.anexo_url?`<div class="detail-row"><div class="detail-key">Anexo</div><div class="detail-val"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${o.anexo_url}')">📎 Ver anexo</span></div></div>`:''}
   </div>`;
   if(isAdmin()) {
     h+=`<div class="detail-section">
@@ -5715,8 +5770,10 @@ function renderDetalhe(id) {
   h+=`<div style="display:flex;gap:8px;padding:4px 0 4px">
     <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(255,255,255,.08);color:#d1d5db;border:1px solid rgba(255,255,255,.2)" onclick="duplicarOrdem('${o.id}')">Duplicar</button>
     <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="abrirEditar('${o.id}')">Editar</button>
+    <button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid #8b5cf6" onclick="document.getElementById('anexoOrdemInput').click()">📎 Anexar</button>
     ${o.col==='concluido'?`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(99,102,241,.25);color:#c7d2fe;border:1px solid #6366f1" onclick="desarquivarOrdem('${o.id}')">Reabrir</button>`:`<button style="flex:1;padding:12px 8px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid #ef4444" onclick="arquivarOrdem('${o.id}')">Arquivar</button>`}
   </div>
+  <input type="file" id="anexoOrdemInput" style="display:none" accept="image/*,application/pdf" onchange="onAnexoOrdemMobileSelecionado('${o.id}', this.files[0])">
   ${!_modoSimples&&o.col!=='concluido'?`<div style="padding:0 0 8px">
     <button style="width:100%;padding:11px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad2);color:var(--acc);font-size:13px;font-weight:700;cursor:pointer" onclick="voltarOrcamento('${o.id}')">↩️ Voltar para Orçamento</button>
   </div>`:''}
