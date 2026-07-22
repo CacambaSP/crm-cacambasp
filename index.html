@@ -1188,7 +1188,10 @@ input[type=checkbox]:checked::after{
         </div>
       </div>
       <div class="fi"><label>Observação</label><textarea id="o_obs"></textarea></div>
-      <div class="fi"><label>Referência/Obra (opcional)</label><input type="text" id="o_obra_ref" placeholder="Ex: REQ 10 - CEI Itaquera B"></div>
+      <div class="fi-row">
+        <div class="fi" style="flex:2"><label>Referência/Obra (opcional)</label><input type="text" id="o_obra_ref" placeholder="Ex: REQ 10 - CEI Itaquera B"></div>
+        <div class="fi" style="flex:1"><label>Limite (opcional)</label><input type="number" id="o_obra_limite" placeholder="Ex: 6" min="1"></div>
+      </div>
     </div>
     <div class="mtab-p" id="otab-financeiro">
       <div class="fi-row">
@@ -1810,6 +1813,7 @@ const COLS = [
 
 // ── ESTADO ──
 let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
+let _obraLimites={};
 
 // ── Analytics de uso ──
 async function track(evento, detalhe=''){
@@ -2408,7 +2412,7 @@ function doLogout(){
   _autoRefreshId=null; _tokenRefreshId=null;
   _ultimoSyncEm=null; _pollCiclos=0; _pollPausado=false;
   if(_realtimeWS){ try{_realtimeWS.close();}catch(e){} _realtimeWS=null; }
-  _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[];
+  _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[]; _obraLimites={};
   document.getElementById('appPage').style.display='none';
   const lp=document.getElementById('loginPage');lp.style.display='flex';
 }
@@ -2438,15 +2442,18 @@ async function loadApp(){
     if(!_perfil)_perfil={id:uid,nome:email.split('@')[0],email,nivel:'operador'};
     if(!_perfil.email)_perfil.email=email;
     setLoadProg(60,'Carregando dados...');
-    const [dbOrdens,dbForns,dbUsrs,dbConfig]=await Promise.all([
+    const [dbOrdens,dbForns,dbUsrs,dbConfig,dbObraLimites]=await Promise.all([
       isAdmin()
         ? apiPaginado('ordens?order=criado_em.asc',tok())
         : apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
       api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
+      api('obra_limites',undefined,undefined,tok()).catch(()=>[]),
     ]);
     ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
+    _obraLimites={};
+    (dbObraLimites||[]).forEach(r=>{ _obraLimites[r.obra_ref]=r.limite; });
     if(dbConfig?.length){
       dbConfig.forEach(r=>{
         if(r.chave==='nf_taxa')          _taxaNF=parseFloat(r.valor)||11;
@@ -3722,6 +3729,7 @@ function openNovaOrdem(){
   document.getElementById('ordemModalTitle').textContent='Nova Ordem';
   document.getElementById('ordemModalIco').textContent='➕';
   ['o_nome','o_cel','o_cpf','o_email','o_end','o_bairro','o_cidade','o_cep','o_obs','o_obra_ref','o_nf'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('o_obra_limite').value='';
   const _qtdEl=document.getElementById('o_qtd');if(_qtdEl)_qtdEl.value='1';
   const _resEl=document.getElementById('o_residuo');if(_resEl)_resEl.value='';
   _ordemTemNF=null;
@@ -3772,6 +3780,7 @@ function editarOrdemAtual(){
   document.getElementById('o_data').value=c.data||'';
   document.getElementById('o_obs').value=c.obs||'';
   document.getElementById('o_obra_ref').value=c.obra_ref||'';
+  document.getElementById('o_obra_limite').value=c.obra_ref&&_obraLimites[c.obra_ref]?_obraLimites[c.obra_ref]:'';
   document.getElementById('o_rec').value=c.rec||'';
   document.getElementById('o_cst').value=c.cst||'';
   document.getElementById('o_nf').value=c.nf_num||'';
@@ -4160,6 +4169,7 @@ async function salvarOrdem(){
         }
         toast('✅ Data também aplicada em '+irmasParaAtualizar.length+' ordem(ns) gêmea(s)!');
       }
+      await _salvarLimiteEChecarObra(c.obra_ref);
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     // NOVA
@@ -4209,6 +4219,25 @@ async function salvarOrdem(){
       if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
     },100);
     toast('✅ Ordem'+(qtd>1?'ns':'')+ ' criada'+(qtd>1?'s':'')+'!');
+    await _salvarLimiteEChecarObra(obraRefBase);
+  }
+}
+
+// ── OBRA/REQUISIÇÃO: limite opcional por Referência/Obra ──
+async function _salvarLimiteEChecarObra(obraRef){
+  if(!obraRef) return;
+  const limiteInput=parseInt(document.getElementById('o_obra_limite')?.value)||0;
+  if(limiteInput>0){
+    _obraLimites[obraRef]=limiteInput;
+    try{
+      await api('obra_limites','POST',{obra_ref:obraRef,limite:limiteInput,atualizado_em:nowISO()},tok(),'resolution=merge-duplicates');
+    }catch(e){}
+  }
+  const limite=_obraLimites[obraRef];
+  if(!limite) return;
+  const ativas=ordens.filter(o=>o.obra_ref===obraRef && !o.cancel_motivo && o.col!=='orcamento');
+  if(ativas.length>limite){
+    toast('⚠️ "'+obraRef+'" já tem '+ativas.length+' pedido(s) — limite combinado era '+limite,'warn',6000);
   }
 }
 
