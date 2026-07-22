@@ -412,25 +412,39 @@ function updateQtdInfo(){
 }
 
 // ── PRÓXIMO CRM ID ──
-async function getNextCrmId(prefixo){
+// Método principal: pede o número pro banco via função atômica (next_crm_id),
+// que nunca repete mesmo com vários pedidos chegando ao mesmo tempo (site + CRM).
+async function getOneCrmId(prefixo){
+  try{
+    const r = await fetch(SUPA_URL+'/rest/v1/rpc/next_crm_id', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+      body: JSON.stringify({p_prefixo: prefixo})
+    });
+    if(r.ok){
+      const id = await r.json();
+      if(id) return id;
+    }
+  }catch(e){}
+  // Método reserva (só usado se a função do banco estiver indisponível)
   const ano = new Date().getFullYear();
   const base = prefixo + ano;
   try{
-    // Busca TODOS os crm_ids com esse prefixo e pega o maior número
     const r = await fetch(
       SUPA_URL+'/rest/v1/ordens?select=crm_id&crm_id=like.'+base+'%25',
       {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
     );
     const data = await r.json();
+    let maxNum = 0;
     if(data?.length){
-      const maxNum = data.reduce((max, row)=>{
+      maxNum = data.reduce((max, row)=>{
         const n = parseInt((row.crm_id||'').replace(/\D/g,'').slice(-4))||0;
         return n > max ? n : max;
       }, 0);
-      return {base, num: maxNum+1};
     }
+    return base + String(maxNum+1).padStart(4,'0');
   }catch(e){}
-  return {base, num:1};
+  return base + '0001';
 }
 
 function showErr(id, show){
@@ -523,13 +537,15 @@ async function enviarCadastro(){
   const colDestino  = isOrcamento ? 'orcamento' : 'contratar';
 
   try{
-    const {base, num} = await getNextCrmId(prefixo);
     const codigos = [];
 
     const tokensCriados = [];  // guarda tokens gerados pelo banco (para link de tracking)
     for(let i=0; i<qtd; i++){
-      const crmId = base + String(num + i).padStart(4,'0');
-      codigos.push(crmId);
+      let crmId, respOrdem, dataResp;
+      // Até 3 tentativas: se dois pedidos pegarem o mesmo número ao mesmo tempo,
+      // o banco recusa (erro 23505) e a gente só pega outro número e tenta de novo.
+      for(let tentativa=0; tentativa<3; tentativa++){
+        crmId = await getOneCrmId(prefixo);
 
       const ordem = {
         id: crypto.randomUUID(),
@@ -555,23 +571,30 @@ async function enviarCadastro(){
         criado_em: new Date(Date.now() + i * 1000).toISOString()
       };
 
-      const respOrdem = await fetch(SUPA_URL+'/rest/v1/ordens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPA_KEY,
-          'Authorization': 'Bearer ' + SUPA_KEY,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(ordem)
-      });
-      if(!respOrdem.ok){
+        respOrdem = await fetch(SUPA_URL+'/rest/v1/ordens', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPA_KEY,
+            'Authorization': 'Bearer ' + SUPA_KEY,
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(ordem)
+        });
+        if(respOrdem.ok){
+          break; // salvou com sucesso, sai do laço de tentativas
+        }
         const errBody = await respOrdem.text().catch(()=>'');
+        const ehConflito = respOrdem.status===409 || errBody.includes('23505');
+        if(ehConflito && tentativa<2){
+          continue; // outro pedido pegou esse número primeiro: tenta com um número novo
+        }
         throw new Error('Falha ao salvar pedido '+crmId+' ('+respOrdem.status+'): '+errBody);
       }
+      codigos.push(crmId);
       // Captura o tracking_token gerado pelo banco para usar no link
       try{
-        const dataResp = await respOrdem.json();
+        dataResp = await respOrdem.json();
         const tk = Array.isArray(dataResp) ? dataResp[0]?.tracking_token : dataResp?.tracking_token;
         tokensCriados.push(tk||null);
       }catch(e){ tokensCriados.push(null); }
