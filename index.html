@@ -4153,6 +4153,8 @@ async function salvarOrdem(){
     const obsBase=document.getElementById('o_obs').value.trim();
     const nfNumBase=_ordemTemNF?document.getElementById('o_nf').value.trim()||'000':'';
     const recComNF=rec;
+    // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs
+    const grpIdLote = qtd>1 ? ('L'+Date.now().toString(36).toUpperCase()) : '';
     for(let qi=0;qi<qtd;qi++){
       const obsOrdem=(qtd>1?'Caçamba '+(qi+1)+' de '+qtd+(obsBase?' — ':' '):'')+(residuo&&residuo!=='Não informado'?'Resíduo: '+residuo+'. ':'')+obsBase;
       const tipoOrdem=document.getElementById('o_tipo').value+(qtd>1?' ('+(qi+1)+'/'+qtd+')':'');
@@ -4163,7 +4165,7 @@ async function salvarOrdem(){
         cidade:document.getElementById('o_cidade').value.trim(),cep:document.getElementById('o_cep').value.trim(),
         tipo:tipoOrdem,data:document.getElementById('o_data').value,
         obs:obsOrdem,
-        rec:recComNF,cst,forn_id:fornId,
+        rec:recComNF,cst,forn_id:fornId,grp_id:grpIdLote,
         pago:false,pago_em:null,pago_valor:null,pago_obs:null,
         forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
         nf_num:nfNumBase,
