@@ -4187,7 +4187,11 @@ async function salvarOrdem(){
     const obraRefBase=document.getElementById('o_obra_ref').value.trim();
     const recComNF=rec;
     // Se rua+CPF baterem com outro pedido, vincula automaticamente à mesma Referência/Obra
-    const obraRefFinal=await _autoLinkObraPorEndereco(document.getElementById('o_end').value.trim(),document.getElementById('o_cpf').value.trim(),obraRefBase,null);
+    let obraRefFinal=await _autoLinkObraPorEndereco(document.getElementById('o_end').value.trim(),document.getElementById('o_cpf').value.trim(),obraRefBase,null);
+    // Mesmo endereço, mas telefone diferente do já cadastrado: pergunta se quer relacionar
+    if(!obraRefFinal){
+      obraRefFinal=await _confirmarRelacionarEnderecoTelDiff(document.getElementById('o_end').value.trim(),cel,obraRefFinal,null);
+    }
     // Se for mais de 1 caçamba, gera um código de lote (grp_id) para ligar as ordens irmãs
     const grpIdLote = qtd>1 ? ('L'+Date.now().toString(36).toUpperCase()) : '';
     for(let qi=0;qi<qtd;qi++){
@@ -8260,6 +8264,26 @@ async function _autoLinkObraPorEndereco(logradouro, cpf, obraRefAtual, idAtual){
   }
   toast('ℹ️ Esse endereço/cliente já tem '+matches.length+' pedido(s) anterior(es) sem Referência/Obra definida','info',5000);
   return obraRefAtual;
+}
+// Mesmo endereço (rua), mas telefone diferente de pedidos já existentes: pergunta se quer relacionar
+// (não faz automático, porque telefone diferente é sinal mais fraco que CPF igual)
+async function _confirmarRelacionarEnderecoTelDiff(logradouro, cel, obraRefAtual, idAtual){
+  const ruaBase=_ruaBase(logradouro);
+  const celLimpo=(cel||'').replace(/\D/g,'');
+  if(!ruaBase || !celLimpo) return obraRefAtual;
+  const matches=ordens.filter(o=>o.id!==idAtual && !o.cancel_motivo && o.col!=='orcamento' && _ruaBase(o.logradouro)===ruaBase && (o.cel||'').replace(/\D/g,'') && (o.cel||'').replace(/\D/g,'')!==celLimpo);
+  if(!matches.length) return obraRefAtual;
+  const recente=[...matches].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||''))[0];
+  const ok=await showConfirm({
+    ico:'🔗',
+    title:'Endereço já cadastrado com telefone diferente',
+    body:'Este endereço já tem pedido(s) de <strong>'+(recente.nome||'—')+'</strong> com o telefone <strong>'+(recente.cel||'—')+'</strong> — diferente do que foi informado agora. Deseja relacionar este pedido ao mesmo cliente/endereço (mesma Referência/Obra)?',
+    ok:'🔗 Relacionar', okClass:'btn-acc', cancel:'Não, são pedidos separados'
+  });
+  if(!ok) return obraRefAtual;
+  const comObraRef=matches.find(o=>o.obra_ref);
+  if(comObraRef) return comObraRef.obra_ref;
+  return (recente.logradouro||'Endereço').split(',')[0].trim();
 }
 
 // ══════════════════════════════════════════════════════════════
