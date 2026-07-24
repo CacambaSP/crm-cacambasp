@@ -4569,9 +4569,9 @@ function abrirPopupForn(e, ordemId){
       // "Outros disponíveis" recolhidos por padrão — expandem ao clicar
       html += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fpGerais_'+ordemId+'\');const a=document.getElementById(\'fpArrow_'+ordemId+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:8px;padding:6px 4px;cursor:pointer;border-radius:6px;transition:background .12s" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'">'
         +'<span>'+(nComp?'Outros disponíveis':'Todos os fornecedores')+' ('+nGeral+')</span>'
-        +'<span id="fpArrow_'+ordemId+'">▲</span>'
+        +'<span id="fpArrow_'+ordemId+'">▼</span>'
         +'</div>'
-        +'<div id="fpGerais_'+ordemId+'" style="display:block">'
+        +'<div id="fpGerais_'+ordemId+'" style="display:none">'
         + gerais.map(_itemFornHtml).join('<div style="height:1px;background:var(--bor);margin:2px 0"></div>')
         +'</div>';
     }
@@ -4760,7 +4760,7 @@ function _renderFornSugestao(c){
 
   if(gerais.length){
     const _geraisHtml = gerais.map(s=>itemHtml(s,'event.stopPropagation();_atribuirFornecedor(\'' + s.f.id + '\'')).join('');
-    inner += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fsGerais_'+c.id+'\');const a=document.getElementById(\'fsArrow_'+c.id+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;padding:6px 4px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'"><span>'+(compativeis.length?'Outros disponíveis':'Todos os fornecedores')+' ('+gerais.length+')</span><span id="fsArrow_'+c.id+'">▲</span></div><div id="fsGerais_'+c.id+'" style="display:block">'+_geraisHtml+'</div>';
+    inner += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fsGerais_'+c.id+'\');const a=document.getElementById(\'fsArrow_'+c.id+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;padding:6px 4px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'"><span>'+(compativeis.length?'Outros disponíveis':'Todos os fornecedores')+' ('+gerais.length+')</span><span id="fsArrow_'+c.id+'">▼</span></div><div id="fsGerais_'+c.id+'" style="display:none">'+_geraisHtml+'</div>';
   }
 
   inner += `<div style="position:relative;margin-top:10px;border-top:1px solid var(--bor);padding-top:10px">
@@ -5147,13 +5147,36 @@ function _renderOutrasOrdens(c){
   const outras=ordens.filter(x=>x.id!==c.id&&x.col!=='concluido'&&x.col!=='orcamento'&&tel&&(x.cel||'').replace(/\D/g,'')===tel);
   if(!outras.length){el.style.display='none';return;}
   el.style.display='block';
-  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">
-    <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Outras ordens deste cliente (${outras.length})</div>
-    ${outras.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor);cursor:pointer;font-size:12px">
+
+  // Agrupar por lote (grp_id): se 2+ ordens da lista pertencem ao mesmo lote,
+  // mostra só a primeira + "+N do mesmo lote" (expansível), em vez de repetir todas
+  const porGrupo={}, semGrupo=[];
+  outras.forEach(o=>{
+    if(o.grp_id){ (porGrupo[o.grp_id]=porGrupo[o.grp_id]||[]).push(o); }
+    else { semGrupo.push(o); }
+  });
+  const _labelOrdem=o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor);cursor:pointer;font-size:12px">
       <input type="checkbox" data-oid="${o.id}" onchange="_toggleOutraOrdem(this)" style="accent-color:var(--acc);width:15px;height:15px;cursor:pointer;flex-shrink:0">
       <span style="flex:1;min-width:0"><span style="font-weight:600;color:var(--txt)">${o.logradouro||o.bairro||'Endereço'}</span>${o.bairro?` <span style="color:var(--mut2)">· ${o.bairro}</span>`:''}</span>
       <span style="color:var(--acc);font-weight:700;font-family:var(--mono);flex-shrink:0">R$ ${fmt(o.rec)}</span>
-    </label>`).join('')}
+    </label>`;
+  let listaHtml='';
+  Object.keys(porGrupo).forEach(gid=>{
+    const grupo=porGrupo[gid];
+    if(grupo.length===1){ listaHtml+=_labelOrdem(grupo[0]); return; }
+    const [primeira,...resto]=grupo;
+    const gEl='d_lote_'+gid;
+    listaHtml+=_labelOrdem(primeira);
+    listaHtml+=`<div onclick="event.stopPropagation();const b=document.getElementById('${gEl}');const a=document.getElementById('${gEl}_arrow');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;justify-content:space-between;padding:5px 4px;font-size:11px;color:var(--mut2);cursor:pointer;border-bottom:1px solid var(--bor)">
+        <span>+${resto.length} do mesmo lote</span><span id="${gEl}_arrow">▼</span>
+      </div>
+      <div id="${gEl}" style="display:none">${resto.map(_labelOrdem).join('')}</div>`;
+  });
+  listaHtml += semGrupo.map(_labelOrdem).join('');
+
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">
+    <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Outras ordens deste cliente (${outras.length})</div>
+    ${listaHtml}
     <div id="d_outras_total" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:12px;color:var(--mut2)">Total selecionado:</span>
       <span id="d_outras_total_val" style="font-weight:700;color:var(--acc);font-family:var(--mono)">R$ 0,00</span>
