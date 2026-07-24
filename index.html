@@ -10079,6 +10079,7 @@ function renderRel(){
 }
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
+let _relPgLoteIds = {}; // safeRef -> [ids das ordens do mesmo pagamento], usado para anexar comprovante ao grupo todo
 function _relPgfFiltrarDOM(q){
   const qL=(q||'').toLowerCase().trim();
   const tbody=document.querySelector('#pgfTabela tbody');
@@ -10177,6 +10178,7 @@ function _relPgtosForn(){
   const inputStyle='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:7px 10px;font-size:12px;color:var(--txt);outline:none;font-family:var(--font)';
 
   const hoje=new Date().toISOString().slice(0,10);
+  _relPgLoteIds = {};
 
   return `
   <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad);padding:14px;margin-bottom:14px">
@@ -10221,6 +10223,13 @@ function _relPgtosForn(){
     const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
     const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
     const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
+    // Agrupa pelo código do pagamento (forn_pg_ref): anexar em qualquer ordem do grupo
+    // salva o comprovante para todas as ordens pagas juntas nesse mesmo pagamento
+    const grupoRef=c.forn_pg_ref||'';
+    const grupoIds=grupoRef?ordens.filter(x=>x.forn_pg_ref===grupoRef).map(x=>x.id):[c.id];
+    const safeRef=grupoRef?('r'+btoa(unescape(encodeURIComponent(grupoRef))).replace(/[^a-zA-Z0-9]/g,'')):('o'+c.id.replace(/[^a-zA-Z0-9]/g,''));
+    _relPgLoteIds[safeRef]=grupoIds;
+    const compExistentes=grupoIds.map(id=>ordens.find(o=>o.id===id)).find(o=>o&&o.forn_comprovantes&&o.forn_comprovantes.length)?.forn_comprovantes||[];
     return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
       <td style="font-size:11px;white-space:nowrap;color:var(--mut2)">${dataOrdem}</td>
@@ -10228,7 +10237,12 @@ function _relPgtosForn(){
       <td style="font-size:11px;color:var(--mut2);white-space:nowrap">${forn?forn.nome:'-'}</td>
       <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
       <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
-      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}${(c.forn_comprovantes&&c.forn_comprovantes.length)?` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(c.forn_comprovantes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${c.forn_comprovantes.length>1?' x'+c.forn_comprovantes.length:''}</span>`:''}</td>
+      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}
+        ${compExistentes.length
+          ? ` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(compExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${compExistentes.length>1?' x'+compExistentes.length:''}</span> <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut2)" title="Anexar mais">➕</span>`
+          : ` <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--acc)" title="Anexar comprovante${grupoIds.length>1?' (vale p/ '+grupoIds.length+' ordens deste pagamento)':''}">📎 Anexar</span>`}
+        <input type="file" id="relAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="anexarComprovanteRel('${safeRef}', this.files)">
+      </td>
       <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
   }).join('')}</tbody></table></div>`}`;
@@ -12987,6 +13001,33 @@ function abrirComprovantesLista(lista){
     body: lista.map((a,i)=>'<div style="margin:4px 0"><a href="#" onclick="event.preventDefault();abrirArquivoPrivado(\''+a.path+'\')" style="color:var(--acc)">'+(i+1)+'. '+(a.nome||a.path).split('/').pop()+'</a></div>').join(''),
     ok:'Fechar', okClass:'acc', cancel:''
   });
+}
+async function anexarComprovanteRel(safeRef, files){
+  if(!files || !files.length) return;
+  const ids = _relPgLoteIds[safeRef]||[];
+  if(!ids.length){ toast('Ordem(ns) não encontrada(s)','err'); return; }
+  try{
+    toast('📤 Enviando '+files.length+' comprovante(s)...');
+    const primeiro = ordens.find(x=>x.id===ids[0]);
+    const existentes = primeiro?.forn_comprovantes||[];
+    const novos = [...existentes];
+    for(const file of files){
+      const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+      const path=`pagamentos_forn/${primeiro?.forn_id||'sem_forn'}_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+      await uploadArquivoPrivado(file, path);
+      novos.push({path, nome:file.name});
+    }
+    for(const id of ids){
+      const ord=ordens.find(x=>x.id===id); if(!ord) continue;
+      try{
+        await api(`ordens?id=eq.${id}`,'PATCH',{forn_comprovantes:novos},tok());
+        ord.forn_comprovantes=novos;
+        addLog(id,'Comprovante anexado','Relatórios (grupo de '+ids.length+' ordem(ns)): '+Array.from(files).map(f=>f.name).join(', '));
+      }catch(e){}
+    }
+    toast('📎 Comprovante(s) salvo(s) em '+ids.length+' ordem(ns)!','ok');
+    renderRel();
+  }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
 }
 async function abrirArquivoPrivado(path){
   if(!path){toast('Nenhum arquivo anexado','warn');return;}
