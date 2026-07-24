@@ -5138,6 +5138,19 @@ function _enviarAgendaWA(fid){
   _waFornAbrir(f, txt);
 }
 
+// Normaliza texto de endereço para comparação: remove acentos, pontuação,
+// e abreviações comuns (Av./Avenida, R./Rua) para reconhecer o mesmo lugar
+// mesmo escrito de forma diferente
+function _normEndereco(s){
+  return (s||'')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\bav\.?\b/g,'avenida')
+    .replace(/\br\.?\b/g,'rua')
+    .replace(/[.,\-–\/]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 let _outrasOrdensCheck=new Set();
 function _renderOutrasOrdens(c){
   const el=document.getElementById('d_outras_ordens');
@@ -5148,31 +5161,34 @@ function _renderOutrasOrdens(c){
   if(!outras.length){el.style.display='none';return;}
   el.style.display='block';
 
-  // Agrupar por lote (grp_id): se 2+ ordens da lista pertencem ao mesmo lote,
-  // mostra só a primeira + "+N do mesmo lote" (expansível), em vez de repetir todas
-  const porGrupo={}, semGrupo=[];
+  // Agrupar por endereço normalizado: se 2+ ordens caem no mesmo endereço
+  // (mesmo escrito diferente, tipo "Av. Piracema, 1411" vs "Avenida Piracema 1411"),
+  // mostra um resumo com total + expande pra marcar cada pedido individualmente
+  const grupos={};
   outras.forEach(o=>{
-    if(o.grp_id){ (porGrupo[o.grp_id]=porGrupo[o.grp_id]||[]).push(o); }
-    else { semGrupo.push(o); }
+    const chave=_normEndereco(o.logradouro)+'|'+_normEndereco(o.bairro);
+    (grupos[chave]=grupos[chave]||[]).push(o);
   });
   const _labelOrdem=o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor);cursor:pointer;font-size:12px">
       <input type="checkbox" data-oid="${o.id}" onchange="_toggleOutraOrdem(this)" style="accent-color:var(--acc);width:15px;height:15px;cursor:pointer;flex-shrink:0">
       <span style="flex:1;min-width:0"><span style="font-weight:600;color:var(--txt)">${o.logradouro||o.bairro||'Endereço'}</span>${o.bairro?` <span style="color:var(--mut2)">· ${o.bairro}</span>`:''}</span>
       <span style="color:var(--acc);font-weight:700;font-family:var(--mono);flex-shrink:0">R$ ${fmt(o.rec)}</span>
     </label>`;
-  let listaHtml='';
-  Object.keys(porGrupo).forEach(gid=>{
-    const grupo=porGrupo[gid];
+  let listaHtml='', gi=0;
+  Object.values(grupos).forEach(grupo=>{
     if(grupo.length===1){ listaHtml+=_labelOrdem(grupo[0]); return; }
-    const [primeira,...resto]=grupo;
-    const gEl='d_lote_'+gid;
-    listaHtml+=_labelOrdem(primeira);
-    listaHtml+=`<div onclick="event.stopPropagation();const b=document.getElementById('${gEl}');const a=document.getElementById('${gEl}_arrow');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;justify-content:space-between;padding:5px 4px;font-size:11px;color:var(--mut2);cursor:pointer;border-bottom:1px solid var(--bor)">
-        <span>+${resto.length} do mesmo lote</span><span id="${gEl}_arrow">▼</span>
+    gi++;
+    const total=grupo.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+    const gEl='d_end_'+gi;
+    const end=grupo[0].logradouro||grupo[0].bairro||'Endereço';
+    const bairro=grupo[0].bairro;
+    listaHtml+=`<div onclick="event.stopPropagation();const b=document.getElementById('${gEl}');const a=document.getElementById('${gEl}_arrow');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor);cursor:pointer;font-size:12px">
+        <span style="flex:1;min-width:0"><span style="font-weight:600;color:var(--txt)">${end}</span>${bairro?` <span style="color:var(--mut2)">· ${bairro}</span>`:''} <span style="color:var(--mut2)">— ${grupo.length} pedidos</span></span>
+        <span style="color:var(--acc);font-weight:700;font-family:var(--mono);flex-shrink:0">R$ ${fmt(total)}</span>
+        <span id="${gEl}_arrow" style="color:var(--mut2);flex-shrink:0">▼</span>
       </div>
-      <div id="${gEl}" style="display:none">${resto.map(_labelOrdem).join('')}</div>`;
+      <div id="${gEl}" style="display:none;padding-left:10px">${grupo.map(_labelOrdem).join('')}</div>`;
   });
-  listaHtml += semGrupo.map(_labelOrdem).join('');
 
   el.innerHTML=`<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">
     <div style="font-size:10px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Outras ordens deste cliente (${outras.length})</div>
