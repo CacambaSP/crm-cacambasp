@@ -4775,8 +4775,19 @@ function _renderFornSugestao(c){
 
   el.style.display = 'block';
   const avisoPendForn = _pendenciaAvisoHTML(c.cel, c.id);
-  el.innerHTML = (avisoPendForn?`<div style="margin-bottom:10px">${avisoPendForn}</div>`:'') +
-    '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
+  const _pickerBody = '<div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px">'+inner+'</div>';
+  if(c.forn_id){
+    // Já tem fornecedor: fica escondido atrás de um botão, pra não poluir a tela
+    el.innerHTML = (avisoPendForn?`<div style="margin-bottom:10px">${avisoPendForn}</div>`:'') +
+      `<div onclick="event.stopPropagation();const b=document.getElementById('d_forn_troca_body');const a=document.getElementById('d_forn_troca_arrow');if(b.style.display==='none'){b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}" style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;cursor:pointer">
+        <span style="font-size:12px;font-weight:600;color:var(--mut2)">🔄 Trocar fornecedor</span>
+        <span id="d_forn_troca_arrow" style="color:var(--mut2)">▼</span>
+      </div>
+      <div id="d_forn_troca_body" style="display:none;margin-top:8px">${_pickerBody}</div>`;
+  } else {
+    // Ainda não tem fornecedor: mostra expandido (sugestões do bairro visíveis de cara)
+    el.innerHTML = (avisoPendForn?`<div style="margin-bottom:10px">${avisoPendForn}</div>`:'') + _pickerBody;
+  }
 }
 
 // ── Helper: abre WhatsApp do fornecedor (número ou link de grupo) ──
