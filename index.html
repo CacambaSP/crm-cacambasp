@@ -4754,8 +4754,9 @@ function _renderFornSugestao(c){
   }
 
   if(vizinhos.length){
-    inner += `<div style="font-size:10px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.5px;margin-top:10px;margin-bottom:6px">⚠️ Bairros vizinhos (${vizinhos.length})</div>`;
-    inner += vizinhos.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('');
+    inner += '<div onclick="event.stopPropagation();const b=document.getElementById(\'fsViz_'+c.id+'\');const a=document.getElementById(\'fsVizArrow_'+c.id+'\');if(b.style.display===\'none\'){b.style.display=\'block\';a.textContent=\'▲\';}else{b.style.display=\'none\';a.textContent=\'▼\';}" style="display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.5px;margin-top:10px;padding:6px 4px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'\'"><span>⚠️ Bairros vizinhos ('+vizinhos.length+')</span><span id="fsVizArrow_'+c.id+'">▼</span></div><div id="fsViz_'+c.id+'" style="display:none">'
+      + vizinhos.map(s=>itemHtml(s,`event.stopPropagation();_atribuirFornecedor('${s.f.id}')`)).join('')
+      + '</div>';
   }
 
   if(gerais.length){
