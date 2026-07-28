@@ -4248,6 +4248,15 @@ async function excluirComprovanteLote(safeRef, path){
     _renderPgfMobLista();
   }catch(e){ toast('Erro ao remover: '+e.message,'err'); }
 }
+async function reenviarLinkComprovante(safeRef, lista, nomeForn){
+  if(!lista || !lista.length){ toast('Nenhum comprovante anexado','warn'); return; }
+  const ids = _pgLoteIds[safeRef]||[];
+  if(!ids.length){ toast('Ordens do lote não encontradas','err'); return; }
+  const ordensPagas = ids.map(id=>_ordens.find(x=>x.id===id)).filter(Boolean);
+  const path = lista[lista.length-1].path;
+  toast('🔗 Gerando link do comprovante...');
+  await _avisarComprovanteWA(nomeForn, ordensPagas, path);
+}
 async function onAnexoLoteMobSelecionado(safeRef, files){
   if(!files || !files.length) return;
   const ids = _pgLoteIds[safeRef]||[];
@@ -4451,7 +4460,7 @@ function _renderPgfMobLista() {
           <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
             ${comprovantesExistentes.length
               ?`<span onclick="event.stopPropagation();abrirComprovantesLote('${safeRef}', ${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')}, '${nome.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--cyan);font-weight:700;font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 Comprovante${comprovantesExistentes.length>1?'s ('+comprovantesExistentes.length+')':''}</span>
-                <button onclick="event.stopPropagation();compartilharComprovantes(${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')}, '${nome.replace(/'/g,"\\'")}')" style="width:26px;height:26px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--mut)" title="Compartilhar">📤</button>
+                <button onclick="event.stopPropagation();reenviarLinkComprovante('${safeRef}', ${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')}, '${nome.replace(/'/g,"\\'")}')" style="width:26px;height:26px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--mut)" title="Gerar mensagem com link">📤</button>
                 <button onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="width:26px;height:26px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--mut)" title="Adicionar mais">➕</button>`
               :`<span onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut);font-size:11px">📎 Anexar comprovante</span>`}
             <input type="file" id="pgAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="onAnexoLoteMobSelecionado('${safeRef}', this.files)">
