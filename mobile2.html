@@ -4212,8 +4212,14 @@ async function _avisarComprovanteWA(nomeForn, ordensPagas, path){
     const valorTotal = ordensPagas.reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
     const dataRef = ordensPagas[0]?.forn_pago_em ? new Date(ordensPagas[0].forn_pago_em).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     const msg = `✅ *Comprovante de pagamento*\n🚛 Fornecedor: ${nomeForn}\n📅 Data: ${dataRef}\n💰 Valor: R$ ${fmt(valorTotal)}\n📎 Comprovante: ${link}\n⚠️ Este link expira em 4 dias — se quiser guardar, salve a imagem antes que expire.`;
-    await navigator.clipboard.writeText(msg);
-    toast('📋 Mensagem com link do comprovante copiada — cole no WhatsApp!','ok');
+    const fornId = ordensPagas[0]?.forn_id;
+    const fornObj = fornId ? _forns.find(f=>f.id===fornId) : null;
+    if(fornObj && (fornObj.wa_link || fornObj.tel)){
+      _waFornAbrir(fornObj, msg);
+    } else {
+      await navigator.clipboard.writeText(msg);
+      toast('📋 Mensagem com link do comprovante copiada — cole no WhatsApp!','ok');
+    }
   }catch(e){
     toast('Comprovante salvo, mas não consegui gerar o link automático: '+e.message,'warn');
   }
