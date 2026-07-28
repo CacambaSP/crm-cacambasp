@@ -4192,6 +4192,32 @@ function renderPagamentosInto(container) {
   _renderPgfMobLista();
 }
 
+async function _gerarLinkComprovante(path, diasValidade=4){
+  const seg = diasValidade*24*3600;
+  const res = await fetch(`${SUPA_URL}/storage/v1/object/sign/anexos/${path}`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},
+    body: JSON.stringify({expiresIn: seg})
+  });
+  if(!res.ok){ const e=await res.text(); throw new Error(e); }
+  const data = await res.json();
+  let url = data.signedURL || data.signedUrl;
+  if(!url) throw new Error('Link não retornado');
+  if(url.startsWith('/')) url = SUPA_URL+'/storage/v1'+url;
+  return url;
+}
+async function _avisarComprovanteWA(nomeForn, ordensPagas, path){
+  try{
+    const link = await _gerarLinkComprovante(path, 4);
+    const valorTotal = ordensPagas.reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
+    const dataRef = ordensPagas[0]?.forn_pago_em ? new Date(ordensPagas[0].forn_pago_em).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    const msg = `✅ *Comprovante de pagamento*\n🚛 Fornecedor: ${nomeForn}\n📅 Data: ${dataRef}\n💰 Valor: R$ ${fmt(valorTotal)}\n📎 Comprovante: ${link}\n⚠️ Este link expira em 4 dias — se quiser guardar, salve a imagem antes que expire.`;
+    await navigator.clipboard.writeText(msg);
+    toast('📋 Mensagem com link do comprovante copiada — cole no WhatsApp!','ok');
+  }catch(e){
+    toast('Comprovante salvo, mas não consegui gerar o link automático: '+e.message,'warn');
+  }
+}
 async function onAnexoLoteMobSelecionado(safeRef, files){
   if(!files || !files.length) return;
   const ids = _pgLoteIds[safeRef]||[];
@@ -4216,6 +4242,9 @@ async function onAnexoLoteMobSelecionado(safeRef, files){
       }catch(e){}
     }
     toast('📎 Comprovante(s) salvo(s) em '+ids.length+' ordem(ns)!','ok');
+    const fornObj = _forns.find(f=>f.id===primeiro?.forn_id);
+    const ordensPagas = ids.map(id=>_ordens.find(x=>x.id===id)).filter(Boolean);
+    _avisarComprovanteWA(fornObj?.nome||'Fornecedor', ordensPagas, novos[novos.length-1].path);
     _renderPgfMobLista();
   }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
 }
