@@ -4218,6 +4218,36 @@ async function _avisarComprovanteWA(nomeForn, ordensPagas, path){
     toast('Comprovante salvo, mas não consegui gerar o link automático: '+e.message,'warn');
   }
 }
+function abrirComprovantesLote(safeRef, lista, nomeForn){
+  if(!lista || !lista.length) return;
+  showConfirm({
+    ico:'📎', title:'Comprovantes — '+(nomeForn||''),
+    body: lista.map((a,i)=>`<div style="display:flex;align-items:center;gap:10px;margin:6px 0;text-align:left">
+      <a href="#" onclick="event.preventDefault();abrirArquivoPrivado('${a.path}')" style="color:var(--cyan);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i+1}. ${(a.nome||a.path).split('/').pop()}</a>
+      <span onclick="event.preventDefault();excluirComprovanteLote('${safeRef}','${a.path}')" style="cursor:pointer;color:#ef4444;font-size:16px;flex-shrink:0" title="Excluir">🗑️</span>
+    </div>`).join(''),
+    ok:'Fechar', okClass:'acc', cancel:''
+  });
+}
+async function excluirComprovanteLote(safeRef, path){
+  if(!window.confirm('Remover este comprovante? Ele será desvinculado de todas as ordens deste pagamento (o arquivo em si não é apagado do histórico).')) return;
+  const ids = _pgLoteIds[safeRef]||[];
+  if(!ids.length){ toast('Ordens do lote não encontradas','err'); return; }
+  try{
+    const primeiro = _ordens.find(x=>x.id===ids[0]);
+    const atuais = primeiro?.forn_comprovantes||[];
+    const novos = atuais.filter(a=>a.path!==path);
+    for(const id of ids){
+      const ord=_ordens.find(x=>x.id===id); if(!ord) continue;
+      await api(`ordens?id=eq.${id}`,'PATCH',{forn_comprovantes: novos.length?novos:null},tok());
+      ord.forn_comprovantes = novos.length?novos:null;
+      addLog(id,'Comprovante removido','mobile: removido manualmente pelo usuário');
+    }
+    toast('🗑️ Comprovante removido','ok');
+    closeModal('confirmModal');
+    _renderPgfMobLista();
+  }catch(e){ toast('Erro ao remover: '+e.message,'err'); }
+}
 async function onAnexoLoteMobSelecionado(safeRef, files){
   if(!files || !files.length) return;
   const ids = _pgLoteIds[safeRef]||[];
@@ -4420,7 +4450,7 @@ function _renderPgfMobLista() {
           <div class="pg-meta"><span>📅 ${data}</span><span>💳 ${forma}</span><span>${list.length} ordem${list.length!==1?'s':''}</span>${tag?`<span class="pg-tag">${tag}</span>`:''}</div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
             ${comprovantesExistentes.length
-              ?`<span onclick="event.stopPropagation();abrirAnexosOrdemLista(${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--cyan);font-weight:700;font-size:11px;flex:1;min-width:0;white-space:nowrap">📎 Comprovante${comprovantesExistentes.length>1?'s ('+comprovantesExistentes.length+')':''}</span>
+              ?`<span onclick="event.stopPropagation();abrirComprovantesLote('${safeRef}', ${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')}, '${nome.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--cyan);font-weight:700;font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 Comprovante${comprovantesExistentes.length>1?'s ('+comprovantesExistentes.length+')':''}</span>
                 <button onclick="event.stopPropagation();compartilharComprovantes(${JSON.stringify(comprovantesExistentes).replace(/"/g,'&quot;')}, '${nome.replace(/'/g,"\\'")}')" style="width:26px;height:26px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--mut)" title="Compartilhar">📤</button>
                 <button onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="width:26px;height:26px;flex-shrink:0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--mut)" title="Adicionar mais">➕</button>`
               :`<span onclick="event.stopPropagation();document.getElementById('pgAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut);font-size:11px">📎 Anexar comprovante</span>`}
