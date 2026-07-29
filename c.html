@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comprovante — CaçambaSP</title>
+<style>
+  body{background:#0b0f17;color:#e6ebf2;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center}
+  .box{max-width:360px}
+  .ico{font-size:48px;margin-bottom:16px}
+  h1{font-size:18px;margin:0 0 8px}
+  p{color:#9aa4b2;font-size:14px;line-height:1.5}
+</style>
+</head>
+<body>
+  <div class="box" id="box">
+    <div class="ico">⏳</div>
+    <h1>Abrindo comprovante...</h1>
+    <p>Aguarde um instante.</p>
+  </div>
+<script>
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+
+function mostrarErro(titulo, msg){
+  document.getElementById('box').innerHTML = `<div class="ico">⚠️</div><h1>${titulo}</h1><p>${msg}</p>`;
+}
+
+(async function(){
+  const params = new URLSearchParams(window.location.search);
+  const codigo = params.get('x');
+  if(!codigo){ mostrarErro('Link inválido','Faltam informações no link.'); return; }
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/pagamentos_links?codigo=eq.${encodeURIComponent(codigo)}&select=url_destino,expira_em`, {
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+    });
+    const rows = await res.json();
+    if(!rows || !rows.length){ mostrarErro('Link não encontrado','Este link de comprovante não existe ou foi removido.'); return; }
+    const row = rows[0];
+    if(new Date(row.expira_em) < new Date()){
+      mostrarErro('Link expirado','Este comprovante já não está mais disponível por este link. Entre em contato para receber uma nova via.');
+      return;
+    }
+    window.location.replace(row.url_destino);
+  }catch(e){
+    mostrarErro('Erro ao carregar','Não foi possível abrir o comprovante. Tente novamente em instantes.');
+  }
+})();
+</script>
+</body>
+</html>
