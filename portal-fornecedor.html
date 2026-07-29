@@ -186,7 +186,7 @@ async function loadOrdens(){
 }
 
 function novas(){ return ORDENS.filter(o=>o.forn_status==='pendente'); }
-function aceitas(){ return ORDENS.filter(o=>o.forn_status==='aceito' && !['pagar','faltapg','baixar','concluido'].includes(o.col)); }
+function aceitas(){ return ORDENS.filter(o=>o.forn_status==='aceito' && !o.entrega_confirmada && !['pagar','faltapg','baixar','concluido'].includes(o.col)); }
 function pagamento(){ return ORDENS.filter(o=>['pagar','faltapg','concluido','baixar'].includes(o.col) || o.forn_pago!==undefined); }
 
 function render(){
@@ -353,8 +353,9 @@ async function confirmarFollowup(id){
     const ok = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto });
     if(!ok){ toast('Não foi possível registrar'); return; }
     toast('Registrado ✓ — mensagem pro vendedor seria enviada aqui');
-    ACTIVE_LC = ORDENS.find(o=>o.id===id);
-    renderFollowup(ACTIVE_LC);
+    await loadOrdens();
+    if(FU_TIPO==='chegada_ok'){ setView('rota'); }
+    else{ ACTIVE_LC = ORDENS.find(o=>o.id===id); renderFollowup(ACTIVE_LC); }
   }catch(e){ toast('Erro: '+e.message); }
 }
 
