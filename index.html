@@ -4673,7 +4673,8 @@ async function _finalizarAtribuicaoFornecedorCard(c, f, m, deveAdicionarBairro){
   const dataStr = c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const qtdTxt = grupoOrdens.length>1 ? grupoOrdens.length+' caçambas' : '1 caçamba';
   const osTxt = grupoOrdens.map(o=>o.crm_id||'—').join(', ');
-  const textoOS = '📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
+  const linkPortal = f.portal_ativo && f.portal_token ? ('\n\n🔗 Acompanhe pelo seu painel: https://cacambasp-crm.vercel.app/portal-fornecedor.html?t='+f.portal_token) : '';
+  const textoOS = '📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+'\n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+linkPortal+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
   // Abrir modal flutuante de WA
   _abrirModalAgenda(f, textoOS);
 }
@@ -4990,7 +4991,8 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   const dataStr = c.data ? new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
   const qtdTxt = grupoOrdens.length>1 ? grupoOrdens.length+' caçambas' : '1 caçamba';
   const osTxt = grupoOrdens.map(o=>o.crm_id||'—').join(', ');
-  const textoOS='📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
+  const linkPortal = f.portal_ativo && f.portal_token ? ('\n\n🔗 Acompanhe pelo seu painel: https://cacambasp-crm.vercel.app/portal-fornecedor.html?t='+f.portal_token) : '';
+  const textoOS='📦 '+qtdTxt+' · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+osTxt+linkPortal+'\n\nPor favor, confirme o recebimento dest'+(grupoOrdens.length>1?'as OS':'a OS')+'.\n_CaçambaSP_';
 
   // Abrir modal de envio WA
   _abrirModalWAForn({
@@ -5902,7 +5904,8 @@ function enviarWAForn(id){
   const dataStr=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const m=_fornMatchBairro(f,(c.bairro||'').toLowerCase().trim(),(c.cidade||'').toLowerCase().trim());
   const turnoStr=m?.reg?(m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno'):'';
-  const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
+  const linkPortal = f.portal_ativo && f.portal_token ? ('\n\n🔗 Acompanhe pelo seu painel: https://cacambasp-crm.vercel.app/portal-fornecedor.html?t='+f.portal_token) : '';
+  const msg='📦 1 caçamba · 📅 '+dataStr+'\n📍 '+end+'\n👤 '+(c.nome||'—')+' · 📞 '+(c.cel||'—')+(c.cpf?'\n📄 CPF/CNPJ: '+c.cpf:'')+' \n🪣 '+(c.tipo||'—')+(turnoStr?' · '+turnoStr:'')+'\n📋 OS: '+(c.crm_id||'—')+linkPortal+'\n\nPor favor, confirme o recebimento desta OS.\n_CaçambaSP_';
   _waFornAbrir(f, msg);
 }
 function copiarTracking(id){
