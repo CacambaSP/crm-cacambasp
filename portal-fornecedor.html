@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#05070f">
 <title>Portal do Fornecedor — CaçambaSP</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --bg:#05070f; --sur:#0a0d1a; --card:#0f1220; --bor:rgba(80,160,255,.12); --bor2:rgba(80,160,255,.22);
@@ -102,6 +104,12 @@ textarea{resize:vertical;min-height:70px;}
 .fu-opt.sel{border-color:var(--acc);color:var(--acc);background:var(--acc2);}
 
 .pay-hero{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px;}
+.capture-row{display:flex;gap:10px;margin:12px 0 4px;}
+.cap-btn{flex:1;background:var(--sur);border:1px dashed var(--bor2);border-radius:var(--rad3);padding:16px 8px;text-align:center;font-size:12px;color:var(--txt);font-weight:600;cursor:pointer;}
+.cap-btn .ic{font-size:20px;display:block;margin-bottom:6px;}
+.cap-btn.active{border:1px solid var(--acc);color:var(--acc);background:var(--acc2);}
+.cap-btn.done{border:1px solid var(--g);color:var(--g);background:var(--g2);}
+#mapaLC{width:100%;height:180px;border-radius:var(--rad2);border:1px solid var(--bor);margin-bottom:14px;overflow:hidden;background:var(--card);}
 .pay-hero .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);}
 .pay-hero .val{font-size:32px;font-weight:800;color:var(--acc);margin-top:4px;}
 
@@ -204,6 +212,7 @@ function render(){
       <div class="tab ${VIEW==='lista'?'active':''}" onclick="setView('lista')">Novas <span class="n">${novas().length}</span></div>
       <div class="tab ${VIEW==='rota'?'active':''}" onclick="setView('rota')">Em rota <span class="n">${aceitas().length}</span></div>
       <div class="tab ${VIEW==='pagamento'?'active':''}" onclick="setView('pagamento')">Pagamentos</div>
+      <div class="tab ${VIEW==='relatorios'?'active':''}" onclick="setView('relatorios')">Relatórios</div>
     </div>
     <div class="content" id="content"></div>
   `;
@@ -212,7 +221,7 @@ function render(){
 
 function setView(v){ VIEW=v; ACTIVE_LC=null; render(); }
 function abrirDecisao(id){ VIEW='decisao'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
-function abrirFollowup(id){ VIEW='followup'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
+function abrirFollowup(id){ VIEW='followup'; ACTIVE_LC=ORDENS.find(o=>o.id===id); MIDIA_PATH=null; MIDIA_TIPO=null; render(); }
 
 function renderContent(){
   const c = document.getElementById('content');
@@ -235,13 +244,18 @@ function renderContent(){
   if(VIEW==='rota'){
     const lista = aceitas();
     if(!lista.length){ c.innerHTML = `<div class="empty">Nenhuma LC em rota agora.</div>`; return; }
-    c.innerHTML = lista.map(o=>`
-      <div class="card b" onclick="abrirFollowup('${o.id}')">
-        <div class="id">${o.crm_id}</div>
-        <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
-        <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
-      </div>
-    `).join('');
+    c.innerHTML = `
+      <div id="mapaLC"></div>
+      ${lista.length>1?'<div style="text-align:center;margin-bottom:12px"><button class="btn btn-primary" style="width:auto;padding:10px 18px" onclick="mostrarRotaMultipla()">🧭 Traçar itinerário</button></div>':''}
+      ${lista.map(o=>`
+        <div class="card b" onclick="abrirFollowup('${o.id}')">
+          <div class="id">${o.crm_id}</div>
+          <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+          <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
+        </div>
+      `).join('')}
+    `;
+    mostrarMapaMultiplo(lista);
   }
 
   if(VIEW==='pagamento'){
@@ -265,11 +279,83 @@ function renderContent(){
       `).join('')}
     `;
   }
+
+  if(VIEW==='relatorios'){
+    c.innerHTML = `<div class="empty">Carregando relatórios...</div>`;
+    carregarRelatorios();
+  }
+}
+
+let RELATORIO_ABERTO = null;
+async function carregarRelatorios(){
+  const c = document.getElementById('content');
+  try{
+    const statsRes = await api('rpc/portal_stats', 'POST', { p_token: TOKEN });
+    const stats = Array.isArray(statsRes) ? statsRes[0] : statsRes;
+    c.innerHTML = `
+      <div class="section-title">Relatórios</div>
+      <div class="card" onclick="abrirRelatorio('resumo')">
+        <div class="id" style="font-size:14px">📊 Resumo do mês</div>
+        <div class="addr">Entregas, recebido e pendências deste mês</div>
+      </div>
+      <div class="card" onclick="abrirRelatorio('extrato')">
+        <div class="id" style="font-size:14px">🧾 Extrato de pagamentos</div>
+        <div class="addr">Histórico completo com comprovantes</div>
+      </div>
+      <div class="card" onclick="abrirRelatorio('desempenho')">
+        <div class="id" style="font-size:14px">📈 Meu desempenho</div>
+        <div class="addr">Aceites, recusas e histórico</div>
+      </div>
+      <div id="relatorioConteudo"></div>
+    `;
+    window._STATS = stats;
+  }catch(e){ c.innerHTML = `<div class="empty">Erro ao carregar relatórios: ${e.message}</div>`; }
+}
+
+async function abrirRelatorio(tipo){
+  RELATORIO_ABERTO = tipo;
+  const el = document.getElementById('relatorioConteudo');
+  if(!el) return;
+  const s = window._STATS || {};
+  if(tipo==='resumo'){
+    el.innerHTML = `
+      <div class="pay-hero"><div class="lbl">Entregues este mês</div><div class="val">${s.entregues_mes||0}</div></div>
+      <div class="info-row"><span>Recebido este mês</span><span>R$ ${Number(s.recebido_mes||0).toFixed(2)}</span></div>
+      <div class="info-row"><span>Pendente de receber</span><span>R$ ${Number(s.pendente_total||0).toFixed(2)}</span></div>
+    `;
+  }
+  if(tipo==='extrato'){
+    el.innerHTML = `<div class="empty">Carregando extrato...</div>`;
+    try{
+      const lista = await api('rpc/portal_extrato_pagamentos', 'POST', { p_token: TOKEN });
+      el.innerHTML = (lista&&lista.length) ? lista.map(o=>`
+        <div class="card g">
+          <div class="id">${o.crm_id}</div>
+          <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+          <div class="meta">
+            <span class="pill g">✔ Pago ${o.forn_pago_em? new Date(o.forn_pago_em).toLocaleDateString('pt-BR'):''}</span>
+            ${o.forn_pago_valor?`<span class="pill b">R$ ${Number(o.forn_pago_valor).toFixed(0)}</span>`:''}
+          </div>
+          <a class="receipt-link" onclick="verComprovante('${o.id}')">📄 Ver comprovante</a>
+        </div>
+      `).join('') : '<div class="empty">Nenhum pagamento no histórico ainda.</div>';
+    }catch(e){ el.innerHTML = `<div class="empty">Erro: ${e.message}</div>`; }
+  }
+  if(tipo==='desempenho'){
+    const total = (s.qtd_aceitas||0) + (s.qtd_recusadas||0);
+    const taxa = total ? Math.round((s.qtd_aceitas/total)*100) : 0;
+    el.innerHTML = `
+      <div class="pay-hero"><div class="lbl">Taxa de aceite</div><div class="val">${taxa}%</div></div>
+      <div class="info-row"><span>LCs aceitas</span><span>${s.qtd_aceitas||0}</span></div>
+      <div class="info-row"><span>LCs recusadas</span><span>${s.qtd_recusadas||0}</span></div>
+    `;
+  }
 }
 
 function renderDecisao(o){
   const c = document.getElementById('content');
   c.innerHTML = `
+    <div id="mapaLC"></div>
     <div class="detail-box">
       <div class="info-row"><span>Endereço</span><span>${o.logradouro||''}, ${o.bairro||''}</span></div>
       <div class="info-row"><span>Tipo</span><span>${o.tipo||'—'}</span></div>
@@ -279,11 +365,13 @@ function renderDecisao(o){
     <div class="field-label">Sua previsão de horário</div>
     <select id="previsao">
       <option value="">Escolher…</option>
-      <option value="Em até 30 min">Em até 30 min</option>
-      <option value="Em até 1 hora">Em até 1 hora</option>
-      <option value="Em até 2 horas">Em até 2 horas</option>
+      <option value="Entrega hoje até as 17h">Entrega hoje até as 17h</option>
+      <option value="Entrega hoje à noite">Entrega hoje à noite</option>
+      <option value="Entrega amanhã até as 17h">Entrega amanhã até as 17h</option>
+      <option value="Entrega somente amanhã à noite">Entrega somente amanhã à noite</option>
     </select>
   `;
+  mostrarMapaPino(o);
   document.querySelector('.content').insertAdjacentHTML('beforeend', '');
   const btnRow = document.createElement('div');
   btnRow.className='btn-row';
@@ -338,7 +426,13 @@ async function renderFollowup(o){
       <div class="fu-opt ${FU_TIPO==='reagendar'?'sel':''}" onclick="setFuTipo('reagendar')">📅 Reagendar</div>
       <div class="fu-opt ${FU_TIPO==='cancelar'?'sel':''}" onclick="setFuTipo('cancelar')">✖️ Cancelar</div>
     </div>
-    <div class="field-label">Descreva (texto — foto/áudio na próxima versão)</div>
+    <div class="field-label">Confirmar com</div>
+    <div class="capture-row">
+      <div class="cap-btn" id="btnFoto" onclick="document.getElementById('fu-foto-input').click()"><span class="ic">📷</span><span id="fotoLabel">Foto</span></div>
+      <div class="cap-btn" id="btnAudio" onclick="toggleGravacao()"><span class="ic" id="audioIcon">🎙️</span><span id="audioLabel">Áudio</span></div>
+    </div>
+    <input type="file" id="fu-foto-input" accept="image/*" capture="environment" style="display:none" onchange="onFotoSelecionada(event)">
+    <div class="field-label">Descreva (opcional)</div>
     <textarea id="fu-texto" placeholder="Ex: entreguei no portão azul, cliente recebeu"></textarea>
   `;
   const btnRow = document.createElement('div');
@@ -353,7 +447,7 @@ function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠
 async function confirmarFollowup(id){
   const texto = document.getElementById('fu-texto').value;
   try{
-    const res = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto });
+    const res = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto, p_midia_url: MIDIA_PATH, p_midia_tipo: MIDIA_TIPO });
     const r = Array.isArray(res) ? res[0] : res;
     if(!r || !r.ok){ toast('Não foi possível registrar'); return; }
     await loadOrdens();
@@ -386,6 +480,161 @@ async function verComprovante(ordemId){
     if(!r.ok || !data.url){ toast('Erro: '+(data.error||'não foi possível gerar o link')); return; }
     window.open(data.url, '_blank');
   }catch(e){ toast('Erro: '+e.message); }
+}
+
+// ── MAPA (gratuito: OpenStreetMap + Nominatim + OSRM) ──
+const _geoCache = {};
+async function geocodar(endereco){
+  if(_geoCache[endereco]) return _geoCache[endereco];
+  try{
+    const q = encodeURIComponent(endereco + ', São Paulo, Brasil');
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`);
+    const data = await r.json();
+    if(data && data[0]){
+      const p = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      _geoCache[endereco] = p;
+      return p;
+    }
+  }catch(e){}
+  return null;
+}
+
+let _mapaAtual = null;
+function _limparMapa(){
+  if(_mapaAtual){ _mapaAtual.remove(); _mapaAtual = null; }
+}
+
+async function mostrarMapaPino(o){
+  const el = document.getElementById('mapaLC');
+  if(!el || typeof L==='undefined') return;
+  _limparMapa();
+  const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+  const pos = await geocodar(endereco);
+  if(!pos){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar esse endereço no mapa.</div>'; return; }
+  _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false}).setView([pos.lat, pos.lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
+  L.marker([pos.lat, pos.lng]).addTo(_mapaAtual);
+}
+
+async function mostrarMapaMultiplo(lista){
+  const el = document.getElementById('mapaLC');
+  if(!el || typeof L==='undefined') return;
+  _limparMapa();
+  const pontos = [];
+  for(const o of lista){
+    const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+    const pos = await geocodar(endereco);
+    if(pos) pontos.push({...pos, crm_id:o.crm_id});
+  }
+  if(!pontos.length){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar os endereços.</div>'; return; }
+  _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
+  const bounds = [];
+  pontos.forEach((p,i)=>{
+    L.marker([p.lat,p.lng]).addTo(_mapaAtual).bindPopup((i+1)+'. '+p.crm_id);
+    bounds.push([p.lat,p.lng]);
+  });
+  _mapaAtual.fitBounds(bounds, {padding:[30,30]});
+  window._PONTOS_ROTA = pontos;
+}
+
+async function mostrarRotaMultipla(){
+  const pontos = window._PONTOS_ROTA;
+  if(!pontos || pontos.length<2 || !_mapaAtual) return;
+  toast('Traçando itinerário...');
+  try{
+    const coords = pontos.map(p=>p.lng+','+p.lat).join(';');
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+    const data = await r.json();
+    if(data.routes && data.routes[0]){
+      const linha = data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+      L.polyline(linha, {color:'#ffa800', weight:4}).addTo(_mapaAtual);
+      toast('Itinerário traçado ✓');
+    }else{ toast('Não consegui traçar a rota'); }
+  }catch(e){ toast('Erro ao traçar rota'); }
+}
+
+// ── FOTO / ÁUDIO ──
+let MIDIA_PATH = null, MIDIA_TIPO = null;
+let _mediaRecorder = null, _audioChunks = [], _gravando = false;
+
+function _fileParaBase64(file){
+  return new Promise((res,rej)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> res(reader.result.split(',')[1]);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function _uploadMidia(base64, mime, tipo){
+  const r = await fetch(SUPA_URL+'/functions/v1/portal-upload-midia', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY},
+    body: JSON.stringify({ token: TOKEN, ordem_id: ACTIVE_LC.id, file_base64: base64, mime, tipo })
+  });
+  const data = await r.json();
+  if(!r.ok || !data.path) throw new Error(data.error||'falha no upload');
+  return data.path;
+}
+
+async function onFotoSelecionada(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const btn = document.getElementById('btnFoto');
+  btn.classList.add('active');
+  document.getElementById('fotoLabel').textContent = 'Enviando...';
+  try{
+    const base64 = await _fileParaBase64(file);
+    const path = await _uploadMidia(base64, file.type||'image/jpeg', 'foto');
+    MIDIA_PATH = path; MIDIA_TIPO = 'foto';
+    btn.classList.remove('active'); btn.classList.add('done');
+    document.getElementById('fotoLabel').textContent = 'Foto anexada ✓';
+  }catch(e){
+    btn.classList.remove('active');
+    document.getElementById('fotoLabel').textContent = 'Foto';
+    toast('Erro ao enviar foto: '+e.message);
+  }
+}
+
+async function toggleGravacao(){
+  if(_gravando){ _mediaRecorder.stop(); return; }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    _audioChunks = [];
+    _mediaRecorder = new MediaRecorder(stream);
+    _mediaRecorder.ondataavailable = e=>_audioChunks.push(e.data);
+    _mediaRecorder.onstop = async ()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      _gravando = false;
+      document.getElementById('audioIcon').textContent = '🎙️';
+      document.getElementById('audioLabel').textContent = 'Enviando...';
+      document.getElementById('btnAudio').classList.remove('active');
+      try{
+        const blob = new Blob(_audioChunks, {type:'audio/webm'});
+        const base64 = await new Promise((res,rej)=>{
+          const reader = new FileReader();
+          reader.onload = ()=>res(reader.result.split(',')[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(blob);
+        });
+        const path = await _uploadMidia(base64, 'audio/webm', 'audio');
+        MIDIA_PATH = path; MIDIA_TIPO = 'audio';
+        document.getElementById('btnAudio').classList.add('done');
+        document.getElementById('audioLabel').textContent = 'Áudio anexado ✓';
+      }catch(e){
+        document.getElementById('audioLabel').textContent = 'Áudio';
+        toast('Erro ao enviar áudio: '+e.message);
+      }
+    };
+    _mediaRecorder.start();
+    _gravando = true;
+    document.getElementById('audioIcon').textContent = '⏹️';
+    document.getElementById('audioLabel').textContent = 'Gravando... toque p/ parar';
+    document.getElementById('btnAudio').classList.add('active');
+  }catch(e){
+    toast('Não consegui acessar o microfone');
+  }
 }
 
 boot();
