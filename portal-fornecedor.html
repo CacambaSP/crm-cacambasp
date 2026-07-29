@@ -147,18 +147,20 @@ let VIEW = 'lista';
 let ACTIVE_LC = null;
 let FU_TIPO = 'chegada_ok';
 
+let TOKEN = null;
+
 async function boot(){
   const params = new URLSearchParams(location.search);
-  const token = params.get('t');
+  TOKEN = params.get('t');
   const app = document.getElementById('app');
 
-  if(!token){
+  if(!TOKEN){
     app.innerHTML = gateHTML('🔗','Link inválido','Esse link não tem o código do fornecedor. Confira o link que você recebeu.');
     return;
   }
 
   try{
-    const forns = await api(`fornecedores?portal_token=eq.${token}&select=*`);
+    const forns = await api('rpc/portal_get_fornecedor', 'POST', { p_token: TOKEN });
     if(!forns.length){
       app.innerHTML = gateHTML('❌','Link não encontrado','Esse link não corresponde a nenhum fornecedor ativo.');
       return;
@@ -180,7 +182,7 @@ function gateHTML(icon,title,msg){
 }
 
 async function loadOrdens(){
-  ORDENS = await api(`ordens?forn_id=eq.${FORN.id}&or=(cancel_motivo.is.null,cancel_motivo.eq.)&select=*&order=atualizado_em.desc`);
+  ORDENS = await api('rpc/portal_list_ordens', 'POST', { p_token: TOKEN });
 }
 
 function novas(){ return ORDENS.filter(o=>o.forn_status==='pendente'); }
@@ -293,7 +295,8 @@ async function aceitar(id){
   const previsao = document.getElementById('previsao').value;
   if(!previsao){ toast('Escolha uma previsão de horário'); return; }
   try{
-    await api(`ordens?id=eq.${id}`, 'PATCH', { forn_status:'aceito', forn_previsao:previsao, col:'ag_entrega' }, {'Prefer':'return=minimal'});
+    const ok = await api('rpc/portal_aceitar_lc', 'POST', { p_token: TOKEN, p_ordem_id: id, p_previsao: previsao });
+    if(!ok){ toast('Não foi possível aceitar essa LC'); return; }
     toast('LC aceita ✓');
     await loadOrdens();
     setView('rota');
@@ -301,10 +304,9 @@ async function aceitar(id){
 }
 
 async function recusar(id){
-  const o = ORDENS.find(x=>x.id===id);
   try{
-    await api('forn_recusas', 'POST', { forn_id:FORN.id, bairro:o.bairro, logradouro:o.logradouro, ordem_id:o.id }, {'Prefer':'return=minimal'});
-    await api(`ordens?id=eq.${id}`, 'PATCH', { forn_status:'recusado', forn_recusado_em:new Date().toISOString(), col:'contratar', forn_id:null }, {'Prefer':'return=minimal'});
+    const ok = await api('rpc/portal_recusar_lc', 'POST', { p_token: TOKEN, p_ordem_id: id });
+    if(!ok){ toast('Não foi possível recusar essa LC'); return; }
     toast('LC recusada — volta pro CRM');
     await loadOrdens();
     setView('lista');
@@ -314,7 +316,7 @@ async function recusar(id){
 async function renderFollowup(o){
   const c = document.getElementById('content');
   let fu = [];
-  try{ fu = await api(`ordem_followup?ordem_id=eq.${o.id}&order=criado_em.asc`); }catch(e){}
+  try{ fu = await api('rpc/portal_list_followup', 'POST', { p_token: TOKEN, p_ordem_id: o.id }); }catch(e){}
 
   c.innerHTML = `
     <div class="field-label">Linha do tempo</div>
@@ -348,7 +350,8 @@ function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠
 async function confirmarFollowup(id){
   const texto = document.getElementById('fu-texto').value;
   try{
-    await api('ordem_followup', 'POST', { ordem_id:id, tipo:FU_TIPO, texto, midia_tipo: texto?'texto':null, criado_por:FORN.nome }, {'Prefer':'return=minimal'});
+    const ok = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto });
+    if(!ok){ toast('Não foi possível registrar'); return; }
     toast('Registrado ✓ — mensagem pro vendedor seria enviada aqui');
     ACTIVE_LC = ORDENS.find(o=>o.id===id);
     renderFollowup(ACTIVE_LC);
