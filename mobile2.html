@@ -1664,6 +1664,7 @@ async function _finalizarAtribuicaoFornMobile(o, f, s, deveAdicionarBairro) {
   // Preencher cst com precoForn somente se cst ainda não foi definido
   const precoForn = s && s.preco>0 ? s.preco : 0; // sempre usar custo real do fornecedor (nunca preco_cli)
   const patch = {forn_id:f.id, col:novaCol};
+  if(f.portal_ativo) patch.forn_status = 'pendente';
   if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
   // Preencher rec com preco_cli somente se ainda não definido
   // Se a ordem tem NF, somar o acréscimo de NF ao preco_cli
