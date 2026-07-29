@@ -4192,6 +4192,22 @@ function renderPagamentosInto(container) {
   _renderPgfMobLista();
 }
 
+function _gerarCodigoCurto(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let c=''; for(let i=0;i<7;i++) c+=chars[Math.floor(Math.random()*chars.length)];
+  return c;
+}
+async function _gerarLinkCurto(urlDestino, diasValidade=4){
+  const codigo = _gerarCodigoCurto();
+  const expiraEm = new Date(Date.now()+diasValidade*24*3600*1000).toISOString();
+  const res = await fetch(`${SUPA_URL}/rest/v1/pagamentos_links`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':'application/json','Prefer':'return=minimal'},
+    body: JSON.stringify({codigo, url_destino: urlDestino, expira_em: expiraEm})
+  });
+  if(!res.ok){ const e=await res.text(); throw new Error(e); }
+  return 'https://cacambasp-crm.vercel.app/c.html?x='+codigo;
+}
 async function _gerarLinkComprovante(path, diasValidade=4){
   const seg = diasValidade*24*3600;
   const res = await fetch(`${SUPA_URL}/storage/v1/object/sign/anexos/${path}`,{
@@ -4208,7 +4224,8 @@ async function _gerarLinkComprovante(path, diasValidade=4){
 }
 async function _avisarComprovanteWA(nomeForn, ordensPagas, path){
   try{
-    const link = await _gerarLinkComprovante(path, 4);
+    const linkLongo = await _gerarLinkComprovante(path, 4);
+    const link = await _gerarLinkCurto(linkLongo, 4);
     const valorTotal = ordensPagas.reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
     const dataRef = ordensPagas[0]?.forn_pago_em ? new Date(ordensPagas[0].forn_pago_em).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     const msg = `✅ *Comprovante de pagamento*\n🚛 Fornecedor: ${nomeForn}\n📅 Data: ${dataRef}\n💰 Valor: R$ ${fmt(valorTotal)}\n📎 Comprovante: ${link}\n⚠️ Este link expira em 4 dias — se quiser guardar, salve a imagem antes que expire.`;
