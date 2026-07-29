@@ -10275,7 +10275,7 @@ function _relPgtosForn(){
       <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
       <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}
         ${compExistentes.length
-          ? ` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(compExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${compExistentes.length>1?' x'+compExistentes.length:''}</span> <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut2)" title="Anexar mais">➕</span>`
+          ? ` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(compExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${compExistentes.length>1?' x'+compExistentes.length:''}</span> <span onclick="event.stopPropagation();reenviarLinkComprovanteRel('${safeRef}', ${JSON.stringify(compExistentes).replace(/"/g,'&quot;')}, '${(forn?.nome||'Fornecedor').replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--mut2)" title="Gerar mensagem com link">📤</span> <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut2)" title="Anexar mais">➕</span>`
           : ` <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--acc)" title="Anexar comprovante${grupoIds.length>1?' (vale p/ '+grupoIds.length+' ordens deste pagamento)':''}">📎 Anexar</span>`}
         <input type="file" id="relAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="anexarComprovanteRel('${safeRef}', this.files)">
       </td>
@@ -13038,6 +13038,64 @@ function abrirComprovantesLista(lista){
     ok:'Fechar', okClass:'acc', cancel:''
   });
 }
+function _gerarCodigoCurtoRel(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let c=''; for(let i=0;i<7;i++) c+=chars[Math.floor(Math.random()*chars.length)];
+  return c;
+}
+async function _gerarLinkCurtoRel(urlDestino, diasValidade=4){
+  const codigo = _gerarCodigoCurtoRel();
+  const expiraEm = new Date(Date.now()+diasValidade*24*3600*1000).toISOString();
+  const res = await fetch(`${SUPA_URL}/rest/v1/pagamentos_links`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':'application/json','Prefer':'return=minimal'},
+    body: JSON.stringify({codigo, url_destino: urlDestino, expira_em: expiraEm})
+  });
+  if(!res.ok){ const e=await res.text(); throw new Error(e); }
+  return 'https://cacambasp-crm.vercel.app/c.html?x='+codigo;
+}
+async function _gerarLinkComprovanteRel(path, diasValidade=4){
+  const seg = diasValidade*24*3600;
+  const res = await fetch(`${SUPA_URL}/storage/v1/object/sign/anexos/${path}`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},
+    body: JSON.stringify({expiresIn: seg})
+  });
+  if(!res.ok){ const e=await res.text(); throw new Error(e); }
+  const data = await res.json();
+  let url = data.signedURL || data.signedUrl;
+  if(!url) throw new Error('Link não retornado');
+  if(url.startsWith('/')) url = SUPA_URL+'/storage/v1'+url;
+  return url;
+}
+async function _avisarComprovanteWARel(nomeForn, ordensPagas, path){
+  try{
+    const linkLongo = await _gerarLinkComprovanteRel(path, 4);
+    const link = await _gerarLinkCurtoRel(linkLongo, 4);
+    const valorTotal = ordensPagas.reduce((s,o)=>s+parseFloat(o.forn_pago_valor||o.cst||0),0);
+    const dataRef = ordensPagas[0]?.forn_pago_em ? new Date(ordensPagas[0].forn_pago_em).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    const msg = `✅ *Comprovante de pagamento*\n🚛 Fornecedor: ${nomeForn}\n📅 Data: ${dataRef}\n💰 Valor: R$ ${fmt(valorTotal)}\n📎 Comprovante: ${link}\n⚠️ Este link expira em 4 dias — se quiser guardar, salve a imagem antes que expire.`;
+    const fornId = ordensPagas[0]?.forn_id;
+    const fornObj = fornId ? forns.find(f=>f.id===fornId) : null;
+    if(fornObj && (fornObj.wa_link || fornObj.tel)){
+      _waFornAbrir(fornObj, msg);
+    } else {
+      await navigator.clipboard.writeText(msg);
+      toast('📋 Mensagem com link do comprovante copiada — cole no WhatsApp!','ok');
+    }
+  }catch(e){
+    toast('Comprovante salvo, mas não consegui gerar o link automático: '+e.message,'warn');
+  }
+}
+async function reenviarLinkComprovanteRel(safeRef, lista, nomeForn){
+  if(!lista || !lista.length){ toast('Nenhum comprovante anexado','warn'); return; }
+  const ids = _relPgLoteIds[safeRef]||[];
+  if(!ids.length){ toast('Ordens do lote não encontradas','err'); return; }
+  const ordensPagas = ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
+  const path = lista[lista.length-1].path;
+  toast('🔗 Gerando link do comprovante...');
+  await _avisarComprovanteWARel(nomeForn, ordensPagas, path);
+}
 async function anexarComprovanteRel(safeRef, files){
   if(!files || !files.length) return;
   const ids = _relPgLoteIds[safeRef]||[];
@@ -13062,6 +13120,9 @@ async function anexarComprovanteRel(safeRef, files){
       }catch(e){}
     }
     toast('📎 Comprovante(s) salvo(s) em '+ids.length+' ordem(ns)!','ok');
+    const fornObj = forns.find(f=>f.id===primeiro?.forn_id);
+    const ordensPagas = ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
+    _avisarComprovanteWARel(fornObj?.nome||'Fornecedor', ordensPagas, novos[novos.length-1].path);
     renderRel();
   }catch(e){ toast('Erro ao enviar comprovante: '+e.message,'err'); }
 }
