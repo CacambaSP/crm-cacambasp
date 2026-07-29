@@ -38,6 +38,7 @@ button{font-family:var(--font)}
 .tl-item:last-child::after{display:none;}
 .tl-time{font-size:10.5px;color:var(--mut);font-family:var(--mono);}
 .tl-text{font-size:13px;margin-top:2px;line-height:1.5;}
+.receipt-link{display:inline-block;margin-top:6px;font-size:12px;color:var(--acc);text-decoration:underline;cursor:pointer;}
 .btn-cobrar{width:100%;background:var(--wa-c);color:#04210f;border:none;border-radius:var(--rad3);
   padding:16px;font-size:14.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;margin-top:6px;}
 .btn-cobrar:disabled{background:var(--card);color:var(--mut);border:1px solid var(--bor2);}
@@ -115,6 +116,7 @@ function render(followups){
             <div class="tl-item">
               <div class="tl-time">${new Date(f.criado_em).toLocaleString('pt-BR')}</div>
               <div class="tl-text">${labelTipo(f.tipo)}${f.texto?' — '+f.texto:''}</div>
+              ${f.midia_url ? `<a class="receipt-link" onclick="verMidia('${f.id}')">${f.midia_tipo==='foto'?'📷 Ver foto':'🎙️ Ouvir áudio'}</a>` : ''}
             </div>
           `).join('') : '<div style="color:var(--mut);font-size:13px">Nenhum registro.</div>'}
         </div>
@@ -149,6 +151,20 @@ async function cobrarCliente(){
     const actionArea = app.querySelector('.section-title:last-of-type').nextElementSibling;
     if(actionArea) actionArea.outerHTML = `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`;
   }catch(e){ toast('Erro: '+e.message); if(btn){btn.disabled=false; btn.textContent='💬 Cobrar Cliente';} }
+}
+
+async function verMidia(followupId){
+  toast('Gerando link...');
+  try{
+    const r = await fetch(SUPA_URL+'/functions/v1/followup-midia-link', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY},
+      body: JSON.stringify({ codigo: CODIGO, followup_id: followupId })
+    });
+    const data = await r.json();
+    if(!r.ok || !data.url){ toast('Erro: '+(data.error||'não encontrado')); return; }
+    window.open(data.url, '_blank');
+  }catch(e){ toast('Erro: '+e.message); }
 }
 
 boot();
