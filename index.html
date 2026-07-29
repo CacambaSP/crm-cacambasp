@@ -4630,6 +4630,7 @@ async function _finalizarAtribuicaoFornecedorCard(c, f, m, deveAdicionarBairro){
   autoColFornNomeado(c);
   if(precoForn > 0 && !(parseFloat(c.cst) > 0)){ c.cst = precoForn; patch.cst = precoForn; }
   patch.col = c.col;
+  if(f.portal_ativo) patch.forn_status = 'pendente';
   renderBoard();
   try{
     setSyncDot('sync');
@@ -4940,6 +4941,7 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   c.forn_id = fornId;
   autoColFornNomeado(c);
   patch.col = c.col;
+  if(f.portal_ativo) patch.forn_status = 'pendente';
   document.getElementById('d_forn').textContent = f.nome;
   const remFornBtn = document.getElementById('detailRemFornBtn');
   if(remFornBtn) remFornBtn.style.display = (c.forn_id&&!c.forn_pago)?'inline-flex':'none';
