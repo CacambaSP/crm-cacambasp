@@ -2950,7 +2950,8 @@ function getHoraEntrega(o) {
 
 function deveAutoMoverEntrega(o) {
   if(o.col!=='ag_entrega' || o.entrega_confirmada) return false;
-  if(o.forn_status === 'pendente') return false; // aguardando decisao do fornecedor pelo portal
+  const forn = (typeof _forns!=='undefined'?_forns:[]).find(x=>x.id===o.forn_id);
+  if(forn && forn.portal_ativo) return false; // fornecedor com portal usa o proprio fluxo, nao a regra de horario
   const hr = getHoraEntrega(o);
   return hr && new Date() >= hr;
 }
