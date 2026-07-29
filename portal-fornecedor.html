@@ -209,7 +209,9 @@ function render(){
   renderContent();
 }
 
-function setView(v, lc=null){ VIEW=v; ACTIVE_LC=lc; render(); if(lc) renderDecisao(lc); }
+function setView(v){ VIEW=v; ACTIVE_LC=null; render(); }
+function abrirDecisao(id){ VIEW='decisao'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
+function abrirFollowup(id){ VIEW='followup'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
 
 function renderContent(){
   const c = document.getElementById('content');
@@ -233,7 +235,7 @@ function renderContent(){
     const lista = aceitas();
     if(!lista.length){ c.innerHTML = `<div class="empty">Nenhuma LC em rota agora.</div>`; return; }
     c.innerHTML = lista.map(o=>`
-      <div class="card b" onclick="setView('followup','${o.id}')">
+      <div class="card b" onclick="abrirFollowup('${o.id}')">
         <div class="id">${o.crm_id}</div>
         <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
         <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
@@ -261,8 +263,6 @@ function renderContent(){
     `;
   }
 }
-
-function abrirDecisao(id){ VIEW='decisao'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
 
 function renderDecisao(o){
   const c = document.getElementById('content');
