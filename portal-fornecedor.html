@@ -244,7 +244,7 @@ function renderContent(){
   }
 
   if(VIEW==='pagamento'){
-    const lista = ORDENS.filter(o=>o.forn_id);
+    const lista = ORDENS.filter(o=>o.forn_id && o.forn_status!=='pendente');
     const pendentes = lista.filter(o=>!o.forn_pago);
     const total = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)||0), 0);
     const totalReal = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)|| (o.rec?Number(o.rec)*0.8:0)),0);
