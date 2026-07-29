@@ -2950,6 +2950,7 @@ function getHoraEntrega(o) {
 
 function deveAutoMoverEntrega(o) {
   if(o.col!=='ag_entrega' || o.entrega_confirmada) return false;
+  if(o.forn_status === 'pendente') return false; // aguardando decisao do fornecedor pelo portal
   const hr = getHoraEntrega(o);
   return hr && new Date() >= hr;
 }
