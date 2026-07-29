@@ -9602,7 +9602,7 @@ function renderExtratoRevisao(){
         const _nomes=(r.ordens||[r.ordem]).filter(Boolean).map(o=>o.crm_id||'').join(', ');
         const _nomeCliente=r.ordem?.nome||r.pagador||'-';
         const _nfUnica=r.ordem&&r.ordem.nf_num&&String(r.ordem.nf_num).trim()!==''?'NF '+r.ordem.nf_num:'sem nf';
-        const _grpInfo=r.tipo==='grp'&&r.ordens?.length>1?`🔗 ${r.ordens.length} ordens: ${_nomes}`:(r.tipo==='grp'?'🔗 Agrupado · '+r.id:r.id+' · '+_nfUnica);
+        const _grpInfo=r.tipo==='grp'&&r.ordens?.length>1?`🔗 ${r.ordens.length} ordens: ${_nomes}`:(r.tipo==='grp'?'🔗 Agrupado · '+r.id:r.id+' · '+(r.ordem?.logradouro||r.ordem?.bairro||'—')+' · '+_nfUnica);
         const _matchBadge = r.matchTipo==='cpf'
           ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#78350f;color:#fcd34d;border:1px solid #f59e0b;margin-left:6px">⚠️ Casado por CPF</span>`
           : r.matchTipo==='nome'
