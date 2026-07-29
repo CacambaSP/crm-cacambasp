@@ -3013,7 +3013,7 @@ function _renderVendBadges(containerId, counts){
   el.style.display = spans.length ? 'flex' : 'none';
 }
 function _atualizarCobrBadge(){
-  const pendFn = o => !o.pago&&o.col!=='concluido'&&o.col!=='orcamento'&&o.rec>0&&diasEmAberto(o)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(o);
+  const pendFn = o => !o.pago&&o.col!=='concluido'&&o.col!=='orcamento'&&o.rec>0&&diasEmAberto(o)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(o)&&foiEntregue(o);
   const pend = ordens.filter(pendFn);
   // Agrupar por vendedor
   const uids = [...new Set(pend.map(o=>o.usuario_id).filter(Boolean))];
@@ -6186,6 +6186,12 @@ function diasEmAberto(c){
   const d = new Date(ref+'T12:00:00');
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
+// Só cobrar cliente cuja caçamba já foi entregue de verdade
+function foiEntregue(c){
+  if(c.col==='contratar' || c.col==='ag_entrega') return false;
+  if(c.col==='entrega' && !c.entrega_confirmada) return false;
+  return true;
+}
 function foiCobradoHoje(c){
   if(!c.cobrado_em) return false;
   const d = new Date(c.cobrado_em);
@@ -6254,7 +6260,8 @@ function renderCobrancaAuto(){
   const todosGlobal = ordens.filter(c =>
     !c.pago &&
     c.col !== 'concluido' &&
-    c.rec > 0
+    c.rec > 0 &&
+    foiEntregue(c)
   ).map(c => ({ ...c, dias: diasEmAberto(c) }))
     .sort((a,b) => b.dias - a.dias);
 
@@ -6398,7 +6405,7 @@ function _cobrarRow(c, tipo){
 // Cobrar em lote — agrupado por cliente (1 msg por celular)
 let _cobrarLoteIdx = 0, _cobrarLoteFila = [];
 function cobrarLote(tipo){
-  const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.col !== 'orcamento' && c.col !== 'inadimp' && c.rec > 0 && c.cel)
+  const pendentes = ordens.filter(c => !c.pago && c.col !== 'concluido' && c.col !== 'orcamento' && c.col !== 'inadimp' && c.rec > 0 && c.cel && foiEntregue(c))
     .map(c => ({ ...c, dias: diasEmAberto(c) }));
   // tipo = id do nível da escada (prejuridico/insistencia/urgente/cobranca/lembrete)
   // compatibilidade: 'critico' → urgente+, 'atencao' → cobranca
@@ -6429,7 +6436,7 @@ async function cobrarIndividual(id){
   enviarWA(id);
   renderCobrancaAuto();
   // Atualiza badge
-  const n = ordens.filter(x=>!x.pago&&x.col!=='concluido'&&x.rec>0&&diasEmAberto(x)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(x)).length;
+  const n = ordens.filter(x=>!x.pago&&x.col!=='concluido'&&x.rec>0&&diasEmAberto(x)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(x)&&foiEntregue(x)).length;
   const b=document.getElementById('cobrBadge');if(b){b.textContent=n;b.style.display=n?'flex':'none';}
 }
 function _dispararProximaCobranca(){
