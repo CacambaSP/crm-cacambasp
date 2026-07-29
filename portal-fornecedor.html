@@ -1,0 +1,361 @@
+<!DOCTYPE html><!-- CaçambaSP Portal do Fornecedor v0.1 (homologação) -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="theme-color" content="#05070f">
+<title>Portal do Fornecedor — CaçambaSP</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#05070f; --sur:#0a0d1a; --card:#0f1220; --bor:rgba(80,160,255,.12); --bor2:rgba(80,160,255,.22);
+  --txt:#e8f4ff; --mut:#4a6fa8; --mut2:#2a4060;
+  --acc:#ffa800; --acc2:rgba(255,168,0,.1); --acc3:rgba(255,168,0,.25);
+  --g:#00ffa0; --g2:rgba(0,255,160,.1); --g3:rgba(0,255,160,.25);
+  --r:#ff3c5a; --r2:rgba(255,60,90,.1); --r3:rgba(255,60,90,.25);
+  --b:#4090ff; --b2:rgba(64,144,255,.1); --b3:rgba(64,144,255,.25);
+  --cyan:#00c8ff; --cyan2:rgba(0,200,255,.1);
+  --wa:rgba(37,211,102,.15); --wa-c:#25d366; --wa-b:rgba(37,211,102,.35);
+  --rad:18px; --rad2:14px; --rad3:10px;
+  --font:'Plus Jakarta Sans',sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:var(--font);}
+button,select,input{font-family:var(--font)}
+::-webkit-scrollbar{width:0}
+
+.wrap{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+.topbar{
+  background:var(--sur);border-bottom:1px solid var(--bor);
+  padding:16px 18px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:10;
+}
+.topbar .who{display:flex;align-items:center;gap:10px;}
+.topbar .back{cursor:pointer;color:var(--mut);font-size:20px;padding:2px 6px;}
+.topbar .mark{width:36px;height:36px;border-radius:10px;background:var(--acc2);border:1px solid var(--acc3);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--acc);font-size:14px;flex-shrink:0;}
+.topbar .name b{display:block;font-size:15px;font-weight:700;}
+.topbar .name span{font-size:11px;color:var(--mut);font-family:var(--mono);letter-spacing:.4px;}
+
+.tabs{display:flex;gap:6px;padding:10px 16px;background:var(--sur);border-bottom:1px solid var(--bor);overflow-x:auto;}
+.tab{
+  flex:1;text-align:center;padding:9px 6px;border-radius:var(--rad3);font-size:11.5px;font-weight:700;
+  color:var(--mut);background:transparent;border:1px solid transparent;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;
+}
+.tab.active{background:var(--acc2);color:var(--acc);border-color:var(--acc3);}
+.tab .n{margin-left:4px;opacity:.7;}
+
+.content{flex:1;padding:16px;padding-bottom:40px;}
+.empty{text-align:center;color:var(--mut);font-size:13px;padding:60px 20px;line-height:1.6;}
+
+.card{
+  background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);
+  padding:14px 15px;margin-bottom:12px;cursor:pointer;position:relative;
+  border-left:3px solid var(--acc);
+}
+.card.b{border-left-color:var(--b);}
+.card.g{border-left-color:var(--g);}
+.card .id{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.3px;}
+.card .addr{font-size:13px;color:var(--txt);opacity:.85;margin-top:4px;line-height:1.4;}
+.card .meta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;font-family:var(--mono);letter-spacing:.3px;}
+.pill.acc{background:var(--acc2);color:var(--acc);}
+.pill.g{background:var(--g2);color:var(--g);}
+.pill.r{background:var(--r2);color:var(--r);}
+.pill.b{background:var(--b2);color:var(--b);}
+
+.badge-novo{position:absolute;top:-8px;right:12px;background:var(--acc);color:#1a1200;font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px;}
+
+/* decisão */
+.detail-box{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px;margin-bottom:14px;}
+.info-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bor);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-row span:first-child{color:var(--mut);}
+.info-row span:last-child{font-weight:600;text-align:right;}
+
+.field-label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;font-weight:700;font-family:var(--mono);}
+select,textarea{
+  width:100%;background:var(--sur);border:1px solid var(--bor2);color:var(--txt);
+  padding:12px 14px;border-radius:var(--rad3);font-size:14px;
+}
+textarea{resize:vertical;min-height:70px;}
+
+.btn-row{display:flex;gap:10px;padding:14px 16px 22px;border-top:1px solid var(--bor);background:var(--sur);position:sticky;bottom:0;}
+.btn{flex:1;padding:14px 10px;border-radius:var(--rad3);border:none;font-size:13.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;}
+.btn-accept{background:var(--acc);color:#1a1200;}
+.btn-reject{background:transparent;color:var(--mut);border:1px solid var(--bor2);}
+.btn-primary{background:var(--acc);color:#1a1200;width:100%;}
+.btn:disabled{opacity:.5;}
+
+.timeline{position:relative;padding-left:20px;margin-bottom:8px;}
+.tl-item{position:relative;padding-bottom:16px;}
+.tl-item::before{content:'';position:absolute;left:-20px;top:3px;width:9px;height:9px;border-radius:50%;background:var(--acc);}
+.tl-item::after{content:'';position:absolute;left:-16px;top:12px;bottom:-6px;width:1px;background:var(--bor2);}
+.tl-item:last-child::after{display:none;}
+.tl-time{font-size:10.5px;color:var(--mut);font-family:var(--mono);}
+.tl-text{font-size:13px;margin-top:2px;}
+
+.followup-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
+.fu-opt{background:var(--sur);border:1px solid var(--bor2);border-radius:var(--rad3);padding:12px 8px;text-align:center;font-size:12px;color:var(--mut);font-weight:600;cursor:pointer;}
+.fu-opt.sel{border-color:var(--acc);color:var(--acc);background:var(--acc2);}
+
+.pay-hero{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad);padding:20px;margin-bottom:16px;}
+.pay-hero .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);}
+.pay-hero .val{font-size:32px;font-weight:800;color:var(--acc);margin-top:4px;}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--bor2);
+  padding:12px 20px;border-radius:20px;font-size:13px;z-index:100;opacity:0;transition:.2s;pointer-events:none;}
+.toast.show{opacity:1;bottom:30px;}
+
+.loading{display:flex;align-items:center;justify-content:center;height:60vh;color:var(--mut);font-family:var(--mono);font-size:12px;}
+.gate{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:30px;text-align:center;}
+.gate .ic{font-size:40px;margin-bottom:14px;}
+.gate h2{font-size:16px;margin:0 0 8px;}
+.gate p{font-size:13px;color:var(--mut);line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <div class="loading">carregando…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+
+async function api(path, method='GET', body=null, extraHeaders={}){
+  const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY, ...extraHeaders};
+  const r = await fetch(SUPA_URL+'/rest/v1/'+path, {method, headers:h, body: body?JSON.stringify(body):null});
+  if(!r.ok){ const t = await r.text(); throw new Error('API '+r.status+': '+t); }
+  const ct = r.headers.get('content-type')||'';
+  return ct.includes('json') ? r.json() : null;
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+let FORN = null;
+let ORDENS = [];
+let VIEW = 'lista';
+let ACTIVE_LC = null;
+let FU_TIPO = 'chegada_ok';
+
+async function boot(){
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t');
+  const app = document.getElementById('app');
+
+  if(!token){
+    app.innerHTML = gateHTML('🔗','Link inválido','Esse link não tem o código do fornecedor. Confira o link que você recebeu.');
+    return;
+  }
+
+  try{
+    const forns = await api(`fornecedores?portal_token=eq.${token}&select=*`);
+    if(!forns.length){
+      app.innerHTML = gateHTML('❌','Link não encontrado','Esse link não corresponde a nenhum fornecedor ativo.');
+      return;
+    }
+    FORN = forns[0];
+    if(FORN.portal_ativo === false){
+      app.innerHTML = gateHTML('⏸️','Acesso desativado','Fale com a CaçambaSP para reativar seu acesso.');
+      return;
+    }
+    await loadOrdens();
+    render();
+  }catch(e){
+    app.innerHTML = gateHTML('⚠️','Erro ao carregar','Tente novamente em instantes. '+e.message);
+  }
+}
+
+function gateHTML(icon,title,msg){
+  return `<div class="gate"><div class="ic">${icon}</div><h2>${title}</h2><p>${msg}</p></div>`;
+}
+
+async function loadOrdens(){
+  ORDENS = await api(`ordens?forn_id=eq.${FORN.id}&or=(cancel_motivo.is.null,cancel_motivo.eq.)&select=*&order=atualizado_em.desc`);
+}
+
+function novas(){ return ORDENS.filter(o=>o.forn_status==='pendente'); }
+function aceitas(){ return ORDENS.filter(o=>o.forn_status==='aceito' && !['pagar','faltapg','baixar','concluido'].includes(o.col)); }
+function pagamento(){ return ORDENS.filter(o=>['pagar','faltapg','concluido','baixar'].includes(o.col) || o.forn_pago!==undefined); }
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="who">
+        ${VIEW!=='lista' ? `<span class="back" onclick="setView('lista')">‹</span>` : ''}
+        <div class="mark">${(FORN.nome||'F').slice(0,2).toUpperCase()}</div>
+        <div class="name"><b>${FORN.nome}</b><span>PORTAL DO FORNECEDOR</span></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab ${VIEW==='lista'?'active':''}" onclick="setView('lista')">Novas <span class="n">${novas().length}</span></div>
+      <div class="tab ${VIEW==='rota'?'active':''}" onclick="setView('rota')">Em rota <span class="n">${aceitas().length}</span></div>
+      <div class="tab ${VIEW==='pagamento'?'active':''}" onclick="setView('pagamento')">Pagamentos</div>
+    </div>
+    <div class="content" id="content"></div>
+  `;
+  renderContent();
+}
+
+function setView(v, lc=null){ VIEW=v; ACTIVE_LC=lc; render(); if(lc) renderDecisao(lc); }
+
+function renderContent(){
+  const c = document.getElementById('content');
+  if(ACTIVE_LC && VIEW==='decisao'){ renderDecisao(ACTIVE_LC); return; }
+  if(ACTIVE_LC && VIEW==='followup'){ renderFollowup(ACTIVE_LC); return; }
+
+  if(VIEW==='lista'){
+    const lista = novas();
+    if(!lista.length){ c.innerHTML = `<div class="empty">Nenhuma LC nova no momento.<br>Quando a CaçambaSP te atribuir uma, ela aparece aqui.</div>`; return; }
+    c.innerHTML = lista.map(o=>`
+      <div class="card" onclick="abrirDecisao('${o.id}')">
+        <span class="badge-novo">NOVO</span>
+        <div class="id">${o.crm_id}</div>
+        <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+        <div class="meta"><span class="pill acc">${o.tipo||'Caçamba'}</span></div>
+      </div>
+    `).join('');
+  }
+
+  if(VIEW==='rota'){
+    const lista = aceitas();
+    if(!lista.length){ c.innerHTML = `<div class="empty">Nenhuma LC em rota agora.</div>`; return; }
+    c.innerHTML = lista.map(o=>`
+      <div class="card b" onclick="setView('followup','${o.id}')">
+        <div class="id">${o.crm_id}</div>
+        <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+        <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
+      </div>
+    `).join('');
+  }
+
+  if(VIEW==='pagamento'){
+    const lista = ORDENS.filter(o=>o.forn_id);
+    const pendentes = lista.filter(o=>!o.forn_pago);
+    const total = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)||0), 0);
+    const totalReal = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)|| (o.rec?Number(o.rec)*0.8:0)),0);
+    c.innerHTML = `
+      <div class="pay-hero"><div class="lbl">A receber (pendente de valor definido)</div><div class="val">${lista.filter(o=>!o.forn_pago).length} LC(s)</div></div>
+      ${lista.map(o=>`
+        <div class="card ${o.forn_pago?'g':''}">
+          <div class="id">${o.crm_id}</div>
+          <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+          <div class="meta">
+            <span class="pill ${o.forn_pago?'g':'acc'}">${o.forn_pago? '✔ Pago' : '⏳ Aguardando pagamento'}</span>
+            ${o.forn_pago_valor?`<span class="pill b">R$ ${Number(o.forn_pago_valor).toFixed(0)}</span>`:''}
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+}
+
+function abrirDecisao(id){ VIEW='decisao'; ACTIVE_LC=ORDENS.find(o=>o.id===id); render(); }
+
+function renderDecisao(o){
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <div class="detail-box">
+      <div class="info-row"><span>Endereço</span><span>${o.logradouro||''}, ${o.bairro||''}</span></div>
+      <div class="info-row"><span>Tipo</span><span>${o.tipo||'—'}</span></div>
+      <div class="info-row"><span>Data</span><span>${o.data||'—'}</span></div>
+      <div class="info-row"><span>Obs.</span><span>${o.obs||'—'}</span></div>
+    </div>
+    <div class="field-label">Sua previsão de horário</div>
+    <select id="previsao">
+      <option value="">Escolher…</option>
+      <option value="Em até 30 min">Em até 30 min</option>
+      <option value="Em até 1 hora">Em até 1 hora</option>
+      <option value="Em até 2 horas">Em até 2 horas</option>
+    </select>
+  `;
+  document.querySelector('.content').insertAdjacentHTML('beforeend', '');
+  const btnRow = document.createElement('div');
+  btnRow.className='btn-row';
+  btnRow.innerHTML = `
+    <button class="btn btn-reject" onclick="recusar('${o.id}')">Recusar</button>
+    <button class="btn btn-accept" onclick="aceitar('${o.id}')">Aceitar</button>
+  `;
+  document.getElementById('app').appendChild(btnRow);
+}
+
+async function aceitar(id){
+  const previsao = document.getElementById('previsao').value;
+  if(!previsao){ toast('Escolha uma previsão de horário'); return; }
+  try{
+    await api(`ordens?id=eq.${id}`, 'PATCH', { forn_status:'aceito', forn_previsao:previsao, col:'ag_entrega' }, {'Prefer':'return=minimal'});
+    toast('LC aceita ✓');
+    await loadOrdens();
+    setView('rota');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+async function recusar(id){
+  const o = ORDENS.find(x=>x.id===id);
+  try{
+    await api('forn_recusas', 'POST', { forn_id:FORN.id, bairro:o.bairro, logradouro:o.logradouro, ordem_id:o.id }, {'Prefer':'return=minimal'});
+    await api(`ordens?id=eq.${id}`, 'PATCH', { forn_status:'recusado', forn_recusado_em:new Date().toISOString(), col:'contratar', forn_id:null }, {'Prefer':'return=minimal'});
+    toast('LC recusada — volta pro CRM');
+    await loadOrdens();
+    setView('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+async function renderFollowup(o){
+  const c = document.getElementById('content');
+  let fu = [];
+  try{ fu = await api(`ordem_followup?ordem_id=eq.${o.id}&order=criado_em.asc`); }catch(e){}
+
+  c.innerHTML = `
+    <div class="field-label">Linha do tempo</div>
+    <div class="timeline">
+      ${fu.length ? fu.map(f=>`
+        <div class="tl-item">
+          <div class="tl-time">${new Date(f.criado_em).toLocaleString('pt-BR')}</div>
+          <div class="tl-text">${labelTipo(f.tipo)}${f.texto? ' — '+f.texto:''}</div>
+        </div>
+      `).join('') : '<div class="empty" style="padding:20px 0">Nenhum registro ainda.</div>'}
+    </div>
+    <div class="field-label">Registrar chegada</div>
+    <div class="followup-options">
+      <div class="fu-opt ${FU_TIPO==='chegada_ok'?'sel':''}" onclick="setFuTipo('chegada_ok')">✅ Ficou no local</div>
+      <div class="fu-opt ${FU_TIPO==='problema'?'sel':''}" onclick="setFuTipo('problema')">⚠️ Teve problema</div>
+      <div class="fu-opt ${FU_TIPO==='reagendar'?'sel':''}" onclick="setFuTipo('reagendar')">📅 Reagendar</div>
+      <div class="fu-opt ${FU_TIPO==='cancelar'?'sel':''}" onclick="setFuTipo('cancelar')">✖️ Cancelar</div>
+    </div>
+    <div class="field-label">Descreva (texto — foto/áudio na próxima versão)</div>
+    <textarea id="fu-texto" placeholder="Ex: entreguei no portão azul, cliente recebeu"></textarea>
+  `;
+  const btnRow = document.createElement('div');
+  btnRow.className='btn-row';
+  btnRow.innerHTML = `<button class="btn btn-primary" onclick="confirmarFollowup('${o.id}')">Confirmar e avisar vendedor</button>`;
+  document.getElementById('app').appendChild(btnRow);
+}
+
+function setFuTipo(t){ FU_TIPO=t; renderFollowup(ACTIVE_LC); }
+function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠️ Problema relatado',reagendar:'📅 Reagendamento pedido',cancelar:'✖️ Cancelamento pedido'}[t]||t; }
+
+async function confirmarFollowup(id){
+  const texto = document.getElementById('fu-texto').value;
+  try{
+    await api('ordem_followup', 'POST', { ordem_id:id, tipo:FU_TIPO, texto, midia_tipo: texto?'texto':null, criado_por:FORN.nome }, {'Prefer':'return=minimal'});
+    toast('Registrado ✓ — mensagem pro vendedor seria enviada aqui');
+    ACTIVE_LC = ORDENS.find(o=>o.id===id);
+    renderFollowup(ACTIVE_LC);
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+boot();
+</script>
+</body>
+</html>
