@@ -350,12 +350,24 @@ function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠
 async function confirmarFollowup(id){
   const texto = document.getElementById('fu-texto').value;
   try{
-    const ok = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto });
-    if(!ok){ toast('Não foi possível registrar'); return; }
-    toast('Registrado ✓ — mensagem pro vendedor seria enviada aqui');
+    const res = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto });
+    const r = Array.isArray(res) ? res[0] : res;
+    if(!r || !r.ok){ toast('Não foi possível registrar'); return; }
     await loadOrdens();
-    if(FU_TIPO==='chegada_ok'){ setView('rota'); }
-    else{ ACTIVE_LC = ORDENS.find(o=>o.id===id); renderFollowup(ACTIVE_LC); }
+    if(FU_TIPO==='chegada_ok' && r.link_codigo){
+      const link = 'https://cacambasp-crm.vercel.app/followup-viewer.html?c=' + r.link_codigo;
+      const msg = `📦 Entrega confirmada — LC ${r.crm_id||''}\n\n${FORN.nome} acabou de confirmar a entrega. Veja os detalhes e cobre o cliente:\n${link}`;
+      const tel = (r.vend_tel||'').replace(/\D/g,'');
+      if(tel){
+        window.open('https://wa.me/'+(tel.length<=11?'55'+tel:tel)+'?text='+encodeURIComponent(msg), '_blank');
+      }
+      toast('Confirmado ✓ — WhatsApp do vendedor aberto');
+      setView('rota');
+    } else {
+      toast('Registrado ✓');
+      ACTIVE_LC = ORDENS.find(o=>o.id===id);
+      renderFollowup(ACTIVE_LC);
+    }
   }catch(e){ toast('Erro: '+e.message); }
 }
 
