@@ -1,0 +1,154 @@
+<!DOCTYPE html><!-- CaçambaSP Followup Viewer v0.1 -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="theme-color" content="#05070f">
+<title>Followup — CaçambaSP</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#05070f; --sur:#0a0d1a; --card:#0f1220; --bor:rgba(80,160,255,.12); --bor2:rgba(80,160,255,.22);
+  --txt:#e8f4ff; --mut:#4a6fa8;
+  --acc:#ffa800; --acc2:rgba(255,168,0,.1); --acc3:rgba(255,168,0,.25);
+  --g:#00ffa0; --g2:rgba(0,255,160,.1);
+  --wa-c:#25d366; --wa2:rgba(37,211,102,.12); --wa3:rgba(37,211,102,.3);
+  --rad:18px; --rad2:14px; --rad3:10px;
+  --font:'Plus Jakarta Sans',sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:var(--font);}
+button{font-family:var(--font)}
+::-webkit-scrollbar{width:0}
+.wrap{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:var(--sur);border-bottom:1px solid var(--bor);padding:18px;}
+.topbar b{font-size:15px;display:block;}
+.topbar span{font-size:11px;color:var(--mut);font-family:var(--mono);letter-spacing:.4px;}
+.content{padding:16px;flex:1;}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px;margin-bottom:14px;}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bor);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-row span:first-child{color:var(--mut);}
+.info-row span:last-child{font-weight:600;text-align:right;}
+.section-title{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px;font-weight:700;font-family:var(--mono);}
+.timeline{position:relative;padding-left:20px;}
+.tl-item{position:relative;padding-bottom:16px;}
+.tl-item::before{content:'';position:absolute;left:-20px;top:3px;width:9px;height:9px;border-radius:50%;background:var(--acc);}
+.tl-item::after{content:'';position:absolute;left:-16px;top:12px;bottom:-6px;width:1px;background:var(--bor2);}
+.tl-item:last-child::after{display:none;}
+.tl-time{font-size:10.5px;color:var(--mut);font-family:var(--mono);}
+.tl-text{font-size:13px;margin-top:2px;line-height:1.5;}
+.btn-cobrar{width:100%;background:var(--wa-c);color:#04210f;border:none;border-radius:var(--rad3);
+  padding:16px;font-size:14.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;margin-top:6px;}
+.btn-cobrar:disabled{background:var(--card);color:var(--mut);border:1px solid var(--bor2);}
+.badge-cobrado{background:var(--g2);color:var(--g);font-size:12px;font-weight:700;padding:10px;border-radius:var(--rad3);text-align:center;}
+.loading{display:flex;align-items:center;justify-content:center;height:60vh;color:var(--mut);font-family:var(--mono);font-size:12px;}
+.gate{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:30px;text-align:center;}
+.gate .ic{font-size:40px;margin-bottom:14px;}
+.gate h2{font-size:16px;margin:0 0 8px;}
+.gate p{font-size:13px;color:var(--mut);line-height:1.5;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--bor2);
+  padding:12px 20px;border-radius:20px;font-size:13px;z-index:100;opacity:0;transition:.2s;pointer-events:none;}
+.toast.show{opacity:1;bottom:30px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">carregando…</div></div>
+<div class="toast" id="toast"></div>
+<script>
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+
+async function api(path, method='GET', body=null){
+  const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+  const r = await fetch(SUPA_URL+'/rest/v1/'+path, {method, headers:h, body: body?JSON.stringify(body):null});
+  if(!r.ok){ const t = await r.text(); throw new Error('API '+r.status+': '+t); }
+  const ct = r.headers.get('content-type')||'';
+  return ct.includes('json') ? r.json() : null;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠️ Problema relatado',reagendar:'📅 Reagendamento pedido',cancelar:'✖️ Cancelamento pedido'}[t]||t; }
+
+let CODIGO = null, DADOS = null;
+
+async function boot(){
+  const params = new URLSearchParams(location.search);
+  CODIGO = params.get('c');
+  const app = document.getElementById('app');
+  if(!CODIGO){ app.innerHTML = gateHTML('🔗','Link inválido','Esse link não tem o código necessário.'); return; }
+
+  try{
+    const res = await api('rpc/portal_resolver_followup', 'POST', { p_codigo: CODIGO });
+    const r = Array.isArray(res) ? res[0] : res;
+    if(!r || !r.valido){ app.innerHTML = gateHTML('⏳','Link expirado ou inválido','Peça pro fornecedor gerar um novo link.'); return; }
+    DADOS = r;
+    const followups = await api('rpc/portal_followup_por_codigo', 'POST', { p_codigo: CODIGO });
+    render(followups||[]);
+  }catch(e){
+    app.innerHTML = gateHTML('⚠️','Erro ao carregar', e.message);
+  }
+}
+
+function gateHTML(icon,title,msg){
+  return `<div class="gate"><div class="ic">${icon}</div><h2>${title}</h2><p>${msg}</p></div>`;
+}
+
+function render(followups){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="topbar"><b>${DADOS.crm_id||'LC'}</b><span>FOLLOWUP DO FORNECEDOR</span></div>
+    <div class="content">
+      <div class="card">
+        <div class="info-row"><span>Cliente</span><span>${DADOS.cliente_nome||'—'}</span></div>
+        <div class="info-row"><span>Endereço</span><span>${DADOS.logradouro||''}, ${DADOS.bairro||''}</span></div>
+        <div class="info-row"><span>Valor</span><span>R$ ${DADOS.rec?Number(DADOS.rec).toFixed(2):'—'}</span></div>
+      </div>
+
+      <div class="section-title">Registro do fornecedor</div>
+      <div class="card">
+        <div class="timeline">
+          ${followups.length ? followups.map(f=>`
+            <div class="tl-item">
+              <div class="tl-time">${new Date(f.criado_em).toLocaleString('pt-BR')}</div>
+              <div class="tl-text">${labelTipo(f.tipo)}${f.texto?' — '+f.texto:''}</div>
+            </div>
+          `).join('') : '<div style="color:var(--mut);font-size:13px">Nenhum registro.</div>'}
+        </div>
+      </div>
+
+      <div class="section-title">Ação</div>
+      ${DADOS.ja_cobrado
+        ? `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`
+        : `<button class="btn-cobrar" id="btnCobrar" onclick="cobrarCliente()">💬 Cobrar Cliente</button>`
+      }
+    </div>
+  `;
+}
+
+async function cobrarCliente(){
+  const btn = document.getElementById('btnCobrar');
+  if(btn){ btn.disabled = true; btn.textContent = 'Processando...'; }
+  try{
+    const ok = await api('rpc/portal_marcar_cobranca', 'POST', { p_codigo: CODIGO });
+    if(!ok){ toast('Não foi possível avançar — pode já ter sido cobrado'); if(btn){btn.disabled=false; btn.textContent='💬 Cobrar Cliente';} return; }
+    toast('LC movida pra Receber Cliente ✓');
+    const tel = (DADOS.cliente_cel||'').replace(/\D/g,'');
+    const msg = `Olá ${DADOS.cliente_nome||''}! 👋\n\nSua caçamba (${DADOS.crm_id||''}) foi entregue com sucesso.\n\nPassando pra combinar o pagamento — qualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+    if(tel){
+      setTimeout(()=>window.open('https://wa.me/'+(tel.length<=11?'55'+tel:tel)+'?text='+encodeURIComponent(msg), '_blank'), 400);
+    }
+    DADOS.ja_cobrado = true;
+    const app = document.getElementById('app');
+    const actionArea = app.querySelector('.section-title:last-of-type').nextElementSibling;
+    if(actionArea) actionArea.outerHTML = `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`;
+  }catch(e){ toast('Erro: '+e.message); if(btn){btn.disabled=false; btn.textContent='💬 Cobrar Cliente';} }
+}
+
+boot();
+</script>
+</body>
+</html>
