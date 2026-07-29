@@ -2580,6 +2580,12 @@ async function _rodarFluxoAutomatico(){
   for(const c of ordens){
     if(c.col==='concluido'||c.col==='orcamento') continue;
 
+    // fornecedor com portal proprio: fluxo de horario nao se aplica, ele mesmo confirma pelo portal
+    if(c.forn_id){
+      const fPortal = forns.find(x=>x.id===c.forn_id);
+      if(fPortal && fPortal.portal_ativo) continue;
+    }
+
     // 1) ag_entrega → entrega (passou horário previsto)
     if(c.col==='ag_entrega' && !c.entrega_confirmada && c.forn_id){
       const hr = getHoraEntrega(c);
