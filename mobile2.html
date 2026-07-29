@@ -1835,11 +1835,12 @@ function _abrirWAFornModal(o, f, tipo, grupoOrdens) {
   const osTxt = grupo.map(x=>x.crm_id||'—').join(', ');
   let texto = '';
   if(tipo === 'os') {
+    const linkPortal = f.portal_ativo && f.portal_token ? `\n\n🔗 Acompanhe pelo seu painel: https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}` : '';
     texto = `📦 ${qtdTxt} · 📅 ${data}
 📍 ${endereco}
 👤 ${o.nome||'—'} · 📞 ${o.cel||o.wh||'—'}${o.cpf?'\n🪪 CPF/CNPJ: '+o.cpf:''}
 🪣 ${o.tipo||'Locação'}${turnoTxt?' · '+turnoTxt:''}
-📋 OS: ${osTxt}
+📋 OS: ${osTxt}${linkPortal}
 
 Por favor, confirme o recebimento dest${grupo.length>1?'as OS':'a OS'}.
 _CaçambaSP_`;
