@@ -137,7 +137,10 @@ async function cobrarCliente(){
     if(!ok){ toast('Não foi possível avançar — pode já ter sido cobrado'); if(btn){btn.disabled=false; btn.textContent='💬 Cobrar Cliente';} return; }
     toast('LC movida pra Receber Cliente ✓');
     const tel = (DADOS.cliente_cel||'').replace(/\D/g,'');
-    const msg = `Olá ${DADOS.cliente_nome||''}! 👋\n\nSua caçamba (${DADOS.crm_id||''}) foi entregue com sucesso.\n\nPassando pra combinar o pagamento — qualquer dúvida, estamos à disposição! 😊\n_CaçambaSP_`;
+    const trackLink = DADOS.tracking_token
+      ? `\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token=${encodeURIComponent(DADOS.tracking_token)}`
+      : (DADOS.crm_id ? `\n\n⚡ *Acompanhe e pague pelo link:*\nhttps://cacambasp-crm.vercel.app/tracking.html?id=${encodeURIComponent(DADOS.crm_id)}` : '');
+    const msg = `Olá ${DADOS.cliente_nome||''}! 👋\n\nSua caçamba (${DADOS.crm_id||''}) foi entregue com sucesso.\n\nPassando pra combinar o pagamento — qualquer dúvida, estamos à disposição! 😊${trackLink}\n_CaçambaSP_`;
     if(tel){
       setTimeout(()=>window.open('https://wa.me/'+(tel.length<=11?'55'+tel:tel)+'?text='+encodeURIComponent(msg), '_blank'), 400);
     }
