@@ -1643,6 +1643,7 @@ input[type=checkbox]:checked::after{
       <div class="fi"><label>Link WA / Grupo <span style="font-size:11px;color:var(--mut2);font-weight:400">— número ou https://chat.whatsapp.com/...</span></label><input type="text" id="sup_wa_link" placeholder="(11) 99999-9999 ou link do grupo"></div>
       <div class="fi"><label>Observação</label><textarea id="sup_obs"></textarea></div>
       <div class="fi"><label>Preço padrão (R$) <span style="font-size:11px;color:var(--mut2);font-weight:400">— usado quando o bairro não tem valor específico</span></label><input type="number" id="sup_preco_padrao" step="0.01" min="0" placeholder="Ex: 280.00"></div>
+      <div id="sup_portal_section" style="margin-top:6px"></div>
       <div class="mfooter">
         <button class="btn" onclick="closeModal('supModal')">Cancelar</button>
         <button class="btn btn-acc" onclick="salvarSup()">Salvar</button>
@@ -9763,26 +9764,12 @@ async function confirmarBaixaExtrato(){
   const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+totalOrdens+' ordem'+(totalOrdens!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
   if(!ok)return;
   const agora=nowISO();let cnt=0;
-  const valEsperadoOrdem=o=>(parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0);
   for(const item of itens){
     const pendItem=(item.ordens||[]).filter(o=>!o.pago&&!desmarcadasDe(item.id,o.id));
     const nOrdens=pendItem.length||1;
-    // ── Rateio usa rec + acréscimo de NF (valor esperado real de cada ordem), não só o rec puro ──
-    // Isso evita valores quebrados quando ordens do mesmo grupo têm NF (R$40) e outras não
-    const totalEsperado=pendItem.reduce((s,o)=>s+valEsperadoOrdem(o),0)||item.valorPago;
-    let somaAtribuida=0;
-    for(let i=0;i<pendItem.length;i++){
-      const o=pendItem[i];
-      let vp;
-      if(nOrdens===1){
-        vp=item.valorPago;
-      } else if(i===pendItem.length-1){
-        // Última ordem do grupo recebe o restante exato, eliminando sobra/falta de centavos por arredondamento
-        vp=Math.round((item.valorPago-somaAtribuida)*100)/100;
-      } else {
-        vp=Math.round(valEsperadoOrdem(o)/totalEsperado*item.valorPago*100)/100;
-        somaAtribuida+=vp;
-      }
+    const totalRec=pendItem.reduce((s,o)=>s+(parseFloat(o.rec)||0),0)||item.valorPago;
+    for(const o of pendItem){
+      const vp=nOrdens===1?item.valorPago:Math.round((parseFloat(o.rec)||0)/totalRec*item.valorPago*100)/100;
       o.pago=true;o.pago_em=agora;o.pago_valor=vp;
       o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
       autoColPagamento(o);
@@ -12251,6 +12238,7 @@ function openSupModal(){
   document.getElementById('sup_id').value='';
   ['sup_nome','sup_tel','sup_wa_link','sup_pix','sup_obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sup_preco_padrao').value='';
+  document.getElementById('sup_portal_section').innerHTML='';
   openModal('supModal');
 }
 function editarSup(id){
@@ -12263,7 +12251,70 @@ function editarSup(id){
   document.getElementById('sup_pix').value=f.pix||'';
   document.getElementById('sup_obs').value=f.obs||'';
   document.getElementById('sup_preco_padrao').value=f.preco_padrao>0?f.preco_padrao:'';
+  supRenderPortal(f);
   openModal('supModal');
+}
+
+function supRenderPortal(f){
+  const el = document.getElementById('sup_portal_section');
+  if(!el) return;
+  const link = `https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  if(f.portal_ativo){
+    el.innerHTML = `
+      <div style="background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);border-radius:var(--rad3);padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#25d366;margin-bottom:8px">📲 PORTAL DO FORNECEDOR — ATIVO</div>
+        <input type="text" readonly value="${link}" style="width:100%;box-sizing:border-box;background:var(--sur,#0a0d1a);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--txt);font-family:monospace;margin-bottom:8px">
+        <div style="display:flex;gap:8px">
+          <button type="button" onclick="supCopiarLinkPortal('${f.id}')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--bor);background:transparent;color:var(--txt);font-size:12px;font-weight:700;cursor:pointer">📋 Copiar link</button>
+          <button type="button" onclick="supEnviarLinkPortalWA('${f.id}')" style="flex:1;padding:9px;border-radius:8px;border:none;background:#25d366;color:#04210f;font-size:12px;font-weight:800;cursor:pointer">💬 Enviar WhatsApp</button>
+        </div>
+        <div style="text-align:right;margin-top:8px">
+          <span onclick="supDesativarPortal('${f.id}')" style="font-size:11px;color:var(--mut2);text-decoration:underline;cursor:pointer">Desativar portal desse fornecedor</span>
+        </div>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div style="background:var(--card,#0f1220);border:1px dashed var(--bor);border-radius:var(--rad3);padding:12px;text-align:center">
+        <div style="font-size:12px;color:var(--mut2);margin-bottom:10px">Esse fornecedor ainda não faz parte do Portal do Fornecedor</div>
+        <button type="button" onclick="supAtivarPortal('${f.id}')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--acc,#f5a623);color:#1a1200;font-size:13px;font-weight:800;cursor:pointer">🚀 Ativar portal e gerar link</button>
+      </div>
+    `;
+  }
+}
+
+async function supAtivarPortal(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  try{
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true},tok());
+    f.portal_ativo=true;
+    supRenderPortal(f);
+    toast('✅ Portal ativado!','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function supDesativarPortal(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  if(!confirm('Desativar o portal desse fornecedor? O link atual dele deixa de funcionar.')) return;
+  try{
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:false},tok());
+    f.portal_ativo=false;
+    supRenderPortal(f);
+    toast('Portal desativado','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function supCopiarLinkPortal(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const link=`https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  navigator.clipboard.writeText(link).then(()=>toast('✅ Link copiado!','ok')).catch(()=>toast('Não consegui copiar','err'));
+}
+
+function supEnviarLinkPortalWA(fid){
+  const f=forns.find(x=>x.id===fid);if(!f)return;
+  const link=`https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  const msg=`Olá ${f.nome}! 👋\n\nA CaçambaSP tem um novo portal pra você acompanhar suas LCs, aceitar entregas e ver seus pagamentos direto pelo celular:\n\n${link}\n\nÉ só abrir o link e, se quiser, adicionar como app na tela inicial. Qualquer dúvida me chama!`;
+  _waFornAbrir(f, msg);
 }
 async function salvarSup(){
   const nome=document.getElementById('sup_nome').value.trim();
