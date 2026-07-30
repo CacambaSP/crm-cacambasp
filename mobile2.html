@@ -3946,7 +3946,7 @@ function _fornCardHTML(f, colors) {
       <!-- Ações em pílula, sem divisórias -->
       <div style="display:flex;gap:8px;padding:0 14px 14px">
         <button onclick="abrirAgendaForn('${f.id}')" style="${pill} background:${cor}14;border-color:${cor}44;color:${cor}">📲 Agenda</button>
-        ${f.portal_ativo ? `<button onclick="window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" style="width:40px;flex-shrink:0;border-radius:12px;border:1px solid var(--acc3);background:var(--acc2);color:var(--acc);font-size:16px;cursor:pointer" title="Ver como o fornecedor vê">👁️</button>` : ''}
+        ${f.portal_ativo ? `<button onclick="window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" style="${pill} flex:0.9;background:rgba(64,144,255,.12);border-color:rgba(64,144,255,.4);color:#4090ff">👁️ Portal</button>` : ''}
         ${pendForn.length ? `
         <button onclick="fcToggleCard('${f.id}')" style="${pill} flex:1.4;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:#4ade80">💰 R$ ${fmt(totalPend)} ${fcSt.collapsed?'▾':'▴'}</button>
         ` : (ativas.length ? `<div style="flex:1.4;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mut)">🕓 pago, falta o cliente</div>` : '')}
