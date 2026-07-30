@@ -692,7 +692,7 @@ boot();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('/sw-fornecedor.js').catch(()=>{});
+    navigator.serviceWorker.register('/sw-fornecedor.js', { scope: '/portal-fornecedor.html' }).catch(()=>{});
   });
 }
 </script>
