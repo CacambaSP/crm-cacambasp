@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
 :root {
   --bg:#05070f; --sur:#0a0d1a; --card:#0f1220; --bor:rgba(80,160,255,.12); --bor2:rgba(80,160,255,.22);
@@ -266,6 +267,8 @@ async function boot(){
     await loadOrdens();
     render();
     if(_isIOS() && !_jaInstalado) setTimeout(_mostrarBannerInstalar, 800);
+    initNotificacoes();
+    atualizarBadge();
   }catch(e){
     app.innerHTML = gateHTML('⚠️','Erro ao carregar','Tente novamente em instantes. '+e.message);
   }
@@ -277,6 +280,7 @@ function gateHTML(icon,title,msg){
 
 async function loadOrdens(){
   ORDENS = await api('rpc/portal_list_ordens', 'POST', { p_token: TOKEN });
+  atualizarBadge();
 }
 
 function novas(){ return ORDENS.filter(o=>o.forn_status==='pendente'); }
@@ -773,11 +777,74 @@ async function toggleGravacao(){
   }
 }
 
+// ── NOTIFICAÇÕES PUSH (OneSignal) + BADGE NO ÍCONE ──
+function atualizarBadge(){
+  const n = novas().length;
+  navigator.serviceWorker?.ready.then(reg=>{
+    reg.active?.postMessage({ type:'UPDATE_BADGE', count:n });
+  }).catch(()=>{});
+  if('setAppBadge' in navigator){
+    n>0 ? navigator.setAppBadge(n).catch(()=>{}) : navigator.clearAppBadge().catch(()=>{});
+  }
+}
+
+let _oneSignalInited = false;
+async function initNotificacoes(){
+  if(_oneSignalInited || !window.OneSignalDeferred) { _mostrarBannerNotificacao(); return; }
+  _oneSignalInited = true;
+  window.OneSignalDeferred.push(async (OneSignal)=>{
+    try{
+      await OneSignal.init({
+        appId: 'c2dbdd20-6f19-433f-8106-f45d3e37714d',
+        serviceWorkerPath: '/sw.js',
+        notifyButton: { enable: false },
+      });
+    }catch(e){}
+    try{ await OneSignal.login('forn_'+FORN.id); }catch(e){}
+    if(Notification.permission === 'granted'){
+      await _registrarSubscricao(OneSignal);
+    } else if(Notification.permission === 'default'){
+      _mostrarBannerNotificacao();
+    }
+  });
+}
+
+async function _registrarSubscricao(OneSignal){
+  try{
+    const ok = await OneSignal.User.PushSubscription.optedIn;
+    if(!ok) await OneSignal.User.PushSubscription.optIn();
+    await new Promise(r=>setTimeout(r,1500));
+    const subId = OneSignal.User.PushSubscription.id;
+    if(subId){ await api('rpc/portal_salvar_onesignal', 'POST', { p_token: TOKEN, p_onesignal_id: subId }); }
+  }catch(e){}
+}
+
+function _mostrarBannerNotificacao(){
+  if(document.getElementById('bannerNotif')) return;
+  const b = document.createElement('div');
+  b.id = 'bannerNotif';
+  b.style.cssText = 'position:sticky;top:0;z-index:19;background:var(--b);color:#fff;padding:10px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  b.innerHTML = `<span>🔔 Ative as notificações pra saber quando tiver LC nova</span><span style="display:flex;gap:10px;align-items:center"><button onclick="_ativarNotificacoes()" style="background:#fff;color:var(--b);border:none;padding:6px 12px;border-radius:8px;font-weight:800;cursor:pointer">Ativar</button><span onclick="this.parentNode.parentNode.remove()" style="cursor:pointer;font-size:16px">✕</span></span>`;
+  document.body.insertBefore(b, document.body.firstChild);
+}
+
+async function _ativarNotificacoes(){
+  const perm = await Notification.requestPermission();
+  const banner = document.getElementById('bannerNotif');
+  if(banner) banner.remove();
+  if(perm !== 'granted'){ toast('Permissão negada — ative depois nas configurações do celular'); return; }
+  if(!window.OneSignalDeferred) return;
+  window.OneSignalDeferred.push(async (OneSignal)=>{
+    await _registrarSubscricao(OneSignal);
+    toast('🔔 Notificações ativadas ✓');
+  });
+}
+
 boot();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('/sw-fornecedor.js', { scope: '/portal-fornecedor.html' }).catch(()=>{});
+    navigator.serviceWorker.register('/sw.js', { scope: '/portal-fornecedor.html' }).catch(()=>{});
   });
 }
 </script>
