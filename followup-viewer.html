@@ -107,6 +107,7 @@ function render(followups){
         <div class="info-row"><span>Cliente</span><span>${DADOS.cliente_nome||'—'}</span></div>
         <div class="info-row"><span>Endereço</span><span>${DADOS.logradouro||''}, ${DADOS.bairro||''}</span></div>
         <div class="info-row"><span>Valor</span><span>R$ ${DADOS.rec?Number(DADOS.rec).toFixed(2):'—'}</span></div>
+        ${DADOS.cacamba_num ? `<div class="info-row"><span>Caçamba nº</span><span>${DADOS.cacamba_num}</span></div>` : ''}
       </div>
 
       <div class="section-title">Registro do fornecedor</div>
