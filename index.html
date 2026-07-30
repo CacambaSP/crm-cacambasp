@@ -2156,6 +2156,86 @@ async function remarcarEntrega(id){
   catch(e){toast('Erro','err');}
 }
 
+// ── Solicitar Retirada (com tratamento de gêmeas - mesmo endereço, mais de 1 caçamba) ──
+function _diasNoLocal(c){
+  if(!c.data) return 0;
+  const d = new Date(c.data+'T12:00:00');
+  return Math.max(0, Math.floor((Date.now()-d.getTime())/86400000));
+}
+
+function solicitarRetirada(id){
+  const c = ordens.find(x=>x.id===id); if(!c) return;
+  const f = forns.find(x=>x.id===c.forn_id);
+  if(!f){ toast('Sem fornecedor atribuído','err'); return; }
+  if(!f.wa_link && !f.tel){ toast('Fornecedor sem WhatsApp/telefone','err'); return; }
+  const irmas = c.grp_id ? ordens.filter(x=>x.grp_id===c.grp_id && x.id!==c.id && x.forn_id===c.forn_id && !x.cancel_motivo && x.col!=='concluido') : [];
+  if(!irmas.length){ _confirmarRetiradaSimples(c, f); }
+  else { _abrirSelecaoRetirada([c, ...irmas], f); }
+}
+
+async function _confirmarRetiradaSimples(c, f){
+  const dias = _diasNoLocal(c);
+  const ok = await showConfirm({ico:'🚚', title:'Solicitar retirada', body:`Vai enviar pro ${f.nome} pedindo a retirada da LC ${c.crm_id} (${dias} dia${dias!==1?'s':''} no local).`, ok:'Enviar'});
+  if(!ok) return;
+  const msg = `🚚 *Solicito retirada*\n\nLC ${c.crm_id}${c.cacamba_num?' — Caçamba nº '+c.cacamba_num:''}\n📍 ${c.logradouro||''} — ${c.bairro||''}\n⏱️ No local há ${dias} dia${dias!==1?'s':''}\n\nPor favor, agende a retirada. Obrigado!\n_CaçambaSP_`;
+  _waFornAbrir(f, msg);
+}
+
+function _abrirSelecaoRetirada(todas, f){
+  document.getElementById('modalRetiradaSel')?.remove();
+  const itens = todas.map(c=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--bor);border-radius:10px;margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" class="retirada-check" value="${c.id}" style="width:18px;height:18px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--txt)">${c.crm_id}${c.cacamba_num?' · Caçamba nº '+c.cacamba_num:' · nº não informado'}</div>
+        <div style="font-size:11px;color:var(--mut2)">${c.bairro||''} · ${_diasNoLocal(c)} dia(s) no local</div>
+      </div>
+    </label>`).join('');
+  const div = document.createElement('div');
+  div.id = 'modalRetiradaSel';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:var(--sur);border-radius:16px;padding:20px;width:100%;max-width:440px;max-height:80vh;overflow-y:auto;box-sizing:border-box">
+      <div style="font-weight:800;font-size:15px;margin-bottom:4px;color:var(--txt)">🚚 Qual(is) caçamba(s) retirar?</div>
+      <div style="font-size:12px;color:var(--mut2);margin-bottom:14px">Esse endereço tem mais de uma caçamba com esse fornecedor. Marca só as que devem ser retiradas agora — as outras ficam.</div>
+      ${itens}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="document.getElementById('modalRetiradaSel').remove()" style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:14px;font-weight:700;cursor:pointer">Cancelar</button>
+        <button onclick="_enviarRetiradaSelecionada('${f.id}')" style="flex:1;padding:13px;border-radius:10px;border:none;background:var(--acc);color:#000;font-size:14px;font-weight:800;cursor:pointer">Enviar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+function _enviarRetiradaSelecionada(fornId){
+  const checks = [...document.querySelectorAll('.retirada-check:checked')];
+  if(!checks.length){ toast('Marque pelo menos uma caçamba','err'); return; }
+  const idsSel = checks.map(c=>c.value);
+  const f = forns.find(x=>x.id===fornId);
+  const selecionadas = ordens.filter(c=>idsSel.includes(c.id));
+  const grpId = selecionadas[0].grp_id;
+  const todasDoGrupo = grpId ? ordens.filter(c=>c.grp_id===grpId && !c.cancel_motivo && c.col!=='concluido') : selecionadas;
+  const naoSelecionadas = todasDoGrupo.filter(c=>!idsSel.includes(c.id));
+
+  let msg = `🚚 *Solicito retirada*\n\n`;
+  if(selecionadas.length>1){
+    msg += `São ${selecionadas.length} caçambas nesse endereço, retirar:\n`;
+    selecionadas.forEach(c=>{ msg += `• ${c.crm_id}${c.cacamba_num?' — Caçamba nº '+c.cacamba_num:' (nº não informado)'}\n`; });
+  } else {
+    const c = selecionadas[0];
+    msg += `LC ${c.crm_id}${c.cacamba_num?' — Caçamba nº '+c.cacamba_num:''}\n`;
+  }
+  msg += `📍 ${selecionadas[0].logradouro||''} — ${selecionadas[0].bairro||''}\n⏱️ No local há ${_diasNoLocal(selecionadas[0])} dia(s)\n`;
+  if(naoSelecionadas.length){
+    msg += `\n⚠️ *Atenção:* fica${naoSelecionadas.length>1?'m':''} no local por enquanto:\n`;
+    naoSelecionadas.forEach(c=>{ msg += `• ${c.crm_id}${c.cacamba_num?' — Caçamba nº '+c.cacamba_num:' (nº não informado)'}\n`; });
+  }
+  msg += `\nPor favor, agende a retirada. Obrigado!\n_CaçambaSP_`;
+
+  document.getElementById('modalRetiradaSel')?.remove();
+  _waFornAbrir(f, msg);
+}
+
 async function cancelarOrdem(id){
   track('btn_cancelar_ordem');
   const c=ordens.find(x=>x.id===id);if(!c)return;
@@ -3163,6 +3243,7 @@ function cardHTML(c,color){
           ${precisaConfirmar&&!badgeExpirou?`<button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>`:''}
           <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
           <button class="cb-neutral" onclick="event.stopPropagation();remarcarEntrega('${c.id}')">Remarcar</button>
+          ${c.forn_id?`<button class="cb-neutral" style="background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.3)" onclick="event.stopPropagation();solicitarRetirada('${c.id}')">🚚 Retirada</button>`:''}
           <button class="cb-red" onclick="event.stopPropagation();cancelarOrdem('${c.id}')">Cancelar</button>
         </div>
       </div>`
