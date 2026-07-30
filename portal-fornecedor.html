@@ -140,31 +140,15 @@ textarea{resize:vertical;min-height:70px;}
 <div class="toast" id="toast"></div>
 
 <script>
-// Gera o manifest do PWA na hora, com o start_url apontando pro link
-// exato desse fornecedor (com o token dele) - o Chrome exige start_url
-// pra liberar a instalacao, e um arquivo estatico nao daria pra ter
-// um start_url diferente pra cada fornecedor.
+// Aponta o manifest pra edge function, que gera o JSON com o start_url
+// certo pra esse fornecedor. URL de verdade (nao blob local) - o Chrome
+// reconhece com mais confianca pra liberar a instalacao.
 (function(){
-  const manifest = {
-    name: 'Portal do Fornecedor - CaçambaSP',
-    short_name: 'CaçambaSP',
-    description: 'Portal do fornecedor CaçambaSP — aceite de LCs, followup e pagamentos',
-    start_url: location.pathname + location.search,
-    scope: location.pathname,
-    display: 'standalone',
-    background_color: '#05070f',
-    theme_color: '#05070f',
-    orientation: 'portrait',
-    lang: 'pt-BR',
-    icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t') || '';
   const link = document.createElement('link');
   link.rel = 'manifest';
-  link.href = URL.createObjectURL(blob);
+  link.href = 'https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/portal-manifest?t=' + encodeURIComponent(token);
   document.head.appendChild(link);
 })();
 </script>
