@@ -263,7 +263,6 @@ function renderContent(){
     const lista = ORDENS.filter(o=>o.forn_id && o.forn_status!=='pendente');
     const pendentes = lista.filter(o=>!o.forn_pago);
     const total = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)||0), 0);
-    const totalReal = pendentes.reduce((s,o)=>s+(Number(o.forn_pago_valor)|| (o.rec?Number(o.rec)*0.8:0)),0);
     c.innerHTML = `
       <div class="pay-hero"><div class="lbl">A receber (pendente de valor definido)</div><div class="val">${lista.filter(o=>!o.forn_pago).length} LC(s)</div></div>
       ${lista.map(o=>`
@@ -272,7 +271,7 @@ function renderContent(){
           <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
           <div class="meta">
             <span class="pill ${o.forn_pago?'g':'acc'}">${o.forn_pago? '✔ Pago' : '⏳ Aguardando pagamento'}</span>
-            ${o.forn_pago_valor?`<span class="pill b">R$ ${Number(o.forn_pago_valor).toFixed(0)}</span>`:''}
+            ${o.forn_pago_valor?`<span class="pill b">R$ ${Number(o.forn_pago_valor).toFixed(0)}</span>`:(o.cst?`<span class="pill b">R$ ${Number(o.cst).toFixed(0)} (combinado)</span>`:'')}
           </div>
           ${o.forn_pago && (o.forn_comprovante_url || (Array.isArray(o.forn_comprovantes)&&o.forn_comprovantes.length))
             ? `<a class="receipt-link" onclick="verComprovante('${o.id}')">📄 Ver comprovante</a>` : ''}
