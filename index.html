@@ -9763,12 +9763,26 @@ async function confirmarBaixaExtrato(){
   const ok=await showConfirm({ico:'✅',title:'Dar baixa em '+totalOrdens+' ordem'+(totalOrdens!==1?'ns':''),body:'Ordens marcadas como pagas pelo extrato bancário.',ok:'✅ Confirmar',okClass:'btn-g'});
   if(!ok)return;
   const agora=nowISO();let cnt=0;
+  const valEsperadoOrdem=o=>(parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0);
   for(const item of itens){
     const pendItem=(item.ordens||[]).filter(o=>!o.pago&&!desmarcadasDe(item.id,o.id));
     const nOrdens=pendItem.length||1;
-    const totalRec=pendItem.reduce((s,o)=>s+(parseFloat(o.rec)||0),0)||item.valorPago;
-    for(const o of pendItem){
-      const vp=nOrdens===1?item.valorPago:Math.round((parseFloat(o.rec)||0)/totalRec*item.valorPago*100)/100;
+    // ── Rateio usa rec + acréscimo de NF (valor esperado real de cada ordem), não só o rec puro ──
+    // Isso evita valores quebrados quando ordens do mesmo grupo têm NF (R$40) e outras não
+    const totalEsperado=pendItem.reduce((s,o)=>s+valEsperadoOrdem(o),0)||item.valorPago;
+    let somaAtribuida=0;
+    for(let i=0;i<pendItem.length;i++){
+      const o=pendItem[i];
+      let vp;
+      if(nOrdens===1){
+        vp=item.valorPago;
+      } else if(i===pendItem.length-1){
+        // Última ordem do grupo recebe o restante exato, eliminando sobra/falta de centavos por arredondamento
+        vp=Math.round((item.valorPago-somaAtribuida)*100)/100;
+      } else {
+        vp=Math.round(valEsperadoOrdem(o)/totalEsperado*item.valorPago*100)/100;
+        somaAtribuida+=vp;
+      }
       o.pago=true;o.pago_em=agora;o.pago_valor=vp;
       o.pago_obs='Conciliado via extrato Itaú · '+item.id+(item.tipo==='grp'?' (agrupado)':'');
       autoColPagamento(o);
