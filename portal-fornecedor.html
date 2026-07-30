@@ -373,10 +373,13 @@ function renderContent(){
       <div id="mapaLC"></div>
       ${lista.length>1?'<div style="text-align:center;margin-bottom:12px"><button class="btn btn-primary" style="width:auto;padding:10px 18px" onclick="mostrarRotaMultipla()">🧭 Traçar itinerário</button></div>':''}
       ${lista.map(o=>`
-        <div class="card b" onclick="abrirFollowup('${o.id}')">
-          <div class="id">${o.crm_id}</div>
-          <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
-          <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
+        <div class="card b">
+          <div onclick="abrirFollowup('${o.id}')">
+            <div class="id">${o.crm_id}</div>
+            <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
+            <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
+          </div>
+          <a href="${linkGPS(o)}" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;padding:10px;border-radius:10px;background:rgba(64,144,255,.12);border:1px solid rgba(64,144,255,.35);color:#4090ff;font-size:12.5px;font-weight:700;text-decoration:none">🧭 Abrir no GPS</a>
         </div>
       `).join('')}
     `;
@@ -485,6 +488,7 @@ function renderDecisao(o){
   const c = document.getElementById('content');
   c.innerHTML = `
     <div id="mapaLC"></div>
+    <a href="${linkGPS(o)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:14px;padding:12px;border-radius:10px;background:rgba(64,144,255,.12);border:1px solid rgba(64,144,255,.35);color:#4090ff;font-size:13px;font-weight:700;text-decoration:none">🧭 Abrir no GPS</a>
     <div id="distanciaBase"></div>
     <div class="detail-box">
       <div class="info-row"><span>Endereço</span><span>${o.logradouro||''}, ${o.bairro||''}</span></div>
@@ -625,6 +629,10 @@ async function verComprovante(ordemId){
 }
 
 // ── MAPA (gratuito: OpenStreetMap + Nominatim + OSRM) ──
+function linkGPS(o){
+  const endereco = [o.logradouro, o.bairro, o.cidade||'São Paulo'].filter(Boolean).join(', ');
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(endereco) + '&travelmode=driving';
+}
 const _geoCache = {};
 let _geoFila = Promise.resolve();
 function geocodar(endereco){
