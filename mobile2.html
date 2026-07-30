@@ -1667,7 +1667,10 @@ async function _finalizarAtribuicaoFornMobile(o, f, s, deveAdicionarBairro) {
   // Preencher cst com precoForn somente se cst ainda não foi definido
   const precoForn = s && s.preco>0 ? s.preco : 0; // sempre usar custo real do fornecedor (nunca preco_cli)
   const patch = {forn_id:f.id, col:novaCol};
-  if(f.portal_ativo) patch.forn_status = 'pendente';
+  if(f.portal_ativo){
+    patch.forn_status = 'pendente';
+    _pushPortalForn(f.id, o.crm_id, o.bairro);
+  }
   if(precoForn>0 && !(parseFloat(o.cst)>0)) patch.cst = precoForn;
   // Preencher rec com preco_cli somente se ainda não definido
   // Se a ordem tem NF, somar o acréscimo de NF ao preco_cli
@@ -6942,6 +6945,17 @@ async function initOneSignal(){
       }
     });
   }catch(e){ console.warn('OneSignal erro:',e); }
+}
+
+// ── Push pro Portal do Fornecedor (LC pendente de decisão) ──
+function _pushPortalForn(forn_id, crm_id, bairro){
+  try{
+    fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-forn-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
+      body:JSON.stringify({forn_id, tipo:'nova_lc', crm_id:crm_id||'', endereco:bairro||''})
+    });
+  }catch(e){console.warn('Push portal forn falhou:',e);}
 }
 
 // ── Push quando ordem vai para Contratar ──
