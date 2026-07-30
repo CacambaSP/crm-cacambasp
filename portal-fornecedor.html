@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
 <meta name="theme-color" content="#05070f">
-<link rel="manifest" href="/manifest-fornecedor.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -140,6 +139,35 @@ textarea{resize:vertical;min-height:70px;}
 
 <div class="toast" id="toast"></div>
 
+<script>
+// Gera o manifest do PWA na hora, com o start_url apontando pro link
+// exato desse fornecedor (com o token dele) - o Chrome exige start_url
+// pra liberar a instalacao, e um arquivo estatico nao daria pra ter
+// um start_url diferente pra cada fornecedor.
+(function(){
+  const manifest = {
+    name: 'Portal do Fornecedor - CaçambaSP',
+    short_name: 'CaçambaSP',
+    description: 'Portal do fornecedor CaçambaSP — aceite de LCs, followup e pagamentos',
+    start_url: location.pathname + location.search,
+    scope: location.pathname,
+    display: 'standalone',
+    background_color: '#05070f',
+    theme_color: '#05070f',
+    orientation: 'portrait',
+    lang: 'pt-BR',
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+})();
+</script>
 <script>
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
