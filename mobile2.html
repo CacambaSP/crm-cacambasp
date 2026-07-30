@@ -1022,6 +1022,10 @@ input,select,textarea,button{font-family:var(--font)}
         <label>WhatsApp (wa_link)</label>
         <input type="text" id="efb_wa" placeholder="(11) 99999-9999 ou link wa.me/..." style="font-family:var(--mono);font-size:13px">
       </div>
+      <div class="mfi">
+        <label>Endereço-base (de onde ele sai)</label>
+        <input type="text" id="efb_endereco_base" placeholder="Rua, número, bairro, cidade">
+      </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--card);border-radius:var(--rad3)">Pode ser um número, ou um link completo wa.me/...</div>
 
       <div id="efb_portal_section" style="margin-bottom:16px"></div>
@@ -1753,6 +1757,7 @@ function abrirEditFornBairro(fid) {
   _efb_regioes = Array.isArray(regioes) ? JSON.parse(JSON.stringify(regioes)) : [];
   document.getElementById('efb_nome').textContent = f.nome;
   document.getElementById('efb_wa').value = f.wa_link||'';
+  document.getElementById('efb_endereco_base').value = f.endereco_base||'';
   document.getElementById('efb_new_bairro').value='';
   document.getElementById('efb_new_cidade').value='';
   document.getElementById('efb_new_turno').value='';
@@ -1866,9 +1871,11 @@ async function efbSalvar() {
   const fid = _efb_fornId; if(!fid) return;
   const f = _forns.find(x=>x.id===fid); if(!f) return;
   const waLink = document.getElementById('efb_wa').value.trim();
+  const enderecoBase = document.getElementById('efb_endereco_base').value.trim();
   try {
-    await api(`fornecedores?id=eq.${fid}`,'PATCH',{wa_link:waLink||null, regioes:_efb_regioes},tok());
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{wa_link:waLink||null, endereco_base:enderecoBase||null, regioes:_efb_regioes},tok());
     f.wa_link = waLink||null;
+    f.endereco_base = enderecoBase||null;
     f.regioes = _efb_regioes;
     closeModal('editFornBairroModal');
     toast('✅ Fornecedor atualizado!','ok');
