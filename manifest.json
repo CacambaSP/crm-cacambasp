@@ -1,12 +1,44 @@
 {
-  "name": "Portal do Fornecedor - CaçambaSP",
+  "name": "CaçambaSP CRM",
   "short_name": "CaçambaSP",
+  "description": "Sistema de gestão CaçambaSP — Ordens, Financeiro e Fornecedores",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#05070f",
-  "theme_color": "#05070f",
-  "orientation": "portrait",
+  "background_color": "#0c0e14",
+  "theme_color": "#f5a623",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
-  ]
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Ordem",
+      "short_name": "Nova",
+      "description": "Criar nova ordem de serviço",
+      "url": "/?acao=nova",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Financeiro",
+      "short_name": "Financeiro",
+      "description": "Ver central financeira",
+      "url": "/?acao=financeiro",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
 }
