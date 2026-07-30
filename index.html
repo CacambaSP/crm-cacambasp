@@ -1641,6 +1641,7 @@ input[type=checkbox]:checked::after{
         <div class="fi"><label>Chave Pix</label><input type="text" id="sup_pix"></div>
       </div>
       <div class="fi"><label>Link WA / Grupo <span style="font-size:11px;color:var(--mut2);font-weight:400">— número ou https://chat.whatsapp.com/...</span></label><input type="text" id="sup_wa_link" placeholder="(11) 99999-9999 ou link do grupo"></div>
+      <div class="fi"><label>Endereço-base <span style="font-size:11px;color:var(--mut2);font-weight:400">— de onde ele sai (usado pra calcular distância)</span></label><input type="text" id="sup_endereco_base" placeholder="Rua, número, bairro, cidade"></div>
       <div class="fi"><label>Observação</label><textarea id="sup_obs"></textarea></div>
       <div class="fi"><label>Preço padrão (R$) <span style="font-size:11px;color:var(--mut2);font-weight:400">— usado quando o bairro não tem valor específico</span></label><input type="number" id="sup_preco_padrao" step="0.01" min="0" placeholder="Ex: 280.00"></div>
       <div id="sup_portal_section" style="margin-top:6px"></div>
@@ -12248,6 +12249,7 @@ function editarSup(id){
   document.getElementById('sup_nome').value=f.nome||'';
   document.getElementById('sup_tel').value=f.tel||'';
   document.getElementById('sup_wa_link').value=f.wa_link||'';
+  document.getElementById('sup_endereco_base').value=f.endereco_base||'';
   document.getElementById('sup_pix').value=f.pix||'';
   document.getElementById('sup_obs').value=f.obs||'';
   document.getElementById('sup_preco_padrao').value=f.preco_padrao>0?f.preco_padrao:'';
@@ -12321,7 +12323,7 @@ async function salvarSup(){
   if(!nome){toast('Nome obrigatório','err');return;}
   const id=document.getElementById('sup_id').value;
   const preco_padrao=parseFloat(document.getElementById('sup_preco_padrao').value)||0;
-  const data={nome,tel:document.getElementById('sup_tel').value.trim(),wa_link:document.getElementById('sup_wa_link').value.trim(),pix:document.getElementById('sup_pix').value.trim(),obs:document.getElementById('sup_obs').value.trim(),preco_padrao};
+  const data={nome,tel:document.getElementById('sup_tel').value.trim(),wa_link:document.getElementById('sup_wa_link').value.trim(),endereco_base:document.getElementById('sup_endereco_base').value.trim(),pix:document.getElementById('sup_pix').value.trim(),obs:document.getElementById('sup_obs').value.trim(),preco_padrao};
   closeModal('supModal');
   if(id){
     const f=forns.find(x=>x.id===id);if(!f)return;
