@@ -3802,7 +3802,23 @@ function fcSetData(fid, tipo, val) {
   renderCurrentView();
 }
 
+let _fornRecusasPorId = null;
+let _fornRecusasLoading = false;
+async function _carregarFornRecusas(){
+  if(_fornRecusasPorId !== null || _fornRecusasLoading) return;
+  _fornRecusasLoading = true;
+  try{
+    const rows = await api('forn_recusas?select=forn_id', 'GET', null, tok());
+    const mapa = {};
+    (rows||[]).forEach(r=>{ mapa[r.forn_id] = (mapa[r.forn_id]||0)+1; });
+    _fornRecusasPorId = mapa;
+    if(_currentView==='fornecedores') renderFornecedores();
+  }catch(e){ _fornRecusasPorId = {}; }
+  _fornRecusasLoading = false;
+}
+
 function renderFornecedores() {
+  _carregarFornRecusas();
   const colors = ['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa'];
   const cols = ['contratar','ag_entrega','entrega','pagar','faltapg'];
   const contarAtivas = f => _ordens.filter(o => o.forn_id === f.id && cols.includes(o.col)).length;
@@ -3828,8 +3844,9 @@ function renderFornecedores() {
   }
 
   const totalGeralPendente = _ordens.filter(o => o.forn_id && !o.forn_pago && (parseFloat(o.cst)||0)>0).reduce((s,o)=>s+parseFloat(o.cst||0),0);
+  const comPortal = _forns.filter(f=>f.portal_ativo).length;
 
-  setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total'+(totalGeralPendente>0 ? ' · R$ '+fmt(totalGeralPendente)+' a pagar' : ''));
+  setTopbar('Fornecedores', q ? lista.length+' resultado'+(lista.length!==1?'s':'') : comOrdens.length+' com agenda · '+_forns.length+' total · 📲 '+comPortal+'/'+_forns.length+' no portal'+(totalGeralPendente>0 ? ' · R$ '+fmt(totalGeralPendente)+' a pagar' : ''));
 
   const searchBar = `<div style="padding:10px 14px 4px">
     <input id="fornSearchInput" type="text" value="${_fornsQuery}" placeholder="Buscar fornecedor por nome..." oninput="_fornsQuery=this.value;renderFornecedores()"
@@ -3883,6 +3900,8 @@ function _fornCardHTML(f, colors) {
 
     // Info de contato
     const temWA = !!(f.wa_link || f.tel);
+    const portalPendentes = _ordens.filter(o => o.forn_id===f.id && o.forn_status==='pendente').length;
+    const recusasCount = (_fornRecusasPorId && _fornRecusasPorId[f.id]) || 0;
 
     // Regiões resumidas
     let regioes = f.regioes;
@@ -3912,18 +3931,22 @@ function _fornCardHTML(f, colors) {
           <div style="font-size:15px;font-weight:800;color:var(--txt)">${f.nome}</div>
           <div style="display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${f.wa_link ? `<span style="color:var(--wa-c);font-weight:700;flex-shrink:0">WA ✓</span><span style="flex-shrink:0;color:var(--mut2)">·</span>` : ''}
+            ${f.portal_ativo ? `<span style="color:var(--acc);font-weight:700;flex-shrink:0">📲${f.portal_onesignal_id?'🔔':''}</span><span style="flex-shrink:0;color:var(--mut2)">·</span>` : ''}
             <span style="overflow:hidden;text-overflow:ellipsis">${bairrosLabel}</span>
             ${hoje_count ? `<span style="flex-shrink:0;color:${cor};font-weight:700">· 📅 ${hoje_count}</span>` : ''}
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           ${ativas.length ? `<div style="font-size:18px;font-weight:800;color:${cor}">${ativas.length}</div><div style="font-size:10px;color:var(--mut)">ativas</div>` : `<div style="font-size:11px;color:var(--mut2)">sem ordens</div>`}
+          ${portalPendentes ? `<div style="font-size:10px;color:var(--acc);font-weight:700;margin-top:2px">⏳ ${portalPendentes} p/ decidir</div>` : ''}
+          ${recusasCount ? `<div style="font-size:10px;color:var(--r);font-weight:700;margin-top:1px">✖ ${recusasCount} recusada${recusasCount>1?'s':''}</div>` : ''}
         </div>
       </div>
 
       <!-- Ações em pílula, sem divisórias -->
       <div style="display:flex;gap:8px;padding:0 14px 14px">
         <button onclick="abrirAgendaForn('${f.id}')" style="${pill} background:${cor}14;border-color:${cor}44;color:${cor}">📲 Agenda</button>
+        ${f.portal_ativo ? `<button onclick="window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" style="width:40px;flex-shrink:0;border-radius:12px;border:1px solid var(--acc3);background:var(--acc2);color:var(--acc);font-size:16px;cursor:pointer" title="Ver como o fornecedor vê">👁️</button>` : ''}
         ${pendForn.length ? `
         <button onclick="fcToggleCard('${f.id}')" style="${pill} flex:1.4;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:#4ade80">💰 R$ ${fmt(totalPend)} ${fcSt.collapsed?'▾':'▴'}</button>
         ` : (ativas.length ? `<div style="flex:1.4;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mut)">🕓 pago, falta o cliente</div>` : '')}
