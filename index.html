@@ -12159,7 +12159,9 @@ function renderForns(){
     return true;
   });
   if(!fornsFiltrados.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum fornecedor encontrado</div>';return;}
-  el.innerHTML=fornsFiltrados.map((f,i)=>{
+  const comPortal=forns.filter(f=>f.portal_ativo).length;
+  const resumoPortal=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:var(--acc2);border:1px solid var(--acc3);border-radius:var(--rad3);font-size:12px;color:var(--acc);font-weight:700">📲 ${comPortal}/${forns.length} fornecedores usando o Portal do Fornecedor</div>`;
+  el.innerHTML=resumoPortal+fornsFiltrados.map((f,i)=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     const cores=['#f5a623','#22c55e','#6366f1','#ef4444','#06b6d4','#a78bfa','#f472b6'];
     const cor=f.color||cores[i%cores.length];
@@ -12196,9 +12198,10 @@ function renderForns(){
         <div class="sup-av" style="background:${cor}22;color:${cor}">${ini}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:13px">${f.nome}</div>
-          <div style="font-size:11px;color:var(--mut2)">${f.tel?'📞 '+f.tel+' · ':''} ${regioes.length} bairro(s) · ${ords.length} ordem(ns) ativa(s)</div>
+          <div style="font-size:11px;color:var(--mut2)">${f.tel?'📞 '+f.tel+' · ':''} ${regioes.length} bairro(s) · ${ords.length} ordem(ns) ativa(s)${f.portal_ativo?' · <span style="color:var(--acc);font-weight:700">📲 Portal'+(f.portal_onesignal_id?' 🔔':'')+'</span>':''}${(()=>{const pp=ordens.filter(c=>c.forn_id===f.id&&c.forn_status==='pendente').length;return pp?' · <span style="color:var(--acc);font-weight:700">⏳ '+pp+' p/ decidir</span>':'';})()}</div>
         </div>
         <div style="display:flex;gap:6px">
+          ${f.portal_ativo?`<button class="btn btn-xs" style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3)" onclick="event.stopPropagation();window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" title="Ver como o fornecedor vê">👁️</button>`:''}
           <button class="btn btn-xs" style="background:var(--g);color:#fff" onclick="event.stopPropagation();abrirLotePrecosCli('${f.id}')" title="Editar preços em lote">💰 Lote</button>
           <button class="btn btn-xs btn-wa" onclick="event.stopPropagation();agendaFornecedor('${f.id}')" title="Agenda do fornecedor">📲 Agenda</button>
           <button class="btn btn-xs btn-b" onclick="event.stopPropagation();editarSup('${f.id}')">✏️</button>
