@@ -413,20 +413,25 @@ async function carregarRelatorios(){
     const statsRes = await api('rpc/portal_stats', 'POST', { p_token: TOKEN });
     const stats = Array.isArray(statsRes) ? statsRes[0] : statsRes;
     c.innerHTML = `
-      <div class="section-title">Relatórios</div>
-      <div class="card" onclick="abrirRelatorio('resumo')">
-        <div class="id" style="font-size:14px">📊 Resumo do mês</div>
-        <div class="addr">Entregas, recebido e pendências deste mês</div>
+      <div class="dash-header"><b>Relatórios</b><span>Acompanhe seus números</span></div>
+      <div class="dash-grid">
+        <div class="dash-tile" onclick="abrirRelatorio('resumo')">
+          <div class="dt-ic">📊</div>
+          <div class="dt-label">Resumo do mês</div>
+          <div class="dt-sub">entregas e valores</div>
+        </div>
+        <div class="dash-tile" onclick="abrirRelatorio('extrato')">
+          <div class="dt-ic">🧾</div>
+          <div class="dt-label">Extrato</div>
+          <div class="dt-sub">pagamentos e comprovantes</div>
+        </div>
+        <div class="dash-tile" onclick="abrirRelatorio('desempenho')">
+          <div class="dt-ic">📈</div>
+          <div class="dt-label">Desempenho</div>
+          <div class="dt-sub">aceites e recusas</div>
+        </div>
       </div>
-      <div class="card" onclick="abrirRelatorio('extrato')">
-        <div class="id" style="font-size:14px">🧾 Extrato de pagamentos</div>
-        <div class="addr">Histórico completo com comprovantes</div>
-      </div>
-      <div class="card" onclick="abrirRelatorio('desempenho')">
-        <div class="id" style="font-size:14px">📈 Meu desempenho</div>
-        <div class="addr">Aceites, recusas e histórico</div>
-      </div>
-      <div id="relatorioConteudo"></div>
+      <div id="relatorioConteudo" style="margin-top:16px"></div>
     `;
     window._STATS = stats;
   }catch(e){ c.innerHTML = `<div class="empty">Erro ao carregar relatórios: ${e.message}</div>`; }
