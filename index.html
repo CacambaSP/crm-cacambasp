@@ -4637,7 +4637,7 @@ async function _finalizarAtribuicaoFornecedorCard(c, f, m, deveAdicionarBairro){
   autoColFornNomeado(c);
   if(precoForn > 0 && !(parseFloat(c.cst) > 0)){ c.cst = precoForn; patch.cst = precoForn; }
   patch.col = c.col;
-  if(f.portal_ativo) patch.forn_status = 'pendente';
+  if(f.portal_ativo){ patch.forn_status = 'pendente'; _pushPortalForn(f.id, c.crm_id, c.bairro); }
   renderBoard();
   try{
     setSyncDot('sync');
@@ -4948,7 +4948,7 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   c.forn_id = fornId;
   autoColFornNomeado(c);
   patch.col = c.col;
-  if(f.portal_ativo) patch.forn_status = 'pendente';
+  if(f.portal_ativo){ patch.forn_status = 'pendente'; _pushPortalForn(f.id, c.crm_id, c.bairro); }
   document.getElementById('d_forn').textContent = f.nome;
   const remFornBtn = document.getElementById('detailRemFornBtn');
   if(remFornBtn) remFornBtn.style.display = (c.forn_id&&!c.forn_pago)?'inline-flex':'none';
@@ -13484,6 +13484,17 @@ async function confirmarConverterOrc(id){
       });
     }catch(e){ console.warn('Push falhou:',e); }
   }catch(e){ setSyncDot('err'); toast('Erro ao converter','err'); }
+}
+
+// ── Push pro Portal do Fornecedor (LC pendente de decisão) ──
+function _pushPortalForn(forn_id, crm_id, bairro){
+  try{
+    fetch('https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/notificar-forn-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU'},
+      body:JSON.stringify({forn_id, tipo:'nova_lc', crm_id:crm_id||'', endereco:bairro||''})
+    });
+  }catch(e){ console.warn('Push portal forn falhou:',e); }
 }
 
 // ── Arquivar orçamento ──
