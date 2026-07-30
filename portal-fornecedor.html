@@ -689,6 +689,12 @@ async function toggleGravacao(){
 }
 
 boot();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw-fornecedor.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
