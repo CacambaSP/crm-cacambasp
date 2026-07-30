@@ -6474,7 +6474,7 @@ async function _confirmarRetiradaSimples(o, f){
   const dias = _diasNoLocal(o);
   const ok = await showConfirm({ico:'🚚', title:'Solicitar retirada', body:`Vai enviar pro ${f.nome} pedindo a retirada da LC ${o.crm_id} (${dias} dia${dias!==1?'s':''} no local).`, ok:'Enviar', okClass:'acc'});
   if(!ok) return;
-  const msg = `🚚 *Solicito retirada*\n\nLC ${o.crm_id}${o.cacamba_num?' — Caçamba nº '+o.cacamba_num:''}\n📍 ${o.logradouro||''} — ${o.bairro||''}\n⏱️ No local há ${dias} dia${dias!==1?'s':''}\n\nPor favor, agende a retirada. Obrigado!\n_CaçambaSP_`;
+  const msg = `⚠️⚠️*Retirar*⚠️⚠️\n\n📍 ${o.logradouro||''} — ${o.bairro||''}\n⏱️ No local há ${dias} dia${dias!==1?'s':''}\n\nLC ${o.crm_id}\n🔢 ${o.cacamba_num ? 'Caçamba nº '+o.cacamba_num : 'Sem número cadastrado'}`;
   _waFornAbrir(f, msg);
 }
 
@@ -6514,20 +6514,14 @@ function _enviarRetiradaSelecionada(fornId){
   const todasDoGrupo = grpId ? _ordens.filter(o=>o.grp_id===grpId && !o.cancel_motivo && o.col!=='concluido') : selecionadas;
   const naoSelecionadas = todasDoGrupo.filter(o=>!idsSel.includes(o.id));
 
-  let msg = `🚚 *Solicito retirada*\n\n`;
-  if(selecionadas.length>1){
-    msg += `São ${selecionadas.length} caçambas nesse endereço, retirar:\n`;
-    selecionadas.forEach(o=>{ msg += `• ${o.crm_id}${o.cacamba_num?' — Caçamba nº '+o.cacamba_num:' (nº não informado)'}\n`; });
-  } else {
-    const o = selecionadas[0];
-    msg += `LC ${o.crm_id}${o.cacamba_num?' — Caçamba nº '+o.cacamba_num:''}\n`;
-  }
-  msg += `📍 ${selecionadas[0].logradouro||''} — ${selecionadas[0].bairro||''}\n⏱️ No local há ${_diasNoLocal(selecionadas[0])} dia(s)\n`;
+  let msg = `⚠️⚠️*Retirar*⚠️⚠️\n\n📍 ${selecionadas[0].logradouro||''} — ${selecionadas[0].bairro||''}\n⏱️ No local há ${_diasNoLocal(selecionadas[0])} dia(s)\n\n`;
+  selecionadas.forEach(o=>{
+    msg += `LC ${o.crm_id}\n🔢 ${o.cacamba_num ? 'Caçamba nº '+o.cacamba_num : 'Sem número cadastrado'}\n\n`;
+  });
   if(naoSelecionadas.length){
-    msg += `\n⚠️ *Atenção:* fica${naoSelecionadas.length>1?'m':''} no local por enquanto:\n`;
-    naoSelecionadas.forEach(o=>{ msg += `• ${o.crm_id}${o.cacamba_num?' — Caçamba nº '+o.cacamba_num:' (nº não informado)'}\n`; });
+    msg += `⚠️ Fica${naoSelecionadas.length>1?'m':''} no local por enquanto:\n`;
+    naoSelecionadas.forEach(o=>{ msg += `LC ${o.crm_id}\n`; });
   }
-  msg += `\nPor favor, agende a retirada. Obrigado!\n_CaçambaSP_`;
 
   document.getElementById('modalRetiradaSel')?.remove();
   _waFornAbrir(f, msg);
