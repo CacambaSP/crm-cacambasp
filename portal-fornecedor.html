@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
 <meta name="theme-color" content="#05070f">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CaçambaSP">
 <title>Portal do Fornecedor — CaçambaSP</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -158,6 +165,38 @@ let ACTIVE_LC = null;
 let FU_TIPO = 'chegada_ok';
 
 let TOKEN = null;
+let _installEvent = null;
+let _jaInstalado = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  _installEvent = e;
+  _mostrarBannerInstalar();
+});
+
+function _isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+
+function _mostrarBannerInstalar(){
+  if(_jaInstalado || document.getElementById('bannerInstalar')) return;
+  const b = document.createElement('div');
+  b.id = 'bannerInstalar';
+  b.style.cssText = 'position:sticky;top:0;z-index:20;background:var(--acc);color:#1a1200;padding:10px 16px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  if(_isIOS()){
+    b.innerHTML = `<span>📲 Toque em <b>Compartilhar</b> e depois em <b>"Adicionar à Tela de Início"</b> pra ter o app aqui</span><span onclick="this.parentNode.remove()" style="cursor:pointer;font-size:16px">✕</span>`;
+  } else {
+    b.innerHTML = `<span>📲 Instale o app na tela inicial do seu celular</span><span style="display:flex;gap:10px;align-items:center"><button onclick="_instalarApp()" style="background:#1a1200;color:var(--acc);border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer">Instalar</button><span onclick="this.parentNode.parentNode.remove()" style="cursor:pointer;font-size:16px">✕</span></span>`;
+  }
+  document.body.insertBefore(b, document.body.firstChild);
+}
+
+async function _instalarApp(){
+  if(!_installEvent) return;
+  _installEvent.prompt();
+  await _installEvent.userChoice;
+  _installEvent = null;
+  const banner = document.getElementById('bannerInstalar');
+  if(banner) banner.remove();
+}
 
 async function boot(){
   const params = new URLSearchParams(location.search);
@@ -182,6 +221,7 @@ async function boot(){
     }
     await loadOrdens();
     render();
+    if(_isIOS() && !_jaInstalado) setTimeout(_mostrarBannerInstalar, 800);
   }catch(e){
     app.innerHTML = gateHTML('⚠️','Erro ao carregar','Tente novamente em instantes. '+e.message);
   }
