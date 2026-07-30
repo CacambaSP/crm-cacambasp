@@ -1023,6 +1023,9 @@ input,select,textarea,button{font-family:var(--font)}
         <input type="text" id="efb_wa" placeholder="(11) 99999-9999 ou link wa.me/..." style="font-family:var(--mono);font-size:13px">
       </div>
       <div style="font-size:11px;color:var(--mut2);margin-bottom:14px;padding:8px 12px;background:var(--card);border-radius:var(--rad3)">Pode ser um número, ou um link completo wa.me/...</div>
+
+      <div id="efb_portal_section" style="margin-bottom:16px"></div>
+
       <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Bairros / Regiões</div>
       <div id="efb_regioes_lista" style="margin-bottom:10px"></div>
       <div style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:12px;margin-bottom:12px">
@@ -1752,7 +1755,72 @@ function abrirEditFornBairro(fid) {
   document.getElementById('efb_new_turno').value='';
   document.getElementById('efb_new_preco').value='';
   efbRenderRegioes();
+  efbRenderPortal(f);
   openModal('editFornBairroModal');
+}
+
+function efbRenderPortal(f){
+  const el = document.getElementById('efb_portal_section');
+  if(!el) return;
+  const link = `https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  if(f.portal_ativo){
+    el.innerHTML = `
+      <div style="background:var(--wa,rgba(37,211,102,.12));border:1px solid var(--wa-b,rgba(37,211,102,.3));border-radius:var(--rad3);padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--wa-c,#25d366);margin-bottom:8px">📲 PORTAL DO FORNECEDOR — ATIVO</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input type="text" readonly value="${link}" style="flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--txt);font-family:var(--mono)">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="efbCopiarLinkPortal('${f.id}')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--bor);background:var(--card);color:var(--txt);font-size:12px;font-weight:700;cursor:pointer">📋 Copiar link</button>
+          <button onclick="efbEnviarLinkPortalWA('${f.id}')" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--wa-c,#25d366);color:#04210f;font-size:12px;font-weight:800;cursor:pointer">💬 Enviar WhatsApp</button>
+        </div>
+        <div style="text-align:right;margin-top:8px">
+          <span onclick="efbDesativarPortal('${f.id}')" style="font-size:11px;color:var(--mut);text-decoration:underline;cursor:pointer">Desativar portal desse fornecedor</span>
+        </div>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div style="background:var(--card);border:1px dashed var(--bor2);border-radius:var(--rad3);padding:12px;text-align:center">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:10px">Esse fornecedor ainda não faz parte do Portal do Fornecedor</div>
+        <button onclick="efbAtivarPortal('${f.id}')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--acc);color:#1a1200;font-size:13px;font-weight:800;cursor:pointer">🚀 Ativar portal e gerar link</button>
+      </div>
+    `;
+  }
+}
+
+async function efbAtivarPortal(fid){
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  try{
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true},tok());
+    f.portal_ativo = true;
+    efbRenderPortal(f);
+    toast('✅ Portal ativado!','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function efbDesativarPortal(fid){
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  if(!confirm('Desativar o portal desse fornecedor? O link atual dele deixa de funcionar.')) return;
+  try{
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:false},tok());
+    f.portal_ativo = false;
+    efbRenderPortal(f);
+    toast('Portal desativado','ok');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function efbCopiarLinkPortal(fid){
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  const link = `https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  navigator.clipboard.writeText(link).then(()=>toast('✅ Link copiado!','ok')).catch(()=>toast('Não consegui copiar','err'));
+}
+
+function efbEnviarLinkPortalWA(fid){
+  const f = _forns.find(x=>x.id===fid); if(!f) return;
+  const link = `https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}`;
+  const msg = `Olá ${f.nome}! 👋\n\nA CaçambaSP tem um novo portal pra você acompanhar suas LCs, aceitar entregas e ver seus pagamentos direto pelo celular:\n\n${link}\n\nÉ só abrir o link e, se quiser, adicionar como app na tela inicial. Qualquer dúvida me chama!`;
+  _waFornAbrir(f, msg);
 }
 
 function efbRenderRegioes() {
