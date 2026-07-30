@@ -433,6 +433,10 @@ async function renderFollowup(o){
       <div class="cap-btn" id="btnAudio" onclick="toggleGravacao()"><span class="ic" id="audioIcon">🎙️</span><span id="audioLabel">Áudio</span></div>
     </div>
     <input type="file" id="fu-foto-input" accept="image/*" capture="environment" style="display:none" onchange="onFotoSelecionada(event)">
+    ${FU_TIPO==='chegada_ok' ? `
+    <div class="field-label">Número da caçamba entregue *</div>
+    <input type="text" id="fu-cacamba" placeholder="Ex: 042" style="width:100%;background:var(--sur);border:1px solid var(--bor2);color:var(--txt);padding:12px 14px;border-radius:var(--rad3);font-size:14px;">
+    ` : ''}
     <div class="field-label">Descreva (opcional)</div>
     <textarea id="fu-texto" placeholder="Ex: entreguei no portão azul, cliente recebeu"></textarea>
   `;
@@ -447,10 +451,17 @@ function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠
 
 async function confirmarFollowup(id){
   const texto = document.getElementById('fu-texto').value;
+  const cacambaEl = document.getElementById('fu-cacamba');
+  const cacambaNum = cacambaEl ? cacambaEl.value.trim() : '';
+  if(FU_TIPO==='chegada_ok' && !cacambaNum){
+    toast('Informe o número da caçamba entregue');
+    if(cacambaEl) cacambaEl.focus();
+    return;
+  }
   try{
-    const res = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto, p_midia_url: MIDIA_PATH, p_midia_tipo: MIDIA_TIPO });
+    const res = await api('rpc/portal_registrar_followup', 'POST', { p_token: TOKEN, p_ordem_id: id, p_tipo: FU_TIPO, p_texto: texto, p_midia_url: MIDIA_PATH, p_midia_tipo: MIDIA_TIPO, p_cacamba_num: cacambaNum || null });
     const r = Array.isArray(res) ? res[0] : res;
-    if(!r || !r.ok){ toast('Não foi possível registrar'); return; }
+    if(!r || !r.ok){ toast(r&&r.erro==='numero da cacamba obrigatorio' ? 'Informe o número da caçamba' : 'Não foi possível registrar'); return; }
     await loadOrdens();
     if(FU_TIPO==='chegada_ok' && r.link_codigo){
       const link = 'https://cacambasp-crm.vercel.app/followup-viewer.html?c=' + r.link_codigo;
