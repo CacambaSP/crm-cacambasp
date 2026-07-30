@@ -12201,7 +12201,7 @@ function renderForns(){
           <div style="font-size:11px;color:var(--mut2)">${f.tel?'📞 '+f.tel+' · ':''} ${regioes.length} bairro(s) · ${ords.length} ordem(ns) ativa(s)${f.portal_ativo?' · <span style="color:var(--acc);font-weight:700">📲 Portal'+(f.portal_onesignal_id?' 🔔':'')+'</span>':''}${(()=>{const pp=ordens.filter(c=>c.forn_id===f.id&&c.forn_status==='pendente').length;return pp?' · <span style="color:var(--acc);font-weight:700">⏳ '+pp+' p/ decidir</span>':'';})()}</div>
         </div>
         <div style="display:flex;gap:6px">
-          ${f.portal_ativo?`<button class="btn btn-xs" style="background:var(--acc2);color:var(--acc);border:1px solid var(--acc3)" onclick="event.stopPropagation();window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" title="Ver como o fornecedor vê">👁️</button>`:''}
+          ${f.portal_ativo?`<button class="btn btn-xs" style="background:rgba(64,144,255,.12);color:#4090ff;border:1px solid rgba(64,144,255,.4)" onclick="event.stopPropagation();window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" title="Ver como o fornecedor vê">👁️ Portal</button>`:''}
           <button class="btn btn-xs" style="background:var(--g);color:#fff" onclick="event.stopPropagation();abrirLotePrecosCli('${f.id}')" title="Editar preços em lote">💰 Lote</button>
           <button class="btn btn-xs btn-wa" onclick="event.stopPropagation();agendaFornecedor('${f.id}')" title="Agenda do fornecedor">📲 Agenda</button>
           <button class="btn btn-xs btn-b" onclick="event.stopPropagation();editarSup('${f.id}')">✏️</button>
