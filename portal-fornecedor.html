@@ -485,6 +485,7 @@ function renderDecisao(o){
   const c = document.getElementById('content');
   c.innerHTML = `
     <div id="mapaLC"></div>
+    <div id="distanciaBase"></div>
     <div class="detail-box">
       <div class="info-row"><span>Endereço</span><span>${o.logradouro||''}, ${o.bairro||''}</span></div>
       <div class="info-row"><span>Tipo</span><span>${o.tipo||'—'}</span></div>
@@ -501,6 +502,7 @@ function renderDecisao(o){
     </select>
   `;
   mostrarMapaPino(o);
+  mostrarDistanciaBase(o);
   document.querySelector('.content').insertAdjacentHTML('beforeend', '');
   const btnRow = document.createElement('div');
   btnRow.className='btn-row';
@@ -642,6 +644,28 @@ async function geocodar(endereco){
 let _mapaAtual = null;
 function _limparMapa(){
   if(_mapaAtual){ _mapaAtual.remove(); _mapaAtual = null; }
+}
+
+async function mostrarDistanciaBase(o){
+  const el = document.getElementById('distanciaBase');
+  if(!el) return;
+  if(!FORN.endereco_base){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:12px">Calculando distância da sua base...</div>`;
+  try{
+    const posBase = await geocodar(FORN.endereco_base);
+    const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
+    const posEntrega = await geocodar(endereco);
+    if(!posBase || !posEntrega){ el.innerHTML = ''; return; }
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
+    const data = await r.json();
+    if(data.routes && data.routes[0]){
+      const km = (data.routes[0].distance/1000).toFixed(1);
+      const min = Math.round(data.routes[0].duration/60);
+      el.innerHTML = `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km} km da sua base · ~${min} min</div>`;
+    } else {
+      el.innerHTML = '';
+    }
+  }catch(e){ el.innerHTML = ''; }
 }
 
 async function mostrarMapaPino(o){
