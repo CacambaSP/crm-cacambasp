@@ -626,18 +626,29 @@ async function verComprovante(ordemId){
 
 // ── MAPA (gratuito: OpenStreetMap + Nominatim + OSRM) ──
 const _geoCache = {};
-async function geocodar(endereco){
-  if(_geoCache[endereco]) return _geoCache[endereco];
-  try{
-    const q = encodeURIComponent(endereco + ', São Paulo, Brasil');
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`);
-    const data = await r.json();
-    if(data && data[0]){
-      const p = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      _geoCache[endereco] = p;
-      return p;
-    }
-  }catch(e){}
+let _geoFila = Promise.resolve();
+function geocodar(endereco){
+  if(_geoCache[endereco] !== undefined) return Promise.resolve(_geoCache[endereco]);
+  _geoFila = _geoFila.then(async ()=>{
+    const resultado = await _geocodarUmaVez(endereco);
+    _geoCache[endereco] = resultado;
+    await new Promise(r=>setTimeout(r, 1100)); // Nominatim: max 1 pedido/segundo
+    return resultado;
+  });
+  return _geoFila;
+}
+async function _geocodarUmaVez(endereco){
+  const tentativas = [endereco + ', São Paulo, Brasil', endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil'];
+  for(const tentativa of tentativas){
+    try{
+      const q = encodeURIComponent(tentativa);
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${q}`);
+      const data = await r.json();
+      if(data && data[0]){
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    }catch(e){}
+  }
   return null;
 }
 
