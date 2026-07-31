@@ -636,18 +636,23 @@ function linkGPS(o){
 }
 const _geoCache = {};
 let _geoFila = Promise.resolve();
-function geocodar(endereco){
-  if(_geoCache[endereco] !== undefined) return Promise.resolve(_geoCache[endereco]);
+function geocodar(endereco, cep){
+  const chave = endereco + '|' + (cep||'');
+  if(_geoCache[chave] !== undefined) return Promise.resolve(_geoCache[chave]);
   _geoFila = _geoFila.then(async ()=>{
-    const resultado = await _geocodarUmaVez(endereco);
-    _geoCache[endereco] = resultado;
+    const resultado = await _geocodarUmaVez(endereco, cep);
+    _geoCache[chave] = resultado;
     await new Promise(r=>setTimeout(r, 1100)); // Nominatim: max 1 pedido/segundo
     return resultado;
   });
   return _geoFila;
 }
-async function _geocodarUmaVez(endereco){
-  const tentativas = [endereco + ', São Paulo, Brasil', endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil'];
+async function _geocodarUmaVez(endereco, cep){
+  const tentativas = [
+    endereco + ', São Paulo, Brasil',
+    endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil'
+  ];
+  if(cep) tentativas.push(cep + ', Brasil');
   for(const tentativa of tentativas){
     try{
       const q = encodeURIComponent(tentativa);
@@ -674,7 +679,7 @@ async function mostrarDistanciaBase(o){
   try{
     const posBase = await geocodar(FORN.endereco_base);
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-    const posEntrega = await geocodar(endereco);
+    const posEntrega = await geocodar(endereco, o.cep);
     if(!posBase || !posEntrega){ el.innerHTML = ''; return; }
     const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
     const data = await r.json();
@@ -693,7 +698,7 @@ async function mostrarMapaPino(o){
   if(!el || typeof L==='undefined') return;
   _limparMapa();
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-  const pos = await geocodar(endereco);
+  const pos = await geocodar(endereco, o.cep);
   if(!pos){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar esse endereço no mapa.</div>'; return; }
   _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false}).setView([pos.lat, pos.lng], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
@@ -707,7 +712,7 @@ async function mostrarMapaMultiplo(lista){
   const pontos = [];
   for(const o of lista){
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-    const pos = await geocodar(endereco);
+    const pos = await geocodar(endereco, o.cep);
     if(pos) pontos.push({...pos, crm_id:o.crm_id});
   }
   if(!pontos.length){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar os endereços.</div>'; return; }
