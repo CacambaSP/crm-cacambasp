@@ -711,16 +711,36 @@ async function mostrarDistanciaBase(o){
   if(!FORN.endereco_base){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:12px">Calculando distância da sua base...</div>`;
   try{
-    const posBase = await geocodar(FORN.endereco_base);
+    let aproximado = false;
+
+    let posBase = await geocodar(FORN.endereco_base);
+    if(!posBase){
+      // tenta so a cidade da base como ultimo recurso (bem impreciso, mas melhor que nada)
+      const partesBase = FORN.endereco_base.split(',');
+      if(partesBase.length>1){
+        posBase = await geocodar(partesBase.slice(-2).join(','));
+        if(posBase) aproximado = true;
+      }
+    }
+
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-    const posEntrega = await geocodar(endereco, o.cep);
+    let posEntrega = await geocodar(endereco, o.cep);
+    if(!posEntrega && (o.bairro || o.cidade)){
+      // nao achou a rua exata - tenta so bairro+cidade (quase sempre existe na base)
+      const enderecoBairro = [o.bairro, o.cidade].filter(Boolean).join(', ');
+      posEntrega = await geocodar(enderecoBairro);
+      if(posEntrega) aproximado = true;
+    }
+
     if(!posBase || !posEntrega){ el.innerHTML = ''; return; }
     const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
     const data = await r.json();
     if(data.routes && data.routes[0]){
       const km = (data.routes[0].distance/1000).toFixed(1);
       const min = Math.round(data.routes[0].duration/60);
-      el.innerHTML = `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km} km da sua base · ~${min} min</div>`;
+      el.innerHTML = aproximado
+        ? `<div class="pill acc" style="display:inline-flex;margin-bottom:12px">📍 ~${km} km da sua base (aproximado, pelo bairro)</div>`
+        : `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km} km da sua base · ~${min} min</div>`;
     } else {
       el.innerHTML = '';
     }
