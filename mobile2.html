@@ -3709,7 +3709,7 @@ function cardHTML(o, tipo='neutral') {
   else if(d>=5) chips.push(`<span class="chip r">${d}d</span>`);
   else if(d>=3) chips.push(`<span class="chip acc">${d}d</span>`);
   if(o.forn_pago) chips.push(`<span class="chip g">F.Pago</span>`);
-  else if(o.entrega_confirmada && o.forn_id) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;border-color:rgba(0,255,160,.5);font-weight:800">📦 Forn. confirmou</span>`);
+  else if(o.forn_followup_confirmado && o.forn_id) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;border-color:rgba(0,255,160,.5);font-weight:800">📦 Forn. confirmou</span>`);
   if(forn) chips.push(`<span class="chip b">${forn.nome.split(' ')[0]}</span>`);
   if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
   if(o.crm_id) chips.push(`<span class="chip" style="font-size:11px;font-family:var(--mono);color:var(--txt);border-color:var(--bor2)">${o.crm_id}</span>`);
@@ -6008,7 +6008,7 @@ function renderDetalhe(id) {
     ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
     ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
     ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
-    ${o.entrega_confirmada&&!o.forn_pago?`<button class="ac-btn" style="background:linear-gradient(180deg,#4dffc0,#00ffa0);color:#04210f;font-weight:700;justify-content:center;margin-bottom:6px;font-size:12px;padding:8px 12px;min-height:auto" onclick="abrirConfirmacaoForn('${o.id}')">📦 Forn. confirmou — Cobrar</button>`:''}
+    ${o.forn_followup_confirmado&&!o.forn_pago?`<button class="ac-btn" style="background:linear-gradient(180deg,#4dffc0,#00ffa0);color:#04210f;font-weight:700;justify-content:center;margin-bottom:6px;font-size:12px;padding:8px 12px;min-height:auto" onclick="abrirConfirmacaoForn('${o.id}')">📦 Forn. confirmou — Cobrar</button>`:''}
     ${o.forn_id&&!o.entrega_confirmada?`<button class="ac-btn ac-btn-ghost" onclick="abrirConfirmacaoForn('${o.id}')">👁️ Ver registro do fornecedor</button>`:''}
     ${o.forn_id?`<button class="ac-btn ac-btn-g" onclick="solicitarRetirada('${o.id}')">🚚 Solicitar Retirada</button>`:''}
   </div>`:''}
