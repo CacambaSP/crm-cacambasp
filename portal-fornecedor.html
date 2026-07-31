@@ -647,56 +647,67 @@ function geocodar(endereco, cep){
   });
   return _geoFila;
 }
+
+async function _buscarInfoCep(cepLimpo){
+  try{
+    const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`);
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+async function _nominatimTexto(q){
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    if(data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  }catch(e){}
+  return null;
+}
+
 async function _geocodarUmaVez(endereco, cep){
-  // tentativa 1: BrasilAPI pelo CEP - servico dedicado a CEP brasileiro, mais confiavel
-  // e sem risco de limite de uso compartilhado que o Nominatim tem
-  if(cep){
-    const cepLimpo = cep.replace(/\D/g,'');
-    if(cepLimpo.length===8){
-      try{
-        const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`);
-        if(r.ok){
-          const data = await r.json();
-          if(data && data.location && data.location.coordinates &&
-             data.location.coordinates.latitude && data.location.coordinates.longitude){
-            return {
-              lat: parseFloat(data.location.coordinates.latitude),
-              lng: parseFloat(data.location.coordinates.longitude)
-            };
-          }
-        }
-      }catch(e){}
-    }
+  const cepLimpo = cep ? cep.replace(/\D/g,'') : '';
+  let infoCep = null;
+  if(cepLimpo.length===8) infoCep = await _buscarInfoCep(cepLimpo);
+
+  // 1) coordenada direta do BrasilAPI - mais preciso, direto do CEP
+  if(infoCep?.location?.coordinates?.latitude && infoCep?.location?.coordinates?.longitude){
+    return { lat: parseFloat(infoCep.location.coordinates.latitude), lng: parseFloat(infoCep.location.coordinates.longitude), aproximado:false };
   }
-  // tentativa 2 e 3: endereco por extenso no Nominatim (reserva)
-  const tentativasTexto = [
-    endereco + ', São Paulo, Brasil',
-    endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil'
-  ];
-  for(const tentativa of tentativasTexto){
+
+  // 2) endereco como veio no pedido (texto livre)
+  let pos = await _nominatimTexto(endereco + ', São Paulo, Brasil');
+  if(pos) return { ...pos, aproximado:false };
+  await new Promise(r=>setTimeout(r,1100));
+
+  pos = await _nominatimTexto(endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil');
+  if(pos) return { ...pos, aproximado:false };
+  await new Promise(r=>setTimeout(r,1100));
+
+  // 3) rua+bairro OFICIAIS do CEP (nome certo, ex: "Jardim Santa Emília" em vez de só "Santa Emília" como as vezes vem no cadastro)
+  if(infoCep && (infoCep.street || infoCep.neighborhood)){
+    const enderecoOficial = [infoCep.street, infoCep.neighborhood, infoCep.city, infoCep.state].filter(Boolean).join(', ');
+    pos = await _nominatimTexto(enderecoOficial + ', Brasil');
+    if(pos) return { ...pos, aproximado: !infoCep.street };
+    await new Promise(r=>setTimeout(r,1100));
+  }
+
+  // 4) so o bairro oficial do CEP + cidade (aproximado, mas confiavel - nome vem direto dos Correios)
+  if(infoCep?.neighborhood){
+    pos = await _nominatimTexto([infoCep.neighborhood, infoCep.city, infoCep.state].filter(Boolean).join(', ') + ', Brasil');
+    if(pos) return { ...pos, aproximado:true };
+    await new Promise(r=>setTimeout(r,1100));
+  }
+
+  // 5) CEP estruturado no Nominatim (ultimo recurso)
+  if(cepLimpo.length===8){
     try{
-      const q = encodeURIComponent(tentativa);
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${q}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&postalcode=${cepLimpo}&country=Brazil`);
       const data = await r.json();
-      if(data && data[0]){
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      }
+      if(data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), aproximado:true };
     }catch(e){}
-    await new Promise(res=>setTimeout(res, 1100));
   }
-  // tentativa 4: CEP estruturado no Nominatim
-  if(cep){
-    const cepLimpo = cep.replace(/\D/g,'');
-    if(cepLimpo.length===8){
-      try{
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&postalcode=${cepLimpo}&country=Brazil`);
-        const data = await r.json();
-        if(data && data[0]){
-          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        }
-      }catch(e){}
-    }
-  }
+
   return null;
 }
 
@@ -711,26 +722,18 @@ async function mostrarDistanciaBase(o){
   if(!FORN.endereco_base){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:12px">Calculando distância da sua base...</div>`;
   try{
-    let aproximado = false;
-
     let posBase = await geocodar(FORN.endereco_base);
     if(!posBase){
       const partesBase = FORN.endereco_base.split(',');
-      if(partesBase.length>1){
-        posBase = await geocodar(partesBase.slice(-2).join(','));
-        if(posBase) aproximado = true;
-      }
+      if(partesBase.length>1) posBase = await geocodar(partesBase.slice(-2).join(','));
     }
 
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
-    let posEntrega = await geocodar(endereco, o.cep);
-    if(!posEntrega && o.bairro){
-      // nao achou a rua exata - tenta so o bairro (a funcao ja completa com ", São Paulo, Brasil" sozinha)
-      posEntrega = await geocodar(o.bairro);
-      if(posEntrega) aproximado = true;
-    }
+    const posEntrega = await geocodar(endereco, o.cep);
 
     if(!posBase || !posEntrega){ el.innerHTML = ''; return; }
+    const aproximado = !!(posBase.aproximado || posEntrega.aproximado);
+
     const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
     const data = await r.json();
     if(data.routes && data.routes[0]){
@@ -755,7 +758,7 @@ async function mostrarMapaPino(o){
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const pos = await geocodar(endereco, o.cep);
   if(!pos){ el.innerHTML = '<div class="empty" style="padding:20px;line-height:1.6">📍 Esse endereço não foi localizado no mapa embutido.<br><b style="color:var(--b)">Use o botão "🧭 Abrir no GPS" acima</b> pra chegar até lá.</div>'; return; }
-  _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false}).setView([pos.lat, pos.lng], 15);
+  _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false}).setView([pos.lat, pos.lng], pos.aproximado?14:15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
   L.marker([pos.lat, pos.lng]).addTo(_mapaAtual);
 }
