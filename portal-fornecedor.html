@@ -715,7 +715,6 @@ async function mostrarDistanciaBase(o){
 
     let posBase = await geocodar(FORN.endereco_base);
     if(!posBase){
-      // tenta so a cidade da base como ultimo recurso (bem impreciso, mas melhor que nada)
       const partesBase = FORN.endereco_base.split(',');
       if(partesBase.length>1){
         posBase = await geocodar(partesBase.slice(-2).join(','));
@@ -725,10 +724,9 @@ async function mostrarDistanciaBase(o){
 
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
     let posEntrega = await geocodar(endereco, o.cep);
-    if(!posEntrega && (o.bairro || o.cidade)){
-      // nao achou a rua exata - tenta so bairro+cidade (quase sempre existe na base)
-      const enderecoBairro = [o.bairro, o.cidade].filter(Boolean).join(', ');
-      posEntrega = await geocodar(enderecoBairro);
+    if(!posEntrega && o.bairro){
+      // nao achou a rua exata - tenta so o bairro (a funcao ja completa com ", São Paulo, Brasil" sozinha)
+      posEntrega = await geocodar(o.bairro);
       if(posEntrega) aproximado = true;
     }
 
@@ -736,11 +734,14 @@ async function mostrarDistanciaBase(o){
     const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
     const data = await r.json();
     if(data.routes && data.routes[0]){
-      const km = (data.routes[0].distance/1000).toFixed(1);
+      const km = data.routes[0].distance/1000;
+      // sanidade: entrega dentro da Grande SP nao deveria passar de ~100km.
+      // Se der mais que isso na estimativa aproximada, e mais provavel erro de busca do que distancia real - melhor nao mostrar
+      if(aproximado && km > 100){ el.innerHTML = ''; return; }
       const min = Math.round(data.routes[0].duration/60);
       el.innerHTML = aproximado
-        ? `<div class="pill acc" style="display:inline-flex;margin-bottom:12px">📍 ~${km} km da sua base (aproximado, pelo bairro)</div>`
-        : `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km} km da sua base · ~${min} min</div>`;
+        ? `<div class="pill acc" style="display:inline-flex;margin-bottom:12px">📍 ~${km.toFixed(1)} km da sua base (aproximado, pelo bairro)</div>`
+        : `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km.toFixed(1)} km da sua base · ~${min} min</div>`;
     } else {
       el.innerHTML = '';
     }
