@@ -2163,6 +2163,15 @@ function _diasNoLocal(c){
   return Math.max(0, Math.floor((Date.now()-d.getTime())/86400000));
 }
 
+// ── Abrir a confirmação do fornecedor direto do CRM (sem depender do WhatsApp) ──
+async function abrirConfirmacaoForn(id){
+  try{
+    const links = await api(`pagamentos_links?url_destino=eq.${id}&order=expira_em.desc&limit=1`, 'GET', null, tok());
+    if(!links || !links.length){ toast('Nenhuma confirmação encontrada pra essa LC','err'); return; }
+    window.open(`https://cacambasp-crm.vercel.app/followup-viewer.html?c=${links[0].codigo}`, '_blank');
+  }catch(e){ toast('Erro ao buscar confirmação: '+e.message,'err'); }
+}
+
 function solicitarRetirada(id){
   const c = ordens.find(x=>x.id===id); if(!c) return;
   const f = forns.find(x=>x.id===c.forn_id);
@@ -3233,6 +3242,7 @@ function cardHTML(c,color){
       ${c.col==='entrega'?`
       <div style="padding:7px 0 2px;border-top:1px solid var(--bor);margin-top:6px">
         ${precisaConfirmar&&!badgeExpirou?`<div style="font-size:10px;color:var(--acc);font-weight:700;margin-bottom:6px">Confirmar entrega?</div>`:''}
+        ${c.entrega_confirmada&&!c.forn_pago?`<button class="cb-green" style="width:100%;text-align:center;margin-bottom:6px;font-weight:800" onclick="event.stopPropagation();abrirConfirmacaoForn('${c.id}')">📦 Fornecedor já confirmou — Cobrar Cliente</button>`:''}
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${precisaConfirmar&&!badgeExpirou?`<button class="cb-green" onclick="event.stopPropagation();confirmarEntrega('${c.id}')">Confirmar</button>`:''}
           <button class="cb-neutral" onclick="event.stopPropagation();trocarFornecedor('${c.id}')">Trocar</button>
