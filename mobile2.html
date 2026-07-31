@@ -6005,6 +6005,7 @@ function renderDetalhe(id) {
     ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
     ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
     ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
+    ${o.entrega_confirmada&&!o.forn_pago?`<button class="ac-btn" style="background:linear-gradient(180deg,#4dffc0,#00ffa0);color:#04210f;font-weight:800;width:100%;justify-content:center;margin-bottom:6px" onclick="abrirConfirmacaoForn('${o.id}')">📦 Fornecedor já confirmou — Cobrar Cliente</button>`:''}
     ${o.forn_id?`<button class="ac-btn ac-btn-g" onclick="solicitarRetirada('${o.id}')">🚚 Solicitar Retirada</button>`:''}
   </div>`:''}
   </div>
@@ -6451,6 +6452,15 @@ function enviarWAForn(id) {
   if(!forn) { toast('Fornecedor não encontrado','warn'); return; }
   if(!forn.wa_link && !forn.tel) { toast('Fornecedor sem WhatsApp/telefone','warn'); return; }
   _abrirWAFornModal(o, forn, 'os');
+}
+
+// ── Abrir a confirmação do fornecedor direto do CRM (sem depender do WhatsApp) ──
+async function abrirConfirmacaoForn(id){
+  try{
+    const links = await api(`pagamentos_links?url_destino=eq.${id}&order=expira_em.desc&limit=1`, 'GET', null, tok());
+    if(!links || !links.length){ toast('Nenhuma confirmação encontrada pra essa LC','err'); return; }
+    window.open(`https://cacambasp-crm.vercel.app/followup-viewer.html?c=${links[0].codigo}`, '_blank');
+  }catch(e){ toast('Erro ao buscar confirmação: '+e.message,'err'); }
 }
 
 // ── Solicitar Retirada (com tratamento de gêmeas - mesmo endereço, mais de 1 caçamba) ──
