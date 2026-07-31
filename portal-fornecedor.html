@@ -733,7 +733,7 @@ async function mostrarMapaPino(o){
   _limparMapa();
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const pos = await geocodar(endereco, o.cep);
-  if(!pos){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar esse endereço no mapa.</div>'; return; }
+  if(!pos){ el.innerHTML = '<div class="empty" style="padding:20px;line-height:1.6">📍 Esse endereço não foi localizado no mapa embutido.<br><b style="color:var(--b)">Use o botão "🧭 Abrir no GPS" acima</b> pra chegar até lá.</div>'; return; }
   _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false}).setView([pos.lat, pos.lng], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
   L.marker([pos.lat, pos.lng]).addTo(_mapaAtual);
@@ -749,7 +749,7 @@ async function mostrarMapaMultiplo(lista){
     const pos = await geocodar(endereco, o.cep);
     if(pos) pontos.push({...pos, crm_id:o.crm_id});
   }
-  if(!pontos.length){ el.innerHTML = '<div class="empty" style="padding:20px">Não consegui localizar os endereços.</div>'; return; }
+  if(!pontos.length){ el.innerHTML = '<div class="empty" style="padding:20px;line-height:1.6">📍 Nenhum desses endereços foi localizado no mapa embutido.<br><b style="color:var(--b)">Use o botão "🧭 GPS" de cada LC abaixo</b> pra chegar até elas.</div>'; return; }
   _mapaAtual = L.map('mapaLC', {zoomControl:false, attributionControl:false});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(_mapaAtual);
   const bounds = [];
