@@ -3709,6 +3709,7 @@ function cardHTML(o, tipo='neutral') {
   else if(d>=5) chips.push(`<span class="chip r">${d}d</span>`);
   else if(d>=3) chips.push(`<span class="chip acc">${d}d</span>`);
   if(o.forn_pago) chips.push(`<span class="chip g">F.Pago</span>`);
+  else if(o.entrega_confirmada && o.forn_id) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;border-color:rgba(0,255,160,.5);font-weight:800">📦 Forn. confirmou</span>`);
   if(forn) chips.push(`<span class="chip b">${forn.nome.split(' ')[0]}</span>`);
   if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
   if(o.crm_id) chips.push(`<span class="chip" style="font-size:11px;font-family:var(--mono);color:var(--txt);border-color:var(--bor2)">${o.crm_id}</span>`);
