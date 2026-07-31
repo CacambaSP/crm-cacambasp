@@ -648,7 +648,27 @@ function geocodar(endereco, cep){
   return _geoFila;
 }
 async function _geocodarUmaVez(endereco, cep){
-  // tentativa 1 e 2: endereco por extenso (texto livre)
+  // tentativa 1: BrasilAPI pelo CEP - servico dedicado a CEP brasileiro, mais confiavel
+  // e sem risco de limite de uso compartilhado que o Nominatim tem
+  if(cep){
+    const cepLimpo = cep.replace(/\D/g,'');
+    if(cepLimpo.length===8){
+      try{
+        const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`);
+        if(r.ok){
+          const data = await r.json();
+          if(data && data.location && data.location.coordinates &&
+             data.location.coordinates.latitude && data.location.coordinates.longitude){
+            return {
+              lat: parseFloat(data.location.coordinates.latitude),
+              lng: parseFloat(data.location.coordinates.longitude)
+            };
+          }
+        }
+      }catch(e){}
+    }
+  }
+  // tentativa 2 e 3: endereco por extenso no Nominatim (reserva)
   const tentativasTexto = [
     endereco + ', São Paulo, Brasil',
     endereco.split(',').slice(0,2).join(',') + ', São Paulo, Brasil'
@@ -662,9 +682,9 @@ async function _geocodarUmaVez(endereco, cep){
         return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
       }
     }catch(e){}
-    await new Promise(res=>setTimeout(res, 1100)); // Nominatim: max 1 pedido/segundo, mesmo entre tentativas
+    await new Promise(res=>setTimeout(res, 1100));
   }
-  // tentativa 3: CEP como parametro estruturado (mais confiavel que texto livre pra ruas pequenas)
+  // tentativa 4: CEP estruturado no Nominatim
   if(cep){
     const cepLimpo = cep.replace(/\D/g,'');
     if(cepLimpo.length===8){
