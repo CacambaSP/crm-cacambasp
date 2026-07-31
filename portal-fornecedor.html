@@ -722,7 +722,11 @@ async function mostrarDistanciaBase(o){
   if(!FORN.endereco_base){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:12px">Calculando distância da sua base...</div>`;
   try{
-    let posBase = await geocodar(FORN.endereco_base);
+    // tenta achar um CEP dentro do texto do endereco-base, pra usar o mesmo mecanismo confiavel (BrasilAPI)
+    const cepMatchBase = FORN.endereco_base.match(/\d{5}-?\d{3}/);
+    const cepBase = cepMatchBase ? cepMatchBase[0] : null;
+
+    let posBase = await geocodar(FORN.endereco_base, cepBase);
     if(!posBase){
       const partesBase = FORN.endereco_base.split(',');
       if(partesBase.length>1) posBase = await geocodar(partesBase.slice(-2).join(','));
