@@ -6006,7 +6006,7 @@ function renderDetalhe(id) {
     ${_modoSimples?'':`<button class="ac-btn ac-btn-ghost" onclick="abrirRemarcar('${o.id}')">Remarcar</button>`}
     ${o.forn_id&&!o.forn_pago?`<button class="ac-btn" class="ac-btn-g" onclick="abrirPagarForn('${o.id}')">Pagar forn.</button>`:''}
     ${!_modoSimples&&o.forn_id&&!o.forn_pago?`<button class="ac-btn ac-btn-ghost" class="ac-btn-r" onclick="trocarFornecedor('${o.id}')">Remover fornecedor</button>`:''}
-    ${o.entrega_confirmada&&!o.forn_pago?`<button class="ac-btn" style="background:linear-gradient(180deg,#4dffc0,#00ffa0);color:#04210f;font-weight:800;width:100%;justify-content:center;margin-bottom:6px" onclick="abrirConfirmacaoForn('${o.id}')">📦 Fornecedor já confirmou — Cobrar Cliente</button>`:''}
+    ${o.entrega_confirmada&&!o.forn_pago?`<button class="ac-btn" style="background:linear-gradient(180deg,#4dffc0,#00ffa0);color:#04210f;font-weight:800;width:100%;justify-content:center;margin-bottom:6px;white-space:normal;line-height:1.3;text-align:center;padding:12px 10px;min-height:auto" onclick="abrirConfirmacaoForn('${o.id}')">📦 Forn. confirmou<br>Cobrar Cliente</button>`:''}
     ${o.forn_id?`<button class="ac-btn ac-btn-g" onclick="solicitarRetirada('${o.id}')">🚚 Solicitar Retirada</button>`:''}
   </div>`:''}
   </div>
