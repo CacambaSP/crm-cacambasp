@@ -722,7 +722,6 @@ async function mostrarDistanciaBase(o){
   if(!FORN.endereco_base){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:12px">Calculando distância da sua base...</div>`;
   try{
-    // tenta achar um CEP dentro do texto do endereco-base, pra usar o mesmo mecanismo confiavel (BrasilAPI)
     const cepMatchBase = FORN.endereco_base.match(/\d{5}-?\d{3}/);
     const cepBase = cepMatchBase ? cepMatchBase[0] : null;
 
@@ -731,28 +730,34 @@ async function mostrarDistanciaBase(o){
       const partesBase = FORN.endereco_base.split(',');
       if(partesBase.length>1) posBase = await geocodar(partesBase.slice(-2).join(','));
     }
+    if(!posBase){ el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--r)">⚠️ Não achei sua base no mapa (endereço-base)</div>`; return; }
 
     const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
     const posEntrega = await geocodar(endereco, o.cep);
+    if(!posEntrega){ el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--r)">⚠️ Não achei o endereço de entrega pro cálculo</div>`; return; }
 
-    if(!posBase || !posEntrega){ el.innerHTML = ''; return; }
     const aproximado = !!(posBase.aproximado || posEntrega.aproximado);
 
-    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
-    const data = await r.json();
+    let data;
+    try{
+      const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${posBase.lng},${posBase.lat};${posEntrega.lng},${posEntrega.lat}?overview=false`);
+      data = await r.json();
+    }catch(errRota){
+      el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--r)">⚠️ Erro ao traçar a rota (serviço fora do ar?)</div>`;
+      return;
+    }
+
     if(data.routes && data.routes[0]){
       const km = data.routes[0].distance/1000;
-      // sanidade: entrega dentro da Grande SP nao deveria passar de ~100km.
-      // Se der mais que isso na estimativa aproximada, e mais provavel erro de busca do que distancia real - melhor nao mostrar
-      if(aproximado && km > 100){ el.innerHTML = ''; return; }
+      if(aproximado && km > 100){ el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--mut)">📍 Distância aproximada deu muito alta (${km.toFixed(0)}km) — provavelmente erro de localização, ignorada</div>`; return; }
       const min = Math.round(data.routes[0].duration/60);
       el.innerHTML = aproximado
         ? `<div class="pill acc" style="display:inline-flex;margin-bottom:12px">📍 ~${km.toFixed(1)} km da sua base (aproximado, pelo bairro)</div>`
         : `<div class="pill b" style="display:inline-flex;margin-bottom:12px">📍 ${km.toFixed(1)} km da sua base · ~${min} min</div>`;
     } else {
-      el.innerHTML = '';
+      el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--r)">⚠️ Rota não encontrada entre os pontos (código: ${data.code||'?'})</div>`;
     }
-  }catch(e){ el.innerHTML = ''; }
+  }catch(e){ el.innerHTML = `<div class="empty" style="padding:8px 0;font-size:11px;color:var(--r)">⚠️ Erro: ${e.message}</div>`; }
 }
 
 async function mostrarMapaPino(o){
