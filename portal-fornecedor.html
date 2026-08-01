@@ -485,7 +485,7 @@ async function abrirRelatorio(tipo){
   }
 }
 
-function renderDecisao(o){
+async function renderDecisao(o){
   const c = document.getElementById('content');
   c.innerHTML = `
     <div id="mapaLC"></div>
@@ -506,7 +506,7 @@ function renderDecisao(o){
       <option value="Entrega somente amanhã à noite">Entrega somente amanhã à noite</option>
     </select>
   `;
-  mostrarMapaPino(o);
+  await mostrarMapaPino(o);
   mostrarDistanciaBase(o);
   document.querySelector('.content').insertAdjacentHTML('beforeend', '');
   const btnRow = document.createElement('div');
