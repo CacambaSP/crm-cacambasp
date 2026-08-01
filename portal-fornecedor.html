@@ -724,8 +724,16 @@ async function mostrarDistanciaBase(o){
   try{
     const cepMatchBase = FORN.endereco_base.match(/\d{5}-?\d{3}/);
     const cepBase = cepMatchBase ? cepMatchBase[0] : null;
+    // limpa o endereco-base: tira CEP e "São Paulo - SP" que ja vem no texto
+    // (senao a busca fica "...São Paulo - SP, São Paulo, Brasil" e confunde)
+    const enderecoBaseLimpo = FORN.endereco_base
+      .replace(/\d{5}-?\d{3}/, '')
+      .replace(/s[ãa]o paulo\s*-?\s*sp/gi, '')
+      .replace(/,\s*,/g, ',')
+      .replace(/,\s*$/, '')
+      .trim();
 
-    let posBase = await geocodar(FORN.endereco_base, cepBase);
+    let posBase = await geocodar(enderecoBaseLimpo, cepBase);
     if(!posBase){
       const partesBase = FORN.endereco_base.split(',');
       if(partesBase.length>1) posBase = await geocodar(partesBase.slice(-2).join(','));
