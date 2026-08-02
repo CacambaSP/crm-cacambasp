@@ -7276,7 +7276,9 @@ async function calcularFechamento(){
   try {
     const rows = await api('comissoes_fechamento?mes=eq.'+mesVal+'-01',undefined,undefined,tok());
     _fechamentoAtual.jaFechados = (rows||[]).map(r=>r.usuario_id);
-  } catch(e) { _fechamentoAtual.jaFechados = []; }
+    _fechamentoAtual.fechadosData = {};
+    (rows||[]).forEach(r => { _fechamentoAtual.fechadosData[r.usuario_id] = r; });
+  } catch(e) { _fechamentoAtual.jaFechados = []; _fechamentoAtual.fechadosData = {}; }
 
   const f = _fechamentoAtual;
   const mesLabel = MESES[mes-1]+' '+ano;
@@ -7624,15 +7626,17 @@ async function calcularFechamento(){
         const _claLLF = parseFloat(_claAtF.reduce((s,{ll})=>s+ll,0).toFixed(2));
         const _claAposF = parseFloat(Math.max(_claLLF - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
         const _claSplitF = parseFloat((_claAposF / 2).toFixed(2));
-        const _claTotalF = parseFloat((1000 + _claSplitF + (f.totalClaudiaExtra||0)).toFixed(2));
-        const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
+        const _savedCla = _fechamentoAtual.fechadosData?.[_cuid];
+        const _gerSandra = _savedCla ? parseFloat(_savedCla.valor_claudia_extra||0) : (f.totalClaudiaExtra||0);
+        const _claTotalF = parseFloat((1000 + _claSplitF + _gerSandra).toFixed(2));
+        const extra = _gerSandra > 0 ? ` · +R$${fmt(_gerSandra)} da Sandra` : '';
         const linhas = _linha('Soma lucro líquido ('+_claAtF.length+' ordens)',_claLLF,'var(--b)','fech_somaLL_'+_cuid)
           + _linha('(-) Fixo garantido',1000,'var(--r)')
           + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
           + _linha('Restante após descontos',_claAposF,'var(--txt)','fech_apos_'+_cuid)
           + _linha('50% Claudia (split)',_claSplitF,'var(--acc)','fech_split_'+_cuid)
           + _linha('(+) Fixo garantido',1000,'var(--g)')
-          + _linha('(+) Gerência Sandra',f.totalClaudiaExtra||0,'var(--g)')
+          + _linha('(+) Gerência Sandra',_gerSandra,'var(--g)')
           + _linha('50% Douglas',_claSplitF,'var(--mut2)','fech_splitD_'+_cuid)
           + _tabelaOrdens(f.claudia.ordens, _cuid,'claudia');
         return _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',_claTotalF,linhas,`R$1.000 fixo + 50% do restante${extra}`,_cuid);
