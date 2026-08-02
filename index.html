@@ -7516,7 +7516,7 @@ async function calcularFechamento(){
 
   // GUSTAVO
   if(f.gustavo && f.gustavo.vendedor){
-    const linhas = _linha('Ordens pagas',f.gustavo.ordens.length,'var(--txt)')
+    const linhas = _linha('Total de ordens pagas',f.gustavo.ordens.length*40,'var(--mut2)')
       + _linha('R$40 × '+f.gustavo.ordens.length+' ordens',f.gustavo.totalVendedor,'var(--acc)')
       + _tabelaOrdens(f.gustavo.ordens, f.gustavo.vendedor?.id||'gus','gustavo');
     html += _card('Gustavo','var(--g)','👨',f.gustavo.vendedor.email||'',f.gustavo.totalVendedor,linhas,'R$40 fixo por ordem',f.gustavo.vendedor.id);
@@ -7650,7 +7650,7 @@ async function calcularFechamento(){
       },
       [f.gustavo?.vendedor?.id||'_nul6']: () => {
         if(!f.gustavo?.vendedor) return '';
-        const linhas = _linha('Ordens pagas',f.gustavo.ordens.length,'var(--txt)')
+        const linhas = _linha('Total de ordens pagas',f.gustavo.ordens.length*40,'var(--mut2)')
           + _linha('R$40 × '+f.gustavo.ordens.length+' ordens',f.gustavo.totalVendedor,'var(--acc)')
           + _tabelaOrdens(f.gustavo.ordens, f.gustavo.vendedor?.id||'gus','gustavo');
         return _card('Gustavo','var(--g)','👨',f.gustavo.vendedor.email||'',f.gustavo.totalVendedor,linhas,'R$40 fixo por ordem',f.gustavo.vendedor.id);
@@ -7751,6 +7751,8 @@ async function salvarVendedor(uid){
     (f.claudia?.vendedor?.id===uid && f.claudia) ||
     (f.ricardo?.vendedor?.id===uid && f.ricardo) ||
     (f.sandra?.vendedor?.id===uid && f.sandra) ||
+    (f.gustavo?.vendedor?.id===uid && f.gustavo) ||
+    (f.pc?.vendedor?.id===uid && f.pc) ||
     (f.douglas?.vendedor?.id===uid && f.douglas);
 
   if(!bloco || !bloco.vendedor){ toast('Vendedor não encontrado','warn'); return; }
@@ -7789,6 +7791,16 @@ async function salvarVendedor(uid){
       valor_vendedor: bloco.totalVendedor,
       valor_douglas: bloco.splitDouglas||0,
       valor_claudia_extra:0};
+  } else if(modelo==='gustavo'){
+    reg = {...reg, valor_anuncio:0, fixo_garantido:0,
+      lucro_liquido: ativ.length*40,
+      valor_vendedor: ativ.length*40,
+      valor_douglas:0, valor_claudia_extra:0};
+  } else if(modelo==='pc'){
+    reg = {...reg, valor_anuncio:0, fixo_garantido:0,
+      lucro_liquido: bloco.totalVendedor||0,
+      valor_vendedor: bloco.totalVendedor||0,
+      valor_douglas:0, valor_claudia_extra:0};
   } else if(modelo==='douglas'){
     reg = {...reg, valor_anuncio:0, fixo_garantido:0,
       lucro_liquido: f.totalDouglas||0,
