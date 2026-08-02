@@ -377,6 +377,12 @@ function renderContent(){
           <div class="id">${o.crm_id}</div>
           <div class="addr">${o.logradouro||''} — ${o.bairro||''}</div>
           <div class="meta"><span class="pill b">Previsão: ${o.forn_previsao||'—'}</span></div>
+          ${o.nome || o.cel ? `
+          <div style="margin-top:10px;padding:10px 12px;background:var(--sur);border-radius:10px;border:1px solid var(--bor)">
+            <div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cliente</div>
+            <div style="font-size:13px;font-weight:700">${o.nome||'—'}</div>
+            ${o.cel?`<a href="${linkWhatsCliente(o)}" target="_blank" style="font-size:12px;color:var(--wa-c);text-decoration:none;font-weight:600">📱 ${o.cel} · WhatsApp</a>`:''}
+          </div>` : ''}
           <div style="display:flex;gap:8px;margin-top:12px">
             <a href="${linkGPS(o)}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;background:rgba(64,144,255,.12);border:1px solid rgba(64,144,255,.35);color:#4090ff;font-size:12.5px;font-weight:700;text-decoration:none">🧭 GPS</a>
             <button onclick="abrirFollowup('${o.id}')" style="flex:1.4;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;background:linear-gradient(180deg,#ffc247,var(--acc));border:none;color:#1a1200;font-size:12.5px;font-weight:800;cursor:pointer">✅ Registrar Chegada</button>
@@ -546,6 +552,11 @@ async function renderFollowup(o){
   try{ fu = await api('rpc/portal_list_followup', 'POST', { p_token: TOKEN, p_ordem_id: o.id }); }catch(e){}
 
   c.innerHTML = `
+    ${o.nome || o.cel ? `
+    <div class="detail-box" style="margin-bottom:14px">
+      <div class="info-row"><span>Cliente</span><span>${o.nome||'—'}</span></div>
+      ${o.cel?`<div class="info-row"><span>WhatsApp</span><span><a href="${linkWhatsCliente(o)}" target="_blank" style="color:var(--wa-c);text-decoration:none;font-weight:700">📱 ${o.cel}</a></span></div>`:''}
+    </div>` : ''}
     <div class="field-label">Linha do tempo</div>
     <div class="timeline">
       ${fu.length ? fu.map(f=>`
@@ -633,6 +644,11 @@ async function verComprovante(ordemId){
 function linkGPS(o){
   const endereco = [o.logradouro, o.bairro, o.cidade||'São Paulo'].filter(Boolean).join(', ');
   return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(endereco) + '&travelmode=driving';
+}
+function linkWhatsCliente(o){
+  const tel = (o.cel||'').replace(/\D/g,'');
+  const msg = `Olá ${o.nome||''}! Aqui é o motorista da CaçambaSP, estou a caminho pra sua entrega (${o.crm_id}). 🚚`;
+  return 'https://wa.me/'+(tel.length<=11?'55'+tel:tel)+'?text='+encodeURIComponent(msg);
 }
 const _geoCache = {};
 let _geoFila = Promise.resolve();
