@@ -3928,7 +3928,10 @@ function _fornCardHTML(f, colors) {
       <div style="height:3px;background:${cor}"></div>
       <!-- Header: avatar + nome + info inline + contador -->
       <div style="display:flex;align-items:center;gap:12px;padding:14px 14px 12px">
-        <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">${ini}</div>
+        <div style="position:relative;width:44px;height:44px;flex-shrink:0;${f.portal_ativo?'cursor:pointer':''}" ${f.portal_ativo?`onclick="event.stopPropagation();window.open('https://cacambasp-crm.vercel.app/portal-fornecedor.html?t=${f.portal_token}','_blank')" title="Abrir portal de ${f.nome}"`:''}>
+          <div style="width:44px;height:44px;border-radius:12px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;${f.portal_ativo?`border:2px solid var(--acc);box-shadow:0 0 0 2px rgba(255,168,0,.15)`:''}">${ini}</div>
+          ${f.portal_ativo?`<div style="position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:var(--acc);border:2px solid var(--sur);display:flex;align-items:center;justify-content:center;font-size:9px">🔗</div>`:''}
+        </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:800;color:var(--txt)">${f.nome}</div>
           <div style="display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
