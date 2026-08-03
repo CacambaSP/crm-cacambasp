@@ -575,10 +575,21 @@ async function renderFollowup(o){
     </div>
     <div class="field-label">Confirmar com</div>
     <div class="capture-row">
-      <div class="cap-btn" id="btnFoto" onclick="document.getElementById('fu-foto-input').click()"><span class="ic">📷</span><span id="fotoLabel">Foto</span></div>
+      <div class="cap-btn" id="btnFoto" onclick="document.getElementById('fu-foto-camera').click()"><span class="ic">📷</span><span id="fotoLabel">Tirar Foto</span></div>
       <div class="cap-btn" id="btnAudio" onclick="toggleGravacao()"><span class="ic" id="audioIcon">🎙️</span><span id="audioLabel">Áudio</span></div>
     </div>
-    <input type="file" id="fu-foto-input" accept="image/*" style="display:none" onchange="onFotoSelecionada(event)">
+    <div style="text-align:center;margin:6px 0 4px">
+      <span onclick="document.getElementById('fu-foto-galeria').click()" style="font-size:12px;color:var(--b);text-decoration:underline;cursor:pointer">🖼️ ou escolher foto já existente na galeria</span>
+    </div>
+    <div id="audioPreview" style="display:none;margin:10px 0;padding:12px;background:var(--sur);border:1px solid var(--bor2);border-radius:var(--rad3)">
+      <audio id="audioPlayer" controls style="width:100%;margin-bottom:10px"></audio>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="regravarAudio()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--bor2);background:var(--card);color:var(--txt);font-size:12.5px;font-weight:700;cursor:pointer">🔄 Regravar</button>
+        <button type="button" onclick="confirmarAudio()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--g);color:#04210f;font-size:12.5px;font-weight:800;cursor:pointer">✅ Usar esse áudio</button>
+      </div>
+    </div>
+    <input type="file" id="fu-foto-camera" accept="image/*" capture="environment" style="display:none" onchange="onFotoSelecionada(event)">
+    <input type="file" id="fu-foto-galeria" accept="image/*" style="display:none" onchange="onFotoSelecionada(event)">
     ${FU_TIPO==='chegada_ok' ? `
     <div class="field-label">Número da caçamba entregue *</div>
     <input type="text" id="fu-cacamba" placeholder="Ex: 042" style="width:100%;background:var(--sur);border:1px solid var(--bor2);color:var(--txt);padding:12px 14px;border-radius:var(--rad3);font-size:14px;">
@@ -876,6 +887,8 @@ async function onFotoSelecionada(ev){
   }
 }
 
+let _audioBlobPendente = null;
+
 async function toggleGravacao(){
   if(_gravando){ _mediaRecorder.stop(); return; }
   try{
@@ -883,28 +896,19 @@ async function toggleGravacao(){
     _audioChunks = [];
     _mediaRecorder = new MediaRecorder(stream);
     _mediaRecorder.ondataavailable = e=>_audioChunks.push(e.data);
-    _mediaRecorder.onstop = async ()=>{
+    _mediaRecorder.onstop = ()=>{
       stream.getTracks().forEach(t=>t.stop());
       _gravando = false;
       document.getElementById('audioIcon').textContent = '🎙️';
-      document.getElementById('audioLabel').textContent = 'Enviando...';
+      document.getElementById('audioLabel').textContent = 'Áudio';
       document.getElementById('btnAudio').classList.remove('active');
-      try{
-        const blob = new Blob(_audioChunks, {type:'audio/webm'});
-        const base64 = await new Promise((res,rej)=>{
-          const reader = new FileReader();
-          reader.onload = ()=>res(reader.result.split(',')[1]);
-          reader.onerror = rej;
-          reader.readAsDataURL(blob);
-        });
-        const path = await _uploadMidia(base64, 'audio/webm', 'audio');
-        MIDIA_PATH = path; MIDIA_TIPO = 'audio';
-        document.getElementById('btnAudio').classList.add('done');
-        document.getElementById('audioLabel').textContent = 'Áudio anexado ✓';
-      }catch(e){
-        document.getElementById('audioLabel').textContent = 'Áudio';
-        toast('Erro ao enviar áudio: '+e.message);
-      }
+
+      _audioBlobPendente = new Blob(_audioChunks, {type:'audio/webm'});
+      const url = URL.createObjectURL(_audioBlobPendente);
+      const player = document.getElementById('audioPlayer');
+      player.src = url;
+      document.getElementById('audioPreview').style.display = 'block';
+      document.getElementById('btnAudio').style.display = 'none';
     };
     _mediaRecorder.start();
     _gravando = true;
@@ -913,6 +917,40 @@ async function toggleGravacao(){
     document.getElementById('btnAudio').classList.add('active');
   }catch(e){
     toast('Não consegui acessar o microfone');
+  }
+}
+
+function regravarAudio(){
+  _audioBlobPendente = null;
+  document.getElementById('audioPreview').style.display = 'none';
+  document.getElementById('btnAudio').style.display = '';
+  document.getElementById('audioPlayer').src = '';
+}
+
+async function confirmarAudio(){
+  if(!_audioBlobPendente) return;
+  const previewDiv = document.getElementById('audioPreview');
+  const btns = previewDiv.querySelectorAll('button');
+  btns.forEach(b=>b.disabled=true);
+  btns[1].textContent = 'Enviando...';
+  try{
+    const base64 = await new Promise((res,rej)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>res(reader.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(_audioBlobPendente);
+    });
+    const path = await _uploadMidia(base64, 'audio/webm', 'audio');
+    MIDIA_PATH = path; MIDIA_TIPO = 'audio';
+    previewDiv.style.display = 'none';
+    document.getElementById('btnAudio').style.display = '';
+    document.getElementById('btnAudio').classList.add('done');
+    document.getElementById('audioLabel').textContent = 'Áudio anexado ✓';
+    toast('Áudio anexado ✓');
+  }catch(e){
+    toast('Erro ao enviar áudio: '+e.message);
+    btns.forEach(b=>b.disabled=false);
+    btns[1].textContent = '✅ Usar esse áudio';
   }
 }
 
