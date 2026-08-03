@@ -1314,6 +1314,9 @@ input[type=checkbox]:checked::after{
         <label>Nº Nota Fiscal</label>
         <input type="text" id="d_nf" oninput="salvarNFDebounce()" placeholder="Número da NF">
         <div style="font-size:10px;color:var(--g);margin-top:4px;display:none" id="d_nf_saved">✓ Salvo</div>
+        <div id="d_nf_anexo_wrap" style="display:none;margin-top:8px;font-size:11px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px"></div>
+        <input type="file" id="d_nf_anexo_input" accept="application/pdf,image/*" style="display:none" onchange="onNFAnexoSelecionado(this.files)">
+        <button class="btn btn-sm" style="margin-top:6px;width:100%;background:rgba(139,92,246,.1);color:#a78bfa;border-color:rgba(139,92,246,.25)" onclick="document.getElementById('d_nf_anexo_input').click()">📎 Anexar PDF da NF</button>
         <button class="btn btn-sm" style="margin-top:6px;width:100%;background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)" onclick="abrirEmitirNF(_detailId)">🧾 Emitir NF na prefeitura</button>
       </div>
     </div>
@@ -4393,6 +4396,7 @@ function fillDetail(c){
   const obsW=document.getElementById('d_obs_wrap');
   if(c.obs){obsW.textContent=c.obs;obsW.style.display='block';}else obsW.style.display='none';
   _renderAnexosOrdem(c);
+  _renderAnexoNF(c);
   const archBtn=document.getElementById('detailArchBtn');
   archBtn.textContent=c.col==='concluido'?'↩️ Voltar':'🏆 Arquivar';
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
@@ -10769,12 +10773,19 @@ async function gerarReciboImprimir() {
       ?'<span style="color:#16a34a;font-weight:700">✅ Pago'+dataPag+'</span>'
       :'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>';
     const nfNum=(o.nf_num||'').replace(/^0+/,'');
+    const nfAnexo=Array.isArray(o.anexos)?o.anexos.filter(a=>a&&a.tipo==='nf').slice(-1)[0]:null;
+    const nfPathSafe=nfAnexo?String(nfAnexo.path).replace(/\\/g,'\\\\').replace(/'/g,"\\'"):'';
+    const nfCell=!nfNum
+      ? '<span style="color:#d1d5db">—</span>'
+      : (nfAnexo
+          ? '<span onclick="if(window.opener &amp;&amp; window.opener.abrirArquivoPrivado)window.opener.abrirArquivoPrivado(\''+nfPathSafe+'\')" style="color:#1d4ed8;font-weight:700;cursor:pointer;text-decoration:underline" title="Ver PDF da NF">'+nfNum+' 📎</span>'
+          : '<span style="color:#1d4ed8;font-weight:700">'+nfNum+'</span>');
     return '<tr>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">'+(o.crm_id||'—')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+(o.tipo||'Caçamba')+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+dateF(o.data)+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px">'+end+'</td>'
-      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">'+(nfNum?'<span style="color:#1d4ed8;font-weight:700">'+nfNum+'</span>':'<span style="color:#d1d5db">—</span>')+'</td>'
+      +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">'+nfCell+'</td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace"><span style="color:'+corVal+'">R$ '+fmt(val)+'</span></td>'
       +'<td style="padding:6px 9px;border-bottom:1px solid #eee;font-size:10px;text-align:right">'+statusCell+'</td>'
       +'</tr>';
@@ -13219,6 +13230,53 @@ async function removerAnexoOrdem(idx){
     addLog(c.id,'Anexo removido','');
     _renderAnexosOrdem(c);
     toast('Anexo removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
+}
+function _renderAnexoNF(c){
+  const wrap=document.getElementById('d_nf_anexo_wrap'); if(!wrap) return;
+  const lista=Array.isArray(c.anexos)?c.anexos:[];
+  const idxs=lista.map((a,i)=>a&&a.tipo==='nf'?i:-1).filter(i=>i>=0);
+  const idxUltimo=idxs.length?idxs[idxs.length-1]:-1;
+  if(idxUltimo<0){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  const a=lista[idxUltimo];
+  wrap.style.display='block';
+  wrap.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
+    +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--acc)">🧾 '+((a.nome||a.path||'').split('/').pop())+'</span>'
+    +'<span style="display:flex;gap:8px;flex-shrink:0">'
+      +'<button class="btn btn-xs" onclick="abrirArquivoPrivado(\''+a.path+'\')">👁️ Ver</button>'
+      +'<button class="btn btn-xs" style="color:var(--r)" onclick="removerAnexoNF('+idxUltimo+')">🗑️</button>'
+    +'</span>'
+  +'</div>';
+}
+async function onNFAnexoSelecionado(files){
+  if(!files || !files.length) return;
+  const c=ordens.find(x=>x.id===_detailId); if(!c) return;
+  if(!Array.isArray(c.anexos)) c.anexos=[];
+  try{
+    toast('📤 Enviando PDF da NF...');
+    const file=files[0];
+    const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+    const path=`ordens/${c.crm_id||c.id}_NF_${Date.now()}.${ext}`;
+    await uploadArquivoPrivado(file, path);
+    c.anexos.push({path, nome:file.name, tipo:'nf'});
+    await api('ordens?id=eq.'+c.id,'PATCH',{anexos:c.anexos},tok());
+    addLog(c.id,'Anexo NF adicionado',file.name);
+    _renderAnexoNF(c);
+    _renderAnexosOrdem(c);
+    toast('🧾 PDF da NF anexado! Já aparece clicável no recibo.','ok');
+  }catch(e){toast('Erro ao enviar PDF da NF: '+e.message,'err');}
+}
+async function removerAnexoNF(idx){
+  const c=ordens.find(x=>x.id===_detailId); if(!c || !Array.isArray(c.anexos)) return;
+  const ok=await showConfirm({ico:'🗑️',title:'Remover anexo da NF?',body:'O número da NF deixará de ser clicável no recibo (o arquivo em si continua no armazenamento).',ok:'Remover',okClass:'acc',cancel:'Cancelar'});
+  if(!ok) return;
+  c.anexos.splice(idx,1);
+  try{
+    await api('ordens?id=eq.'+c.id,'PATCH',{anexos:c.anexos},tok());
+    addLog(c.id,'Anexo NF removido','');
+    _renderAnexoNF(c);
+    _renderAnexosOrdem(c);
+    toast('Anexo da NF removido','ok');
   }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 async function uploadArquivoPrivado(file, path){
