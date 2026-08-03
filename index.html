@@ -2618,6 +2618,8 @@ function startAutoRefresh(){
 }
 
 let _realtimeWS=null;
+let _realtimeFalhas=0;
+const _REALTIME_MAX_TENTATIVAS=5;
 
 function _iniciarRealtime(){
   try{
@@ -2626,6 +2628,7 @@ function _iniciarRealtime(){
     _realtimeWS = new WebSocket(wsUrl);
     _realtimeWS.onopen=()=>{
       setSyncDot('ok');
+      _realtimeFalhas=0; // conexão OK, zera contador de falhas
       // Subscrever tabela ordens
       _realtimeWS.send(JSON.stringify({
         topic:'realtime:public:ordens',
@@ -2650,8 +2653,16 @@ function _iniciarRealtime(){
     };
     _realtimeWS.onerror=()=>{ setSyncDot('err'); };
     _realtimeWS.onclose=()=>{
+      if(!_currentUser) return; // sessão encerrada, não reconecta
+      _realtimeFalhas++;
+      if(_realtimeFalhas>_REALTIME_MAX_TENTATIVAS){
+        // Desiste do WebSocket após tentativas seguidas sem sucesso.
+        // A tela continua sendo atualizada normalmente via polling (fallback já existente).
+        console.warn('Realtime: desistindo após '+_REALTIME_MAX_TENTATIVAS+' tentativas. Usando apenas polling.');
+        return;
+      }
       // Reconectar após 5s se a sessão ainda estiver ativa
-      if(_currentUser) setTimeout(_iniciarRealtime, 5000);
+      setTimeout(_iniciarRealtime, 5000);
     };
   }catch(e){
     console.warn('Realtime não disponível, usando polling');
