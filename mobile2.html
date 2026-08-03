@@ -6344,7 +6344,8 @@ function enviarPixWA() {
   const o = _ordens.find(x=>x.id===_pixOrdemId);
   if(!o) return;
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
-  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}`;
+  const nfLink = o.nf_link ? `\n\n🧾 *Nota Fiscal:* ${o.nf_link}` : '';
+  const msg = `Olá ${o.nome||''}, segue o código Pix para pagamento:\n\n${_pixPayload}${nfLink}`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
 }
 
@@ -6371,7 +6372,7 @@ function enviarWA(id) {
   if(!tel){toast('Celular não cadastrado','warn');return;}
   const d = diasAberto(o);
   const _tParam = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id);
-  const trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+_tParam : '';
+  let trackLink = o.crm_id ? '\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+_tParam : '';
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const nome = (o.nome||'').split(' ')[0];
   let msg;
@@ -6414,6 +6415,8 @@ function enviarWA(id) {
     const refValor = multiplas ? `${listaTxt}💰 *Total: ${valorTotal}*` : valorTotal;
     const prazo = new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     const cpfLine = o.cpf ? `\n📄 CPF/CNPJ: ${o.cpf}` : '';
+    const nfLink = o.nf_link ? `\n\n🧾 *Nota Fiscal:* ${o.nf_link}` : '';
+    trackLink = trackLink + nfLink;
     if(n.id==='juridico' || n.id==='prejuridico') {
       const vars = [
         `Prezado(a) ${nome}, esta é uma notificação de cobrança referente ${multiplas?`às pendências abaixo`:`ao débito de ${refValor} (${endCurto})`}, em aberto há até ${dPior} dias.${cpfLine}\n\n${multiplas?refValor+'\n':''}Solicitamos a regularização imediata pelo link abaixo. Na ausência de retorno, o débito será encaminhado para as medidas de cobrança cabíveis.${trackLink}\n\n_${_marcaDe(o)}_`,
