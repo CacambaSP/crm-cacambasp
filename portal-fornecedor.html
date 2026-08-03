@@ -578,7 +578,7 @@ async function renderFollowup(o){
       <div class="cap-btn" id="btnFoto" onclick="document.getElementById('fu-foto-input').click()"><span class="ic">📷</span><span id="fotoLabel">Foto</span></div>
       <div class="cap-btn" id="btnAudio" onclick="toggleGravacao()"><span class="ic" id="audioIcon">🎙️</span><span id="audioLabel">Áudio</span></div>
     </div>
-    <input type="file" id="fu-foto-input" accept="image/*" capture="environment" style="display:none" onchange="onFotoSelecionada(event)">
+    <input type="file" id="fu-foto-input" accept="image/*" style="display:none" onchange="onFotoSelecionada(event)">
     ${FU_TIPO==='chegada_ok' ? `
     <div class="field-label">Número da caçamba entregue *</div>
     <input type="text" id="fu-cacamba" placeholder="Ex: 042" style="width:100%;background:var(--sur);border:1px solid var(--bor2);color:var(--txt);padding:12px 14px;border-radius:var(--rad3);font-size:14px;">
