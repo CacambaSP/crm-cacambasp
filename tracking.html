@@ -137,6 +137,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="pix-iss-nota" style="display:none;text-align:center;font-size:12px;color:#f97316;margin:-10px 0 12px">🏛️ Valor já com desconto de ISS (2,4%)</div>
       <div id="qrcode-wrap"></div>
       <div class="pix-copy-row"><div id="pix-codigo"></div><button id="btn-copiar-pix" onclick="copiarPix()">Copiar</button></div>
+      <a id="nf-link-row" href="#" target="_blank" style="display:none;margin-top:12px;align-items:center;justify-content:center;gap:6px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:10px;font-size:13px;font-weight:700;text-decoration:none">🧾 Ver Nota Fiscal</a>
     </div>
   </div>
   <div class="card" id="card-detalhes">
@@ -286,9 +287,9 @@ async function carregar(){
     // Buscar ordem por token (seguro) ou crm_id (legado)
     let ordens;
     if(token){
-      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,desconta_iss&limit=1');
+      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,nf_link,desconta_iss&limit=1');
     }else{
-      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,desconta_iss&limit=1');
+      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,nf_link,desconta_iss&limit=1');
     }
     const crmId=ordens&&ordens.length?ordens[0].crm_id:(crmIdParam||'');
     if(!ordens||!ordens.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
@@ -307,7 +308,7 @@ async function carregar(){
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
       try{
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_taxa,cancel_motivo,desconta_iss&order=data.asc');
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_link,nf_taxa,cancel_motivo,desconta_iss&order=data.asc');
         todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
         emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
       }catch(e){}
@@ -410,10 +411,14 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
       if(temNF){
         const hdCheck=todasPagasGrp?'':'<input type="checkbox" id="'+gid+'" class="nf-grupo-hd-chk" data-gid="'+gid+'" checked>';
         const hdVal=todasPagasGrp?'<span style="font-size:12px;color:var(--g);font-weight:800">✅ Pago</span>':'<span class="nf-grupo-hd-val">R$ '+fmt(totalGrpPend)+'</span>';
+        const grpNfLink=grp.ordens.find(o=>o.nf_link)?.nf_link;
+        const nfLabel=grpNfLink
+          ? '<a href="'+grpNfLink+'" target="_blank" onclick="event.stopPropagation()" class="nf-grupo-hd-label" style="text-decoration:underline">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</a>'
+          : '<span class="nf-grupo-hd-label">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</span>';
         listaHTML+='<div class="nf-grupo">'
           +'<div class="nf-grupo-hd" data-gid="'+gid+'">'
           +hdCheck
-          +'<span class="nf-grupo-hd-label">🧾 NF '+grp.nf+' · '+grp.ordens.length+' OS</span>'
+          +nfLabel
           +hdVal
           +'</div>';
         grp.ordens.forEach(o=>{
@@ -481,6 +486,8 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     // Guarda estado do total para restaurar ao clicar em "Pagar tudo junto"
     _pixTotalEstado={totalRec,txid:txidGrupo,todasPagas,ultimoPagoEm,subtitulo:pendentes.length+' caçamba(s) · QR Code do total'};
     renderPix(totalRec,txidGrupo,todasPagas,ultimoPagoEm);
+    const _nfLinkElG=document.getElementById('nf-link-row');
+    if(_nfLinkElG) _nfLinkElG.style.display='none';
   }else{
     // MODO SIMPLES — mostra detalhes normalmente
     if(cardDetalhes)cardDetalhes.style.display='block';
@@ -490,6 +497,11 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
     const recSimples=valorCliente(ord);
     const _notaIss=document.getElementById('pix-iss-nota'); if(_notaIss) _notaIss.style.display=ord.desconta_iss?'block':'none';
     renderPix(recSimples,ord.crm_id,ord.pago,ultimoPagoEm);
+    const _nfLinkEl=document.getElementById('nf-link-row');
+    if(_nfLinkEl){
+      if(ord.nf_link){ _nfLinkEl.href=ord.nf_link; _nfLinkEl.style.display='flex'; }
+      else _nfLinkEl.style.display='none';
+    }
   }
   const cont=document.getElementById('conteudo');
   cont.style.display='flex';cont.style.flexDirection='column';cont.style.alignItems='center';
@@ -665,12 +677,14 @@ async function abrirReciboTracking(){
     const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:valorCliente(o);
     const dataPag=tipo==='pago'&&o.pago_em?' · pago em '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
     const nfNum=(o.nf_num||'').replace(/^0+/,'');
+    const nfCell=!nfNum?'<span style="color:#d1d5db">—</span>'
+      :(o.nf_link?`<a href="${o.nf_link}" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline">${nfNum} 📎</a>`:`<span style="color:#1d4ed8;font-weight:700">${nfNum}</span>`);
     return `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${o.tipo||'Caçamba'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${dateF(o.data)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${end}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">${nfNum?`<span style="color:#1d4ed8;font-weight:700">${nfNum}</span>`:'<span style="color:#d1d5db">—</span>'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">${nfCell}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace">${tipo==='pago'?'<span style="color:#16a34a">':'<span style="color:#dc2626">'}R$ ${fmt(val)}</span></td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right">${tipo==='pago'?`<span style="color:#16a34a;font-weight:700">✅ Pago${dataPag}</span>`:'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
