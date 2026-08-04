@@ -1494,16 +1494,13 @@ function _waFornAbrir(f, texto) {
   const waLink = (f.wa_link||'').trim();
   const enc = encodeURIComponent(texto);
   if(waLink.startsWith('http')) {
-    // Link de grupo — abre direto, copia texto para colar
+    // Link de grupo — abre SÓ o grupo, copia texto para colar (nao abre individual junto)
     if(texto) {
       navigator.clipboard.writeText(texto).then(() => {
         toast('✅ Texto copiado! Cole no WhatsApp após abrir.','ok', 4000);
       }).catch(() => {});
     }
     setTimeout(() => window.open(waLink, '_blank'), 400);
-    // Se tem tel cadastrado, abre número direto também
-    const tel = (f.tel||'').replace(/\D/g,'');
-    if(tel) setTimeout(() => window.open('https://wa.me/55'+tel+'?text='+enc,'_blank'), 800);
   } else {
     // Tenta wa_link como número, senão cai para f.tel
     const num = waLink ? waLink.replace(/\D/g,'') : (f.tel||'').replace(/\D/g,'');
