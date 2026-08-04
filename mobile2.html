@@ -1800,7 +1800,7 @@ function efbRenderPortal(f){
 async function efbAtivarPortal(fid){
   const f = _forns.find(x=>x.id===fid); if(!f) return;
   try{
-    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true},tok());
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true, portal_ativado_em:new Date().toISOString()},tok());
     f.portal_ativo = true;
     efbRenderPortal(f);
     toast('✅ Portal ativado!','ok');
