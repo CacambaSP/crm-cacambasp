@@ -3711,6 +3711,8 @@ function cardHTML(o, tipo='neutral') {
   if(o.forn_pago) chips.push(`<span class="chip g">F.Pago</span>`);
   else if(o.forn_followup_confirmado && o.forn_id) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;border-color:rgba(0,255,160,.5);font-weight:800">📦 Forn. confirmou</span>`);
   if(forn) chips.push(`<span class="chip b">${forn.nome.split(' ')[0]}</span>`);
+  if(forn && forn.portal_ativo && o.forn_status==='pendente') chips.push(`<span class="chip" style="background:rgba(255,168,0,.18);color:#ffa800;font-weight:800">⏳ Aguardando forn.</span>`);
+  if(forn && forn.portal_ativo && o.forn_status==='aceito' && !o.forn_followup_confirmado) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;font-weight:800">✅ Forn. aceitou</span>`);
   if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
   if(o.crm_id) chips.push(`<span class="chip" style="font-size:11px;font-family:var(--mono);color:var(--txt);border-color:var(--bor2)">${o.crm_id}</span>`);
   const _issRow = (isAdmin()&&o.col!=='orcamento'&&o.col!=='concluido'&&!o.pago)
