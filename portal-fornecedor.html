@@ -396,7 +396,7 @@ function renderContent(){
   if(VIEW==='pagamento'){
     const lista = ORDENS.filter(o=>o.forn_id && o.forn_status!=='pendente');
     const pendentes = lista.filter(o=>!o.forn_pago);
-    const pagas = lista.filter(o=>o.forn_pago);
+    const pagas = lista.filter(o=>o.forn_pago && (!FORN.portal_ativado_em || !o.forn_pago_em || new Date(o.forn_pago_em) >= new Date(FORN.portal_ativado_em)));
 
     // agrupa as pagas por data (dia) do pagamento - LCs pagas juntas no mesmo dia caem no mesmo grupo
     const grupos = {};
