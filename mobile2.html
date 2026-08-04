@@ -2197,7 +2197,7 @@ async function confirmarPagoForn() {
     if(cli && !['baixar','concluido'].includes(ord.col)) novaCol = 'baixar';
     else if(!cli && ord.col === 'pagar') novaCol = 'faltapg';
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
-    if(comprovantes.length) upd.forn_comprovantes = comprovantes;
+    upd.forn_comprovantes = comprovantes.length ? comprovantes : null;
     try {
       await api(`ordens?id=eq.${id}`,'PATCH',upd,tok());
       addLog(id,'Fornecedor pago','mobile: R$ '+valOrd.toFixed(2)+(pgRef?' · '+pgRef:'')+(comprovantes.length?' · '+comprovantes.length+' comprovante(s) anexado(s)':''));
@@ -4183,10 +4183,11 @@ async function fpConfirmarDados() {
         forn_pago_em:data+'T12:00:00.000Z',
         forn_pago_valor:valOrd,
         forn_pg_ref:pgRef,
-        col:novaCol
+        col:novaCol,
+        forn_comprovantes:null
       },tok());
       o.forn_pago=true; o.forn_pago_em=data+'T12:00:00.000Z';
-      o.forn_pago_valor=valOrd; o.forn_pg_ref=pgRef; o.col=novaCol;
+      o.forn_pago_valor=valOrd; o.forn_pg_ref=pgRef; o.col=novaCol; o.forn_comprovantes=null;
     }
     delete _fpStates[fid];
     _fpPendingFid = null;
