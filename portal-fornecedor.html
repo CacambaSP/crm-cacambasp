@@ -422,6 +422,7 @@ function renderContent(){
             <span class="pill acc">⏳ Aguardando pagamento</span>
             ${o.forn_pago_valor?`<span class="pill b">R$ ${Number(o.forn_pago_valor).toFixed(0)}</span>`:(o.cst?`<span class="pill b">R$ ${Number(o.cst).toFixed(0)} (combinado)</span>`:'')}
           </div>
+          <a class="receipt-link" onclick="event.stopPropagation();verRegistroLC('${o.id}')">👁️ Ver registro (foto/áudio/texto)</a>
         </div>
       `).join('') : '<div class="empty" style="padding:14px 0">Nada pendente — tudo em dia.</div>'}
 
@@ -447,8 +448,11 @@ function renderContent(){
                   <span style="color:var(--g);font-weight:700">R$ ${o.forn_pago_valor?Number(o.forn_pago_valor).toFixed(0):'—'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--mut2)">${o.logradouro||''} — ${o.bairro||''}</div>
-                ${(o.forn_comprovante_url || (Array.isArray(o.forn_comprovantes)&&o.forn_comprovantes.length))
-                  ? `<a class="receipt-link" onclick="event.stopPropagation();verComprovante('${o.id}')">📄 Ver comprovante</a>` : ''}
+                <div style="display:flex;gap:14px;margin-top:4px">
+                  ${(o.forn_comprovante_url || (Array.isArray(o.forn_comprovantes)&&o.forn_comprovantes.length))
+                    ? `<a class="receipt-link" onclick="event.stopPropagation();verComprovante('${o.id}')">📄 Comprovante</a>` : ''}
+                  <a class="receipt-link" onclick="event.stopPropagation();verRegistroLC('${o.id}')">👁️ Registro</a>
+                </div>
               </div>
             `).join('')}
           </div>
@@ -680,7 +684,56 @@ async function confirmarFollowup(id){
   }catch(e){ toast('Erro: '+e.message); }
 }
 
-function imprimirRelatorioPagos(){
+async function verRegistroLC(id){
+  const o = ORDENS.find(x=>x.id===id);
+  document.getElementById('modalRegistro')?.remove();
+  const div = document.createElement('div');
+  div.id = 'modalRegistro';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  div.innerHTML = `
+    <div style="background:var(--sur);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-weight:800;font-size:15px">👁️ Registro — ${o?o.crm_id:''}</div>
+        <span onclick="document.getElementById('modalRegistro').remove()" style="cursor:pointer;font-size:20px;color:var(--mut)">✕</span>
+      </div>
+      <div id="registroConteudo" class="timeline"><div class="empty">Carregando...</div></div>
+    </div>`;
+  document.body.appendChild(div);
+
+  try{
+    const fu = await api('rpc/portal_list_followup', 'POST', { p_token: TOKEN, p_ordem_id: id });
+    const el = document.getElementById('registroConteudo');
+    if(!fu || !fu.length){ el.innerHTML = '<div class="empty" style="padding:10px 0">Nenhum registro anexado nessa LC.</div>'; return; }
+    el.innerHTML = fu.map(f=>`
+      <div class="tl-item">
+        <div class="tl-time">${new Date(f.criado_em).toLocaleString('pt-BR')}</div>
+        <div class="tl-text">${labelTipo(f.tipo)}${f.texto? ' — '+f.texto:''}</div>
+        ${f.midia_url ? `<a class="receipt-link" onclick="verMidiaLC('${f.id}','${o.crm_id}')">${f.midia_tipo==='foto'?'📷 Ver foto':'🎙️ Ouvir áudio'}</a>` : ''}
+      </div>
+    `).join('');
+  }catch(e){
+    document.getElementById('registroConteudo').innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
+  }
+}
+
+async function verMidiaLC(followupId, crmId){
+  toast('Gerando link...');
+  try{
+    const links = await api(`pagamentos_links?url_destino=eq.${ORDENS.find(o=>o.crm_id===crmId)?.id}&order=expira_em.desc&limit=1`);
+    let codigo = links && links[0] ? links[0].codigo : null;
+    if(!codigo){ toast('Não encontrei um link válido pra essa mídia'); return; }
+    const r = await fetch(SUPA_URL+'/functions/v1/followup-midia-link', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY},
+      body: JSON.stringify({ codigo, followup_id: followupId })
+    });
+    const data = await r.json();
+    if(!r.ok || !data.url){ toast('Erro: '+(data.error||'não encontrado')); return; }
+    window.open(data.url, '_blank');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+async function imprimirRelatorioPagos(){
   const pagas = ORDENS.filter(o=>o.forn_id && o.forn_pago);
   const total = pagas.reduce((s,o)=>s+(Number(o.forn_pago_valor)||0),0);
   const linhas = pagas
