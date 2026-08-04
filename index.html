@@ -12417,7 +12417,7 @@ function supRenderPortal(f){
 async function supAtivarPortal(fid){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   try{
-    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true},tok());
+    await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true, portal_ativado_em:new Date().toISOString()},tok());
     f.portal_ativo=true;
     supRenderPortal(f);
     toast('✅ Portal ativado!','ok');
