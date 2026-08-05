@@ -12423,8 +12423,9 @@ async function supAtivarPortal(fid){
   try{
     await api(`fornecedores?id=eq.${fid}`,'PATCH',{portal_ativo:true, portal_ativado_em:new Date().toISOString()},tok());
     f.portal_ativo=true;
+    await api(`ordens?forn_id=eq.${fid}&forn_status=is.null&entrega_confirmada=is.false&col=in.(ag_entrega,entrega)`,'PATCH',{forn_status:'pendente'},tok());
     supRenderPortal(f);
-    toast('✅ Portal ativado!','ok');
+    toast('✅ Portal ativado! LCs pendentes já marcadas.','ok');
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
