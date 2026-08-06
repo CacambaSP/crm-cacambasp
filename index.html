@@ -1805,6 +1805,7 @@ input[type=checkbox]:checked::after{
 ════════════════════════════════════════ -->
 <script>
 // ── CONFIG ──
+const APP_VERSAO_LOCAL = 1; // sobe manualmente a cada deploy que precisa forçar atualização
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
 const PIX_KEY  = 'cacambasp@gmail.com';
@@ -2594,6 +2595,19 @@ function initUI(){
   renderInadBadge();
 }
 
+// Verifica se saiu uma versão nova (tabela app_versao) e recarrega sozinho, sem deslogar
+let _versaoCheckId=null;
+async function _checarVersaoApp(){
+  try{
+    const rows=await api('app_versao?select=versao&id=eq.1');
+    const remota=rows?.[0]?.versao;
+    if(remota && remota>APP_VERSAO_LOCAL){
+      toast('🔄 Nova versão disponível, atualizando...','info',60000);
+      setTimeout(()=>location.reload(),2500);
+    }
+  }catch(e){ /* silencioso: não incomoda o usuário se a checagem falhar */ }
+}
+
 function startAutoRefresh(){
   if(_autoRefreshId) return;
   initServiceWorker().then(()=>_renderBtnNotif());
@@ -2601,12 +2615,14 @@ function startAutoRefresh(){
   _iniciarRealtime();
   // Polling a cada 8s como fallback (e para sincronizar se realtime cair)
   _autoRefreshId=setInterval(_pollOrdens, 8000);
+  // Checagem de versão nova a cada 5 min (leve: 1 linha só)
+  if(!_versaoCheckId) _versaoCheckId=setInterval(_checarVersaoApp, 5*60*1000);
   // Pausa o polling quando a aba fica em segundo plano (evita consumo de uma tela esquecida aberta)
   if(!_visHandlerAtivo){
     _visHandlerAtivo=true;
     document.addEventListener('visibilitychange', ()=>{
       _pollPausado = document.hidden;
-      if(!document.hidden) _pollOrdens(true); // ao voltar, sincroniza tudo de novo
+      if(!document.hidden){ _pollOrdens(true); _checarVersaoApp(); } // ao voltar, sincroniza tudo e checa versão
     });
   }
   // Refresh de token a cada 45 min
