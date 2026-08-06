@@ -1139,6 +1139,7 @@ input,select,textarea,button{font-family:var(--font)}
 
 <script>
 // ── CONFIG ──
+const APP_VERSAO_LOCAL = 1; // sobe manualmente a cada deploy que precisa forçar atualização
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
 const PIX_KEY  = 'cacambasp@gmail.com';
@@ -2706,12 +2707,16 @@ async function loadApp() {
         setSyncDot('ok');
       }catch(e){setSyncDot('err');}
     },5000);
+    // Checagem de versão nova a cada 5 min (leve: 1 linha só) — recarrega sozinho sem deslogar
+    if(!_versaoCheckIdMob){
+      _versaoCheckIdMob = setInterval(_checarVersaoAppMob, 5*60*1000);
+    }
     // Pausa o polling quando a tela fica em segundo plano (evita consumo de app esquecido aberto)
     if(!_visHandlerAtivoMob){
       _visHandlerAtivoMob = true;
       document.addEventListener('visibilitychange', ()=>{
         _pollPausadoMob = document.hidden;
-        if(!document.hidden) _ultimoSyncEmMob=null; // força resync completo ao voltar
+        if(!document.hidden){ _ultimoSyncEmMob=null; _checarVersaoAppMob(); } // força resync e checa versão ao voltar
       });
     }
   } catch(e) {
@@ -5826,6 +5831,18 @@ function aplicarFornSug() {
   if(_novaFornSug.preco) document.getElementById('nv_cst').value = _novaFornSug.preco.toFixed(2);
   if(_novaFornSug.preco_cli) document.getElementById('nv_rec').value = _novaFornSug.preco_cli.toFixed(2);
   toast('Fornecedor aplicado!','ok');
+}
+
+let _versaoCheckIdMob = null;
+async function _checarVersaoAppMob() {
+  try {
+    const rows = await api('app_versao?select=versao&id=eq.1', 'GET', null, tok());
+    const remota = rows?.[0]?.versao;
+    if (remota && remota > APP_VERSAO_LOCAL) {
+      toast('🔄 Nova versão disponível, atualizando...', 'ok', 60000);
+      setTimeout(() => location.reload(), 2500);
+    }
+  } catch (e) { /* silencioso: não incomoda o usuário se a checagem falhar */ }
 }
 
 async function nextCrmId() {
