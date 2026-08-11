@@ -3210,8 +3210,14 @@ function cardHTML(c,color){
   const prazo=urg>0?getPrazoContratar(c):null;
   const prazoStr=prazo?prazo.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' de '+prazo.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
   const maskAnim=urgAnims[urg]?'animation:'+urgAnims[urg]+';':'';
+
+  // Ordem concluída sem valor lançado e sem fornecedor vinculado — provável ordem "fantasma" que nunca foi de fato executada
+  const orfaConcluida = c.col==='concluido' && !(parseFloat(c.rec||0)>0) && !c.forn_id && !c.cancel_motivo;
+
   const maskStyle=urg>0
     ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid ${urgBordas[urg]};background:${urgCores[urg]};pointer-events:none;${maskAnim}z-index:1`
+    :orfaConcluida
+    ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid #ef4444;background:rgba(239,68,68,.08);pointer-events:none;z-index:1`
     :'display:none';
 
   // Badge de confirmação de entrega
@@ -3232,6 +3238,7 @@ function cardHTML(c,color){
     <div class="card-trophy" onclick="event.stopPropagation();arquivarOrdem('${c.id}')">🏆</div>
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
     ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
+    ${orfaConcluida?`<div style="font-size:9px;color:#ef4444;font-weight:700;margin-bottom:3px">🚩 Concluída sem valor e sem fornecedor — revisar</div>`:''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
     ${isAdmin()&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.pago?`<div onclick="event.stopPropagation();toggleDescontaISS('${c.id}')" style="display:inline-block;cursor:pointer;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-bottom:2px;${c.desconta_iss?'color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)':'color:var(--mut2);background:rgba(255,255,255,.04);border:1px solid var(--bor)'}">🏛️ ${c.desconta_iss?'Desconta ISS':'Cobrar cheio'}</div>`:''}
     ${!(parseFloat(c.rec||0)>0)&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:var(--r);font-weight:700;margin-bottom:2px">⚠️ Valor do cliente não informado</div>`:''}
