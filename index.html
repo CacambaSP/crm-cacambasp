@@ -2405,7 +2405,9 @@ function showConfirm({ico='❓',title='Confirmar',body='',ok='Confirmar',okClass
     document.getElementById('conf_ico').textContent=ico;
     document.getElementById('conf_title').textContent=title;
     document.getElementById('conf_body').innerHTML=body;
-    document.getElementById('conf_cancel').textContent=cancel;
+    const cancelBtn=document.getElementById('conf_cancel');
+    cancelBtn.textContent=cancel;
+    cancelBtn.style.display=cancel?'':'none';
     const okBtn=document.getElementById('conf_ok');
     okBtn.textContent=ok; okBtn.className='btn '+okClass;
     document.getElementById('confirmModal').classList.add('open');
@@ -10284,13 +10286,24 @@ function renderRel(){
 // ── Relatório: Pagamentos a Fornecedores ──────────────────────────────────
 let _pgfSort={col:'forn_pago_em',dir:'desc'};
 let _relPgLoteIds = {}; // safeRef -> [ids das ordens do mesmo pagamento], usado para anexar comprovante ao grupo todo
+let _pgfGroupCollapsed = {}; // safeRef -> true/false — lembra quais lotes de pagamento estão colapsados na tabela
+function _pgfRowVisivel(tr, ok, qAtiva){
+  // Linha de detalhe dentro de um grupo colapsável: só força mostrar se houver busca ativa e ela bater;
+  // sem busca ativa, respeita o estado de colapso do grupo (senão a busca "descolapsaria" tudo ao ser limpa)
+  const grpParent=tr.dataset.pgfgrpParent;
+  if(grpParent && !qAtiva){
+    tr.style.display = _pgfGroupCollapsed[grpParent] ? 'none' : '';
+    return;
+  }
+  tr.style.display = ok?'':'none';
+}
 function _relPgfFiltrarDOM(q){
   const qL=(q||'').toLowerCase().trim();
   const tbody=document.querySelector('#pgfTabela tbody');
   if(!tbody)return;
   tbody.querySelectorAll('tr[data-pgf]').forEach(tr=>{
     const ok=!qL||_nrm(tr.dataset.pgf||'').includes(_nrm(qL));
-    tr.style.display=ok?'':'none';
+    _pgfRowVisivel(tr, ok, !!qL);
   });
 }
 function _relPgfCodigoFiltrarDOM(v){
@@ -10299,8 +10312,16 @@ function _relPgfCodigoFiltrarDOM(v){
   if(!tbody)return;
   tbody.querySelectorAll('tr[data-pgf]').forEach(tr=>{
     const ok=!vL||(tr.dataset.pgfcod||'').toLowerCase().includes(vL);
-    tr.style.display=ok?'':'none';
+    _pgfRowVisivel(tr, ok, !!vL);
   });
+}
+function _relPgfToggleGrupo(safeRef){
+  const estavaColapsado=_pgfGroupCollapsed[safeRef]!==false;
+  _pgfGroupCollapsed[safeRef]=!estavaColapsado;
+  const abrir=!_pgfGroupCollapsed[safeRef];
+  document.querySelectorAll('#pgfTabela tr[data-pgfgrp-parent="'+safeRef+'"]').forEach(tr=>{ tr.style.display=abrir?'':'none'; });
+  const chevron=document.getElementById('pgfChevron_'+safeRef);
+  if(chevron) chevron.textContent=abrir?'▾':'▸';
 }
 function _relPgtosFornSort(col){
   if(_pgfSort.col===col) _pgfSort.dir=_pgfSort.dir==='asc'?'desc':'asc';
@@ -10416,40 +10437,87 @@ function _relPgtosForn(){
     ${qtdPend>0?_kpi(qtdPend+' pendentes','R$ '+fmt(totalPend),'var(--r)','a pagar'):''}
     ${_kpi('Total','R$ '+fmt(totalPago+totalPend),'var(--acc)',(qtdPago+qtdPend)+' ordens')}
   </div>
-  ${!lista.length?`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum resultado encontrado</div>`:`
-  <div class="rel-table-wrap"><table id="pgfTabela" class="rel-table"><thead><tr>
-    ${th('crm','CRM')} ${th('data','Dt Ordem')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('forn_pago_em','Dt Pagto')} ${th('valor','Valor','r')} <th>Código</th><th>Status</th>
-  </tr></thead><tbody>${lista.map(c=>{
-    const forn=forns.find(f=>f.id===c.forn_id);
-    const dataOrdem=c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
-    const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
-    const cod=c.forn_pg_ref||'—';
-    const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
-    const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
-    const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
-    // Agrupa pelo código do pagamento (forn_pg_ref): anexar em qualquer ordem do grupo
-    // salva o comprovante para todas as ordens pagas juntas nesse mesmo pagamento
-    const grupoRef=c.forn_pg_ref||'';
-    const grupoIds=grupoRef?ordens.filter(x=>x.forn_pg_ref===grupoRef).map(x=>x.id):[c.id];
-    const safeRef=grupoRef?('r'+btoa(unescape(encodeURIComponent(grupoRef))).replace(/[^a-zA-Z0-9]/g,'')):('o'+c.id.replace(/[^a-zA-Z0-9]/g,''));
-    _relPgLoteIds[safeRef]=grupoIds;
-    const compExistentes=grupoIds.map(id=>ordens.find(o=>o.id===id)).find(o=>o&&o.forn_comprovantes&&o.forn_comprovantes.length)?.forn_comprovantes||[];
-    return`<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}">
+  ${!lista.length?`<div style="text-align:center;padding:40px;color:var(--mut)">Nenhum resultado encontrado</div>`:(()=>{
+    // Monta o HTML do código/comprovante — igual pra linha de grupo e pra linha individual
+    const montarCodigoHtml=(c, forn)=>{
+      const grupoRef=c.forn_pg_ref||'';
+      // grupoIds usa TODAS as ordens desse pagamento (não só as filtradas), pra anexar/remover comprovante valer pro pagamento inteiro
+      const grupoIds=grupoRef?ordens.filter(x=>x.forn_pg_ref===grupoRef).map(x=>x.id):[c.id];
+      const safeRef=grupoRef?('r'+btoa(unescape(encodeURIComponent(grupoRef))).replace(/[^a-zA-Z0-9]/g,'')):('o'+c.id.replace(/[^a-zA-Z0-9]/g,''));
+      _relPgLoteIds[safeRef]=grupoIds;
+      const compExistentes=grupoIds.map(id=>ordens.find(o=>o.id===id)).find(o=>o&&o.forn_comprovantes&&o.forn_comprovantes.length)?.forn_comprovantes||[];
+      const cod=c.forn_pg_ref||'—';
+      const html=`${cod}
+        ${compExistentes.length
+          ? ` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(compExistentes).replace(/"/g,'&quot;')}, '${safeRef}')" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${compExistentes.length>1?' x'+compExistentes.length:''}</span> <span onclick="event.stopPropagation();reenviarLinkComprovanteRel('${safeRef}', ${JSON.stringify(compExistentes).replace(/"/g,'&quot;')}, '${(forn?.nome||'Fornecedor').replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--mut2)" title="Gerar mensagem com link">📤</span> <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut2)" title="Anexar mais">➕</span>`
+          : ` <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--acc)" title="Anexar comprovante${grupoIds.length>1?' (vale p/ '+grupoIds.length+' ordens deste pagamento)':''}">📎 Anexar</span>`}
+        <input type="file" id="relAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="anexarComprovanteRel('${safeRef}', this.files)">`;
+      return {safeRef, html};
+    };
+    // Monta uma linha individual da ordem (usada tanto solta quanto dentro de um grupo aberto/fechado)
+    const linhaHtml=(c, opts)=>{
+      opts=opts||{};
+      const forn=forns.find(f=>f.id===c.forn_id);
+      const dataOrdem=c.data?c.data.slice(8,10)+'/'+c.data.slice(5,7)+'/'+c.data.slice(0,4):'—';
+      const dataPg=c.forn_pago_em?c.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
+      const valor=c.forn_pago?fmt(c.forn_pago_valor||c.cst):fmt(c.cst);
+      const end=[c.logradouro,c.numero,c.bairro].filter(Boolean).join(', ');
+      const _dataPgf=[(c.crm_id||''),(c.nome||''),(c.bairro||''),(c.logradouro||''),(forn?forn.nome:'')].join(' ').toLowerCase();
+      const {html:codigoHtml}=montarCodigoHtml(c, forn);
+      const grpAttr=opts.grpSafeRef?` data-pgfgrp-parent="${opts.grpSafeRef}" style="display:${opts.escondida?'none':''}"`:'';
+      return `<tr data-pgf="${_dataPgf.replace(/"/g,'&quot;')}" data-pgfcod="${(c.forn_pg_ref||'').toLowerCase()}"${grpAttr}>
       <td style="font-family:var(--mono);font-size:11px;white-space:nowrap"><span onclick="event.stopPropagation();openDetail('${c.id}')" style="color:var(--acc);cursor:pointer;font-weight:700">${c.crm_id||'-'}</span></td>
       <td style="font-size:11px;white-space:nowrap;color:var(--mut2)">${dataOrdem}</td>
       <td style="font-weight:600;max-width:200px">${c.nome||'-'}<br><span style="font-size:10px;color:var(--mut2)">${end}</span></td>
       <td style="font-size:11px;color:var(--mut2);white-space:nowrap">${forn?forn.nome:'-'}</td>
       <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
       <td class="r" style="font-weight:700;color:${c.forn_pago?'var(--g)':'var(--r)'}">R$ ${valor}</td>
-      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${cod}
-        ${compExistentes.length
-          ? ` <span onclick="event.stopPropagation();abrirComprovantesLista(${JSON.stringify(compExistentes).replace(/"/g,'&quot;')})" style="cursor:pointer;color:var(--acc)" title="Ver comprovante(s)">📎${compExistentes.length>1?' x'+compExistentes.length:''}</span> <span onclick="event.stopPropagation();reenviarLinkComprovanteRel('${safeRef}', ${JSON.stringify(compExistentes).replace(/"/g,'&quot;')}, '${(forn?.nome||'Fornecedor').replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--mut2)" title="Gerar mensagem com link">📤</span> <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--mut2)" title="Anexar mais">➕</span>`
-          : ` <span onclick="event.stopPropagation();document.getElementById('relAnexoInput_${safeRef}').click()" style="cursor:pointer;color:var(--acc)" title="Anexar comprovante${grupoIds.length>1?' (vale p/ '+grupoIds.length+' ordens deste pagamento)':''}">📎 Anexar</span>`}
-        <input type="file" id="relAnexoInput_${safeRef}" multiple style="display:none" accept="image/*,application/pdf" onchange="anexarComprovanteRel('${safeRef}', this.files)">
-      </td>
+      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${codigoHtml}</td>
       <td>${c.forn_pago?'<span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span>':'<span style="color:var(--r);font-size:11px;font-weight:700">⏳ Pendente</span>'}</td>
     </tr>`;
-  }).join('')}</tbody></table></div>`}`;
+    };
+    // Agrupa ordens pagas juntas (mesmo código/forn_pg_ref) numa linha-resumo colapsável — igual ao app mobile.
+    // Mantém a ordem de exibição definida pela ordenação atual (posição = 1º membro encontrado).
+    const refCount={};
+    lista.forEach(c=>{ const r=c.forn_pg_ref; if(r) refCount[r]=(refCount[r]||0)+1; });
+    const unidades=[]; const jaAgrupado=new Set();
+    lista.forEach(c=>{
+      if(jaAgrupado.has(c.id)) return;
+      const r=c.forn_pg_ref;
+      if(r && refCount[r]>1){
+        const membros=lista.filter(x=>x.forn_pg_ref===r);
+        membros.forEach(m=>jaAgrupado.add(m.id));
+        unidades.push({tipo:'grupo', membros});
+      } else {
+        jaAgrupado.add(c.id);
+        unidades.push({tipo:'single', ordem:c});
+      }
+    });
+    const linhas=unidades.map(u=>{
+      if(u.tipo==='single') return linhaHtml(u.ordem);
+      const primeiro=u.membros[0];
+      const forn=forns.find(f=>f.id===primeiro.forn_id);
+      const {safeRef, html:codigoHtml}=montarCodigoHtml(primeiro, forn);
+      if(_pgfGroupCollapsed[safeRef]===undefined) _pgfGroupCollapsed[safeRef]=true;
+      const colapsado=_pgfGroupCollapsed[safeRef];
+      const totalGrupo=u.membros.reduce((s,o)=>s+(parseFloat(o.forn_pago_valor||o.cst)||0),0);
+      const dataPg=primeiro.forn_pago_em?primeiro.forn_pago_em.slice(0,10).split('-').reverse().join('/'):'—';
+      const textoGrupo=u.membros.map(o=>[(o.crm_id||''),(o.nome||''),(o.bairro||''),(o.logradouro||'')].join(' ')).join(' ').toLowerCase();
+      const cabecalho=`<tr class="pgf-grp-header" data-pgf="${(textoGrupo+' '+(primeiro.forn_pg_ref||'').toLowerCase()).replace(/"/g,'&quot;')}" data-pgfcod="${(primeiro.forn_pg_ref||'').toLowerCase()}" onclick="_relPgfToggleGrupo('${safeRef}')" style="cursor:pointer;background:rgba(255,255,255,.03)">
+      <td colspan="3" style="font-size:12px;color:var(--acc);font-weight:700"><span id="pgfChevron_${safeRef}">${colapsado?'▸':'▾'}</span> ${u.membros.length} ordens pagas juntas</td>
+      <td style="font-size:11px;color:var(--mut2);white-space:nowrap">${forn?forn.nome:'-'}</td>
+      <td style="font-size:11px;white-space:nowrap">${dataPg}</td>
+      <td class="r" style="font-weight:700;color:var(--g)">R$ ${fmt(totalGrupo)}</td>
+      <td style="font-size:10px;color:var(--mut2);font-family:var(--mono);max-width:180px;word-break:break-all">${codigoHtml}</td>
+      <td><span style="color:var(--g);font-size:11px;font-weight:700">✅ Pago</span></td>
+    </tr>`;
+      const membrosHtml=u.membros.map(o=>linhaHtml(o,{escondida:colapsado, grpSafeRef:safeRef})).join('');
+      return cabecalho+membrosHtml;
+    }).join('');
+    return `<div class="rel-table-wrap"><table id="pgfTabela" class="rel-table"><thead><tr>
+    ${th('crm','CRM')} ${th('data','Dt Ordem')} ${th('nome','Cliente / Endereço')} ${th('forn','Fornecedor')} ${th('forn_pago_em','Dt Pagto')} ${th('valor','Valor','r')} <th>Código</th><th>Status</th>
+  </tr></thead><tbody>${linhas}</tbody></table></div>`;
+  })()}`;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -13323,14 +13391,43 @@ async function uploadArquivoPrivado(file, path){
   if(!res.ok){const e=await res.text();throw new Error(e);}
   return path;
 }
-function abrirComprovantesLista(lista){
+function abrirComprovantesLista(lista, safeRef){
   if(!lista || !lista.length) return;
-  if(lista.length===1){ abrirArquivoPrivado(lista[0].path); return; }
+  const podeExcluir = !!safeRef;
   showConfirm({
     ico:'📎', title:'Comprovantes ('+lista.length+')',
-    body: lista.map((a,i)=>'<div style="margin:4px 0"><a href="#" onclick="event.preventDefault();abrirArquivoPrivado(\''+a.path+'\')" style="color:var(--acc)">'+(i+1)+'. '+(a.nome||a.path).split('/').pop()+'</a></div>').join(''),
+    body: lista.map((a,i)=>{
+      const nomeArq=(a.nome||a.path).split('/').pop();
+      const pathEsc=a.path.replace(/'/g,"\\'");
+      const delLink=podeExcluir?' <a href="#" onclick="event.preventDefault();removerComprovanteLote(\''+safeRef+'\',\''+pathEsc+'\')" style="color:var(--r);margin-left:10px;font-size:12px">🗑 Excluir</a>':'';
+      return '<div style="margin:6px 0;display:flex;align-items:center;justify-content:space-between;gap:8px"><a href="#" onclick="event.preventDefault();abrirArquivoPrivado(\''+pathEsc+'\')" style="color:var(--acc)">'+(i+1)+'. '+nomeArq+'</a>'+delLink+'</div>';
+    }).join(''),
     ok:'Fechar', okClass:'acc', cancel:''
   });
+}
+async function removerComprovanteLote(safeRef, path){
+  const ids=_relPgLoteIds[safeRef]||[];
+  if(!ids.length){ toast('Ordem(ns) não encontrada(s)','err'); return; }
+  const ok=await showConfirm({
+    ico:'🗑️', title:'Remover comprovante?',
+    body:'Esse comprovante deixará de aparecer nessa'+(ids.length>1?'s '+ids.length+' ordens':' ordem')+' pagas juntas. O arquivo em si continua no armazenamento (não é apagado, só desvinculado).',
+    ok:'🗑 Remover', okClass:'btn-r', cancel:'Cancelar'
+  });
+  if(!ok) return;
+  try{
+    for(const id of ids){
+      const ord=ordens.find(x=>x.id===id); if(!ord) continue;
+      const novos=(ord.forn_comprovantes||[]).filter(a=>a.path!==path);
+      const patch={forn_comprovantes:novos};
+      if(ord.forn_comprovante_url===path) patch.forn_comprovante_url='';
+      await api(`ordens?id=eq.${id}`,'PATCH',patch,tok());
+      ord.forn_comprovantes=novos;
+      if(ord.forn_comprovante_url===path) ord.forn_comprovante_url='';
+      addLog(id,'Comprovante removido','Relatórios — arquivo desvinculado do pagamento');
+    }
+    toast('🗑 Comprovante removido de '+ids.length+' ordem'+(ids.length>1?'s':''),'ok');
+    renderRel();
+  }catch(e){ toast('Erro ao remover: '+e.message,'err'); }
 }
 function _gerarCodigoCurtoRel(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
