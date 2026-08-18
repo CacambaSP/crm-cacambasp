@@ -1229,6 +1229,7 @@ input[type=checkbox]:checked::after{
       <button class="btn btn-xs btn-wa" id="detailWaOrcBtn" onclick="enviarWaOrc(_detailId)" title="Enviar orçamento pelo WhatsApp" style="margin-right:4px;display:none">💬 WA</button>
       <button class="btn btn-xs btn-acc" id="detailGerarPdfBtn" onclick="closeDetail();setView('orc');setTimeout(()=>abrirOrcGerador(_detailId),150)" title="Gerar PDF do orçamento" style="margin-right:4px;display:none">📄 PDF</button>
       <button class="btn btn-xs" id="detailArchBtn" onclick="arquivarDoDetail()" title="Arquivar/Desarquivar" style="margin-right:4px">🏆</button>
+      <button class="btn btn-xs" id="detailBloqBtn" onclick="bloquearClienteDetail()" title="Bloquear cliente" style="margin-right:4px;background:rgba(220,38,38,.12);color:#dc2626;border-color:rgba(220,38,38,.3)">🚫</button>
       <button class="mx" onclick="closeDetail()">✕</button>
     </div>
     <div class="mtabs">
@@ -1825,7 +1826,7 @@ const COLS = [
 ];
 
 // ── ESTADO ──
-let ordens=[], forns=[], usuarios=[], _currentUser=null, _perfil=null;
+let ordens=[], forns=[], usuarios=[], bloqueados=[], _currentUser=null, _perfil=null;
 let _obraLimites={};
 
 // ── Analytics de uso ──
@@ -2510,7 +2511,7 @@ function doLogout(){
   _autoRefreshId=null; _tokenRefreshId=null;
   _ultimoSyncEm=null; _pollCiclos=0; _pollPausado=false;
   if(_realtimeWS){ try{_realtimeWS.close();}catch(e){} _realtimeWS=null; }
-  _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[]; _obraLimites={};
+  _currentUser=null; _perfil=null; ordens=[]; forns=[]; usuarios=[]; bloqueados=[]; _obraLimites={};
   document.getElementById('appPage').style.display='none';
   const lp=document.getElementById('loginPage');lp.style.display='flex';
 }
@@ -2540,7 +2541,7 @@ async function loadApp(){
     if(!_perfil)_perfil={id:uid,nome:email.split('@')[0],email,nivel:'operador'};
     if(!_perfil.email)_perfil.email=email;
     setLoadProg(60,'Carregando dados...');
-    const [dbOrdens,dbForns,dbUsrs,dbConfig,dbObraLimites]=await Promise.all([
+    const [dbOrdens,dbForns,dbUsrs,dbConfig,dbObraLimites,dbBloqueados]=await Promise.all([
       isAdmin()
         ? apiPaginado('ordens?order=criado_em.asc',tok())
         : apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok()),
@@ -2548,8 +2549,9 @@ async function loadApp(){
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
       api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
       api('obra_limites',undefined,undefined,tok()).catch(()=>[]),
+      api('clientes_bloqueados?order=criado_em.desc',undefined,undefined,tok()).catch(()=>[]),
     ]);
-    ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[];
+    ordens=dbOrdens||[]; forns=dbForns||[]; usuarios=dbUsrs||[]; bloqueados=dbBloqueados||[];
     _obraLimites={};
     (dbObraLimites||[]).forEach(r=>{ _obraLimites[r.obra_ref]=r.limite; });
     if(dbConfig?.length){
@@ -3199,9 +3201,16 @@ function cardBtnsPagamento(c,precisaConfirmar){
   return '<div class="card-pay" style="padding:6px 9px 8px;border-top:1px solid var(--bor);display:flex;gap:4px">'+btns+'</div>';
 }
 
+function _isBloqueado(c){
+  const cel=(c.cel||'').replace(/\D/g,'');
+  const cpf=(c.cpf||'').replace(/\D/g,'');
+  if(!cel&&!cpf) return null;
+  return bloqueados.find(b=>(cel&&b.cel_normalizado===cel)||(cpf&&b.cpf_normalizado===cpf))||null;
+}
 function cardHTML(c,color){
   const f=forns.find(s=>s.id===c.forn_id);
   const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
+  const bloq=_isBloqueado(c);
 
   // Urgência para contratar fornecedor (0=ok, 1=amarelo, 2=laranja, 3=vermelho, 4=atrasado)
   const urg=urgenciaContratar(c);
@@ -3217,7 +3226,9 @@ function cardHTML(c,color){
   // Ordem concluída sem valor lançado e sem fornecedor vinculado — provável ordem "fantasma" que nunca foi de fato executada
   const orfaConcluida = c.col==='concluido' && !(parseFloat(c.rec||0)>0) && !c.forn_id && !c.cancel_motivo;
 
-  const maskStyle=urg>0
+  const maskStyle=bloq
+    ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid #dc2626;background:rgba(220,38,38,.1);pointer-events:none;z-index:1`
+    :urg>0
     ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid ${urgBordas[urg]};background:${urgCores[urg]};pointer-events:none;${maskAnim}z-index:1`
     :orfaConcluida
     ?`position:absolute;inset:0;border-radius:var(--rad2);border:2px solid #ef4444;background:rgba(239,68,68,.08);pointer-events:none;z-index:1`
@@ -3242,6 +3253,7 @@ function cardHTML(c,color){
     <div class="card-cb" onclick="event.stopPropagation();toggleSelect('${c.id}')">${_selCards.has(c.id)?'✓':''}</div>
     ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
     ${orfaConcluida?`<div style="font-size:9px;color:#ef4444;font-weight:700;margin-bottom:3px">🚩 Concluída sem valor e sem fornecedor — revisar</div>`:''}
+    ${bloq?`<div style="font-size:9px;color:#fff;font-weight:800;margin-bottom:3px;background:#dc2626;padding:2px 6px;border-radius:4px;display:inline-block">🚫 CLIENTE BLOQUEADO — ${bloq.motivo||'ver histórico'}</div>`:''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
     ${isAdmin()&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.pago?`<div onclick="event.stopPropagation();toggleDescontaISS('${c.id}')" style="display:inline-block;cursor:pointer;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-bottom:2px;${c.desconta_iss?'color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)':'color:var(--mut2);background:rgba(255,255,255,.04);border:1px solid var(--bor)'}">🏛️ ${c.desconta_iss?'Desconta ISS':'Cobrar cheio'}</div>`:''}
     ${!(parseFloat(c.rec||0)>0)&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:var(--r);font-weight:700;margin-bottom:2px">⚠️ Valor do cliente não informado</div>`:''}
@@ -4428,6 +4440,15 @@ function fillDetail(c){
   const archBtn=document.getElementById('detailArchBtn');
   archBtn.textContent=c.col==='concluido'?'↩️ Voltar':'🏆 Arquivar';
   archBtn.className='btn btn-xs '+(c.col==='concluido'?'btn-b':'btn-acc');
+  const bloqBtn=document.getElementById('detailBloqBtn');
+  if(bloqBtn){
+    const bloq=_isBloqueado(c);
+    bloqBtn.textContent=bloq?'✅ Desbloquear':'🚫 Bloquear';
+    bloqBtn.title=bloq?'Cliente bloqueado — '+(bloq.motivo||''):'Bloquear cliente';
+    bloqBtn.style.background=bloq?'rgba(16,185,129,.12)':'rgba(220,38,38,.12)';
+    bloqBtn.style.color=bloq?'#10b981':'#dc2626';
+    bloqBtn.style.borderColor=bloq?'rgba(16,185,129,.3)':'rgba(220,38,38,.3)';
+  }
   const orcBtn=document.getElementById('detailOrcBtn');
   if(orcBtn) orcBtn.style.display=(c.col!=='concluido'&&c.col!=='orcamento')?'':'none';
   const _waOrcBtn=document.getElementById('detailWaOrcBtn');
@@ -5613,6 +5634,45 @@ async function arquivarOrdem(id){
 }
 
 function arquivarDoDetail(){if(_detailId)arquivarOrdem(_detailId);}
+
+async function bloquearClienteDetail(){
+  if(!_detailId) return;
+  const c=ordens.find(x=>x.id===_detailId); if(!c) return;
+  const jaBloqueado=_isBloqueado(c);
+  if(jaBloqueado){
+    const ok=await showConfirm({
+      ico:'✅',title:'Desbloquear cliente',
+      body:`<strong>${c.nome||'Cliente'}</strong><br><br>Motivo atual: ${jaBloqueado.motivo||'—'}<br><br>Remover do bloqueio?`,
+      ok:'✅ Desbloquear',okClass:'btn-acc'
+    });
+    if(!ok) return;
+    try{
+      await api('clientes_bloqueados?id=eq.'+jaBloqueado.id,'DELETE',null,tok());
+      bloqueados=bloqueados.filter(b=>b.id!==jaBloqueado.id);
+      toast('✅ Cliente desbloqueado');
+      renderBoard();
+      addLog(c.id,'Cliente desbloqueado','');
+    }catch(e){toast('Erro ao desbloquear','err');}
+    return;
+  }
+  const cel=(c.cel||'').replace(/\D/g,'');
+  const cpf=(c.cpf||'').replace(/\D/g,'');
+  if(!cel&&!cpf){toast('Ordem sem telefone ou CPF/CNPJ cadastrado','warn');return;}
+  const ok=await showConfirm({
+    ico:'🚫',title:'Bloquear cliente',
+    body:`<strong>${c.nome||'Cliente'}</strong><br>${c.cel?'📱 '+c.cel:''}${c.cpf?' · '+c.cpf:''}<br><br>Isso não impede pedido pelo site — só avisa você no CRM se ele tentar de novo.<br><br>Motivo:<br><input type="text" id="bloqMotivoInput" placeholder="Ex: inadimplente, não pagou..." style="width:100%;margin-top:6px;padding:8px;border-radius:6px;border:1px solid var(--bor);background:var(--bg2);color:var(--txt);font-family:var(--font)">`,
+    ok:'🚫 Bloquear',okClass:'btn-r'
+  });
+  if(!ok) return;
+  const motivo=(document.getElementById('bloqMotivoInput')?.value||'').trim()||'Bloqueado manualmente';
+  try{
+    const novo=await api('clientes_bloqueados','POST',{nome:c.nome,cel_normalizado:cel||null,cpf_normalizado:cpf||null,motivo,ordens_ref:[c.crm_id],criado_por:_perfil?.nome||'Douglas'},tok());
+    if(novo?.[0]) bloqueados.push(novo[0]);
+    toast('🚫 Cliente bloqueado');
+    renderBoard();
+    addLog(c.id,'Cliente bloqueado',motivo);
+  }catch(e){toast('Erro ao bloquear','err');}
+}
 async function voltarOrcamentoDetail(){
   if(!_detailId) return;
   const c=ordens.find(x=>x.id===_detailId);
@@ -8712,7 +8772,7 @@ function setFinFiltro(f){
   renderFinanceiro();
 }
 function _fundoLista(){
-  return ordens.filter(c=>c.arquivado&&!c.forn_pago&&c.forn_id);
+  return ordens.filter(c=>c.arquivado&&['fundo_nao_cobrado','prejuizo','compensado_fundo'].includes(c.arquivado_motivo));
 }
 function _finFilter(){
   const a=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
@@ -8751,10 +8811,13 @@ function renderFinanceiro(){
       <button class="btn btn-sm btn-acc" onclick="finArquivarSel()">🏆 Arquivar selecionados</button>`;
   }else if(_finFiltro==='inadimp'){totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);totLabel='Total inadimplente · '+lista.length+' ordem(ns)';}
   else if(_finFiltro==='fundo'){
-    totVal=lista.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-    const inadTotal=ordens.filter(c=>c.col==='inadimp').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
-    const saldo=totVal-inadTotal;
-    totLabel='Fundo compensatório · '+lista.length+' ordem(ns) · Inadimplência atual R$ '+fmt(inadTotal)+' · Saldo R$ '+fmt(saldo);
+    const entradas=lista.filter(c=>c.arquivado_motivo==='fundo_nao_cobrado'||c.arquivado_motivo==='prejuizo').reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+    const inadLive=ordens.filter(c=>c.col==='inadimp').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const inadCompensada=lista.filter(c=>c.arquivado_motivo==='compensado_fundo').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const consumoTotal=inadLive+inadCompensada;
+    const saldo=entradas-consumoTotal;
+    totVal=entradas;
+    totLabel='Fundo compensatório (referência) · Entradas R$ '+fmt(entradas)+' · Inadimplência (aberta+compensada) R$ '+fmt(consumoTotal)+' · Saldo R$ '+fmt(saldo);
   }
   else{totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);totLabel='Todas as ordens ativas · '+lista.length;}
   document.getElementById('finTotLabel').textContent=totLabel;
@@ -8809,7 +8872,7 @@ function renderFinanceiro(){
             ${c.nome?'👤 '+c.nome:''}
             ${f?'🚛 '+f.nome:''}
             ${c.crm_id?`<span style="color:var(--acc)">${c.crm_id}</span>`:''}
-            ${_finFiltro==='fundo'?(c.arquivado_motivo==='prejuizo'?'<span style="color:var(--r)">⚠️ prejuízo</span>':'<span style="color:var(--g)">🏦 não cobrado</span>'):''}
+            ${_finFiltro==='fundo'?(c.arquivado_motivo==='prejuizo'?'<span style="color:var(--r)">⚠️ prejuízo</span>':c.arquivado_motivo==='compensado_fundo'?'<span style="color:var(--acc)">📤 consumo (inadimplência)</span>':'<span style="color:var(--g)">🏦 não cobrado</span>'):''}
           </div>
           <div class="fin-row-bot">
             ${cliPill} <span style="color:var(--mut)">|</span> ${fornPill}
