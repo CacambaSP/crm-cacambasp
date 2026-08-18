@@ -3582,6 +3582,7 @@ async function selArquivarLote(){
   const idsVolta=ids.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&c.col==='concluido';});
   const idsArq=ids.filter(id=>!idsVolta.includes(id));
   const pendentes=idsArq.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&(!c.pago||!c.forn_pago);});
+  const voltaComFundo=idsVolta.filter(id=>{const c=ordens.find(x=>x.id===id);return c&&c.arquivado;});
   let avisoBody='';
   if(idsArq.length&&idsVolta.length){
     avisoBody=`<strong>${idsArq.length}</strong> ordem${idsArq.length!==1?'ns':''} irá${idsArq.length!==1?'ão':''} para o Histórico e <strong>${idsVolta.length}</strong> voltará${idsVolta.length!==1?'ão':''} ao funil (pago resetado).`;
@@ -3590,13 +3591,16 @@ async function selArquivarLote(){
   }else{
     avisoBody='As ordens irão para o Histórico.'+(pendentes.length?`<br><br><span style="color:#f5a623;font-weight:700">⚠️ ${pendentes.length} ordem${pendentes.length!==1?'ns':''} ainda com pagamento pendente${pendentes.length!==1?'s':''}.</span>`:'');
   }
+  if(voltaComFundo.length){
+    avisoBody+=`<br><br><span style="color:#f5a623;font-weight:700">⚠️ ${voltaComFundo.length} ordem${voltaComFundo.length!==1?'ns':''} marcada${voltaComFundo.length!==1?'s':''} no Fundo Compensatório — vai sair do Fundo também.</span>`;
+  }
   const ico=idsVolta.length&&!idsArq.length?'↩️':'🏆';
   const ok=await showConfirm({ico,title:(idsVolta.length&&!idsArq.length?'↩️ Desarquivar':'🏆 Arquivar')+' '+n+' ordem'+(n!==1?'ns':''),body:avisoBody,ok:ico+' Confirmar',okClass:idsVolta.length&&!idsArq.length?'btn-b':'btn-acc'});
   if(!ok)return;
   const agora=nowISO();
   ids.forEach(id=>{
     const c=ordens.find(x=>x.id===id);if(!c)return;
-    if(idsVolta.includes(id)){c.col='baixar';c.concluido_em=null;}
+    if(idsVolta.includes(id)){c.col='baixar';c.concluido_em=null;if(c.arquivado){c.arquivado=false;c.arquivado_motivo=null;c.arquivado_em=null;}}
     else{c.col='concluido';c.concluido_em=agora;}
   });
   _selCards.clear();_filteredOrdens=null;renderBoard();updateSelBar();renderStats();renderFinanceiro();renderInadBadge();
@@ -3605,7 +3609,10 @@ async function selArquivarLote(){
     await Promise.all(ids.map(id=>{
       const c=ordens.find(x=>x.id===id);
       if(idsVolta.includes(id)){
-        return api('ordens?id=eq.'+id,'PATCH',{col:'baixar',concluido_em:null},tok()).then(()=>addLog(id,'Desarquivado',''));
+        const patchVolta={col:'baixar',concluido_em:null};
+        const saiuDoFundo=voltaComFundo.includes(id);
+        if(saiuDoFundo){patchVolta.arquivado=false;patchVolta.arquivado_motivo=null;patchVolta.arquivado_em=null;}
+        return api('ordens?id=eq.'+id,'PATCH',patchVolta,tok()).then(()=>addLog(id,'Desarquivado',saiuDoFundo?'Removida do Fundo Compensatório junto':''));
       }
       const patch={col:'concluido',concluido_em:agora};
       if(c&&!c.forn_pago&&c.forn_id){patch.forn_id=null;patch.cst=null;c.forn_id=null;c.cst=null;}
@@ -5606,32 +5613,41 @@ async function arquivarOrdem(id){
   const avisoForn = arquivando && c.forn_id && !c.forn_pago
     ? `<div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e">⚠️ <strong>Fornecedor ainda não foi pago!</strong><br>O custo de <strong>R$ ${fmt(parseFloat(c.cst||0))}</strong> ainda está pendente.</div>`
     : '';
+  const avisoFundo = !arquivando && c.arquivado
+    ? `<div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e">⚠️ <strong>Essa ordem está marcada no Fundo Compensatório</strong> (${c.arquivado_motivo==='prejuizo'?'prejuízo':c.arquivado_motivo==='compensado_fundo'?'compensado':'não cobrado'}). Desarquivar vai tirá-la do Fundo também.</div>`
+    : '';
   const ok=await showConfirm(arquivando?{
     ico:'🏆',title:'Arquivar ordem',
     body:`<strong>${c.logradouro||c.nome||'Ordem'}</strong><br><br>Irá para o Histórico. Pode ser revertido a qualquer momento.${avisoForn}`,
     ok:'🏆 Arquivar',okClass:'btn-acc'
   }:{
     ico:'↩️',title:'Desarquivar ordem',
-    body:`<strong>${c.logradouro||c.nome||'Ordem'}</strong><br><br>Voltará ao funil na coluna <strong>Baixar</strong>.`,
+    body:`<strong>${c.logradouro||c.nome||'Ordem'}</strong><br><br>Voltará ao funil na coluna <strong>Baixar</strong>.${avisoFundo}`,
     ok:'↩️ Desarquivar',okClass:'btn-b'
   });
   if(!ok) return;
   const novaCol=arquivando?'concluido':'baixar';
   c.col=novaCol;
   if(arquivando){c.concluido_em=nowISO();}else{c.concluido_em=null;}
+  const _patch={col:novaCol,concluido_em:c.concluido_em};
+  // Ao desarquivar, também limpa a marcação do Fundo Compensatório pra não ficar em estado inconsistente
+  if(!arquivando && c.arquivado){
+    c.arquivado=false; c.arquivado_motivo=null; c.arquivado_em=null;
+    _patch.arquivado=false; _patch.arquivado_motivo=null; _patch.arquivado_em=null;
+  }
   // Se desarquivando, limpa filtro para a ordem aparecer no board
   if(!arquivando){ _filteredOrdens=null; clearFilter(); }
   renderBoard(); renderStats(); renderFinanceiro(); renderInadBadge();
   if(_detailId===id)closeDetail();
   try{
     setSyncDot('sync');
-    const _patch={col:novaCol,concluido_em:c.concluido_em};
     await api('ordens?id=eq.'+id,'PATCH',_patch,tok());
     setSyncDot('ok');
-    toast(arquivando?'🏆 Ordem arquivada!':'↩️ Ordem voltou ao funil!');
-    addLog(id,arquivando?'Arquivado':'Desarquivado','');
+    toast(arquivando?'🏆 Ordem arquivada!':'↩️ Ordem voltou ao funil!'+(_patch.arquivado===false?' (saiu do Fundo também)':''));
+    addLog(id,arquivando?'Arquivado':'Desarquivado',_patch.arquivado===false?'Removida do Fundo Compensatório junto':'');
   }catch(e){setSyncDot('err');toast('Erro ao arquivar','err');}
 }
+
 
 function arquivarDoDetail(){if(_detailId)arquivarOrdem(_detailId);}
 
