@@ -10804,8 +10804,8 @@ function _reciboFiltrar(q) {
 function _reciboSelecionarCliente(chaveEnc) {
   const chave = decodeURIComponent(chaveEnc);
   document.getElementById('reciboAC').style.display = 'none';
-  // Pegar todas as ordens deste cliente — excluir canceladas (não devem aparecer no recibo)
-  _reciboClienteOrdens = ordens.filter(o => (o.cel||o.nome||o.id) === chave && !o.cancel_motivo)
+  // Pegar todas as ordens deste cliente — excluir canceladas e arquivadas (não devem aparecer no recibo)
+  _reciboClienteOrdens = ordens.filter(o => (o.cel||o.nome||o.id) === chave && !o.cancel_motivo && !o.arquivado)
     .sort((a,b) => (a.data||'').localeCompare(b.data||''));
   _reciboSelecionados = new Set(_reciboClienteOrdens.map(o=>o.id));
   _reciboRenderLista();
