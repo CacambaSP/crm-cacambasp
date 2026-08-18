@@ -2195,11 +2195,19 @@ async function confirmarPagoForn() {
   for(const id of ids) {
     const ord = _ordens.find(x=>x.id===id); if(!ord) continue;
     const valOrd = ids.length > 1 ? parseFloat(ord.cst||0) : val;
-    const cli = !!ord.pago;
+    // Busca status fresco do cliente/coluna no banco — o cache local (_ordens) pode
+    // estar desatualizado se outra pessoa mexeu na ordem há pouco (ex: conciliação
+    // do cliente feita no desktop segundos antes), o que fazia a coluna ficar errada.
+    let pagoFresco = ord.pago, colFresco = ord.col;
+    try{
+      const fresh = await api('ordens?id=eq.'+id+'&select=pago,col',undefined,undefined,tok());
+      if(fresh?.[0]){ pagoFresco = fresh[0].pago; colFresco = fresh[0].col; }
+    }catch(e){}
+    const cli = !!pagoFresco;
     // Preserva col atual se já estiver em estado correto; senão move adequadamente
-    let novaCol = ord.col;
-    if(cli && !['baixar','concluido'].includes(ord.col)) novaCol = 'baixar';
-    else if(!cli && ord.col === 'pagar') novaCol = 'faltapg';
+    let novaCol = colFresco;
+    if(cli && !['baixar','concluido'].includes(colFresco)) novaCol = 'baixar';
+    else if(!cli && colFresco === 'pagar') novaCol = 'faltapg';
     const upd = {forn_pago:true, forn_pago_em:data+'T12:00:00.000Z', forn_pago_valor:valOrd, forn_pg_ref:pgRef, col:novaCol};
     upd.forn_comprovantes = comprovantes.length ? comprovantes : null;
     try {
