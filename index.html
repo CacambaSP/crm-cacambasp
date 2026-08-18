@@ -10098,7 +10098,7 @@ function initPgForn(){
   const sel=document.getElementById('pgfornSup');
   sel.innerHTML='<option value="">-- Escolha --</option>';
   forns.forEach(f=>{
-    const pend=ordens.filter(c=>c.forn_id===f.id&&!c.forn_pago&&(c.cst||0)>0);
+    const pend=ordens.filter(c=>c.forn_id===f.id&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='concluido');
     if(pend.length){const o=document.createElement('option');o.value=f.id;o.textContent=f.nome+' ('+pend.length+' pendente'+(pend.length>1?'s':'')+')';sel.appendChild(o);}
   });
   document.getElementById('pgfornContent').innerHTML='';
@@ -10157,7 +10157,7 @@ function pgfornAtualizarRodape(){
 function _pgfornGetPend(fid,de,ate){
   if(!fid) return [];
   return ordens.filter(c=>{
-    if(c.forn_id!==fid||c.forn_pago||c.col==='orcamento') return false;
+    if(c.forn_id!==fid||c.forn_pago||c.col==='orcamento'||c.col==='concluido') return false;
     if(de && c.data && c.data < de) return false;
     if(ate && c.data && c.data > ate) return false;
     return true;
@@ -10172,7 +10172,7 @@ function carregarPgForn(){
   if(!fid){document.getElementById('pgfornContent').innerHTML='';return;}
   const f=forns.find(x=>x.id===fid);
   const pend=_pgfornGetPend(fid,de,ate);
-  const pendTotal=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento').length;
+  const pendTotal=ordens.filter(c=>c.forn_id===fid&&!c.forn_pago&&(c.cst||0)>0&&c.col!=='orcamento'&&c.col!=='concluido').length;
   const filtrado=de||ate;
 
   if(!pend.length){
