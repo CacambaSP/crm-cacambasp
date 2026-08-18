@@ -708,6 +708,7 @@ input[type=checkbox]:checked::after{
           <button class="fin-chip" data-f="falta_forn" onclick="setFinFiltro('falta_forn')">🚚 Forn <span class="fin-cnt-falta_forn">0</span></button>
           <button class="fin-chip" data-f="prontos" onclick="setFinFiltro('prontos')">✅ <span class="fin-cnt-prontos">0</span></button>
           <button class="fin-chip" data-f="inadimp" onclick="setFinFiltro('inadimp')">🚨 <span class="fin-cnt-inadimp">0</span></button>
+          <button class="fin-chip" data-f="fundo" onclick="setFinFiltro('fundo')">🏦 Fundo <span class="fin-cnt-fundo">0</span></button>
         </div>
         <div class="fin-totalizador">
           <div>
@@ -8710,6 +8711,9 @@ function setFinFiltro(f){
   document.querySelectorAll('.fin-chip').forEach(btn=>btn.classList.toggle('on',btn.dataset.f===f));
   renderFinanceiro();
 }
+function _fundoLista(){
+  return ordens.filter(c=>c.arquivado&&!c.forn_pago&&c.forn_id);
+}
 function _finFilter(){
   const a=ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   if(_finFiltro==='todos') return a;
@@ -8717,6 +8721,7 @@ function _finFilter(){
   if(_finFiltro==='falta_forn') return a.filter(c=>!c.forn_pago);
   if(_finFiltro==='prontos') return a.filter(c=>c.pago&&c.forn_pago);
   if(_finFiltro==='inadimp') return a.filter(c=>c.col==='inadimp');
+  if(_finFiltro==='fundo') return _fundoLista();
   return a;
 }
 function _finCounts(){
@@ -8726,7 +8731,8 @@ function _finCounts(){
     falta_cli:a.filter(c=>!c.pago&&c.col!=='inadimp').length,
     falta_forn:a.filter(c=>!c.forn_pago).length,
     prontos:a.filter(c=>c.pago&&c.forn_pago).length,
-    inadimp:a.filter(c=>c.col==='inadimp').length
+    inadimp:a.filter(c=>c.col==='inadimp').length,
+    fundo:_fundoLista().length
   };
 }
 function renderFinanceiro(){
@@ -8744,6 +8750,12 @@ function renderFinanceiro(){
     totActs=`<button class="btn btn-sm btn-acc" onclick="finSelecionarTodos()">☑️ Selecionar todos</button>
       <button class="btn btn-sm btn-acc" onclick="finArquivarSel()">🏆 Arquivar selecionados</button>`;
   }else if(_finFiltro==='inadimp'){totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);totLabel='Total inadimplente · '+lista.length+' ordem(ns)';}
+  else if(_finFiltro==='fundo'){
+    totVal=lista.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
+    const inadTotal=ordens.filter(c=>c.col==='inadimp').reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
+    const saldo=totVal-inadTotal;
+    totLabel='Fundo compensatório · '+lista.length+' ordem(ns) · Inadimplência atual R$ '+fmt(inadTotal)+' · Saldo R$ '+fmt(saldo);
+  }
   else{totVal=lista.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);totLabel='Todas as ordens ativas · '+lista.length;}
   document.getElementById('finTotLabel').textContent=totLabel;
   document.getElementById('finTotVal').textContent='R$ '+fmt(totVal);
@@ -8797,6 +8809,7 @@ function renderFinanceiro(){
             ${c.nome?'👤 '+c.nome:''}
             ${f?'🚛 '+f.nome:''}
             ${c.crm_id?`<span style="color:var(--acc)">${c.crm_id}</span>`:''}
+            ${_finFiltro==='fundo'?(c.arquivado_motivo==='prejuizo'?'<span style="color:var(--r)">⚠️ prejuízo</span>':'<span style="color:var(--g)">🏦 não cobrado</span>'):''}
           </div>
           <div class="fin-row-bot">
             ${cliPill} <span style="color:var(--mut)">|</span> ${fornPill}
