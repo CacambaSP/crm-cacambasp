@@ -4768,11 +4768,35 @@ function _irmasSemForn(c){
   if(!c.grp_id) return [];
   return ordens.filter(x=>x.id!==c.id && x.grp_id===c.grp_id && !x.forn_id && !x.cancel_motivo && x.col!=='concluido');
 }
+// ── Checagem de prazo: bloqueia atribuição se a hora prevista de entrega já passou ──
+async function _bloqueiaSePrazoVencido(c, f){
+  if(!c.data) return false; // sem data definida, não dá pra checar
+  const bairro = (c.bairro||'').toLowerCase().trim();
+  const cidade = (c.cidade||'').toLowerCase().trim();
+  const res = _fornMatchBairro(f, bairro, cidade);
+  const turno = (res && res.reg && (res.reg.turno||'').toLowerCase().includes('not')) ? 'noturno' : 'diurno';
+  const base = new Date(c.data+'T12:00:00');
+  if(turno==='noturno'){ base.setDate(base.getDate()+1); base.setHours(7,0,0,0); }
+  else { base.setHours(18,0,0,0); }
+  if(new Date() < base) return false; // ainda não passou, pode seguir
+  document.getElementById('fornPopup')?.remove(); _popupFornId=null;
+  const dataStr = new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR');
+  const turnoLbl = turno==='noturno' ? '🌙 Noturno' : '☀️ Diurno';
+  const ok = await showConfirm({
+    ico:'⏰', title:'Data já passou',
+    body:'Esta entrega está marcada para <strong>'+dataStr+'</strong> ('+turnoLbl+'), que já passou.<br>Ajuste a data antes de atribuir o fornecedor.',
+    ok:'Ajustar data', okClass:'btn-acc', cancel:'Cancelar'
+  });
+  if(ok){ openDetail(c.id); setTimeout(()=>editarOrdemAtual(), 250); }
+  return true;
+}
+
 async function _atribuirFornecedorCard(ordemId, fornId){
   // Fechar popup
   document.getElementById('fornPopup')?.remove(); _popupFornId=null;
   const c = ordens.find(x=>x.id===ordemId); if(!c) return;
   const f = forns.find(x=>x.id===fornId); if(!f) return;
+  if(await _bloqueiaSePrazoVencido(c, f)) return;
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
   const m = _fornMatchBairro(f, bairro, cidade);
@@ -5072,6 +5096,7 @@ async function _atribuirFornecedor(fornId){
   if(!c) return;
   const f = forns.find(x => x.id === fornId);
   if(!f) return;
+  if(await _bloqueiaSePrazoVencido(c, f)) return;
   // Usar matching inteligente de bairro (S16)
   const bairro = (c.bairro||'').toLowerCase().trim();
   const cidade = (c.cidade||'').toLowerCase().trim();
