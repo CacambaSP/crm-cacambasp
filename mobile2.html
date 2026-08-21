@@ -1646,9 +1646,31 @@ function _irmasSemFornMobile(o){
   if(!o.grp_id) return [];
   return _ordens.filter(x=>x.id!==o.id && x.grp_id===o.grp_id && !x.forn_id && !x.cancel_motivo && x.col!=='concluido');
 }
+// ── Checagem de prazo: bloqueia atribuição se a hora prevista de entrega já passou ──
+async function _bloqueiaSePrazoVencidoMobile(o, f){
+  if(!o.data) return false; // sem data definida, não dá pra checar
+  const res = _fornMatchBairro(f, o.bairro, o.cidade);
+  const turno = (res && res.reg && (res.reg.turno||'').toLowerCase().includes('not')) ? 'noturno' : 'diurno';
+  const base = new Date(o.data+'T12:00:00');
+  if(turno==='noturno'){ base.setDate(base.getDate()+1); base.setHours(7,0,0,0); }
+  else { base.setHours(18,0,0,0); }
+  if(new Date() < base) return false; // ainda não passou, pode seguir
+  closeModal('atribuirFornModal');
+  const dataStr = new Date(o.data+'T12:00:00').toLocaleDateString('pt-BR');
+  const turnoLbl = turno==='noturno' ? '🌙 Noturno' : '☀️ Diurno';
+  const ok = await showConfirm({
+    ico:'⏰', title:'Data já passou',
+    body:'Esta entrega está marcada para <strong>'+dataStr+'</strong> ('+turnoLbl+'), que já passou.<br>Ajuste a data antes de atribuir o fornecedor.',
+    ok:'Ajustar data', okClass:'acc', cancel:'Cancelar'
+  });
+  if(ok) abrirEditar(o.id);
+  return true;
+}
+
 async function selecionarFornecedor(fornId) {
   const o = _ordens.find(x=>x.id===_detalheId); if(!o) return;
   const f = _forns.find(x=>x.id===fornId); if(!f) return;
+  if(await _bloqueiaSePrazoVencidoMobile(o, f)) return;
   const s = _af_compativeis.find(x=>x.f.id===fornId) || (_af_vizinhos||[]).find(x=>x.f.id===fornId) || _af_gerais.find(x=>x.f.id===fornId);
   // Bairro sem nenhum match (nem exato, nem vizinho): pede preço antes de atribuir
   if(s && s.tipo==='geral'){
