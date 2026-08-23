@@ -40,7 +40,7 @@ th.r{text-align:right}
 @media print{
   body{padding:10px 14px}
   @page{margin:10mm;size:A4}
-  #btn-print{display:none}
+  #btn-print-wrap{display:none!important}
   table.tb-ordens thead{display:table-header-group!important}
   table.tb-ordens, table.tb-ordens tbody, table.tb-ordens tr, table.tb-ordens td{display:revert!important;width:auto!important}
   table.tb-ordens tr{border:none!important;padding:0!important;margin:0!important}
@@ -55,9 +55,10 @@ th.r{text-align:right}
 <div id="loading"><div class="spinner"></div><span>Carregando recibo...</span></div>
 <div id="erro"><div id="erro-ico">🔍</div><div id="erro-txt">Recibo não encontrado.<br>Verifique o link recebido.</div></div>
 <div id="conteudo"></div>
+<div id="btn-print-wrap" style="display:none;margin-top:18px;text-align:center">
+  <button id="btn-print" onclick="window.print()" style="background:#111;color:#fff;border:none;border-radius:10px;padding:14px 28px;font-size:14px;font-weight:700;cursor:pointer;width:100%;max-width:320px">🖨️ Imprimir / Salvar em PDF</button>
 </div>
-
-<button id="btn-print" onclick="window.print()" style="display:none;position:fixed;bottom:20px;right:20px;background:#111;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)">🖨️ Imprimir / PDF</button>
+</div>
 
 <script>
 const SUPA_URL='https://ejfuqijtiberxsnvxdwm.supabase.co';
@@ -235,7 +236,7 @@ ${pixSection}
   const cont=document.getElementById('conteudo');
   cont.innerHTML=html;
   cont.style.display='block';
-  document.getElementById('btn-print').style.display='block';
+  document.getElementById('btn-print-wrap').style.display='block';
 
   if(totalPend>0.01){
     const pixPayloadEl=cont.querySelector('#rTrkQR');
