@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Recibo — CaçambaSP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1f2937;background:#fff;padding:20px 24px}
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;padding:7px 10px;text-align:left;background:#f9fafb;border-bottom:2px solid #e5e7eb}
+th.r{text-align:right}
+#loading{display:flex;flex-direction:column;align-items:center;gap:16px;padding:60px 20px;color:#8b8fa8;font-size:14px}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid #e5e7eb;border-top-color:#f5a623;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#erro{display:none;flex-direction:column;align-items:center;gap:12px;padding:60px 20px;text-align:center}
+#erro-ico{font-size:48px}
+#erro-txt{color:#8b8fa8;font-size:14px;line-height:1.6}
+#conteudo{display:none}
+@media print{body{padding:10px 14px}@page{margin:10mm;size:A4}#btn-print{display:none}}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><span>Carregando recibo...</span></div>
+<div id="erro"><div id="erro-ico">🔍</div><div id="erro-txt">Recibo não encontrado.<br>Verifique o link recebido.</div></div>
+<div id="conteudo"></div>
+
+<button id="btn-print" onclick="window.print()" style="display:none;position:fixed;bottom:20px;right:20px;background:#111;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)">🖨️ Imprimir / PDF</button>
+
+<script>
+const SUPA_URL='https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+const LOGOS_BUCKET='https://ejfuqijtiberxsnvxdwm.supabase.co/storage/v1/object/public/logos/';
+const PIX_KEY='cacambasp@gmail.com';
+const PIX_NOME='Luciana Cristina Testa';
+const PIX_CIDADE='SAO PAULO';
+let _nfAcrescimo=40;
+
+function dateF(d){if(!d)return'—';try{const[y,m,dia]=d.split('-');return`${dia}/${m}/${y}`;}catch(e){return d;}}
+function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function normCel(c){return(c||'').replace(/\D/g,'').replace(/^55/,'');}
+async function api(path){
+  const r=await fetch(SUPA_URL+'/rest/v1/'+path,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+  if(!r.ok)throw new Error('HTTP '+r.status);return r.json();
+}
+function valorCliente(o){
+  const base=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
+  return o.desconta_iss ? base*(1-0.024) : base;
+}
+function mostrarErro(msg){
+  document.getElementById('loading').style.display='none';
+  const el=document.getElementById('erro');el.style.display='flex';
+  if(msg)document.getElementById('erro-txt').innerHTML=msg;
+}
+function linhaOrdem(o,tipo){
+  const end=[o.logradouro,o.bairro].filter(Boolean).join(', ')||'—';
+  const val=tipo==='pago'?parseFloat(o.pago_valor||o.rec)||0:valorCliente(o);
+  const dataPag=tipo==='pago'&&o.pago_em?' · pago em '+new Date(o.pago_em).toLocaleString('pt-BR'):'';
+  const nfNum=(o.nf_num||'').replace(/^0+/,'');
+  const nfCell=!nfNum?'<span style="color:#d1d5db">—</span>'
+    :(o.nf_link?`<a href="${o.nf_link}" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline">${nfNum} 📎</a>`:`<span style="color:#1d4ed8;font-weight:700">${nfNum}</span>`);
+  return `<tr>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;font-family:monospace;color:#1d4ed8;font-weight:700">${o.crm_id||'—'}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${o.tipo||'Caçamba'}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${dateF(o.data)}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px">${end}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-family:monospace">${nfCell}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:700;font-family:monospace">${tipo==='pago'?'<span style="color:#16a34a">':'<span style="color:#dc2626">'}R$ ${fmt(val)}</span></td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right">${tipo==='pago'?`<span style="color:#16a34a;font-weight:700">✅ Pago${dataPag}</span>`:'<span style="color:#dc2626;font-weight:700">⏳ Pendente</span>'}</td>
+  </tr>`;
+}
+
+async function carregar(){
+  const params=new URLSearchParams(window.location.search);
+  const crmId=params.get('pedido')||params.get('id');
+  if(!crmId){mostrarErro('Link inválido. Nenhum pedido informado.');return;}
+  try{
+    try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
+
+    const ordensBusca=await api('ordens?crm_id=eq.'+encodeURIComponent(crmId)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,nf_link,desconta_iss&limit=1');
+    if(!ordensBusca||!ordensBusca.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
+    const ord=ordensBusca[0];
+
+    let vend=null;
+    if(ord.usuario_id){
+      try{
+        const p=await api('perfis?id=eq.'+ord.usuario_id+'&select=nome,marca_nome,marca_tel,marca_logo_url,marca_cor,marca_slogan&limit=1');
+        if(p&&p.length)vend=p[0];
+      }catch(e){}
+    }
+
+    let ordens=[ord];
+    const celNorm=normCel(ord.cel);
+    if(celNorm&&celNorm.length>=8){
+      try{
+        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_link,nf_taxa,cancel_motivo,desconta_iss&order=data.asc');
+        ordens=(todas||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
+        if(!ordens.length)ordens=[ord];
+      }catch(e){}
+    }
+
+    renderizarRecibo(ord,vend,ordens);
+  }catch(e){console.error(e);mostrarErro('Erro ao buscar recibo. Tente novamente em instantes.');}
+}
+
+async function renderizarRecibo(ord,vend,ordens){
+  const nomeEmpresa = (vend?.marca_nome||vend?.nome)||'CaçambaSP';
+  const telEmpresa  = vend?.marca_tel||'(11) 4237-8757';
+  const logoUrlRaw  = vend?.marca_logo_url
+    ? (vend.marca_logo_url.startsWith('http') ? vend.marca_logo_url : LOGOS_BUCKET+vend.marca_logo_url)
+    : null;
+  const cor         = vend?.marca_cor||'#f5a623';
+  const hoje        = new Date().toLocaleDateString('pt-BR');
+
+  let logoUrl = null;
+  if(logoUrlRaw){
+    try{
+      const res=await fetch(logoUrlRaw);
+      const blob=await res.blob();
+      logoUrl=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+    }catch(e){}
+  }
+
+  const pagas    = ordens.filter(o=>o.pago);
+  const pendentes= ordens.filter(o=>!o.pago);
+  const totalPago= pagas.reduce((s,o)=>s+(parseFloat(o.pago_valor||o.rec)||0),0);
+  const totalPend= pendentes.reduce((s,o)=>s+valorCliente(o),0);
+  const totalGeral=totalPago+totalPend;
+
+  let pixSection='';
+  if(totalPend>0.01){
+    function _san(s,m){s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]/g,'').trim();return s.substring(0,m);}
+    function _emv(id,v){const sv=String(v);return id+String(sv.length).padStart(2,'0')+sv;}
+    function _crc(s){let c=0xFFFF;for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++)c=(c&0x8000)?(c<<1)^0x1021:(c<<1);c&=0xFFFF;}return c.toString(16).toUpperCase().padStart(4,'0');}
+    const txid=('RC'+(ord.crm_id||'').replace(/\D/g,'')).substring(0,25);
+    const ma=_emv('00','BR.GOV.BCB.PIX')+_emv('01',PIX_KEY);
+    let p=_emv('00','01')+_emv('26',ma)+_emv('52','0000')+_emv('53','986');
+    p+=_emv('54',totalPend.toFixed(2));
+    p+=_emv('58','BR')+_emv('59',_san(PIX_NOME,25))+_emv('60',_san(PIX_CIDADE,15))+_emv('62',_emv('05',txid))+'6304';
+    const pixPayload=p+_crc(p);
+    pixSection=`
+    <div style="border:2px solid ${cor};border-radius:8px;padding:14px;margin-bottom:12px;background:#fffbf0;page-break-inside:avoid">
+      <div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:3px">⚡ Pagamento via Pix — R$ ${fmt(totalPend)}</div>
+      <div style="font-size:9px;color:#b45309;margin-bottom:10px;font-style:italic">Válido mediante confirmação do pagamento</div>
+      <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div id="rTrkQR" style="width:110px;height:110px;background:#fff;padding:4px;border-radius:6px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:140px;font-size:10px">
+          <div style="margin-bottom:5px"><span style="color:#777;font-weight:700">Chave:</span> ${PIX_KEY}</div>
+          <div style="margin-bottom:5px"><span style="color:#777;font-weight:700">Beneficiário:</span> ${PIX_NOME}</div>
+          <div style="word-break:break-all;background:#fff;border:1px solid #eee;border-radius:6px;padding:6px 8px;font-family:monospace;font-size:9px">${pixPayload}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const logoTag = logoUrl
+    ? `<img src="${logoUrl}" style="width:50px;height:50px;border-radius:10px;object-fit:cover;border:2px solid ${cor}">`
+    : `<div style="width:50px;height:50px;border-radius:10px;background:${cor}22;color:${cor};font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid ${cor}">${nomeEmpresa.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>`;
+
+  const html=`
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid ${cor};padding-bottom:12px;margin-bottom:14px">
+  <div style="display:flex;align-items:center;gap:12px">
+    ${logoTag}
+    <div>
+      <div style="font-size:18px;font-weight:800;color:#111">${nomeEmpresa}</div>
+      <div style="font-size:10px;color:#6b7280">${telEmpresa}</div>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:4px;background:${pendentes.length===0?'#16a34a':'#dc2626'};color:#fff">${pendentes.length===0?'✅ Recibo Quitado':'⏳ Pagamento Pendente'}</div>
+    <div style="font-size:10px;color:#6b7280">Emitido em ${hoje}</div>
+  </div>
+</div>
+<div style="background:#f8fafc;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap">
+  <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">Cliente</div><div style="font-size:14px;font-weight:800;color:#111">${ord.nome||'—'}</div></div>
+  ${ord.cel?`<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">Telefone</div><div style="font-size:12px;font-weight:600">${ord.cel}</div></div>`:''}
+  ${ord.cpf?`<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:2px">CPF/CNPJ</div><div style="font-size:12px;font-weight:600">${ord.cpf}</div></div>`:''}
+</div>
+<table style="margin-bottom:12px">
+  <thead><tr>
+    <th>OS</th><th>Tipo</th><th>Data</th><th>Endereço</th><th class="r">NF</th><th class="r">Valor</th><th class="r">Situação</th>
+  </tr></thead>
+  <tbody>
+    ${pagas.map(o=>linhaOrdem(o,'pago')).join('')}
+    ${pendentes.map(o=>linhaOrdem(o,'pendente')).join('')}
+  </tbody>
+</table>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:14px">
+  ${totalPago>0?`<div style="display:flex;gap:16px;font-size:11px"><span style="color:#6b7280">✅ Total pago</span><span style="font-weight:700;color:#16a34a;font-family:monospace">R$ ${fmt(totalPago)}</span></div>`:''}
+  ${totalPend>0.01?`<div style="display:flex;gap:16px;font-size:11px"><span style="color:#6b7280">⏳ Total pendente</span><span style="font-weight:700;color:#dc2626;font-family:monospace">R$ ${fmt(totalPend)}</span></div>`:''}
+  <div style="display:flex;gap:16px;background:#111;color:#fff;padding:8px 14px;border-radius:6px;margin-top:4px"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af">Total Geral</span><span style="font-size:14px;font-weight:800;font-family:monospace">R$ ${fmt(totalGeral)}</span></div>
+</div>
+${pixSection}
+<div style="border-top:1px solid #e5e7eb;padding-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <div style="font-size:9px;color:#9ca3af">
+    <div>Documento gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    ${pagas.length&&pagas[pagas.length-1].pago_em?`<div style="margin-top:2px">Último pagamento: ${new Date(pagas[pagas.length-1].pago_em).toLocaleString('pt-BR')}</div>`:''}
+  </div>
+  <div style="text-align:right;font-size:10px;font-weight:700;color:#374151">${nomeEmpresa} · ${telEmpresa}</div>
+</div>`;
+
+  document.getElementById('loading').style.display='none';
+  const cont=document.getElementById('conteudo');
+  cont.innerHTML=html;
+  cont.style.display='block';
+  document.getElementById('btn-print').style.display='block';
+
+  if(totalPend>0.01){
+    const pixPayloadEl=cont.querySelector('#rTrkQR');
+    // reconstruir o mesmo payload para o QR (já calculado acima em pixSection via closure não disponível aqui, então recalcula)
+  }
+}
+
+// Gera o QR code do Pix após render, se houver seção Pix
+function _gerarQRSePresente(){
+  const wrap=document.getElementById('rTrkQR');
+  if(!wrap)return;
+  const codigoEl=wrap.nextElementSibling?.querySelector('div[style*="word-break"]');
+  const codigo=codigoEl?codigoEl.textContent:null;
+  if(codigo){
+    try{new QRCode(wrap,{text:codigo,width:100,height:100,correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+  }
+}
+
+carregar().then(()=>{ setTimeout(_gerarQRSePresente,50); });
+</script>
+</body>
+</html>
