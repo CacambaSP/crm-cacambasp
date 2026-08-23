@@ -149,7 +149,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="info-row"><div class="info-ico">🏢</div><div><div class="info-key">Atendimento</div><div class="info-val" id="det-atend">CaçambaSP</div></div></div>
   </div>
   <div class="card" style="padding:0"><a id="btn-wa" href="#" style="display:none"><span>💬</span> Falar no WhatsApp</a></div>
-  <button id="btn-recibo" onclick="abrirReciboTracking()" style="display:none;width:calc(100% - 32px);max-width:480px;margin-top:4px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad);padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🧾 Ver / Imprimir Recibo</button>
+  <a id="btn-recibo" href="#" target="_blank" rel="noopener" style="display:none;width:calc(100% - 32px);max-width:480px;margin-top:4px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:var(--rad);padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none;display:none">🧾 Ver / Imprimir Recibo</a>
   <div id="footer">CaçambaSP · Powered by CRM CaçambaSP</div>
 </div>
 <script>
@@ -505,10 +505,11 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   }
   const cont=document.getElementById('conteudo');
   cont.style.display='flex';cont.style.flexDirection='column';cont.style.alignItems='center';
-  document.getElementById('btn-recibo').style.display='block';
-  // Guardar dados para o recibo
-  window._reciboOrd = ord;
-  window._reciboVend = vend;
+  const _btnRecibo=document.getElementById('btn-recibo');
+  if(_btnRecibo && ord.crm_id){
+    _btnRecibo.href='recibo.html?pedido='+encodeURIComponent(ord.crm_id);
+    _btnRecibo.style.display='block';
+  }
 }
 function _toggleGrupoNF(gid){
   const chk=document.getElementById(gid); if(!chk) return;
