@@ -6191,6 +6191,9 @@ async function duplicarOrdem(id) {
   let criadas = 0, falhas = 0, ultimoCrmId = '';
   for(let i=0;i<qtd;i++){
     try {
+      // Remove sufixo "(1/2)", "(2/3)" etc herdado do tipo da ordem original —
+      // esse número pertencia ao lote de origem, não faz sentido copiado numa duplicata nova
+      const tipoLimpoDup = (o.tipo||'').replace(/\s*\(\d+\/\d+\)\s*$/,'').trim();
       // Monta body com spread, mas remove campos que não devem ser copiados
       const body = {
         ...o,
@@ -6199,6 +6202,7 @@ async function duplicarOrdem(id) {
         col: 'contratar',
         criado_em: nowISO(),
         data: dataNovaMob,
+        tipo: tipoLimpoDup || o.tipo,
         forn_id: null,
         cobrado_em: null, cancel_motivo: null,
         pago: false, pago_em: null, pago_valor: null, pago_obs: null,
