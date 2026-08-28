@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Solicitar Serviço</title>
+<!-- Google Ads: rastreamento de conversão (AW-1035342324) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-1035342324"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-1035342324');
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -261,6 +269,8 @@ let _nfAcrescimo = 40; // Acréscimo fixo R$ no valor ao cliente quando tem NF �
 // Pega uid do vendedor pela URL (?v=xxx)
 const params = new URLSearchParams(window.location.search);
 const VEND_UID = params.get('v') || null;
+// UID do perfil "PC - Padrão Caçamba" — página oficial da campanha de Google Ads
+const VEND_UID_ADS_PADRAO = '49b0c48a-6f8f-4921-9be2-53d4fce47e80';
 // Contexto vindo do site padraocacamba.com.br (opcional)
 const SITE_BAIRRO = params.get('bairro') || '';
 const SITE_PRECO  = params.get('preco')  || '';
@@ -648,6 +658,12 @@ async function enviarCadastro(){
     document.getElementById('formCard').style.display = 'none';
     const sc = document.getElementById('successCard');
     sc.style.display = 'block';
+    // Google Ads: dispara conversão de cadastro (só na página padrão da campanha, uma vez por envio)
+    try{
+      if(typeof gtag === 'function' && VEND_UID === VEND_UID_ADS_PADRAO){
+        gtag('event', 'conversion', {'send_to': 'AW-1035342324/wVKOCIygo94cEPSj2O0D'});
+      }
+    }catch(e){}
 
     // Dispara push via Edge Function (fire-and-forget — não bloqueia)
     try{
