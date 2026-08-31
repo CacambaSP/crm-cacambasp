@@ -7612,15 +7612,16 @@ async function calcularFechamento(){
     const _claSomaLL = parseFloat(_claAtivas.reduce((s,{ll})=>s+ll,0).toFixed(2));
     const _claAposDesc = parseFloat(Math.max(_claSomaLL - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
     const _claSplit = parseFloat((_claAposDesc / 2).toFixed(2));
-    const _claTotal = parseFloat((1000 + _claSplit + (f.totalClaudiaExtra||0)).toFixed(2));
-    const extra = f.totalClaudiaExtra > 0 ? ` · +R$${fmt(f.totalClaudiaExtra)} da Sandra` : '';
+    const _gerSandraIni = _calcGerSandraAtivas(f);
+    const _claTotal = parseFloat((1000 + _claSplit + _gerSandraIni).toFixed(2));
+    const extra = _gerSandraIni > 0 ? ` · +R$${fmt(_gerSandraIni)} da Sandra` : '';
     const linhas = _linha('Soma lucro líquido ('+_claAtivas.length+' ordens)',_claSomaLL,'var(--b)','fech_somaLL_'+f.claudia.vendedor.id)
       + _linha('(-) Fixo garantido',1000,'var(--r)')
       + _linha('(-) Anúncio',f.claudia.anuncio,'var(--r)')
       + _linha('Restante após descontos',_claAposDesc,'var(--txt)','fech_apos_'+f.claudia.vendedor.id)
       + _linha('50% Claudia (split)',_claSplit,'var(--acc)','fech_split_'+f.claudia.vendedor.id)
       + _linha('(+) Fixo garantido',1000,'var(--g)')
-      + _linha('(+) Gerência Sandra',f.totalClaudiaExtra||0,'var(--g)')
+      + _linha('(+) Gerência Sandra',_gerSandraIni,'var(--g)')
       + _linha('50% Douglas',_claSplit,'var(--mut2)','fech_splitD_'+f.claudia.vendedor.id)
       + _tabelaOrdens(f.claudia.ordens, f.claudia.vendedor?.id||'cla','claudia');
     html += _card('Claudia','var(--b)','👩',f.claudia.vendedor.email||'',_claTotal, linhas, `R$1.000 fixo + 50% do restante${extra}`,f.claudia.vendedor.id);
@@ -7777,7 +7778,7 @@ async function calcularFechamento(){
         const _claAposF = parseFloat(Math.max(_claLLF - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
         const _claSplitF = parseFloat((_claAposF / 2).toFixed(2));
         const _savedCla = _fechamentoAtual.fechadosData?.[_cuid];
-        const _gerSandra = _savedCla ? parseFloat(_savedCla.valor_claudia_extra||0) : (f.totalClaudiaExtra||0);
+        const _gerSandra = _savedCla ? parseFloat(_savedCla.valor_claudia_extra||0) : _calcGerSandraAtivas(f);
         const _claTotalF = parseFloat((1000 + _claSplitF + _gerSandra).toFixed(2));
         const extra = _gerSandra > 0 ? ` · +R$${fmt(_gerSandra)} da Sandra` : '';
         const linhas = _linha('Soma lucro líquido ('+_claAtF.length+' ordens)',_claLLF,'var(--b)','fech_somaLL_'+_cuid)
@@ -7859,6 +7860,17 @@ function _ordsAtivasFech(ords){
   });
 }
 
+// Calcula o valor que a Claudia recebe da Sandra (30% do líquido após anúncio),
+// usando SÓ as ordens ativas da Sandra (pagas/liberadas e não desmarcadas manualmente).
+// Isso mantém consistência com o que aparece no próprio card da Sandra.
+function _calcGerSandraAtivas(f){
+  if(!f?.sandra?.vendedor) return 0;
+  const ativas = _ordsAtivasFech(f.sandra.ordens);
+  const ll = ativas.reduce((s,{ll})=>s+ll,0);
+  const apos = Math.max(ll - (f.sandra.anuncio||0), 0);
+  return parseFloat((apos*0.30).toFixed(2));
+}
+
 
 async function desfazerFechamento(uid, nome){
   const f = _fechamentoAtual;
@@ -7934,7 +7946,7 @@ async function salvarVendedor(uid){
       lucro_liquido: bloco.apos_anuncio||0,
       valor_vendedor: bloco.totalVendedor,
       valor_douglas: bloco.totalDouglas||0,
-      valor_claudia_extra: f.totalClaudiaExtra||0};
+      valor_claudia_extra: _calcGerSandraAtivas(f)};
   } else if(modelo==='sandra'){
     reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:300,
       lucro_liquido: bloco.apos_anuncio||0,
@@ -8044,7 +8056,7 @@ async function salvarFechamento(){
       lucro_liquido: f.claudia.apos_anuncio||0,
       valor_vendedor: f.claudia.totalVendedor,
       valor_douglas: f.claudia.totalDouglas||0,
-      valor_claudia_extra: f.totalClaudiaExtra||0,
+      valor_claudia_extra: _calcGerSandraAtivas(f),
       status: 'pendente'
     });
   }
@@ -8130,7 +8142,7 @@ function imprimirFechamento(){
   const linhas = [
     ['Luciana', f.luciana.totalVendedor],
     ...(f.leticia?.vendedor ? [['Leticia', f.leticia.totalVendedor]] : []),
-    ['Claudia', f.claudia.totalVendedor + (f.totalClaudiaExtra||0)],
+    ['Claudia', f.claudia.totalVendedor + _calcGerSandraAtivas(f)],
     ['Ricardo', f.ricardo.totalVendedor],
     ['Sandra', f.sandra.totalVendedor],
     ['Douglas', f.totalDouglas],
