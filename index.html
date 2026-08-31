@@ -7943,7 +7943,7 @@ async function salvarVendedor(uid){
       valor_douglas:0, valor_claudia_extra:0};
   } else if(modelo==='claudia'){
     reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:1000,
-      lucro_liquido: bloco.apos_anuncio||0,
+      lucro_liquido: bloco.apos_fixo_anuncio||0,
       valor_vendedor: bloco.totalVendedor,
       valor_douglas: bloco.totalDouglas||0,
       valor_claudia_extra: _calcGerSandraAtivas(f)};
@@ -8053,7 +8053,7 @@ async function salvarFechamento(){
       total_cst: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
       valor_anuncio: f.claudia.anuncio||0,
       fixo_garantido: 1000,
-      lucro_liquido: f.claudia.apos_anuncio||0,
+      lucro_liquido: f.claudia.apos_fixo_anuncio||0,
       valor_vendedor: f.claudia.totalVendedor,
       valor_douglas: f.claudia.totalDouglas||0,
       valor_claudia_extra: _calcGerSandraAtivas(f),
