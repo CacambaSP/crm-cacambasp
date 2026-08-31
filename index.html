@@ -7405,10 +7405,14 @@ async function calcularFechamento(){
     const ehAnterior = d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
     if(!ehAnterior) return false;
     if(!c.pago) return true; // não paga → entra desmarcada
-    // Temos a lista exata do fechamento anterior desse vendedor? Usa ela.
-    const _idsContados = _idsContadosPorVendedor[c.usuario_id];
+    // A lista exata só é válida pra ordens do MÊS IMEDIATAMENTE ANTERIOR — foi dali que ela
+    // foi construída. Ordens mais antigas (2+ meses atrás) usam sempre a heurística por data,
+    // igual sempre funcionou, pra não confundir "não estava na lista de julho" com "não foi paga".
+    const ehDoMesImediatamenteAnterior = (d.getFullYear()===_anoAntNum && (d.getMonth()+1)===_mesAntNum);
+    const _idsContados = ehDoMesImediatamenteAnterior ? _idsContadosPorVendedor[c.usuario_id] : null;
     if(_idsContados) return !_idsContados.has(c.crm_id);
-    // Fallback pra fechamentos antigos (sem lista salva ainda): heurística por data de pagamento
+    // Fallback pra fechamentos antigos (sem lista salva ainda) ou ordens de meses mais distantes:
+    // heurística por data de pagamento
     if(!c.pago_em) return false;
     const pagoEm = new Date(c.pago_em);
     const _corte = _cortePorVendedor[c.usuario_id] || _iniciodoMes;
