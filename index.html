@@ -7387,9 +7387,16 @@ async function calcularFechamento(){
   if(_mesAntNum===0){ _mesAntNum=12; _anoAntNum--; }
   const _mesAntStr = _anoAntNum+'-'+String(_mesAntNum).padStart(2,'0')+'-01';
   let _cortePorVendedor = {};
+  let _idsContadosPorVendedor = {};
   try {
     const _fechAnt = await api('comissoes_fechamento?mes=eq.'+_mesAntStr, undefined, undefined, tok());
-    (_fechAnt||[]).forEach(r => { if(r.criado_em) _cortePorVendedor[r.usuario_id] = new Date(r.criado_em); });
+    (_fechAnt||[]).forEach(r => {
+      if(r.criado_em) _cortePorVendedor[r.usuario_id] = new Date(r.criado_em);
+      // Se o fechamento anterior já guarda a lista exata de ordens contadas, usamos ela —
+      // é mais confiável que adivinhar pela data (cobre também ordens que foram
+      // desmarcadas manualmente na hora do fechamento, que a heurística por data não pegava).
+      if(Array.isArray(r.ordens_ids)) _idsContadosPorVendedor[r.usuario_id] = new Set(r.ordens_ids);
+    });
   } catch(e) {}
   const srcAnteriores = ordens.filter(c => {
     if(!_validaOrdem(c)) return false;
@@ -7398,7 +7405,10 @@ async function calcularFechamento(){
     const ehAnterior = d.getFullYear() < ano || (d.getFullYear()===ano && d.getMonth()+1 < mes);
     if(!ehAnterior) return false;
     if(!c.pago) return true; // não paga → entra desmarcada
-    // Paga: só entra se foi paga depois do corte certo desse vendedor
+    // Temos a lista exata do fechamento anterior desse vendedor? Usa ela.
+    const _idsContados = _idsContadosPorVendedor[c.usuario_id];
+    if(_idsContados) return !_idsContados.has(c.crm_id);
+    // Fallback pra fechamentos antigos (sem lista salva ainda): heurística por data de pagamento
     if(!c.pago_em) return false;
     const pagoEm = new Date(c.pago_em);
     const _corte = _cortePorVendedor[c.usuario_id] || _iniciodoMes;
@@ -7871,6 +7881,28 @@ function _calcGerSandraAtivas(f){
   return parseFloat((apos*0.30).toFixed(2));
 }
 
+// Recalcula o fechamento completo da Sandra usando só as ordens ativas
+// (mesmo cálculo que já aparece certo na tela do card dela).
+function _calcSandraAtivas(f){
+  if(!f?.sandra?.vendedor) return null;
+  const ativas = _ordsAtivasFech(f.sandra.ordens);
+  const ll = parseFloat(ativas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+  const apos = parseFloat(Math.max(ll - (f.sandra.anuncio||0), 0).toFixed(2));
+  const split40 = parseFloat((apos*0.40).toFixed(2));
+  const split30d = parseFloat((apos*0.30).toFixed(2));
+  const split30c = parseFloat((apos*0.30).toFixed(2));
+  return {
+    count: ativas.length, ll, apos, split40, split30d, split30c,
+    totalVendedor: parseFloat((300+split40).toFixed(2))
+  };
+}
+
+// Lista de crm_id das ordens ativas de um bloco — gravada no fechamento
+// pra sabermos com certeza (e não por adivinhação de data) o que já foi contado.
+function _idsAtivasFech(ords){
+  return _ordsAtivasFech(ords).map(({c})=>c.crm_id).filter(Boolean);
+}
+
 
 async function desfazerFechamento(uid, nome){
   const f = _fechamentoAtual;
@@ -7927,6 +7959,7 @@ async function salvarVendedor(uid){
     total_ordens: ativ.length,
     valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
     total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+    ordens_ids: ativ.map(({c})=>c.crm_id).filter(Boolean),
     status: 'pago'
   };
 
@@ -7948,10 +7981,11 @@ async function salvarVendedor(uid){
       valor_douglas: bloco.totalDouglas||0,
       valor_claudia_extra: _calcGerSandraAtivas(f)};
   } else if(modelo==='sandra'){
+    const _san = _calcSandraAtivas(f);
     reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:300,
-      lucro_liquido: bloco.apos_anuncio||0,
-      valor_vendedor: bloco.totalVendedor,
-      valor_douglas: bloco.splitDouglas||0,
+      lucro_liquido: _san?.apos||0,
+      valor_vendedor: _san?.totalVendedor||0,
+      valor_douglas: _san?.split30d||0,
       valor_claudia_extra:0};
   } else if(modelo==='gustavo'){
     reg = {...reg, valor_anuncio:0, fixo_garantido:0,
@@ -8008,6 +8042,7 @@ async function salvarFechamento(){
       total_ordens: f.totalOrdens,
       valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: ativ.map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.douglas.totalVendedor,
       valor_vendedor: f.douglas.totalVendedor,
@@ -8023,6 +8058,7 @@ async function salvarFechamento(){
       total_ordens: ativ.length,
       valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: ativ.map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: ativ.reduce((s,{ll})=>s+ll,0),
       valor_vendedor: ativ.reduce((s,{ll})=>s+ll,0),
@@ -8038,6 +8074,7 @@ async function salvarFechamento(){
       total_ordens: ativ.length,
       valor_bruto: ativ.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: ativ.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: ativ.map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: ativ.reduce((s,{ll})=>s+ll,0),
       valor_vendedor: ativ.reduce((s,{ll})=>s+ll,0),
@@ -8051,6 +8088,7 @@ async function salvarFechamento(){
       total_ordens: f.claudia.ordens.length,
       valor_bruto: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _ordsAtivas(f.claudia.ordens).map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: f.claudia.anuncio||0,
       fixo_garantido: 1000,
       lucro_liquido: f.claudia.apos_fixo_anuncio||0,
@@ -8066,6 +8104,7 @@ async function salvarFechamento(){
       total_ordens: f.ricardo.ordens.length,
       valor_bruto: f.ricardo.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: f.ricardo.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _ordsAtivas(f.ricardo.ordens).map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.ricardo.totalVendedor,
       valor_vendedor: f.ricardo.totalVendedor,
@@ -8079,6 +8118,7 @@ async function salvarFechamento(){
       total_ordens: f.gustavo.ordens.length,
       valor_bruto: f.gustavo.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: f.gustavo.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _ordsAtivas(f.gustavo.ordens).map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.gustavo.totalVendedor,
       valor_vendedor: f.gustavo.totalVendedor,
@@ -8092,6 +8132,7 @@ async function salvarFechamento(){
       total_ordens: f.pc.ordens.length,
       valor_bruto: f.pc.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
       total_cst: f.pc.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _ordsAtivas(f.pc.ordens).map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: 0, fixo_garantido: 0,
       lucro_liquido: f.pc.totalVendedor,
       valor_vendedor: f.pc.totalVendedor,
@@ -8100,16 +8141,19 @@ async function salvarFechamento(){
     });
   }
   if(f.sandra.vendedor){
+    const _san = _calcSandraAtivas(f);
+    const _sanAtiv = _ordsAtivas(f.sandra.ordens);
     registros.push({
       mes, usuario_id: f.sandra.vendedor.id,
-      total_ordens: f.sandra.ordens.length,
-      valor_bruto: f.sandra.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
-      total_cst: f.sandra.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      total_ordens: _sanAtiv.length,
+      valor_bruto: _sanAtiv.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: _sanAtiv.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _sanAtiv.map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: f.sandra.anuncio||0,
       fixo_garantido: 300,
-      lucro_liquido: f.sandra.apos_anuncio||0,
-      valor_vendedor: f.sandra.totalVendedor,
-      valor_douglas: f.sandra.splitDouglas||0,
+      lucro_liquido: _san?.apos||0,
+      valor_vendedor: _san?.totalVendedor||0,
+      valor_douglas: _san?.split30d||0,
       valor_claudia_extra: 0,
       status: 'pendente'
     });
