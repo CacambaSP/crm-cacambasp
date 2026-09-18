@@ -4507,6 +4507,20 @@ function fillDetail(c){
     const mEl=document.getElementById('dm_m');
     mEl.textContent=(rec||cst)?'R$ '+fmt(mg):'-';
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
+    // Alerta: custo do fornecedor maior que a receita do cliente (provável erro de digitação)
+    let _alertCst=document.getElementById('dm_alerta_custo');
+    if(!_alertCst){
+      _alertCst=document.createElement('div');
+      _alertCst.id='dm_alerta_custo';
+      _alertCst.style.cssText='display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.35);color:#f87171;font-size:12px;font-weight:600';
+      mEl.closest('.fin-row-item')?.insertAdjacentElement('afterend',_alertCst);
+    }
+    if(rec>0 && cst>0 && cst>rec){
+      _alertCst.style.display='block';
+      _alertCst.textContent='⚠️ Custo do fornecedor (R$ '+fmt(cst)+') maior que a receita do cliente (R$ '+fmt(rec)+') — confira se os valores não foram trocados.';
+    } else {
+      _alertCst.style.display='none';
+    }
   }
   document.getElementById('d_nf').value=c.nf_num||'';
   {
@@ -5122,7 +5136,7 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   const turnoStr = m?.reg ? (m.reg.turno==='noturno'?'🌙 Noturno':'☀️ Diurno') : '';
   const precoForn = m?.preco > 0 ? m.preco : 0;
   const precoCliReg = m?.reg?.preco_cli > 0 ? m.reg.preco_cli : 0;
-  const patch = {forn_id: fornId};
+  const patch = {forn_id: f.id};
   // Preencher cst — só se ainda não foi definido
   if(precoForn > 0 && !(parseFloat(c.cst) > 0)){
     c.cst = precoForn;
@@ -5136,7 +5150,7 @@ async function _finalizarAtribuicaoFornecedor(c, f, m, deveAdicionarBairro){
   }
 
   // Salvar no banco primeiro
-  c.forn_id = fornId;
+  c.forn_id = f.id;
   autoColFornNomeado(c);
   patch.col = c.col;
   if(f.portal_ativo){ patch.forn_status = 'pendente'; _pushPortalForn(f.id, c.crm_id, c.bairro); }
@@ -12941,6 +12955,14 @@ async function addBairroSelecionado(fid){
   const p=parseFloat(document.getElementById('np_'+fid)?.value)||0;
   const pCli=parseFloat(document.getElementById('npc_'+fid)?.value)||0;
   if(!bairro){toast('Selecione ou digite um bairro','warn');return;}
+  if(p>0 && pCli>0 && p>pCli){
+    const okMesmoAssim=await showConfirm({
+      ico:'⚠️', title:'Custo maior que o preço do cliente',
+      body:'Preço Fornecedor (R$ '+fmt(p)+') está <strong>maior</strong> que o Preço Cliente (R$ '+fmt(pCli)+').<br>Confira se os valores não foram trocados antes de continuar.',
+      ok:'Salvar assim mesmo', okClass:'', cancel:'Corrigir'
+    });
+    if(!okMesmoAssim) return;
+  }
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   if(regioes.some(r=>(r.bairro||r.regiao||'').toLowerCase()===bairro.toLowerCase())){toast('Bairro já cadastrado','warn');return;}
@@ -13003,13 +13025,23 @@ async function salvarEditBairro(fid,idx){
   const f=forns.find(x=>x.id===fid);if(!f)return;
   const regioes=Array.isArray(f.regioes)?[...f.regioes]:[];
   const r=regioes[idx];if(!r)return;
+  const novoForn=parseFloat(document.getElementById('eb_forn')?.value)||0;
+  const novoCli=parseFloat(document.getElementById('eb_cli')?.value)||0;
+  if(novoForn>0 && novoCli>0 && novoForn>novoCli){
+    const okMesmoAssim=await showConfirm({
+      ico:'⚠️', title:'Custo maior que o preço do cliente',
+      body:'Preço Fornecedor (R$ '+fmt(novoForn)+') está <strong>maior</strong> que o Preço Cliente (R$ '+fmt(novoCli)+').<br>Confira se os valores não foram trocados antes de continuar.',
+      ok:'Salvar assim mesmo', okClass:'', cancel:'Corrigir'
+    });
+    if(!okMesmoAssim) return;
+  }
   const limVal=(document.getElementById('eb_limite')?.value||'').trim();
   const turnoVal=document.getElementById('eb_turno')?.value||'diurno';
   const cidadeVal=(document.getElementById('eb_cidade')?.value||'').trim();
   const zonaVal=(document.getElementById('eb_zona')?.value||'').trim();
   regioes[idx]={...r,
-    preco:parseFloat(document.getElementById('eb_forn')?.value)||0,
-    preco_cli:parseFloat(document.getElementById('eb_cli')?.value)||0,
+    preco:novoForn,
+    preco_cli:novoCli,
     turno:turnoVal,
     ...(zonaVal?{zona:zonaVal}:{zona:undefined}),
     ...(cidadeVal?{cidade:cidadeVal}:{cidade:undefined}),
