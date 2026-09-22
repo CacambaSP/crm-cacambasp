@@ -6436,6 +6436,7 @@ function enviarWA(id) {
   const endereco = [o.logradouro, o.bairro, o.cidade].filter(Boolean).join(', ');
   const nome = (o.nome||'').split(' ')[0];
   let msg;
+  let _ordensNaMensagem = [o]; // S49: só estas recebem cobrado_em (antes marcava todas do celular, inclusive canceladas)
 
   // ── COLUNA 1: Contratar — confirmação de pedido ──
   if(o.col === 'contratar') {
@@ -6460,6 +6461,7 @@ function enviarWA(id) {
     const pend = _pendenciasCliente(o.cel||o.wh, null);
     const todasOrdens = (pend.lista.length ? pend.lista : [o])
       .filter(x => o.col==='inadimp' ? true : x.col!=='inadimp'); // não mistura casos já em Jurídico
+    _ordensNaMensagem = todasOrdens;
     // O tom da mensagem segue a ordem MAIS antiga (pior caso) entre as pendências
     const piorOrdem = todasOrdens.reduce((a,b)=> diasAberto(b)>diasAberto(a)?b:a, todasOrdens[0]);
     const dPior = diasAberto(piorOrdem);
@@ -6505,9 +6507,9 @@ function enviarWA(id) {
   // Marcar como cobrado hoje — só para colunas de cobrança
   if(o.col !== 'contratar' && o.col !== 'ag_entrega') {
     const hoje = new Date().toISOString();
-    const celLimpo = tel;
-    _ordens.forEach(ord => {
-      if(!ord.pago && (ord.cel||'').replace(/\D/g,'')===celLimpo) {
+    // S49: marca apenas as ordens que foram listadas na mensagem enviada
+    _ordensNaMensagem.forEach(ord => {
+      if(!ord.pago && !ord.cancel_motivo) {
         ord.cobrado_em = hoje;
         api(`ordens?id=eq.${ord.id}`,'PATCH',{cobrado_em:hoje},tok()).catch(()=>{});
       }
