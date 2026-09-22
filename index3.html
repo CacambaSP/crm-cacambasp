@@ -12579,6 +12579,7 @@ async function _mapaCarregar(){
   const statusEl=document.getElementById('mapaStatus');
   // 1) bairro → fornecedores (mesma lógica da aba Cobertura)
   const mapa={};
+  const cidadeHintPorBairro={}; // cidade-base do 1º fornecedor que atende aquele bairro
   forns.forEach(f=>{
     const regioes=Array.isArray(f.regioes)?f.regioes:[];
     regioes.forEach(r=>{
@@ -12586,6 +12587,7 @@ async function _mapaCarregar(){
       if(!bairro)return;
       if(!mapa[bairro])mapa[bairro]=[];
       mapa[bairro].push({nome:f.nome,id:f.id});
+      if(!cidadeHintPorBairro[bairro] && f.cidade_base) cidadeHintPorBairro[bairro]=f.cidade_base;
     });
   });
   const bairros=Object.keys(mapa);
@@ -12616,10 +12618,11 @@ async function _mapaCarregar(){
   (salvas||[]).forEach(c=>coordMap[c.bairro]=[parseFloat(c.lat),parseFloat(c.lng)]);
   const faltando=bairros.filter(b=>!coordMap[b]);
   // 4) geocodificar só os que faltam (1 por segundo — limite do serviço gratuito)
-  //    Nomes de bairro se repetem em várias cidades do Brasil, então a busca é em duas etapas:
-  //    1ª tentativa: só dentro da Grande São Paulo (caixa geográfica apertada)
-  //    2ª tentativa (se a 1ª não achar nada): busca livre, mas rejeita qualquer resultado fora do estado de SP
-  const GSP_VIEWBOX='-47.05,-23.15,-46.25,-24.05'; // left,top,right,bottom
+  //    Nomes de bairro se repetem em várias cidades do Brasil. Agora usamos a
+  //    cidade-base cadastrada em cada fornecedor como pista E como trava:
+  //    se o resultado encontrado ficar muito longe do centro dessa cidade, é rejeitado
+  //    (fica "não localizado" em vez de aparecer num lugar errado).
+  const _mapaCentroCache={}; // cidade normalizada -> {lat,lng} | null
   function _mapaCidadeDica(bairro){
     // extrai dica de cidade quando o próprio nome já indica ("X - Osasco", "X (Zona Sul)")
     let m=bairro.match(/^(.*)\s-\s([^-]+)$/);
@@ -12628,36 +12631,93 @@ async function _mapaCarregar(){
     if(m && !/zona/i.test(m[2])) return {nome:m[1].trim(), cidade:m[2].trim()};
     return {nome:bairro, cidade:null};
   }
-  async function _mapaGeocodificar(bairro){
-    const {nome,cidade}=_mapaCidadeDica(bairro);
-    // 1ª tentativa: assume Grande SP (maioria dos bairros é daqui) e restringe à região
-    const qTexto1=`${nome}, ${cidade||'São Paulo'}, SP, Brasil`;
+  function _mapaCidadePrincipal(cidadeBase){
+    // reduz um texto como "São Paulo (Zona Norte) / Guarulhos" ou "Osasco, Barueri, Alphaville"
+    // para uma única cidade principal, usável em busca de geocode
+    if(!cidadeBase)return null;
+    let c=cidadeBase.replace(/\([^)]*\)/g,''); // remove parênteses
+    c=c.split(/[\/,]/)[0].trim(); // pega o primeiro nome antes de / ou ,
+    c=c.replace(/\bcapital\b/gi,'').trim(); // "São Paulo Capital" -> "São Paulo"
+    return c||null;
+  }
+  function _mapaDistKm(lat1,lng1,lat2,lng2){
+    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+  async function _mapaCidadeCentro(cidade){
+    if(!cidade)return null;
+    if(cidade in _mapaCentroCache)return _mapaCentroCache[cidade];
+    // cache no banco (cidade_coords) — evita geocodificar a mesma cidade de novo em outra sessão
     try{
-      const r1=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(qTexto1)}&format=json&limit=1&viewbox=${GSP_VIEWBOX}&bounded=1`);
-      const j1=await r1.json();
-      if(j1 && j1[0]) return {lat:parseFloat(j1[0].lat), lng:parseFloat(j1[0].lon)};
-    }catch(e){ console.warn('geocode (GSP) falhou',bairro,e); }
-    await new Promise(res=>setTimeout(res,1100));
-    // 2ª tentativa: busca livre em todo o Brasil, sem assumir SP (atendemos o país inteiro)
-    const qTexto2=cidade?`${nome}, ${cidade}, Brasil`:`${nome}, Brasil`;
+      const salvas=await api('cidade_coords?cidade=eq.'+encodeURIComponent(cidade)+'&select=lat,lng');
+      if(salvas&&salvas[0]){
+        const c={lat:parseFloat(salvas[0].lat),lng:parseFloat(salvas[0].lng)};
+        _mapaCentroCache[cidade]=c; return c;
+      }
+    }catch(e){ /* segue pra geocodificar */ }
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cidade+', Brasil')}&format=json&limit=1&countrycodes=br`);
+      const j=await r.json();
+      if(j&&j[0]){
+        const c={lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon)};
+        _mapaCentroCache[cidade]=c;
+        try{ await api('cidade_coords','POST',{cidade,lat:c.lat,lng:c.lng},null,'resolution=merge-duplicates,return=minimal'); }catch(e){}
+        return c;
+      }
+    }catch(e){ console.warn('geocode cidade falhou',cidade,e); }
+    _mapaCentroCache[cidade]=null;
+    return null;
+  }
+  async function _mapaGeocodificar(bairro, cidadeHintFornecedor){
+    const {nome,cidade:cidadeNoNome}=_mapaCidadeDica(bairro);
+    const cidadeEfetiva=cidadeNoNome || _mapaCidadePrincipal(cidadeHintFornecedor) || 'São Paulo';
+    const centro=await _mapaCidadeCentro(cidadeEfetiva);
+    // 1ª tentativa: restringe a uma caixa apertada ao redor do centro da cidade-base (~35km)
+    if(centro){
+      const vb=`${centro.lng-0.35},${centro.lat+0.35},${centro.lng+0.35},${centro.lat-0.35}`;
+      const qTexto1=`${nome}, ${cidadeEfetiva}, Brasil`;
+      try{
+        const r1=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(qTexto1)}&format=json&limit=1&viewbox=${vb}&bounded=1`);
+        const j1=await r1.json();
+        if(j1 && j1[0]){
+          const lat=parseFloat(j1[0].lat), lng=parseFloat(j1[0].lon);
+          if(_mapaDistKm(lat,lng,centro.lat,centro.lng)<=60) return {lat,lng};
+        }
+      }catch(e){ console.warn('geocode (cidade-base) falhou',bairro,e); }
+      await new Promise(res=>setTimeout(res,1100));
+    }
+    // 2ª tentativa: busca livre em todo o Brasil (sem caixa), mas ainda valida distância se soubermos o centro
+    const qTexto2=`${nome}, ${cidadeEfetiva}, Brasil`;
     try{
       const r2=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(qTexto2)}&format=json&limit=1&countrycodes=br`);
       const j2=await r2.json();
-      if(j2 && j2[0]) return {lat:parseFloat(j2[0].lat), lng:parseFloat(j2[0].lon)};
+      if(j2 && j2[0]){
+        const lat=parseFloat(j2[0].lat), lng=parseFloat(j2[0].lon);
+        if(!centro || _mapaDistKm(lat,lng,centro.lat,centro.lng)<=80) return {lat,lng};
+        console.warn('geocode rejeitado (longe demais da cidade-base)',bairro,cidadeEfetiva,lat,lng);
+      }
     }catch(e){ console.warn('geocode (BR) falhou',bairro,e); }
     return null;
   }
+  const _mapaNaoLocalizados=[];
   for(let i=0;i<faltando.length;i++){
     const b=faltando[i];
     if(statusEl)statusEl.textContent=`Localizando bairros novos... (${i+1}/${faltando.length})`;
-    const coord=await _mapaGeocodificar(b);
+    const coord=await _mapaGeocodificar(b, cidadeHintPorBairro[b]);
     if(coord){
       coordMap[b]=[coord.lat,coord.lng];
       try{ await api('bairro_coords','POST',{bairro:b,lat:coord.lat,lng:coord.lng},null,'resolution=merge-duplicates,return=minimal'); }catch(e){ console.warn('salvar coord falhou',b,e); }
+    } else {
+      _mapaNaoLocalizados.push(b);
     }
     await new Promise(res=>setTimeout(res,1100));
   }
-  if(statusEl)statusEl.textContent='';
+  if(statusEl){
+    statusEl.textContent = _mapaNaoLocalizados.length
+      ? `⚠️ ${_mapaNaoLocalizados.length} bairro(s) não localizado(s): ${_mapaNaoLocalizados.join(', ')}`
+      : '';
+  }
   // 5) monta dados finais e desenha
   _mapaDados=bairros.filter(b=>coordMap[b]).map(b=>({bairro:b, latlng:coordMap[b], status:statusPorBairro[b], forns:mapa[b]}));
   _mapaInit();
