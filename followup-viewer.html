@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- CaçambaSP Followup Viewer v0.1 -->
+<!DOCTYPE html><!-- CaçambaSP Followup Viewer v0.2 — botão de cobrança só para equipe logada; fornecedor vê "Valor a receber" -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -18,7 +18,7 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:var(--font);}
-button{font-family:var(--font)}
+button,input{font-family:var(--font)}
 ::-webkit-scrollbar{width:0}
 .wrap{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
 .topbar{background:var(--sur);border-bottom:1px solid var(--bor);padding:18px;}
@@ -43,6 +43,12 @@ button{font-family:var(--font)}
   padding:16px;font-size:14.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;margin-top:6px;}
 .btn-cobrar:disabled{background:var(--card);color:var(--mut);border:1px solid var(--bor2);}
 .badge-cobrado{background:var(--g2);color:var(--g);font-size:12px;font-weight:700;padding:10px;border-radius:var(--rad3);text-align:center;}
+.equipe-link{display:block;text-align:center;margin-top:18px;font-size:12px;color:var(--mut);text-decoration:underline;cursor:pointer;}
+.login-box input{width:100%;background:var(--sur);border:1px solid var(--bor2);border-radius:var(--rad3);color:var(--txt);
+  padding:12px;font-size:14px;margin-bottom:10px;outline:none;}
+.login-box .err{color:#ff6b6b;font-size:12px;margin-bottom:8px;display:none;}
+.btn-login{width:100%;background:var(--acc);color:#1a1000;border:none;border-radius:var(--rad3);padding:13px;font-size:14px;font-weight:800;cursor:pointer;}
+.btn-login:disabled{opacity:.6;}
 .loading{display:flex;align-items:center;justify-content:center;height:60vh;color:var(--mut);font-family:var(--mono);font-size:12px;}
 .gate{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:30px;text-align:center;}
 .gate .ic{font-size:40px;margin-bottom:14px;}
@@ -60,21 +66,73 @@ button{font-family:var(--font)}
 const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
 
+// Sessão da equipe (mesmo login do CRM). Sem sessão = visão do fornecedor.
+let SESSION = null;
+
+function tok(){ return SESSION && SESSION.access_token ? SESSION.access_token : SUPA_KEY; }
+
 async function api(path, method='GET', body=null){
-  const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+  const h = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+tok()};
   const r = await fetch(SUPA_URL+'/rest/v1/'+path, {method, headers:h, body: body?JSON.stringify(body):null});
   if(!r.ok){ const t = await r.text(); throw new Error('API '+r.status+': '+t); }
   const ct = r.headers.get('content-type')||'';
   return ct.includes('json') ? r.json() : null;
 }
+async function authApi(path, body){
+  const r = await fetch(SUPA_URL+'/auth/v1/'+path, {method:'POST', headers:{'Content-Type':'application/json','apikey':SUPA_KEY}, body:JSON.stringify(body)});
+  return r.json();
+}
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+function jwtExp(t){
+  try{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp||0; }catch(e){ return 0; }
+}
+async function restaurarSessao(){
+  // 1) Sessão própria desta página: pode renovar à vontade.
+  const own = lsGet('fv_session');
+  if(own){
+    try{
+      const p = JSON.parse(own);
+      if(p && p.refresh_token){
+        const res = await authApi('token?grant_type=refresh_token', {refresh_token:p.refresh_token});
+        if(res && res.access_token){ SESSION = res; lsSet('fv_session', JSON.stringify(res)); return true; }
+      }
+    }catch(e){}
+    lsDel('fv_session');
+  }
+  // 2) Login do CRM/mobile no mesmo navegador: só aproveita se ainda válido (NÃO renova, para não derrubar o CRM).
+  const agora = Math.floor(Date.now()/1000);
+  for(const k of ['crm_session','csm_session']){
+    const s = lsGet(k); if(!s) continue;
+    try{
+      const p = JSON.parse(s);
+      if(p && p.access_token && jwtExp(p.access_token) > agora + 60){ SESSION = {access_token:p.access_token}; return true; }
+    }catch(e){}
+  }
+  return false;
+}
+
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2600);
 }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function labelTipo(t){ return {chegada_ok:'✅ Chegada confirmada',problema:'⚠️ Problema relatado',reagendar:'📅 Reagendamento pedido',cancelar:'✖️ Cancelamento pedido'}[t]||t; }
 
-let CODIGO = null, DADOS = null;
+let CODIGO = null, DADOS = null, FOLLOWUPS = [];
+function ehEquipe(){ return !!SESSION && DADOS && DADOS.eh_equipe !== false; }
+
+async function carregar(){
+  const res = await api('rpc/portal_resolver_followup', 'POST', { p_codigo: CODIGO });
+  const r = Array.isArray(res) ? res[0] : res;
+  if(!r || !r.valido) return false;
+  DADOS = r;
+  FOLLOWUPS = (await api('rpc/portal_followup_por_codigo', 'POST', { p_codigo: CODIGO })) || [];
+  return true;
+}
 
 async function boot(){
   const params = new URLSearchParams(location.search);
@@ -83,14 +141,12 @@ async function boot(){
   if(!CODIGO){ app.innerHTML = gateHTML('🔗','Link inválido','Esse link não tem o código necessário.'); return; }
 
   try{
-    const res = await api('rpc/portal_resolver_followup', 'POST', { p_codigo: CODIGO });
-    const r = Array.isArray(res) ? res[0] : res;
-    if(!r || !r.valido){ app.innerHTML = gateHTML('⏳','Link expirado ou inválido','Peça pro fornecedor gerar um novo link.'); return; }
-    DADOS = r;
-    const followups = await api('rpc/portal_followup_por_codigo', 'POST', { p_codigo: CODIGO });
-    render(followups||[]);
+    await restaurarSessao();
+    const ok = await carregar();
+    if(!ok){ app.innerHTML = gateHTML('⏳','Link expirado ou inválido','Peça pro fornecedor gerar um novo link.'); return; }
+    render();
   }catch(e){
-    app.innerHTML = gateHTML('⚠️','Erro ao carregar', e.message);
+    app.innerHTML = gateHTML('⚠️','Erro ao carregar', esc(e.message));
   }
 }
 
@@ -98,16 +154,23 @@ function gateHTML(icon,title,msg){
   return `<div class="gate"><div class="ic">${icon}</div><h2>${title}</h2><p>${msg}</p></div>`;
 }
 
-function render(followups){
+function acaoHTML(){
+  if(DADOS.ja_cobrado) return `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`;
+  if(ehEquipe()) return `<button class="btn-cobrar" id="btnCobrar" onclick="cobrarCliente()">💬 Cobrar Cliente</button>`;
+  return `<div id="acaoBox"><a class="equipe-link" onclick="mostrarLogin()">Sou da equipe · entrar</a></div>`;
+}
+
+function render(){
   const app = document.getElementById('app');
+  const followups = FOLLOWUPS;
   app.innerHTML = `
-    <div class="topbar"><b>${DADOS.crm_id||'LC'}</b><span>FOLLOWUP DO FORNECEDOR</span></div>
+    <div class="topbar"><b>${esc(DADOS.crm_id||'LC')}</b><span>FOLLOWUP DO FORNECEDOR</span></div>
     <div class="content">
       <div class="card">
-        <div class="info-row"><span>Cliente</span><span>${DADOS.cliente_nome||'—'}</span></div>
-        <div class="info-row"><span>Endereço</span><span>${DADOS.logradouro||''}, ${DADOS.bairro||''}</span></div>
-        <div class="info-row"><span>Valor</span><span>R$ ${DADOS.rec?Number(DADOS.rec).toFixed(2):'—'}</span></div>
-        ${DADOS.cacamba_num ? `<div class="info-row"><span>Caçamba nº</span><span>${DADOS.cacamba_num}</span></div>` : ''}
+        <div class="info-row"><span>Cliente</span><span>${esc(DADOS.cliente_nome||'—')}</span></div>
+        <div class="info-row"><span>Endereço</span><span>${esc(DADOS.logradouro||'')}, ${esc(DADOS.bairro||'')}</span></div>
+        <div class="info-row"><span>Valor a receber</span><span>R$ ${DADOS.rec?Number(DADOS.rec).toFixed(2):'—'}</span></div>
+        ${DADOS.cacamba_num ? `<div class="info-row"><span>Caçamba nº</span><span>${esc(DADOS.cacamba_num)}</span></div>` : ''}
       </div>
 
       <div class="section-title">Registro do fornecedor</div>
@@ -116,23 +179,62 @@ function render(followups){
           ${followups.length ? followups.map(f=>`
             <div class="tl-item">
               <div class="tl-time">${new Date(f.criado_em).toLocaleString('pt-BR')}</div>
-              <div class="tl-text">${labelTipo(f.tipo)}${f.texto?' — '+f.texto:''}</div>
+              <div class="tl-text">${labelTipo(f.tipo)}${f.texto?' — '+esc(f.texto):''}</div>
               ${f.midia_url ? `<a class="receipt-link" onclick="verMidia('${f.id}')">${f.midia_tipo==='foto'?'📷 Ver foto':'🎙️ Ouvir áudio'}</a>` : ''}
             </div>
           `).join('') : '<div style="color:var(--mut);font-size:13px">Nenhum registro.</div>'}
         </div>
       </div>
 
-      <div class="section-title">Ação</div>
-      ${DADOS.ja_cobrado
-        ? `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`
-        : `<button class="btn-cobrar" id="btnCobrar" onclick="cobrarCliente()">💬 Cobrar Cliente</button>`
-      }
+      ${(DADOS.ja_cobrado || ehEquipe()) ? '<div class="section-title">Ação</div>' : ''}
+      <div id="acaoArea">${acaoHTML()}</div>
     </div>
   `;
 }
 
+function mostrarLogin(){
+  const box = document.getElementById('acaoBox'); if(!box) return;
+  box.innerHTML = `
+    <div class="section-title">Entrar (equipe CaçambaSP)</div>
+    <div class="card login-box">
+      <input type="email" id="lgEmail" placeholder="E-mail do CRM" autocomplete="username">
+      <input type="password" id="lgPass" placeholder="Senha" autocomplete="current-password">
+      <div class="err" id="lgErr"></div>
+      <button class="btn-login" id="lgBtn" onclick="fazerLogin()">Entrar</button>
+    </div>`;
+  setTimeout(()=>{ const e=document.getElementById('lgEmail'); if(e) e.focus(); }, 50);
+}
+
+async function fazerLogin(){
+  const email = (document.getElementById('lgEmail').value||'').trim();
+  const pass = document.getElementById('lgPass').value||'';
+  const err = document.getElementById('lgErr');
+  const btn = document.getElementById('lgBtn');
+  err.style.display='none';
+  if(!email || !pass){ err.textContent='Preencha e-mail e senha.'; err.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try{
+    const res = await authApi('token?grant_type=password', {email, password:pass});
+    if(!res || !res.access_token){
+      err.textContent = 'E-mail ou senha inválidos.'; err.style.display='block';
+      btn.disabled=false; btn.textContent='Entrar'; return;
+    }
+    SESSION = res;
+    lsSet('fv_session', JSON.stringify(res));
+    await carregar();
+    if(!ehEquipe()){
+      SESSION = null; lsDel('fv_session');
+      render(); toast('Esse login não é da equipe'); return;
+    }
+    render(); toast('Login feito ✓');
+  }catch(e){
+    err.textContent = 'Erro de conexão.'; err.style.display='block';
+    btn.disabled=false; btn.textContent='Entrar';
+  }
+}
+
 async function cobrarCliente(){
+  if(!ehEquipe()){ toast('Faça login da equipe para cobrar'); return; }
   const btn = document.getElementById('btnCobrar');
   if(btn){ btn.disabled = true; btn.textContent = 'Processando...'; }
   try{
@@ -148,9 +250,8 @@ async function cobrarCliente(){
       setTimeout(()=>window.open('https://wa.me/'+(tel.length<=11?'55'+tel:tel)+'?text='+encodeURIComponent(msg), '_blank'), 400);
     }
     DADOS.ja_cobrado = true;
-    const app = document.getElementById('app');
-    const actionArea = app.querySelector('.section-title:last-of-type').nextElementSibling;
-    if(actionArea) actionArea.outerHTML = `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`;
+    const area = document.getElementById('acaoArea');
+    if(area) area.innerHTML = `<div class="badge-cobrado">✔ Cliente já foi cobrado</div>`;
   }catch(e){ toast('Erro: '+e.message); if(btn){btn.disabled=false; btn.textContent='💬 Cobrar Cliente';} }
 }
 
