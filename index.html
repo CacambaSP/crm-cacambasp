@@ -7885,6 +7885,21 @@ function _calcGerSandraAtivas(f){
   return parseFloat((apos*0.30).toFixed(2));
 }
 
+// Recalcula o fechamento completo da Claudia usando só as ordens ativas
+// (mesmo cálculo que já aparece certo na tela do card dela).
+function _calcClaudiaAtivas(f){
+  if(!f?.claudia?.vendedor) return null;
+  const ativas = _ordsAtivasFech(f.claudia.ordens);
+  const ll = parseFloat(ativas.reduce((s,{ll})=>s+ll,0).toFixed(2));
+  const apos = parseFloat(Math.max(ll - 1000 - (f.claudia.anuncio||0), 0).toFixed(2));
+  const split50 = parseFloat((apos/2).toFixed(2));
+  return {
+    count: ativas.length, ll, apos, split50,
+    totalVendedor: parseFloat((1000+split50).toFixed(2)),
+    totalDouglas: split50
+  };
+}
+
 // Recalcula o fechamento completo da Sandra usando só as ordens ativas
 // (mesmo cálculo que já aparece certo na tela do card dela).
 function _calcSandraAtivas(f){
@@ -7979,10 +7994,11 @@ async function salvarVendedor(uid){
       valor_vendedor: ativ.length*15,
       valor_douglas:0, valor_claudia_extra:0};
   } else if(modelo==='claudia'){
+    const _cla = _calcClaudiaAtivas(f);
     reg = {...reg, valor_anuncio: bloco.anuncio||0, fixo_garantido:1000,
-      lucro_liquido: bloco.apos_fixo_anuncio||0,
-      valor_vendedor: bloco.totalVendedor,
-      valor_douglas: bloco.totalDouglas||0,
+      lucro_liquido: _cla?.apos||0,
+      valor_vendedor: _cla?.totalVendedor||0,
+      valor_douglas: _cla?.totalDouglas||0,
       valor_claudia_extra: _calcGerSandraAtivas(f)};
   } else if(modelo==='sandra'){
     const _san = _calcSandraAtivas(f);
@@ -8087,17 +8103,19 @@ async function salvarFechamento(){
     });
   }
   if(f.claudia.vendedor){
+    const _cla = _calcClaudiaAtivas(f);
+    const _claAtiv = _ordsAtivas(f.claudia.ordens);
     registros.push({
       mes, usuario_id: f.claudia.vendedor.id,
-      total_ordens: f.claudia.ordens.length,
-      valor_bruto: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
-      total_cst: f.claudia.ordens.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
-      ordens_ids: _ordsAtivas(f.claudia.ordens).map(({c})=>c.crm_id).filter(Boolean),
+      total_ordens: _claAtiv.length,
+      valor_bruto: _claAtiv.reduce((s,{c})=>s+(parseFloat(c.rec)||0),0),
+      total_cst: _claAtiv.reduce((s,{c})=>s+(parseFloat(c.cst)||0),0),
+      ordens_ids: _claAtiv.map(({c})=>c.crm_id).filter(Boolean),
       valor_anuncio: f.claudia.anuncio||0,
       fixo_garantido: 1000,
-      lucro_liquido: f.claudia.apos_fixo_anuncio||0,
-      valor_vendedor: f.claudia.totalVendedor,
-      valor_douglas: f.claudia.totalDouglas||0,
+      lucro_liquido: _cla?.apos||0,
+      valor_vendedor: _cla?.totalVendedor||0,
+      valor_douglas: _cla?.totalDouglas||0,
       valor_claudia_extra: _calcGerSandraAtivas(f),
       status: 'pendente'
     });
@@ -8190,9 +8208,9 @@ function imprimirFechamento(){
   const linhas = [
     ['Luciana', f.luciana.totalVendedor],
     ...(f.leticia?.vendedor ? [['Leticia', f.leticia.totalVendedor]] : []),
-    ['Claudia', f.claudia.totalVendedor + _calcGerSandraAtivas(f)],
+    ['Claudia', (_calcClaudiaAtivas(f)?.totalVendedor||0) + _calcGerSandraAtivas(f)],
     ['Ricardo', f.ricardo.totalVendedor],
-    ['Sandra', f.sandra.totalVendedor],
+    ['Sandra', _calcSandraAtivas(f)?.totalVendedor||0],
     ['Douglas', f.totalDouglas],
   ].filter(([,v])=>v>0);
 
