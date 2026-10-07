@@ -575,9 +575,35 @@ async function aceitar(id){
   const previsao = document.getElementById('previsao').value;
   if(!previsao){ toast('Escolha uma previsão de horário'); return; }
   try{
-    const ok = await api('rpc/portal_aceitar_lc', 'POST', { p_token: TOKEN, p_ordem_id: id, p_previsao: previsao });
-    if(!ok){ toast('Não foi possível aceitar essa LC'); return; }
-    toast('LC aceita ✓');
+    // ── Verificar se há ordens gêmeas (mesmo grp_id) ──
+    let gemeas = [];
+    try{
+      const res = await api('rpc/portal_gemeas', 'POST', { p_token: TOKEN, p_ordem_id: id });
+      if(Array.isArray(res)) gemeas = res;
+    }catch(e2){ /* sem gêmeas ou função indisponível — segue normal */ }
+
+    if(gemeas.length > 0){
+      const ordemAtual = ORDENS.find(o=>o.id===id);
+      const nomeAtual  = ordemAtual ? ordemAtual.crm_id : '(essa LC)';
+      const nomesIrmas = gemeas.map(g=>g.crm_id).join(', ');
+      const total      = 1 + gemeas.length;
+      const confirmar  = await _confirmarGemeas(total, nomeAtual, nomesIrmas);
+      if(!confirmar){
+        const ok = await api('rpc/portal_aceitar_lc', 'POST', { p_token: TOKEN, p_ordem_id: id, p_previsao: previsao });
+        if(!ok){ toast('Não foi possível aceitar essa LC'); return; }
+        toast('LC aceita ✓');
+      } else {
+        const todas = [id, ...gemeas.map(g=>g.id)];
+        for(const oid of todas){
+          await api('rpc/portal_aceitar_lc', 'POST', { p_token: TOKEN, p_ordem_id: oid, p_previsao: previsao });
+        }
+        toast('✅ '+total+' LCs aceitas!');
+      }
+    } else {
+      const ok = await api('rpc/portal_aceitar_lc', 'POST', { p_token: TOKEN, p_ordem_id: id, p_previsao: previsao });
+      if(!ok){ toast('Não foi possível aceitar essa LC'); return; }
+      toast('LC aceita ✓');
+    }
     await loadOrdens();
     setView('rota');
   }catch(e){ toast('Erro: '+e.message); }
@@ -1171,6 +1197,26 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js', { scope: '/portal-fornecedor.html' }).catch(()=>{});
   });
 }
+
+    // ── Modal de confirmação gêmeas ──
+    function _confirmarGemeas(total, nomeAtual, nomesIrmas){
+      return new Promise(resolve=>{
+        const ov = document.createElement('div');
+        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+        ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:380px;width:90%;font-family:sans-serif">'
+          +'<h3 style="margin:0 0 12px;color:#1a1a2e">📦 Ordens Gêmeas</h3>'
+          +'<p style="margin:0 0 16px;color:#444;font-size:14px">A LC <strong>'+nomeAtual+'</strong> tem '+(total-1)+' irmã(s): <strong>'+nomesIrmas+'</strong></p>'
+          +'<p style="margin:0 0 20px;color:#444;font-size:14px">Aceitar <strong>todas as '+total+' LCs</strong> de uma vez?</p>'
+          +'<div style="display:flex;gap:10px;justify-content:flex-end">'
+          +'<button id="_gm_nao" style="padding:8px 16px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">Só essa</button>'
+          +'<button id="_gm_sim" style="padding:8px 16px;border:none;border-radius:6px;background:#00C853;color:#fff;cursor:pointer;font-weight:bold">Aceitar todas ✓</button>'
+          +'</div></div>';
+        document.body.appendChild(ov);
+        ov.querySelector('#_gm_sim').onclick=()=>{ ov.remove(); resolve(true); };
+        ov.querySelector('#_gm_nao').onclick=()=>{ ov.remove(); resolve(false); };
+      });
+    }
+
 </script>
 </body>
 </html>
