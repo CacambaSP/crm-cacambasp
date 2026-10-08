@@ -239,8 +239,7 @@ ${pixSection}
   document.getElementById('btn-print-wrap').style.display='block';
 
   if(totalPend>0.01){
-    const pixPayloadEl=cont.querySelector('#rTrkQR');
-    // reconstruir o mesmo payload para o QR (já calculado acima em pixSection via closure não disponível aqui, então recalcula)
+    setTimeout(_gerarQRSePresente,100);
   }
 }
 
@@ -255,7 +254,7 @@ function _gerarQRSePresente(){
   }
 }
 
-carregar().then(()=>{ setTimeout(_gerarQRSePresente,50); });
+carregar();
 </script>
 </body>
 </html>
