@@ -1756,9 +1756,15 @@ input[type=checkbox]:checked::after{
         <div style="font-size:10px;color:var(--mut2);margin-top:6px">Depois de classificar, vale automaticamente para todas as próximas NFs desta cidade.</div>
       </div>
       <div class="nfem-footer">
-        <div class="nfem-footer-title">✅ Depois de emitir, registre o número aqui</div>
-        <div style="font-size:12px;color:var(--mut2);margin-bottom:6px">1. Clique "Abrir prefeitura" abaixo<br>2. Preencha os dados, resolva o captcha e clique Emitir<br>3. Digite o número da NF gerada e clique Salvar</div>
-        <button class="btn btn-acc" id="nfem_btn_pref" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir prefeitura de Osasco</button>
+        <div class="nfem-footer-title">🤖 Emitir com o Claude (recomendado)</div>
+        <div style="font-size:12px;color:var(--mut2);margin-bottom:6px">1. Clique no botão abaixo — o pedido de NF fica salvo e um comando é copiado<br>2. Cole o comando no Claude (painel do Chrome)<br>3. O Claude preenche o Emissor Nacional, mostra o resumo e emite depois do seu "ok" — número, PDF e link voltam sozinhos para o CRM</div>
+        <button class="btn btn-acc" id="nfem_btn_claude" style="width:100%;margin-bottom:8px;font-size:14px;padding:10px" onclick="_nfPedirClaude()">🤖 Emitir com o Claude</button>
+        <div id="nfem_claude_box" style="display:none;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.35);border-radius:var(--rad3);padding:10px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">📋 Comando copiado — cole no Claude:</div>
+          <div style="display:flex;gap:6px;align-items:center"><code id="nfem_claude_cmd" style="flex:1;font-size:12px;padding:6px 8px;background:var(--card);border-radius:4px;user-select:all">—</code><button class="btn btn-xs" onclick="_nfCopiar('nfem_claude_cmd')">📋</button></div>
+        </div>
+        <div class="nfem-footer-title" style="margin-top:6px">✍️ Ou emita manualmente e registre o número</div>
+        <button class="btn btn-sm" id="nfem_btn_pref" style="width:100%;margin-bottom:8px" onclick="_nfAbrirPrefeitura()">🌐 Abrir Emissor Nacional (manual)</button>
         <div class="nfem-save-row">
           <input type="text" id="nfem_numero_input" placeholder="Nº da NF emitida (ex: 1234)" inputmode="numeric">
           <button class="btn btn-g" id="nfem_btn_salvar" onclick="_nfSalvarNumero()" style="white-space:nowrap">💾 Salvar nº NF</button>
@@ -8717,17 +8723,18 @@ function _nfRenderRetencao(){
   const vbox=document.getElementById('nfem_verificar_box');
   const bP=document.getElementById('nfem_btn_pref');
   const bS=document.getElementById('nfem_btn_salvar');
+  const bC=document.getElementById('nfem_btn_claude');
   const inp=document.getElementById('nfem_numero_input');
   if(dec.bloqueado){
     _issCidadeAtual=dec.cidadeNrm||'';
     const vc=document.getElementById('nfem_verif_cidade'); if(vc)vc.textContent=_nfRetCidade||'(não informada)';
     const vo=document.getElementById('nfem_verif_obs'); if(vo)vo.value='';
     if(vbox)vbox.style.display='block';
-    [bP,bS].forEach(b=>{ if(b){b.disabled=true;b.style.opacity='.4';b.style.pointerEvents='none';} });
+    [bP,bS,bC].forEach(b=>{ if(b){b.disabled=true;b.style.opacity='.4';b.style.pointerEvents='none';} });
     if(inp)inp.disabled=true;
   }else{
     if(vbox)vbox.style.display='none';
-    [bP,bS].forEach(b=>{ if(b){b.disabled=false;b.style.opacity='';b.style.pointerEvents='';} });
+    [bP,bS,bC].forEach(b=>{ if(b){b.disabled=false;b.style.opacity='';b.style.pointerEvents='';} });
     if(inp)inp.disabled=false;
   }
 }
@@ -8843,6 +8850,7 @@ function _abrirModalNF(ids){
   _nfRenderRetencao();
   document.getElementById('nfem_numero_input').value='';
   document.getElementById('nfem_saved_ok').style.display='none';
+  const _cb=document.getElementById('nfem_claude_box'); if(_cb) _cb.style.display='none';
   document.getElementById('nfEmitirModal').classList.add('open');
 }
 
@@ -8859,9 +8867,145 @@ function _nfCopiarDisc(){
 }
 
 function _nfAbrirPrefeitura(){
-  window.open('https://nfe.osasco.sp.gov.br/EissnfeWebApp/Portal/Default.aspx','_blank');
-  toast('🌐 Prefeitura aberta em nova aba. Resolva o captcha e preencha os campos.','info',5000);
+  window.open('https://www.nfse.gov.br/EmissorNacional','_blank');
+  toast('🌐 Emissor Nacional aberto em nova aba. Depois de emitir, registre o número abaixo.','info',5000);
 }
+
+// ══════════════════════════════════════════════════════════════
+// NF COM O CLAUDE — fila nf_solicitacoes + API window.nfClaude
+// O botão cria a solicitação e copia o comando. A skill "emitir-nfse"
+// lê a solicitação, emite no Emissor Nacional e chama
+// nfClaude.prepararUpload / nfClaude.concluir nesta aba do CRM.
+// ══════════════════════════════════════════════════════════════
+async function _nfPedirClaude(){
+  const ids=(_nfEmitirIds&&_nfEmitirIds.length)?_nfEmitirIds:[_nfEmitirId];
+  const osLista=ids.map(id=>ordens.find(x=>x.id===id)).filter(Boolean);
+  const c=ordens.find(x=>x.id===_nfEmitirId)||osLista[0];
+  if(!c||!osLista.length){ toast('Ordem não encontrada','warn'); return; }
+  const cpfVal=(c.cpf||'').trim(), dig=cpfVal.replace(/\D/g,'');
+  if(dig.length!==11&&dig.length!==14){ toast('⚠️ CPF/CNPJ do cliente inválido ou vazio — corrija na ordem antes de emitir','warn',5000); return; }
+  const ehPJ=(c.tipo||'').toUpperCase()==='PJ'||dig.length===14||cpfVal.includes('/');
+  const dec=_issDecidir(c.cidade||'',ehPJ?'PJ':'PF');
+  if(dec.bloqueado){ toast('⛔ Classifique a retenção de ISS do município antes','warn'); return; }
+  const valor=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(_semNF(o.nf_num)?r+(_nfAcrescimo||0):r); },0);
+  if(!(valor>0)){ toast('⚠️ Valor da nota zerado','warn'); return; }
+  const btn=document.getElementById('nfem_btn_claude'); if(btn){btn.disabled=true;btn.textContent='⏳ Salvando pedido...';}
+  try{
+    // Reaproveita pedido pendente com as mesmas ordens (evita duplicar)
+    let sol=null;
+    try{
+      const pend=await api('nf_solicitacoes?status=in.(pendente,erro)&ordem_ids=ov.{'+ids.join(',')+'}&order=id.desc',undefined,undefined,tok());
+      sol=(pend||[]).find(p=>p.ordem_ids.length===ids.length&&ids.every(i=>p.ordem_ids.includes(i)))||null;
+    }catch(e){}
+    // Pagamento na nota: SÓ o link do recibo (sem chave Pix nem copia e cola — a chave do e-mail não vai na NF por causa da conciliação)
+    const reter=dec.status==='sim';
+    const valorLiq=Math.round((reter?valor*(1-0.024):valor)*100)/100;
+    const todasPagas=osLista.every(o=>o.pago);
+    let pixCC='', pixLink='', info='';
+    if(!todasPagas){
+      try{ if(c.crm_id) pixLink=await _gerarLinkCurtoRel('https://cacambasp-crm.vercel.app/recibo.html?pedido='+encodeURIComponent(c.crm_id),365); }catch(e){}
+      info=pixLink?('Valor a pagar: R$ '+fmt(valorLiq)+(reter?' (valor liquido, ja descontado o ISS retido)':'')+'\nPagamento e recibo: '+pixLink):'';
+    }else{
+      info='Servico ja pago. Obrigado!';
+    }
+    const extras={valor_liquido:valorLiq, pix_copia_cola:pixCC||null, pix_link:pixLink||null, info_complementar:info};
+    if(sol){ try{ await api('nf_solicitacoes?id=eq.'+sol.id,'PATCH',extras,tok()); }catch(e){} }
+    if(!sol){
+      const body={...extras,
+        ordem_ids:ids, crm_ids:osLista.map(o=>o.crm_id||''),
+        tomador_nome:c.nome||'', tomador_doc:dig, tomador_tipo:ehPJ?'PJ':'PF', tomador_email:c.email_cli||'',
+        obra_logradouro:c.logradouro||'', obra_numero:c.numero||'', obra_bairro:c.bairro||'', obra_cidade:c.cidade||'Osasco', obra_cep:(c.cep||'').replace(/\D/g,''),
+        valor:Math.round(valor*100)/100, retencao:dec.status==='sim'?'sim':'nao',
+        discriminacao:document.getElementById('nfem_disc')?.textContent||'',
+        status:'pendente', criado_por:_perfil?.nome||''
+      };
+      const r=await api('nf_solicitacoes','POST',body,tok());
+      sol=r&&r[0];
+    }
+    if(!sol) throw new Error('Pedido não foi salvo');
+    // Marca as ordens como "NF solicitada" (000) se ainda não tinham NF
+    for(const o of osLista){
+      const _pt={};
+      if(!o.nf_num){ o.nf_num='000'; _pt.nf_num='000'; }
+      if(reter&&!o.desconta_iss){ o.desconta_iss=true; _pt.desconta_iss=true; } // cliente PJ retém → cobrança já sai com o ISS descontado
+      if(Object.keys(_pt).length){ try{ await api('ordens?id=eq.'+o.id,'PATCH',_pt,tok()); }catch(e){} }
+      addLog(o.id,'NF pedida ao Claude','Solicitação #'+sol.id+' · R$ '+fmt(valor));
+    }
+    const cmd='Claude, emitir NF da solicitação #'+sol.id;
+    document.getElementById('nfem_claude_cmd').textContent=cmd;
+    document.getElementById('nfem_claude_box').style.display='block';
+    try{ await navigator.clipboard.writeText(cmd); toast('🤖 Pedido #'+sol.id+' salvo. Comando copiado — cole no Claude.','ok',6000); }
+    catch(e){ toast('🤖 Pedido #'+sol.id+' salvo. Copie o comando que apareceu e cole no Claude.','ok',6000); }
+    renderBoard();
+  }catch(e){ toast('Erro ao salvar pedido de NF: '+(e.message||e),'err'); }
+  finally{ if(btn){btn.disabled=false;btn.textContent='🤖 Emitir com o Claude';} }
+}
+
+window.nfClaude={
+  versao:1,
+  // Lê a solicitação (com as ordens atuais) — conferência antes de emitir
+  async ler(solId){
+    const r=await api('nf_solicitacoes?id=eq.'+solId,undefined,undefined,tok());
+    if(!r||!r[0]) throw new Error('Solicitação #'+solId+' não encontrada');
+    return r[0];
+  },
+  async marcar(solId,status,erro){
+    const patch={status}; if(erro!==undefined) patch.erro=String(erro||'').slice(0,500);
+    await api('nf_solicitacoes?id=eq.'+solId,'PATCH',patch,tok());
+    return true;
+  },
+  // Gera URL assinada para o PDF ser enviado direto da aba do Emissor (PUT/POST com o PDF no corpo)
+  async prepararUpload(solId){
+    const path='ordens/NF_sol'+solId+'_'+Date.now()+'.pdf';
+    const res=await fetch(`${SUPA_URL}/storage/v1/object/upload/sign/anexos/${path}`,{
+      method:'POST', headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+tok(),'Content-Type':'application/json'}, body:'{}'
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const d=await res.json();
+    let url=d.url||d.signedURL||d.signedUrl; if(!url) throw new Error('URL de upload não retornada');
+    if(url.startsWith('/')) url=SUPA_URL+'/storage/v1'+url;
+    return {path, uploadUrl:url};
+  },
+  // Plano B: recebe o PDF em base64 e sobe pela própria aba do CRM
+  async uploadBase64(solId,b64){
+    const bin=atob(b64), arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    const path='ordens/NF_sol'+solId+'_'+Date.now()+'.pdf';
+    await uploadArquivoPrivado(new File([arr],'nfse.pdf',{type:'application/pdf'}),path);
+    return path;
+  },
+  // Grava número, chave, PDF e link em TODAS as ordens da solicitação
+  async concluir(solId,{numero,chave,path,ambiente}){
+    numero=String(numero||'').replace(/^0+(?=\d)/,'').trim();
+    if(!numero) throw new Error('Número da NF vazio');
+    const nfNum=numero.length<3?numero.padStart(3,'0'):numero; // CRM exige 3+ dígitos
+    const sol=await this.ler(solId);
+    let link=null;
+    if(path){
+      const longo=await _gerarLinkComprovanteRel(path,365);
+      link=await _gerarLinkCurtoRel(longo,365);
+    }else if(chave&&ambiente!=='teste'){
+      // Sem PDF: link da Consulta Pública oficial (chave já preenchida; o cliente marca o captcha e baixa a DANFSe)
+      link=await _gerarLinkCurtoRel('https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave='+encodeURIComponent(chave),3650);
+    }
+    let ok=0;
+    for(const id of sol.ordem_ids){
+      let o=ordens.find(x=>x.id===id);
+      if(!o){ const r=await api('ordens?id=eq.'+id+'&select=id,crm_id,anexos',undefined,undefined,tok()); o=r&&r[0]; }
+      if(!o) continue;
+      const anexos=Array.isArray(o.anexos)?[...o.anexos]:[];
+      if(path) anexos.push({path,nome:'NFS-e '+nfNum+'.pdf',tipo:'nf',chave:chave||''});
+      const patch={nf_num:nfNum}; if(path) patch.anexos=anexos; if(link) patch.nf_link=link;
+      await api('ordens?id=eq.'+id,'PATCH',patch,tok());
+      o.nf_num=nfNum; if(path) o.anexos=anexos; if(link) o.nf_link=link;
+      addLog(id,'NF emitida pelo Claude','NFS-e '+nfNum+(chave?' · chave '+chave:'')+' · solicitação #'+solId);
+      ok++;
+    }
+    await api('nf_solicitacoes?id=eq.'+solId,'PATCH',{status:'emitida',nf_num:nfNum,nf_chave:chave||null,nf_link:link,nf_pdf_path:path||null,ambiente:ambiente||null,erro:null,emitida_em:new Date().toISOString()},tok());
+    try{ renderBoard(); if(_detailId&&sol.ordem_ids.includes(_detailId)) openDetail(_detailId); }catch(e){}
+    toast('🧾 NFS-e '+nfNum+' registrada em '+ok+' OS'+(link?' com link para o cliente':''),'ok',6000);
+    return {ok, nf_num:nfNum, nf_link:link};
+  }
+};
 
 async function _nfSalvarNumero(){
   const num=(document.getElementById('nfem_numero_input').value||'').trim();
