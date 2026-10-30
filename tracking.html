@@ -288,34 +288,22 @@ async function carregar(){
     // Carregar acréscimo NF do banco
     try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
     try{const nh=await api('config?chave=eq.nf_aliquotas_hist&select=valor');if(nh&&nh[0]?.valor)_nfAliqHist=JSON.parse(nh[0].valor)||{};}catch(e){}
-    // Buscar ordem por token (seguro) ou crm_id (legado)
-    let ordens;
-    if(token){
-      ordens=await api('ordens?tracking_token=eq.'+encodeURIComponent(token)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,nf_link,desconta_iss&limit=1');
-    }else{
-      ordens=await api('ordens?crm_id=eq.'+encodeURIComponent(crmIdParam)+'&select=id,crm_id,col,nome,cel,cpf,logradouro,bairro,cidade,data,tipo,usuario_id,rec,pago,pago_em,pago_valor,nf_num,nf_link,desconta_iss&limit=1');
-    }
-    const crmId=ordens&&ordens.length?ordens[0].crm_id:(crmIdParam||'');
-    if(!ordens||!ordens.length){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
-    const ord=ordens[0];
-    // Buscar vendedor
-    let vend=null;
-    if(ord.usuario_id){
-      try{
-        const p=await api('perfis?id=eq.'+ord.usuario_id+'&select=nome,marca_nome,marca_tel,marca_logo_url,marca_cor,marca_slogan&limit=1');
-        if(p&&p.length)vend=p[0];
-      }catch(e){}
-    }
-    // Buscar outras ordens em aberto pelo celular
+    // Busca o pedido SÓ pelo código secreto (token), por uma função protegida do banco.
+    // O número da LC sozinho não abre mais o pedido (evita que alguém "chute" números e veja dados de outros clientes).
+    if(!token||!/^[0-9a-f-]{36}$/i.test(token)){mostrarErro('Link antigo ou inválido.<br>Peça um novo link para quem te atendeu.');return;}
+    const _resPed=await fetch(SUPA_URL+'/rest/v1/rpc/publico_pedido',{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:token})});
+    const _pacote=_resPed.ok?await _resPed.json():null;
+    if(!_pacote||!_pacote.ordem){mostrarErro('Pedido não encontrado.<br>Verifique o link recebido.');return;}
+    const ord=_pacote.ordem;
+    const crmId=ord.crm_id;
+    let vend=_pacote.vendedor||null;
+    // Outras ordens do mesmo celular (vêm junto da função protegida)
     let emAberto=[];
     let todasOrdens=[];
     const celNorm=normCel(ord.cel);
     if(celNorm&&celNorm.length>=8){
-      try{
-        const todas=await api('ordens?cel=eq.'+encodeURIComponent(ord.cel)+'&select=id,crm_id,col,logradouro,bairro,cidade,data,tipo,rec,pago,pago_em,pago_valor,cpf,nf_num,nf_link,nf_taxa,cancel_motivo,desconta_iss&order=data.asc');
-        todasOrdens=(todas||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
-        emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
-      }catch(e){}
+      todasOrdens=(_pacote.ordens_cliente||[]).filter(o=>o.col!=='orcamento'&&!o.cancel_motivo);
+      emAberto=todasOrdens.filter(o=>o.col!=='concluido'&&!o.pago);
     }
     // Garantir que a ordem do link está na lista
     if(!emAberto.find(o=>o.crm_id===crmId)){
