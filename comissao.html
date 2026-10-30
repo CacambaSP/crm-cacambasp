@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Relatório de comissão — CaçambaSP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0c0e14;--sur:#13151e;--sur2:#1b1e2b;--bor:#23263a;--bor2:#3a3f57;--txt:#e6e8f0;--mut:#8b93ad;--mut1:#b4bad0;--acc:#f5a623;--acc2:rgba(245,166,35,.12);--g:#22c55e;--g2:rgba(34,197,94,.12);--mono:'JetBrains Mono',monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 32px;display:flex;flex-direction:column;gap:16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:36px;height:36px;border-radius:10px;background:var(--acc);color:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  .brand b{display:block;font-size:13px}.brand span{font-size:11px;color:var(--mut)}
+  .pill{font-size:11px;font-weight:700;border-radius:20px;padding:4px 10px;white-space:nowrap}
+  .pill.ok{color:var(--g);background:var(--g2);border:1px solid rgba(34,197,94,.3)}
+  .pill.pend{color:var(--acc);background:var(--acc2);border:1px solid rgba(245,166,35,.3)}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .hero{padding:20px;gap:6px}
+  .hero .who{font-size:12px;color:var(--mut)}
+  .hero .total{font-size:34px;font-weight:800;color:var(--acc);font-family:var(--mono);letter-spacing:-1px}
+  .hero .sub{font-size:12px;color:var(--mut)}
+  .ttl{font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .ttl small{font-size:11px;color:var(--mut);font-weight:400}
+  .line{display:flex;justify-content:space-between;font-size:13px;gap:10px}
+  .line span:first-child{color:var(--mut1)}
+  .line span:last-child{font-family:var(--mono)}
+  .line.sep{border-top:1px solid var(--bor);padding-top:8px}
+  .line.tot{border-top:1px solid var(--bor);padding-top:10px;font-weight:800;font-size:15px}
+  .line.tot span:first-child{color:var(--txt)}.line.tot span:last-child{color:var(--acc)}
+  .ord{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--bor)}
+  .ord .l{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .ord .h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ord .lc{font-size:12px;font-weight:700;font-family:var(--mono)}
+  .ord .dt{font-size:11px;color:var(--mut)}
+  .ord .nf{font-size:10px;font-weight:700;color:var(--acc);background:var(--acc2);border-radius:6px;padding:1px 6px}
+  .ord .cli{font-size:13px;overflow-wrap:anywhere}
+  .ord .r{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .ord .v{font-size:14px;font-weight:700;font-family:var(--mono);white-space:nowrap}
+  .ord .vl{font-size:10px;color:var(--mut)}
+  .ordtot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--bor2);padding-top:12px}
+  .ordtot b{font-size:13px}.ordtot span{font-size:15px;font-weight:800;color:var(--acc);font-family:var(--mono)}
+  .comp img{width:100%;border-radius:10px;border:1px solid var(--bor2);display:block}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:10px;border:1px solid var(--bor2);color:var(--txt);text-decoration:none;font-size:13px;font-weight:600}
+  .btn:hover{border-color:var(--acc);color:var(--acc)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11px;font-family:var(--mono);border:1px solid var(--bor2);border-radius:6px;padding:3px 8px}
+  .muted{font-size:12px;color:var(--mut);line-height:1.5}
+  .foot{font-size:11px;color:var(--mut);text-align:center;line-height:1.5}
+  .center{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px}
+  .center h1{font-size:18px;margin:0}
+</style>
+</head>
+<body>
+<main class="wrap" id="app">
+  <div class="center"><h1>Carregando relatório…</h1><p class="muted">Aguarde um instante.</p></div>
+</main>
+<script>
+const SUPA_URL = 'https://ejfuqijtiberxsnvxdwm.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZnVxaWp0aWJlcnhzbnZ4ZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTMyMzYsImV4cCI6MjA4OTE4OTIzNn0.14Ba8klx6YkPT5UrZ2eB5cYWdSKcBOCl4mdEgfmXqaU';
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => parseFloat(v) || 0;
+const fmt = v => num(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const dm = d => d ? String(d).slice(8,10)+'/'+String(d).slice(5,7) : '';
+const dataBR = iso => iso ? new Date(iso).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '';
+
+function modelo(nome){
+  const n = String(nome||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(n.startsWith('luciana') || n.startsWith('leticia')) return 'lucro';
+  if(n.startsWith('claudia')) return 'claudia';
+  if(n.startsWith('sandra')) return 'sandra';
+  if(n.startsWith('ricardo')) return 'fixo15';
+  if(n.startsWith('gustavo') || n.startsWith('pc')) return 'fixo40';
+  return 'lucro';
+}
+
+function erro(titulo, msg){
+  document.getElementById('app').innerHTML = `<div class="center"><h1>${esc(titulo)}</h1><p class="muted">${esc(msg)}</p></div>`;
+}
+
+const L = (a, b, cls='') => `<div class="line ${cls}"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
+
+function render(r){
+  const mod = modelo(r.vendedor);
+  const ords = r.ordens || [];
+  const n = ords.length;
+  const somaLL = ords.reduce((s,o)=>s+num(o.ll),0);
+  const vales = num(r.valor_vales);
+  const extra = num(r.valor_claudia_extra);
+  const total = num(r.valor_vendedor) + extra - vales;
+  const [ano, mm] = String(r.mes).split('-').map(Number);
+  const mesLabel = MESES[mm-1]+'/'+ano;
+  const pago = r.status === 'pago';
+  const fixoOrdem = mod === 'fixo15' ? 15 : mod === 'fixo40' ? 40 : 0;
+
+  let calc = '';
+  if(mod === 'claudia'){
+    const apos = num(r.lucro_liquido);
+    calc = L('Lucro líquido das '+n+' ordens', fmt(somaLL))
+         + L('− Fixo garantido', fmt(r.fixo_garantido))
+         + L('− Anúncio', fmt(r.valor_anuncio))
+         + L('Sobra para dividir', fmt(apos), 'sep')
+         + L('Sua parte (50%)', fmt(apos/2))
+         + L('+ Fixo garantido', fmt(r.fixo_garantido))
+         + (extra ? L('+ 30% da Sandra', fmt(extra)) : '');
+  } else if(mod === 'sandra'){
+    const apos = num(r.lucro_liquido);
+    calc = L('Lucro líquido das '+n+' ordens', fmt(somaLL))
+         + L('− Anúncio', fmt(r.valor_anuncio))
+         + L('Sobra para dividir', fmt(apos), 'sep')
+         + L('Sua parte (40%)', fmt(apos*0.4))
+         + L('+ Fixo garantido', fmt(r.fixo_garantido));
+  } else if(fixoOrdem){
+    calc = L(n+' ordens × R$ '+fmt(fixoOrdem), fmt(r.valor_vendedor));
+  } else {
+    calc = L('Lucro líquido das '+n+' ordens', fmt(r.valor_vendedor));
+  }
+  calc += L('− Vales do mês', fmt(vales)) + L('Total '+(pago?'pago':'a receber'), 'R$ '+fmt(total), 'tot');
+
+  const valesHtml = (r.vales||[]).length
+    ? `<div class="card"><div class="ttl">Vales abatidos</div>${r.vales.map(v=>L(dataBR(v.data+'T12:00:00')+(v.obs?' · '+v.obs:''), fmt(v.valor))).join('')}</div>` : '';
+
+  let compHtml = '';
+  if(r.comprovante_url){
+    const ehPdf = /\.pdf(\?|$)/i.test(r.comprovante_url);
+    compHtml = `<div class="card comp"><div class="ttl">Comprovante do Pix</div>
+      ${ehPdf ? '' : `<img src="${esc(r.comprovante_url)}" alt="Comprovante do pagamento da comissão" loading="lazy">`}
+      <a class="btn" href="${esc(r.comprovante_url)}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        ${ehPdf ? 'Abrir comprovante (PDF)' : 'Baixar comprovante'}</a></div>`;
+  }
+
+  const ordHtml = ords.map(o => {
+    const val = fixoOrdem ? fixoOrdem : num(o.ll);
+    return `<div class="ord"><div class="l"><div class="h"><span class="lc">${esc(o.crm_id)}</span><span class="dt">${esc(dm(o.data))}</span>${o.nf?`<span class="nf">NF ${esc(o.nf)}</span>`:''}</div><span class="cli">${esc(o.cliente)}</span></div><div class="r"><span class="v">${fmt(val)}</span><span class="vl">${fixoOrdem?'comissão':'lucro líquido'}</span></div></div>`;
+  }).join('');
+  const totOrd = fixoOrdem ? n*fixoOrdem : somaLL;
+
+  const pend = (r.pendentes||[]);
+  const pendHtml = pend.length ? `<div class="card"><div class="ttl">Ficam para o próximo mês</div>
+    <p class="muted" style="margin:0">Ordens suas ainda não pagas pelo cliente. Entram no fechamento do mês em que forem pagas.</p>
+    <div class="chips">${pend.map(c=>`<span class="chip">${esc(c)}</span>`).join('')}</div></div>` : '';
+
+  const ini = esc((String(r.vendedor||'?').trim()[0]||'?').toUpperCase());
+  document.title = 'Comissão '+mesLabel+' — '+(r.vendedor||'');
+  document.getElementById('app').innerHTML = `
+    <div class="top">
+      <div class="brand"><div class="logo">${ini}</div><div><b>CaçambaSP</b><span>Relatório de comissão</span></div></div>
+      ${pago ? `<span class="pill ok">Paga${r.pago_em?' em '+esc(dataBR(r.pago_em)):''}</span>` : `<span class="pill pend">Pendente</span>`}
+    </div>
+    <div class="card hero">
+      <span class="who">${esc(r.vendedor)} · ${esc(mesLabel)}</span>
+      <span class="total">R$ ${fmt(total)}</span>
+      <span class="sub">${n} ordens pagas${pago && r.pago_em ? ' · pago em '+esc(dataBR(r.pago_em)) : ''}</span>
+    </div>
+    <div class="card"><div class="ttl">Como foi calculado</div><div style="display:flex;flex-direction:column;gap:8px">${calc}</div></div>
+    ${valesHtml}
+    ${compHtml}
+    <div class="card" style="gap:4px"><div class="ttl" style="padding-bottom:8px">Ordens que entraram <small>${n} ordens</small></div>
+      ${ordHtml}
+      <div class="ordtot"><b>${fixoOrdem?'Total de comissão':'Total lucro líquido'}</b><span>${fmt(totOrd)}</span></div>
+    </div>
+    ${pendHtml}
+    <p class="foot">Valores referentes à sua comissão.<br>Link exclusivo seu. Não compartilhe.</p>`;
+}
+
+(async function(){
+  const t = new URLSearchParams(location.search).get('t') || '';
+  if(!/^[0-9a-f-]{36}$/i.test(t)){ erro('Link inválido','Peça um novo link para o Douglas.'); return; }
+  try{
+    const res = await fetch(SUPA_URL+'/rest/v1/rpc/publico_relatorio_comissao', {
+      method:'POST',
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({p_token:t})
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const r = await res.json();
+    if(!r){ erro('Relatório não encontrado','Este link não existe ou foi removido. Peça um novo link para o Douglas.'); return; }
+    render(r);
+  }catch(e){
+    erro('Erro ao carregar','Não foi possível abrir o relatório. Tente novamente em instantes.');
+  }
+})();
+</script>
+</body>
+</html>
