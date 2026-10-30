@@ -1308,9 +1308,9 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
       </div>
       <div class="fi" style="max-width:240px">
-        <label>Desconto de ISS (2,4%)</label>
+        <label>Desconto de ISS (alíquota do mês)</label>
         <button class="btn btn-sm" id="d_iss_btn" style="width:100%" onclick="toggleDescontaISS(_detailId)">🏛️ Carregando...</button>
-        <div style="font-size:10px;color:var(--mut2);margin-top:4px">Quando ligado, o cliente paga já descontando 2,4% de ISS (recolhe direto na prefeitura). Se a ordem faz parte de uma NF agrupada, aplica em todas as OS da nota.</div>
+        <div style="font-size:10px;color:var(--mut2);margin-top:4px">Quando ligado, o cliente paga já descontando o ISS (alíquota do mês, informada pela contadora) (recolhe direto na prefeitura). Se a ordem faz parte de uma NF agrupada, aplica em todas as OS da nota.</div>
       </div>
       <div class="fi" style="max-width:240px">
         <label>Nº Nota Fiscal</label>
@@ -1339,7 +1339,7 @@ input[type=checkbox]:checked::after{
     <div class="mb">
       <div id="pc_resumo" style="background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 13px;margin-bottom:14px;font-size:12px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mut2)">Valor da ordem</span><span id="pc_rec_original" style="font-weight:700;color:var(--acc);font-family:var(--mono)">—</span></div>
-        <div id="pc_iss_aviso" style="display:none;font-size:11px;color:#f97316;margin-bottom:4px">🏛️ Cliente desconta ISS (2,4%) — valor abaixo já considera isso</div>
+        <div id="pc_iss_aviso" style="display:none;font-size:11px;color:#f97316;margin-bottom:4px">🏛️ Cliente desconta ISS — valor abaixo já considera isso</div>
         <div id="pc_saldo_row" style="display:none;justify-content:space-between"><span style="color:var(--mut2)">Já recebido</span><span id="pc_ja_recebido" style="font-weight:700;color:var(--g);font-family:var(--mono)">—</span></div>
         <div id="pc_falta_row" style="display:none;justify-content:space-between;border-top:1px solid var(--bor);margin-top:6px;padding-top:6px"><span style="color:var(--r);font-weight:600">Falta receber</span><span id="pc_falta_val" style="font-weight:700;color:var(--r);font-family:var(--mono)">—</span></div>
       </div>
@@ -1721,7 +1721,7 @@ input[type=checkbox]:checked::after{
         <div class="nfem-sec">Serviço</div>
         <div class="nfem-block">
           <div class="nfem-row"><span class="nfem-lbl">Cód. Serviço</span><span class="nfem-val">7.09 — Varrição, coleta, remoção...</span></div>
-          <div class="nfem-row"><span class="nfem-lbl">Alíquota ISS</span><span class="nfem-val">2,4%</span></div>
+          <div class="nfem-row"><span class="nfem-lbl">Alíquota ISS</span><span class="nfem-val" id="nfem_aliq_iss">—</span></div>
           <div style="margin-top:6px">
             <div class="nfem-sec" style="margin-bottom:4px">Discriminação (copie para a prefeitura)</div>
             <div class="nfem-disc" id="nfem_disc">—</div>
@@ -1734,7 +1734,7 @@ input[type=checkbox]:checked::after{
         <div class="nfem-block">
           <div class="nfem-row"><span class="nfem-lbl">Valor da Nota</span><span class="nfem-val" id="nfem_valor" style="color:var(--acc);font-size:15px">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_valor')" title="Copiar">📋</button></div>
           <div class="nfem-row"><span class="nfem-lbl">Base de cálculo</span><span class="nfem-val" id="nfem_base">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_base')" title="Copiar">📋</button></div>
-          <div class="nfem-row"><span class="nfem-lbl">ISS (2,4%)</span><span class="nfem-val" id="nfem_iss" style="color:var(--r)">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_iss')" title="Copiar">📋</button></div>
+          <div class="nfem-row"><span class="nfem-lbl" id="nfem_iss_lbl">ISS</span><span class="nfem-val" id="nfem_iss" style="color:var(--r)">—</span><button class="btn btn-xs" style="margin-left:6px;flex-shrink:0" onclick="_nfCopiar('nfem_iss')" title="Copiar">📋</button></div>
         </div>
       </div>
       <div>
@@ -1846,7 +1846,14 @@ async function track(evento, detalhe=''){
     }, tok());
   }catch(e){} // silencioso — nunca quebra o fluxo
 }
-let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco
+let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco (usada só para meses sem alíquota real cadastrada)
+// Alíquotas reais por mês (contadora): config nf_aliquotas_hist = {"2026-10":{"simples":9.96,"iss":3.24}, ...}
+let _nfAliqHist={};
+function _mesRef(o){ return String((o&&(o.data||o.criado_em))||new Date().toISOString()).slice(0,7); }
+function _aliqMes(o){ const m=_mesRef(o); const ks=Object.keys(_nfAliqHist).filter(k=>k<=m).sort(); return ks.length?_nfAliqHist[ks[ks.length-1]]:null; }
+function _impPct(o){ const a=_aliqMes(o); return (a&&a.simples)?a.simples:_taxaNF; }      // % do Simples sobre o valor da NF
+function _issFrac(o){ const a=_aliqMes(o); return (a&&a.iss)?a.iss/100:0.024; }           // ISS retido pelo cliente (fração)
+function _issPctTxt(o){ return (_issFrac(o)*100).toFixed(2).replace('.',','); }
 let _nfAcrescimo=40;
 // Valida nf_num: vazio, '000', 3+ dígitos, ou dígitos+letra (ex.: 121C)
 function _nfNumValido(v){ if(!v||v.trim()==='')return true; const s=v.trim(); return s==='000'||/^\d{3,}$/.test(s)||/^\d{2,}[A-Za-z]+$/.test(s); } // Acréscimo fixo R$ no valor ao cliente quando tem NF — carregado do banco
@@ -2553,7 +2560,7 @@ async function loadApp(){
         : apiPaginado('ordens?usuario_id=eq.'+uid+'&order=criado_em.asc',tok()),
       api('fornecedores?order=criado_em.asc',undefined,undefined,tok()),
       isAdmin() ? api('perfis?order=criado_em.asc',undefined,undefined,tok()) : Promise.resolve([]),
-      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno)',undefined,undefined,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_taxa,cobr_dias_alerta,cobr_dias_critico,nf_acrescimo,limite_diurno,limite_noturno,nf_aliquotas_hist)',undefined,undefined,tok()).catch(()=>[]),
       api('obra_limites',undefined,undefined,tok()).catch(()=>[]),
       api('clientes_bloqueados?order=criado_em.desc',undefined,undefined,tok()).catch(()=>[]),
     ]);
@@ -2563,6 +2570,7 @@ async function loadApp(){
     if(dbConfig?.length){
       dbConfig.forEach(r=>{
         if(r.chave==='nf_taxa')          _taxaNF=parseFloat(r.valor)||11;
+        if(r.chave==='nf_aliquotas_hist'){ try{ _nfAliqHist=JSON.parse(r.valor)||{}; }catch(e){} }
         if(r.chave==='nf_acrescimo')     _nfAcrescimo=parseFloat(r.valor)||40;
         if(r.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA=parseInt(r.valor)||3;
         if(r.chave==='cobr_dias_critico')COBR_DIAS_CRITICO=parseInt(r.valor)||7;
@@ -4126,7 +4134,7 @@ function escolherNF(sim){
   if(erro)erro.style.display='none';
   if(info){
     info.style.display='block';
-    if(sim){info.style.background='var(--acc2)';info.style.color='var(--acc)';info.style.border='1px solid var(--acc3)';info.textContent='🧾 NF será emitida — imposto de '+_taxaNF+'% incluído.';}
+    if(sim){info.style.background='var(--acc2)';info.style.color='var(--acc)';info.style.border='1px solid var(--acc3)';info.textContent='🧾 NF será emitida — imposto de '+String(_impPct()).replace('.',',')+'% incluído.';}
     else{info.style.background='var(--g2)';info.style.color='var(--g)';info.style.border='1px solid var(--g3)';info.textContent='✅ Sem NF — nenhuma taxa de imposto.';}
   }
 }
@@ -4135,7 +4143,7 @@ function updNFPreview(){
   if(_ordemTemNF!==true){prev.style.display='none';return;}
   const rec=parseFloat(document.getElementById('o_rec').value)||0;
   if(!rec){prev.style.display='none';return;}
-  const imp=rec*(_taxaNF/100);
+  const imp=rec*(_impPct()/100);
   const b=document.getElementById('o_nf_base');const i2=document.getElementById('o_nf_imp');const t=document.getElementById('o_nf_total');
   if(b)b.textContent='R$ '+fmt(rec);if(i2)i2.textContent='R$ '+fmt(imp);if(t)t.textContent='R$ '+fmt(rec+imp);
   prev.style.display='block';
@@ -4369,7 +4377,7 @@ async function salvarOrdem(){
         pago:false,pago_em:null,pago_valor:null,pago_obs:null,
         forn_pago:false,forn_pago_em:null,forn_pago_valor:null,
         nf_num:nfNumBase,
-        nf_taxa:_ordemTemNF?_taxaNF:0,
+        nf_taxa:_ordemTemNF?_impPct():0,
         usuario_id:_currentUser?.user?.id,
         criado_em:new Date(Date.now()+qi*1000).toISOString()
       };
@@ -4475,7 +4483,7 @@ function fillDetail(c){
     const cst=parseFloat(c.cst)||0;
     const acr=c.nf_num?_nfAcrescimo:0;
     const recCliente=rec+acr;
-    const taxa=c.nf_num?_taxaNF:0;
+    const taxa=c.nf_num?_impPct(c):0;
     const imp=c.nf_num?recCliente*(taxa/100):0;
     const mg=recCliente-cst-imp-_taxaAdmin;
     document.getElementById('dm_r').textContent=recCliente?'R$ '+fmt(recCliente):'-';
@@ -4513,7 +4521,7 @@ function fillDetail(c){
     const _issBtn=document.getElementById('d_iss_btn');
     if(_issBtn){
       if(c.desconta_iss){
-        _issBtn.textContent='🏛️ Descontando ISS (2,4%) — clique pra cobrar cheio';
+        _issBtn.textContent='🏛️ Descontando ISS ('+_issPctTxt(c)+'%) — clique pra cobrar cheio';
         _issBtn.style.background='rgba(249,115,22,.12)'; _issBtn.style.color='#f97316'; _issBtn.style.borderColor='rgba(249,115,22,.35)';
       } else {
         _issBtn.textContent='🏛️ Cobrando valor cheio — clique pra descontar ISS';
@@ -5753,7 +5761,7 @@ async function toggleDescontaISS(id){
   try{
     await Promise.all(grupo.map(o=>api('ordens?id=eq.'+o.id,'PATCH',{desconta_iss:novoValor},tok())));
     grupo.forEach(o=>o.desconta_iss=novoValor);
-    toast(novoValor?('🏛️ ISS será descontado (2,4%)'+(grupo.length>1?' — aplicado a '+grupo.length+' OS da NF '+c.nf_num:'')):'🏛️ Desconto de ISS removido','ok');
+    toast(novoValor?('🏛️ ISS será descontado ('+_issPctTxt(c)+'%)'+(grupo.length>1?' — aplicado a '+grupo.length+' OS da NF '+c.nf_num:'')):'🏛️ Desconto de ISS removido','ok');
     renderBoard();
     if(_detailId===id) openDetail(id);
   }catch(e){ toast('Erro ao salvar desconto de ISS','err'); }
@@ -5788,7 +5796,7 @@ function openPagarCli(callback){
   if(jaRec>0)document.getElementById('pc_falta_val').textContent='R$ '+fmt(falta);
   const _nfExtra = c.nf_num ? 40 : 0;
   const _recComNF = (parseFloat(c.rec)||0) + _nfExtra;
-  const _recComDesconto = c.desconta_iss ? _recComNF*(1-0.024) : _recComNF;
+  const _recComDesconto = c.desconta_iss ? _recComNF*(1-_issFrac(c)) : _recComNF;
   document.getElementById('pc_val').value=falta>0?falta.toFixed(2):(_recComDesconto?_recComDesconto.toFixed(2):'');
   document.getElementById('pc_data').value=new Date().toISOString().slice(0,10);
   document.getElementById('pc_hora').value=new Date().toTimeString().slice(0,5);
@@ -6838,7 +6846,7 @@ function salvarTaxaAdmin(){
 function calcLucroLiquido(c){
   const rec  = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
   const cst  = parseFloat(c.cst)||0;
-  const taxa = c.nf_num ? _taxaNF/100 : 0;
+  const taxa = c.nf_num ? _impPct(c)/100 : 0;
   const imp  = rec * taxa;
   return rec - cst - _taxaAdmin - imp;
 }
@@ -6880,7 +6888,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   function ll(c){
     const rec = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
     const cst = parseFloat(c.cst)||0;
-    const imp = c.nf_num ? rec * (_taxaNF/100) : 0;
+    const imp = c.nf_num ? rec * (_impPct(c)/100) : 0;
     return rec - cst - TAXA_ADM - imp;
   }
 
@@ -7503,7 +7511,7 @@ async function calcularFechamento(){
 
     const _tdExtra = (c) => {
       if(isRicardo) return '';
-      const nf = c.nf_num ? ((parseFloat(c.rec)||0)+_nfAcrescimo)*(_taxaNF/100) : 0;
+      const nf = c.nf_num ? ((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impPct(c)/100) : 0;
       return `<td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">-R$ ${fmt(TAXA_ADM)}</td>
               <td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">${nf>0?'-R$ '+fmt(nf):'—'}</td>`;
     };
@@ -7554,7 +7562,7 @@ async function calcularFechamento(){
         ${ords.map(({c,ll,comissao})=>{
           const recVal = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
           const cstVal = parseFloat(c.cst)||0;
-          const nf = c.nf_num ? recVal*(_taxaNF/100) : 0;
+          const nf = c.nf_num ? recVal*(_impPct(c)/100) : 0;
           // Linha de cálculo visual: rec - cst - adm - nf = ll
           const calcStr = isRicardo
             ? `${fmt(recVal)} − ${fmt(cstVal)} − ${fmt(TAXA_ADM)}${nf>0?` − ${fmt(nf)}`:''} = ${fmt(ll)}`
@@ -8351,7 +8359,7 @@ async function _renderDetalheOrdens(usuarioId, mes){
     const rows = ords.map(o=>{
       const rec=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
       const cst=parseFloat(o.cst)||0;
-      const taxa=o.nf_num?_taxaNF:0;
+      const taxa=o.nf_num?_impPct(o):0;
       const nf=o.nf_num?rec*(taxa/100):0;
       const lucro=rec-cst-nf-10; // taxa adm R$10
       totalRec+=rec; totalCst+=cst; totalNF+=nf; totalLucro+=lucro;
@@ -8421,7 +8429,7 @@ function imprimirDetalheOrdens(){
     <thead><tr><th>CRM</th><th>Cliente</th><th>Bairro</th><th>Pago em</th><th class="val">Rec</th><th class="val">Cst</th><th class="val">NF</th><th class="val">Lucro liq.</th></tr></thead>
     <tbody>${c.ords.map(o=>{
       const rec=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),cst=parseFloat(o.cst)||0;
-      const nf=o.nf_num?rec*(_taxaNF/100):0;
+      const nf=o.nf_num?rec*(_impPct(o)/100):0;
       const lucro=rec-cst-nf-10;
       const dp=o.pago_em?new Date(o.pago_em).toLocaleDateString('pt-BR'):'—';
       return `<tr><td>${o.crm_id||'—'}</td><td>${o.nome||'—'}</td><td>${o.bairro||'—'}</td><td>${dp}</td><td class="val">R$ ${fmt(rec)}</td><td class="val">R$ ${fmt(cst)}</td><td class="val">${nf>0?'R$ '+fmt(nf):'—'}</td><td class="val">R$ ${fmt(lucro)}</td></tr>`;
@@ -8841,7 +8849,9 @@ function _abrirModalNF(ids){
     const r=parseFloat(o.rec)||0;
     return s + (_semNF(o.nf_num) ? r+(_nfAcrescimo||0) : r);
   },0);
-  const iss=recTotal*0.024;
+  const iss=recTotal*_issFrac(c);
+  const _aliqEl=document.getElementById('nfem_aliq_iss'); if(_aliqEl) _aliqEl.textContent=_issPctTxt(c)+'%';
+  const _issLbl=document.getElementById('nfem_iss_lbl'); if(_issLbl) _issLbl.textContent='ISS ('+_issPctTxt(c)+'%)';
   document.getElementById('nfem_valor').textContent='R$ '+fmt(recTotal);
   document.getElementById('nfem_base').textContent='R$ '+fmt(recTotal);
   document.getElementById('nfem_iss').textContent='R$ '+fmt(iss);
@@ -8899,7 +8909,7 @@ async function _nfPedirClaude(){
     }catch(e){}
     // Pagamento na nota: SÓ o link do recibo (sem chave Pix nem copia e cola — a chave do e-mail não vai na NF por causa da conciliação)
     const reter=dec.status==='sim';
-    const valorLiq=Math.round((reter?valor*(1-0.024):valor)*100)/100;
+    const valorLiq=Math.round((reter?valor*(1-_issFrac(c)):valor)*100)/100;
     const todasPagas=osLista.every(o=>o.pago);
     let pixCC='', pixLink='', info='';
     if(!todasPagas){
@@ -9240,7 +9250,7 @@ function renderHist(resetPg){
   lista.innerHTML=page.map(c=>{
     const mg=(parseFloat(c.rec)||0)-(parseFloat(c.cst)||0);
     const isSel=_histSelected.has(c.id);
-    const taxa=c.nf_num?_taxaNF:0;
+    const taxa=c.nf_num?_impPct(c):0;
     const imp=c.nf_num?(parseFloat(c.rec)||0)*(taxa/100):0;
     return `<div class="hist-item${isSel?' selected':''}" id="hist_${c.id}" onclick="_histSelMode?histToggleSel('${c.id}'):openDetail('${c.id}')">
       <input type="checkbox" class="hist-cb" ${isSel?'checked':''} onclick="event.stopPropagation();histToggleSel('${c.id}')" style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;flex-shrink:0;margin-top:2px;${_histSelMode?'':'opacity:0'}">
@@ -9458,7 +9468,7 @@ function renderDash(){
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
   const mg=tr-tc;
   const nfs=src.filter(c=>c.nf_num).length;
-  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_taxaNF/100),0);
+  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impPct(c)/100),0);
   const mgLiq=mg-imp;
 
   // ── operacional ──
@@ -11424,7 +11434,7 @@ function _relResumo(src,nm){
   src = src.filter(c => !_isArquivoMorto(c));
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_taxaNF/100),0);
+  const imp=src.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impPct(c)/100),0);
   const mg=tr-tc; const mgR=mg-imp;
   const pagos=src.filter(c=>c.pago).length;
   const inad=src.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento');
@@ -11436,7 +11446,7 @@ function _relResumo(src,nm){
     ${_kpi('Receita Total','R$ '+fmt(tr),'var(--acc)',src.length+' ordens')}
     ${_kpi('Custo Total','R$ '+fmt(tc),'var(--r)','')}
     ${_kpi('Margem Bruta','R$ '+fmt(mg),mg>=0?'var(--g)':'var(--r)',mgPct+'% da receita')}
-    ${_kpi('Imposto NF','R$ '+fmt(imp),'#f97316',comNF+' ordens com NF ('+_taxaNF+'%)')}
+    ${_kpi('Imposto NF','R$ '+fmt(imp),'#f97316',comNF+' ordens com NF (alíquota do mês)')}
     ${_kpi('Margem Líquida','R$ '+fmt(mgR),mgR>=0?'var(--g)':'var(--r)','')}
     ${_kpi('Pagos',pagos+' / '+src.length,'var(--g)',src.length?Math.round(pagos/src.length*100)+'%':'')}
     ${_kpi('Inadimplência','R$ '+fmt(tidx),'var(--r)',inad.length+' ordem(ns)')}
@@ -11461,7 +11471,7 @@ function _relResumoVendedor(src,nm){
     if(!pv[uid])pv[uid]={uid,nome,qtd:0,pagos:0,aReceber:0,inadimp:0,rec:0,recebido:0,aReceberR:0,inadimpR:0,nfs:0,cst:0,imp:0};
     const r=parseFloat(c.rec)||0;
     const cst=parseFloat(c.cst)||0;
-    const impOrd=c.nf_num?((r+_nfAcrescimo)*(_taxaNF/100)):0;
+    const impOrd=c.nf_num?((r+_nfAcrescimo)*(_impPct(c)/100)):0;
     pv[uid].qtd++;
     pv[uid].rec+=r;
     pv[uid].cst+=cst;
@@ -11553,7 +11563,7 @@ function _renderDashVendedor(uid,nome,inicial,srcAll,mes,ano){
   const COBR_DIAS=7;
   const rec=srcAll.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const cst=srcAll.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
-  const imp=srcAll.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_taxaNF/100),0);
+  const imp=srcAll.filter(c=>c.nf_num).reduce((s,c)=>s+((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impPct(c)/100),0);
   const mg=rec-cst-imp;
   const ticket=srcAll.length?rec/srcAll.length:0;
   const pagos=srcAll.filter(c=>c.pago);
@@ -12108,8 +12118,7 @@ function renderNF(){
   emitidas.forEach(c=>{ (gruposMap[c.nf_num]=gruposMap[c.nf_num]||[]).push(c); });
   const gruposArr=Object.entries(gruposMap).map(([num,ords])=>{
     const total=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0),0));
-    const taxa=_taxaNF||0;
-    const imp=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0)*(taxa/100),0));
+    const imp=_r2(ords.reduce((s,o)=>s+(parseFloat(o.rec)||0)*(_impPct(o)/100),0));
     const dataMax=ords.reduce((m,o)=>(o.data||'')>m?(o.data||''):m,'');
     return {num,ords,total,imp,data:dataMax,nome:ords[0].nome,logradouro:ords[0].logradouro};
   }).sort((a,b)=>(parseInt(b.num,10)||0)-(parseInt(a.num,10)||0));

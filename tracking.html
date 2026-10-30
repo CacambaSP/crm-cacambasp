@@ -134,7 +134,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="pix-pago-ok"><div class="ok-ico">✅</div><div class="ok-txt">Pagamento confirmado!</div><div class="ok-sub">Obrigado pelo pagamento. Tudo certo!</div></div>
     <div id="pix-pendente">
       <div class="pix-valor" id="pix-valor-txt">R$ 0,00</div>
-      <div id="pix-iss-nota" style="display:none;text-align:center;font-size:12px;color:#f97316;margin:-10px 0 12px">🏛️ Valor já com desconto de ISS (2,4%)</div>
+      <div id="pix-iss-nota" style="display:none;text-align:center;font-size:12px;color:#f97316;margin:-10px 0 12px">🏛️ Valor já com desconto de ISS retido</div>
       <div id="qrcode-wrap"></div>
       <div class="pix-copy-row"><div id="pix-codigo"></div><button id="btn-copiar-pix" onclick="copiarPix()">Copiar</button></div>
       <a id="nf-link-row" href="#" target="_blank" style="display:none;margin-top:12px;align-items:center;justify-content:center;gap:6px;background:rgba(245,166,35,.1);color:var(--acc);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:10px;font-size:13px;font-weight:700;text-decoration:none">🧾 Ver Nota Fiscal</a>
@@ -271,10 +271,13 @@ function copiarLink(){
   });
 }
 let _nfAcrescimo=40;
-// Valor que o cliente efetivamente paga: rec + acréscimo NF, com desconto de 2,4% de ISS se marcado
+// Valor que o cliente efetivamente paga: rec + acréscimo NF, com desconto do ISS retido (alíquota do mês) se marcado
+let _nfAliqHist={}; // alíquotas reais por mês (config nf_aliquotas_hist)
+function _aliqMes(o){ const m=String((o&&(o.data||o.criado_em))||new Date().toISOString()).slice(0,7); const ks=Object.keys(_nfAliqHist).filter(k=>k<=m).sort(); return ks.length?_nfAliqHist[ks[ks.length-1]]:null; }
+function _issFrac(o){ const a=_aliqMes(o); return (a&&a.iss)?a.iss/100:0.024; }
 function valorCliente(o){
   const base=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
-  return o.desconta_iss ? base*(1-0.024) : base;
+  return o.desconta_iss ? base*(1-_issFrac(o)) : base;
 }
 async function carregar(){
   const params=new URLSearchParams(window.location.search);
@@ -284,6 +287,7 @@ async function carregar(){
   try{
     // Carregar acréscimo NF do banco
     try{const nc=await api('config?chave=eq.nf_acrescimo&select=valor');if(nc&&nc[0]?.valor)_nfAcrescimo=parseFloat(nc[0].valor)||40;}catch(e){}
+    try{const nh=await api('config?chave=eq.nf_aliquotas_hist&select=valor');if(nh&&nh[0]?.valor)_nfAliqHist=JSON.parse(nh[0].valor)||{};}catch(e){}
     // Buscar ordem por token (seguro) ou crm_id (legado)
     let ordens;
     if(token){

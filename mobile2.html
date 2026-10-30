@@ -1159,6 +1159,10 @@ let _pixPayload = '';
 let _pixOrdemId = null;
 let _confirmResolve = null;
 let _nfAcrescimo = 40;
+let _nfAliqHist={}; // alíquotas reais por mês (config nf_aliquotas_hist)
+function _aliqMes(o){ const m=String((o&&(o.data||o.criado_em))||new Date().toISOString()).slice(0,7); const ks=Object.keys(_nfAliqHist).filter(k=>k<=m).sort(); return ks.length?_nfAliqHist[ks[ks.length-1]]:null; }
+function _issFrac(o){ const a=_aliqMes(o); return (a&&a.iss)?a.iss/100:0.024; }
+
 let _limiteDiurno = '09:00';
 let _limiteNoturno = '16:00';
 let _autoId = null;
@@ -1332,13 +1336,14 @@ async function manualRefresh() {
     const [novasOrdens, novosForn, novosCfg] = await Promise.all([
       isAdmin() ? apiPaginado('ordens?order=criado_em.desc',tok()) : apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
-      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico,nf_aliquotas_hist)','GET',null,tok()).catch(()=>[]),
     ]);
     if(novasOrdens) _ordens = novasOrdens;
     if(novosForn)   _forns  = novosForn;
     if(novosCfg?.length) {
       novosCfg.forEach(row => {
         if(row.chave==='nf_acrescimo')      _nfAcrescimo     = parseFloat(row.valor)||40;
+        if(row.chave==='nf_aliquotas_hist'){ try{ _nfAliqHist=JSON.parse(row.valor)||{}; }catch(e){} }
         if(row.chave==='limite_diurno')     _limiteDiurno    = row.valor||'09:00';
         if(row.chave==='limite_noturno')    _limiteNoturno   = row.valor||'16:00';
         if(row.chave==='cobr_dias_alerta')  COBR_DIAS_ALERTA = parseInt(row.valor)||3;
@@ -2677,7 +2682,7 @@ async function loadApp() {
         : apiPaginado('ordens?usuario_id=eq.'+uid()+'&order=criado_em.desc',tok()),
       api('fornecedores?order=nome.asc','GET',null,tok()),
       api('perfis?order=nome.asc','GET',null,tok()),
-      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico)','GET',null,tok()).catch(()=>[]),
+      api('config?chave=in.(nf_acrescimo,limite_diurno,limite_noturno,cobr_dias_alerta,cobr_dias_critico,nf_aliquotas_hist)','GET',null,tok()).catch(()=>[]),
     ]);
     _ordens = dbOrdens||[];
     _forns  = dbForns||[];
@@ -2686,6 +2691,7 @@ async function loadApp() {
     if(dbCfg?.length) {
       dbCfg.forEach(row => {
         if(row.chave==='nf_acrescimo')    _nfAcrescimo    = parseFloat(row.valor)||40;
+        if(row.chave==='nf_aliquotas_hist'){ try{ _nfAliqHist=JSON.parse(row.valor)||{}; }catch(e){} }
         if(row.chave==='limite_diurno')   _limiteDiurno   = row.valor||'09:00';
         if(row.chave==='limite_noturno')  _limiteNoturno  = row.valor||'16:00';
         if(row.chave==='cobr_dias_alerta') COBR_DIAS_ALERTA = parseInt(row.valor)||3;
@@ -3726,7 +3732,7 @@ async function toggleDescontaISS(id){
   try{
     await Promise.all(grupo.map(o=>api('ordens?id=eq.'+o.id,'PATCH',{desconta_iss:novoValor},tok())));
     grupo.forEach(o=>o.desconta_iss=novoValor);
-    toast(novoValor?('🏛️ ISS será descontado (2,4%)'+(grupo.length>1?' — aplicado a '+grupo.length+' OS':'')):'🏛️ Desconto de ISS removido','ok');
+    toast(novoValor?('🏛️ ISS será descontado ('+(_issFrac(c)*100).toFixed(2).replace('.',',')+'%)'+(grupo.length>1?' — aplicado a '+grupo.length+' OS':'')):'🏛️ Desconto de ISS removido','ok');
     renderCurrentView();
     if(_detalheId===id) renderDetalhe(id);
   }catch(e){ toast('Erro ao salvar','err'); }
@@ -6280,7 +6286,7 @@ async function quickPagarCard(id) {
   _detalheId = id;
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   const _recNF1 = (parseFloat(o.rec)||0)+(o.nf_num?40:0);
-  const _recFinal1 = o.desconta_iss ? _recNF1*(1-0.024) : _recNF1;
+  const _recFinal1 = o.desconta_iss ? _recNF1*(1-_issFrac(o)) : _recNF1;
   document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(_recNF1)+(o.desconta_iss?' (desconta ISS: R$ '+fmt(_recFinal1)+')':'');
   document.getElementById('pc_val').value = _recFinal1?_recFinal1.toFixed(2):'';
   document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
@@ -6294,7 +6300,7 @@ function abrirPagarCli(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
   _detalheId = id;
   const _recNF2 = (parseFloat(o.rec)||0)+(o.nf_num?40:0);
-  const _recFinal2 = o.desconta_iss ? _recNF2*(1-0.024) : _recNF2;
+  const _recFinal2 = o.desconta_iss ? _recNF2*(1-_issFrac(o)) : _recNF2;
   document.getElementById('pc_rec_display').textContent = 'R$ '+fmt(_recNF2)+(o.desconta_iss?' (desconta ISS: R$ '+fmt(_recFinal2)+')':'');
   document.getElementById('pc_val').value = _recFinal2?_recFinal2.toFixed(2):'';
   document.getElementById('pc_data').value = new Date().toISOString().split('T')[0];
