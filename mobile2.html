@@ -3756,8 +3756,8 @@ function cardHTML(o, tipo='neutral') {
   if(forn && forn.portal_ativo && o.forn_status==='aceito' && !o.forn_followup_confirmado) chips.push(`<span class="chip" style="background:rgba(0,255,160,.18);color:#00ffa0;font-weight:800">✅ Forn. aceitou</span>`);
   if(o.nf_num) chips.push(`<span class="chip">NF</span>`);
   if(o.crm_id) chips.push(`<span class="chip" style="font-size:11px;font-family:var(--mono);color:var(--txt);border-color:var(--bor2)">${o.crm_id}</span>`);
-  const _issRow = (isAdmin()&&o.col!=='orcamento'&&o.col!=='concluido'&&!o.pago)
-    ? `<div onclick="event.stopPropagation();toggleDescontaISS('${o.id}')" style="margin:4px 14px 0 28px;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;${o.desconta_iss?'color:#f97316;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4)':'color:#9ca3b8;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)'}">🏛️ ${o.desconta_iss?'Descontando ISS (2,4%) — toque pra cobrar cheio':'Toque pra descontar ISS (2,4%)'}</div>`
+  const _issRow = (o.desconta_iss&&o.col!=='orcamento'&&o.col!=='concluido'&&!o.pago)
+    ? `<div style="margin:4px 14px 0 28px;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;color:#f97316;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4)">🏛️ Cliente retém ISS — cobrança no valor líquido</div>`
     : '';
   // Ordem concluída sem valor lançado e sem fornecedor vinculado — provável ordem "fantasma" que nunca foi de fato executada
   const orfaConcluida = o.col==='concluido' && !(parseFloat(o.rec||0)>0) && !o.forn_id && !o.cancel_motivo;
@@ -6096,6 +6096,8 @@ function renderDetalhe(id) {
     ${forn?.wa_link?`<div class="detail-row"><div class="detail-key">WA Forn.</div><div class="detail-val" style="color:var(--wa-c)">${forn.wa_link}</div></div>`:''}
     ${o.obs?`<div class="detail-row"><div class="detail-key">Obs</div><div class="detail-val">${o.obs}</div></div>`:''}
     ${o.obra_ref?`<div class="detail-row"><div class="detail-key">Ref/Obra</div><div class="detail-val">${o.obra_ref}</div></div>`:''}
+    ${_nfReal(o.nf_num)?`<div class="detail-row"><div class="detail-key">Nota Fiscal</div><div class="detail-val">NF ${o.nf_num}${o.nf_link?` · <span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="window.open('${o.nf_link}','_blank')">abrir</span>`:''}</div></div>`:''}
+    ${(_nfReal(o.nf_num)&&o.nf_link)?`<button class="ac-btn" style="width:100%;justify-content:center;margin:6px 0 4px;background:rgba(37,211,102,.15);border:1px solid #25d366;color:#25d366;font-weight:800" onclick="enviarNFWA('${o.id}')">🧾 Enviar NF ${o.nf_num} no WhatsApp</button>`:''}
     ${(o.anexos&&o.anexos.length)?`<div class="detail-row"><div class="detail-key">Anexo${o.anexos.length!==1?'s':''}</div><div class="detail-val">${o.anexos.map((a,i)=>`<div style="margin-bottom:2px"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${a.path}')">📎 ${(a.nome||a.path).split('/').pop()}</span></div>`).join('')}</div></div>`:''}
   </div>`;
   if(isAdmin()) {
@@ -6107,7 +6109,6 @@ function renderDetalhe(id) {
       <div class="detail-row"><div class="detail-key">Forn. pago?</div><div class="detail-val">${o.forn_pago?'✅ Sim':'❌ Não'}</div></div>
       ${o.pago&&o.forn_pago?`<div style="text-align:center;padding:10px 0"><span style="background:var(--g2);color:var(--g);border:1px solid var(--g3);border-radius:20px;padding:6px 16px;font-weight:700;font-size:13px">✅ Quitado</span></div>`:''}
       ${o.forn_pago&&!_modoSimples?`<button class="sb-action" style="background:var(--r2);color:var(--r);border:1px solid var(--r3);margin-top:8px" onclick="estornarPagamentoForn('${o.id}')">↩️ Estornar pgto forn.</button>`:''}
-      ${o.col!=='orcamento'&&o.col!=='concluido'&&!o.pago?`<button class="sb-action" style="margin-top:8px;${o.desconta_iss?'background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.4)':'background:rgba(255,255,255,.07);color:#9ca3b8;border:1px solid rgba(255,255,255,.14)'}" onclick="toggleDescontaISS('${o.id}')">🏛️ ${o.desconta_iss?'Descontando ISS (2,4%) — toque pra cobrar cheio':'Cobrando valor cheio — toque pra descontar ISS'}</button>`:''}
     </div>`;
   }
   if(o.col!=='concluido') {
@@ -6416,6 +6417,21 @@ function enviarPixWA() {
 }
 
 // ── WHATSAPP ──
+
+// ── ENVIAR NF AO CLIENTE (WhatsApp) — mesmo texto do botão 'Link p/ cliente' do desktop ──
+function _nfReal(v){ return !!String(v||'').replace(/^0+/,''); }
+function enviarNFWA(id){
+  const o=_ordens.find(x=>x.id===id); if(!o||!o.nf_link){ toast('Esta OS ainda não tem link da NF','warn'); return; }
+  const tel=(o.cel||o.wh||'').replace(/\D/g,'');
+  const end=[o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ');
+  const num=_nfReal(o.nf_num)?' nº '+o.nf_num:'';
+  const msg='Olá'+(o.nome?', '+o.nome:'')+'! Segue a Nota Fiscal'+num+' da locação de caçamba'+(end?' em '+end:'')+(o.crm_id?' (OS '+o.crm_id+')':'')+':\n🧾 '+o.nf_link;
+  try{ addLog(o.id,'NF enviada ao cliente (WA mobile)','NF '+(o.nf_num||'')); }catch(_){}
+  if(tel){ window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank'); return; }
+  const ok=()=>toast('📋 Cliente sem WhatsApp cadastrado — texto copiado, cole na conversa','ok');
+  if(navigator.clipboard) navigator.clipboard.writeText(msg).then(ok).catch(()=>prompt('Copie o texto:',msg));
+  else prompt('Copie o texto:',msg);
+}
 
 function abrirInformarValor(id) {
   const o = _ordens.find(x=>x.id===id); if(!o) return;
