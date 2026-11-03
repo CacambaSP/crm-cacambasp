@@ -18,6 +18,10 @@
 <div class="box">
   <h1>🧾 Anexar PDF da NF no CRM</h1>
   <div id="st">Aguardando o PDF do Emissor Nacional…</div>
+  <label id="drop" style="display:none;margin-top:16px;border:2px dashed #9aa5b1;border-radius:12px;padding:22px;cursor:pointer">
+    📄 Clique para escolher o PDF ou arraste-o aqui
+    <input id="arq" type="file" accept="application/pdf,.pdf" style="display:none">
+  </label>
 </div>
 <script>
 // Ponte Emissor Nacional -> CRM.
@@ -26,7 +30,7 @@
 // função nf-anexar-pdf do Supabase, que valida o token de uso único da solicitação.
 (function () {
   var FN = 'https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/nf-anexar-pdf';
-  var ORIGENS = ['https://www.nfse.gov.br', 'https://www.producaorestrita.nfse.gov.br'];
+  var ORIGENS = ['https://www.nfse.gov.br', 'https://www.producaorestrita.nfse.gov.br', location.origin];
   var st = document.getElementById('st');
   var feito = false;
   function msg(html, cls) { st.className = cls || ''; st.innerHTML = html; }
@@ -57,7 +61,24 @@
     });
   });
 
-  if (window.opener) avisar({ tipo: 'nf-ponte-pronto' });
+  // Modo manual: nf-ponte.html#id=N&t=TOKEN -> escolher ou arrastar o PDF baixado do Emissor
+  var h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('id') && h.get('t')) {
+    var drop = document.getElementById('drop'), inp = document.getElementById('arq');
+    drop.style.display = 'block';
+    msg('Solicitação #' + h.get('id').replace(/\D/g, '') + ' — escolha ou arraste aqui o PDF (DANFS-e) baixado do Emissor.');
+    var enviar = function (f) {
+      if (!f || feito) return;
+      if (!/\.pdf$/i.test(f.name)) { msg('Escolha o arquivo PDF da nota.', 'erro'); return; }
+      f.arrayBuffer().then(function (buf) {
+        window.postMessage({ tipo: 'nf-pdf', id: h.get('id'), t: h.get('t'), pdf: buf, manual: true }, location.origin);
+      });
+    };
+    inp.addEventListener('change', function () { enviar(inp.files[0]); });
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.style.background = '#e8f0fe'; });
+    drop.addEventListener('dragleave', function () { drop.style.background = ''; });
+    drop.addEventListener('drop', function (e) { e.preventDefault(); drop.style.background = ''; enviar(e.dataTransfer.files[0]); });
+  } else if (window.opener) avisar({ tipo: 'nf-ponte-pronto' });
   else msg('Esta página é usada pelo Claude ao emitir NF. Abra-a a partir do Emissor Nacional.');
 })();
 </script>
