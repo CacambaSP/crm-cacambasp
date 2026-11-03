@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Anexar PDF da NF — CaçambaSP</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f6f8;color:#1d2733;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
+  .box{background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:28px 32px;max-width:460px;width:calc(100% - 32px);text-align:center}
+  h1{font-size:19px;margin:0 0 10px}
+  #st{font-size:15px;line-height:1.5}
+  .ok{color:#137333}.erro{color:#c5221f}
+  a{color:#1a73e8;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🧾 Anexar PDF da NF no CRM</h1>
+  <div id="st">Aguardando o PDF do Emissor Nacional…</div>
+</div>
+<script>
+// Ponte Emissor Nacional -> CRM.
+// O site nfse.gov.br bloqueia chamadas para outros sites (CSP), então a aba do Emissor
+// abre esta página e manda o PDF (DANFSe) por postMessage. Aqui ele é enviado para a
+// função nf-anexar-pdf do Supabase, que valida o token de uso único da solicitação.
+(function () {
+  var FN = 'https://ejfuqijtiberxsnvxdwm.supabase.co/functions/v1/nf-anexar-pdf';
+  var ORIGENS = ['https://www.nfse.gov.br', 'https://www.producaorestrita.nfse.gov.br'];
+  var st = document.getElementById('st');
+  var feito = false;
+  function msg(html, cls) { st.className = cls || ''; st.innerHTML = html; }
+  function avisar(o, origem) { try { window.opener && window.opener.postMessage(o, origem || '*'); } catch (e) {} }
+
+  window.addEventListener('message', function (e) {
+    if (ORIGENS.indexOf(e.origin) < 0) return;
+    var d = e.data || {};
+    if (d.tipo !== 'nf-pdf' || feito) return;
+    feito = true;
+    if (!d.id || !d.t || !d.pdf) { msg('Dados incompletos.', 'erro'); avisar({ tipo: 'nf-ponte-resultado', ok: false, erro: 'dados incompletos' }, e.origin); return; }
+    msg('Enviando o PDF para o CRM…');
+    fetch(FN + '?id=' + encodeURIComponent(d.id) + '&t=' + encodeURIComponent(d.t), {
+      method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: d.pdf
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      avisar(Object.assign({ tipo: 'nf-ponte-resultado' }, j), e.origin);
+      if (j.ok) {
+        msg('✅ PDF anexado à NF.<br>Link: <a href="' + j.link + '" target="_blank">' + j.link + '</a><br><small>Pode fechar esta aba.</small>', 'ok');
+        document.title = 'OK — PDF anexado';
+        setTimeout(function () { try { window.close(); } catch (x) {} }, 4000);
+      } else {
+        msg('Erro: ' + (j.erro || 'desconhecido'), 'erro');
+        document.title = 'ERRO — PDF da NF';
+      }
+    }).catch(function (err) {
+      avisar({ tipo: 'nf-ponte-resultado', ok: false, erro: String(err) }, e.origin);
+      msg('Erro de conexão: ' + err, 'erro');
+    });
+  });
+
+  if (window.opener) avisar({ tipo: 'nf-ponte-pronto' });
+  else msg('Esta página é usada pelo Claude ao emitir NF. Abra-a a partir do Emissor Nacional.');
+})();
+</script>
+</body>
+</html>
