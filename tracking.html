@@ -499,7 +499,7 @@ function renderizar(ord,vend,emAberto,ultimoPagoEm,todasOrdens){
   cont.style.display='flex';cont.style.flexDirection='column';cont.style.alignItems='center';
   const _btnRecibo=document.getElementById('btn-recibo');
   if(_btnRecibo && ord.crm_id){
-    _btnRecibo.href='recibo.html?pedido='+encodeURIComponent(ord.crm_id);
+    _btnRecibo.href='recibo.html?t='+encodeURIComponent(new URLSearchParams(location.search).get('token')||'');
     _btnRecibo.style.display='block';
   }
 }
