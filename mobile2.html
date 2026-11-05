@@ -6098,6 +6098,7 @@ function renderDetalhe(id) {
     ${o.obra_ref?`<div class="detail-row"><div class="detail-key">Ref/Obra</div><div class="detail-val">${o.obra_ref}</div></div>`:''}
     ${_nfReal(o.nf_num)?`<div class="detail-row"><div class="detail-key">Nota Fiscal</div><div class="detail-val">NF ${o.nf_num}${o.nf_link?` · <span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="window.open('${o.nf_link}','_blank')">abrir</span>`:''}</div></div>`:''}
     ${(_nfReal(o.nf_num)&&o.nf_link)?`<button class="ac-btn" style="width:100%;justify-content:center;margin:6px 0 4px;background:rgba(37,211,102,.15);border:1px solid #25d366;color:#25d366;font-weight:800" onclick="enviarNFWA('${o.id}')">🧾 Enviar NF ${o.nf_num} no WhatsApp</button>`:''}
+    ${(!_nfReal(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&!o.cancel_motivo&&(parseFloat(o.rec)||0)>0)?`<button class="ac-btn" style="width:100%;justify-content:center;margin:6px 0 4px;background:rgba(64,144,255,.15);border:1px solid #4090ff;color:#7fb4ff;font-weight:800" onclick="pedirNFMobile('${o.id}')">🧾 ${o.nf_num==='000'?'NF já pedida — conferir e pedir de novo':'Pedir NF'}</button>`:''}
     ${(o.anexos&&o.anexos.length)?`<div class="detail-row"><div class="detail-key">Anexo${o.anexos.length!==1?'s':''}</div><div class="detail-val">${o.anexos.map((a,i)=>`<div style="margin-bottom:2px"><span style="color:var(--cyan);cursor:pointer;font-weight:700" onclick="abrirArquivoPrivado('${a.path}')">📎 ${(a.nome||a.path).split('/').pop()}</span></div>`).join('')}</div></div>`:''}
   </div>`;
   if(isAdmin()) {
@@ -6431,6 +6432,122 @@ function enviarNFWA(id){
   const ok=()=>toast('📋 Cliente sem WhatsApp cadastrado — texto copiado, cole na conversa','ok');
   if(navigator.clipboard) navigator.clipboard.writeText(msg).then(ok).catch(()=>prompt('Copie o texto:',msg));
   else prompt('Copie o texto:',msg);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PEDIR NF PELO MOBILE — mesma fila nf_solicitacoes do CRM desktop.
+// Mostra as OS do cliente sem NF no mesmo endereço, pede para
+// CONFIRMAR O VALOR e só então coloca o pedido na fila do Claude.
+// ══════════════════════════════════════════════════════════════
+const _nfNrmM=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const _nfSemNFM=v=>!String(v||'').replace(/^0+/,'');
+const _nfEndM=s=>_nfNrmM(s).replace(/^(rua|r\.|av\.|avenida|al\.|alameda|travessa|tv\.|estrada|est\.|rod\.|rodovia)\s*/,'').trim();
+const _nfValorOS=o=>{ const r=parseFloat(o.rec)||0; return _nfSemNFM(o.nf_num)?r+(_nfAcrescimo||0):r; };
+const _nfIssPadraoM={
+  'sao paulo':{ret:'sim'},'itaquaquecetuba':{ret:'sim'},'braganca paulista':{ret:'sim'},
+  'sao jose dos campos':{ret:'sim',cond:true},'santos':{ret:'sim',cond:true},'sao vicente':{ret:'sim',cond:true},
+  'osasco':{ret:'verificar'}
+};
+async function _nfIssTabelaM(){
+  let t={..._nfIssPadraoM};
+  try{ const r=await api('config?chave=eq.crm_iss_municipios','GET',null,tok()); if(r&&r[0]?.valor){ const d=JSON.parse(r[0].valor); if(d&&typeof d==='object') t=Object.assign(t,d); } }catch(e){}
+  return t;
+}
+function _nfTotaisM(){
+  const ids=[...document.querySelectorAll('#conf_body input[data-nfos]:checked')].map(x=>x.value);
+  const lst=ids.map(i=>_ordens.find(x=>x.id===i)).filter(Boolean);
+  const total=lst.reduce((s,o)=>s+_nfValorOS(o),0);
+  const frac=parseFloat(document.getElementById('nfm_frac')?.value||'0')||0;
+  const iss=total*frac;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('nfm_total','R$ '+fmt(total)); set('nfm_iss',frac?('R$ '+fmt(iss)):'NÃO'); set('nfm_liq','R$ '+fmt(total-iss)); set('nfm_qtd',lst.length+' OS');
+}
+async function pedirNFMobile(id){
+  const c=_ordens.find(x=>x.id===id); if(!c){ toast('OS não encontrada','warn'); return; }
+  if(_nfReal(c.nf_num)){ toast('Esta OS já tem a NF '+c.nf_num,'warn'); return; }
+  const cpfVal=(c.cpf||'').trim(), dig=cpfVal.replace(/\D/g,'');
+  if(dig.length!==11&&dig.length!==14){ toast('⚠️ CPF/CNPJ do cliente vazio ou inválido — corrija a OS antes de pedir a NF','warn',5000); return; }
+  const ehPJ=(c.tipo||'').toUpperCase()==='PJ'||dig.length===14||cpfVal.includes('/');
+  // Retenção do ISS pela cidade da obra (mesma tabela do CRM desktop)
+  let reter=false;
+  if(ehPJ){
+    const tab=await _nfIssTabelaM(); const m=tab[_nfNrmM(c.cidade||'')];
+    if(!m||m.ret==='verificar'){ toast('⛔ A cidade "'+(c.cidade||'?')+'" ainda não tem a regra de ISS. Classifique no CRM do computador (botão Emitir NF) antes.','warn',7000); return; }
+    reter=m.ret==='sim';
+  }
+  const frac=reter?_issFrac(c):0;
+  // OS do mesmo cliente, sem NF, mesma cidade (pré-marca as do mesmo endereço)
+  const cid=_nfNrmM(c.cidade||''), cep=(c.cep||'').replace(/\D/g,''), end=_nfEndM(c.logradouro);
+  const cand=_ordens.filter(o=>o.id!==c.id&&o.nome===c.nome&&_nfSemNFM(o.nf_num)&&!['cancelado','orcamento'].includes(o.col)&&!o.cancel_motivo&&(parseFloat(o.rec)||0)>0&&_nfNrmM(o.cidade||'')===cid);
+  const mesmoEnd=o=>{ const ce=(o.cep||'').replace(/\D/g,''); return (cep&&ce&&cep===ce)||(end&&_nfEndM(o.logradouro)===end); };
+  const lista=[c,...cand.filter(mesmoEnd),...cand.filter(o=>!mesmoEnd(o))];
+  const linha=(o,marcado)=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bor);font-size:13px;cursor:pointer">
+      <input type="checkbox" data-nfos="1" value="${o.id}" ${marcado?'checked':''} onchange="_nfTotaisM()" style="width:18px;height:18px">
+      <span style="flex:1;min-width:0"><b>${o.crm_id||'—'}</b>${o.data?' · '+dateF(o.data):''}<br><span style="color:var(--mut);font-size:11px">${o.logradouro||'—'}</span></span>
+      <b style="white-space:nowrap">R$ ${fmt(_nfValorOS(o))}</b></label>`;
+  const body=`<div style="text-align:left">
+    <input type="hidden" id="nfm_frac" value="${frac}">
+    <div style="font-size:13px;margin-bottom:8px"><b>${c.nome||'—'}</b><br><span style="color:var(--mut)">${cpfVal} · ${c.cidade||'Osasco'}/SP</span></div>
+    ${lista.length>1?'<div style="font-size:11px;color:var(--mut);margin-bottom:4px">Marque as OS que vão na mesma nota:</div>':''}
+    ${lista.map(o=>linha(o,o.id===c.id||mesmoEnd(o))).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:15px"><span>Valor da nota (<span id="nfm_qtd"></span>)</span><b id="nfm_total" style="color:var(--acc)"></b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mut)"><span>ISS retido pelo cliente${reter?' ('+(frac*100).toFixed(2).replace('.',',')+'%)':''}</span><span id="nfm_iss"></span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px"><span>Cliente paga</span><b id="nfm_liq"></b></div>
+    <div style="font-size:11px;color:var(--mut);margin-top:8px">Confira o valor. Se estiver errado, toque em Voltar e corrija a OS antes de pedir a NF.</div>
+  </div>`;
+  const p=showConfirm({ico:'🧾',title:'Confirme o valor da NF',body,ok:'✅ Valor certo — pedir NF',okClass:'acc',cancel:'Voltar'});
+  _nfTotaisM();
+  const ok=await p; if(!ok) return;
+  const ids=[...document.querySelectorAll('#conf_body input[data-nfos]:checked')].map(x=>x.value);
+  const osLista=ids.map(i=>_ordens.find(x=>x.id===i)).filter(Boolean);
+  if(!osLista.length){ toast('Marque ao menos uma OS','warn'); return; }
+  const valor=Math.round(osLista.reduce((s,o)=>s+_nfValorOS(o),0)*100)/100;
+  if(!(valor>0)){ toast('⚠️ Valor da nota zerado','warn'); return; }
+  const valorLiq=Math.round((reter?valor*(1-frac):valor)*100)/100;
+  toast('⏳ Salvando pedido de NF...','info');
+  try{
+    let sol=null;
+    try{
+      const pend=await api('nf_solicitacoes?status=in.(pendente,erro)&ordem_ids=ov.{'+ids.join(',')+'}&order=id.desc','GET',null,tok());
+      sol=(pend||[]).find(x=>x.ordem_ids.length===ids.length&&ids.every(i=>x.ordem_ids.includes(i)))||null;
+    }catch(e){}
+    let pixLink='', info='';
+    if(!osLista.every(o=>o.pago)){
+      try{ if(c.tracking_token) pixLink=await _gerarLinkCurto('https://cacambasp-crm.vercel.app/recibo.html?t='+encodeURIComponent(c.tracking_token),365); }catch(e){}
+      info=pixLink?('Valor a pagar: R$ '+fmt(valorLiq)+(reter?' (valor liquido, ja descontado o ISS retido)':'')+'\nPagamento e recibo: '+pixLink):'';
+    }else info='Servico ja pago. Obrigado!';
+    const extras={valor_liquido:valorLiq,pix_copia_cola:null,pix_link:pixLink||null,info_complementar:info};
+    if(sol){ try{ await api('nf_solicitacoes?id=eq.'+sol.id,'PATCH',extras,tok()); }catch(e){} }
+    else{
+      const trackLink=c.crm_id?'https://cacambasp-crm.vercel.app/tracking.html?token='+(c.tracking_token?encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
+      let disc='Locação de caçamba para coleta de entulho. Endereço: '+[c.logradouro,c.bairro,(c.cidade||'Osasco')+'/SP'].filter(Boolean).join(', ')+'.';
+      if(osLista.length===1) disc+=(c.crm_id?' OS: '+c.crm_id+'.':'');
+      else { disc+=' OS agrupadas:'; osLista.forEach(o=>{ disc+=' '+(o.crm_id||o.id)+(o.data?' ('+dateF(o.data)+')':'')+';'; }); }
+      if(c.obra_ref) disc+=' Ref: '+c.obra_ref+'.';
+      if(trackLink) disc+='\n\nAcompanhe pelo link: '+trackLink;
+      const r=await api('nf_solicitacoes','POST',{...extras,
+        ordem_ids:ids, crm_ids:osLista.map(o=>o.crm_id||''),
+        tomador_nome:c.nome||'', tomador_doc:dig, tomador_tipo:ehPJ?'PJ':'PF', tomador_email:c.email_cli||'',
+        obra_logradouro:c.logradouro||'', obra_numero:c.numero||'', obra_bairro:c.bairro||'', obra_cidade:c.cidade||'Osasco', obra_cep:(c.cep||'').replace(/\D/g,''),
+        valor, retencao:reter?'sim':'nao', discriminacao:disc, status:'pendente', criado_por:(_perfil?.nome||'')+' (mobile)'
+      },tok());
+      sol=r&&r[0];
+    }
+    if(!sol) throw new Error('Pedido não foi salvo');
+    for(const o of osLista){
+      const pt={};
+      if(!o.nf_num){ o.nf_num='000'; pt.nf_num='000'; }
+      if(reter&&!o.desconta_iss){ o.desconta_iss=true; pt.desconta_iss=true; }
+      if(Object.keys(pt).length){ try{ await api('ordens?id=eq.'+o.id,'PATCH',pt,tok()); }catch(e){} }
+      try{ addLog(o.id,'NF pedida ao Claude (mobile)','Solicitação #'+sol.id+' · R$ '+fmt(valor)); }catch(e){}
+    }
+    const cmd='Claude, emitir NF da solicitação #'+sol.id;
+    let copiou=false; try{ await navigator.clipboard.writeText(cmd); copiou=true; }catch(e){}
+    await showConfirm({ico:'✅',title:'Pedido #'+sol.id+' na fila',
+      body:'<div style="text-align:left;font-size:13px">NF de <b>R$ '+fmt(valor)+'</b> para '+(c.nome||'—')+' está na fila de emissão.<br><br>'+(copiou?'Comando copiado — cole no Claude:':'Copie e cole no Claude:')+'<div style="margin-top:6px;padding:8px;border-radius:8px;background:var(--card);border:1px solid var(--bor2);font-family:var(--mono);font-size:12px;user-select:all">'+cmd+'</div></div>',
+      ok:'OK',okClass:'acc',cancel:''});
+    try{ abrirDetalhe(c.id); }catch(e){}
+  }catch(e){ toast('Erro ao salvar pedido de NF: '+(e.message||e),'err'); }
 }
 
 function abrirInformarValor(id) {

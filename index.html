@@ -9167,6 +9167,20 @@ async function _nfPedirClaude(){
   if(dec.bloqueado){ toast('⛔ Classifique a retenção de ISS do município antes','warn'); return; }
   const valor=osLista.reduce((s,o)=>{ const r=parseFloat(o.rec)||0; return s+(_semNF(o.nf_num)?r+(_nfAcrescimo||0):r); },0);
   if(!(valor>0)){ toast('⚠️ Valor da nota zerado','warn'); return; }
+  // Confirmação do valor ANTES de colocar o pedido na fila de emissão
+  {
+    const _ret=dec.status==='sim', _iss=_ret?valor*_issFrac(c):0;
+    const _linhas=osLista.map(o=>{ const r=parseFloat(o.rec)||0; const v=_semNF(o.nf_num)?r+(_nfAcrescimo||0):r; return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span>'+(o.crm_id||'—')+(o.data?' · '+dateF(o.data):'')+'</span><b>R$ '+fmt(v)+'</b></div>'; }).join('');
+    const _ok=await showConfirm({ico:'🧾', title:'Confirme o valor da NF',
+      body:'<div style="text-align:left"><div style="font-size:13px;margin-bottom:6px"><b>'+(c.nome||'—')+'</b><br><span style="color:var(--mut2)">'+(cpfVal||'')+'</span></div>'+_linhas+
+        '<div style="border-top:1px solid var(--bor2);margin:8px 0 6px"></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:15px"><span>Valor da nota</span><b style="color:var(--acc)">R$ '+fmt(valor)+'</b></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mut2)"><span>ISS retido pelo cliente</span><span>'+(_ret?'SIM · '+_issPctTxt(c)+'% = R$ '+fmt(_iss):'NÃO')+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span>Cliente paga</span><b>R$ '+fmt(valor-_iss)+'</b></div>'+
+        '<div style="font-size:11px;color:var(--mut2);margin-top:8px">Se o valor estiver errado, clique em Voltar e corrija a OS antes de pedir a NF.</div></div>',
+      ok:'✅ Valor certo — pedir NF', cancel:'Voltar'});
+    if(!_ok){ toast('Pedido de NF não enviado','info'); return; }
+  }
   const btn=document.getElementById('nfem_btn_claude'); if(btn){btn.disabled=true;btn.textContent='⏳ Salvando pedido...';}
   try{
     // Reaproveita pedido pendente com as mesmas ordens (evita duplicar)
