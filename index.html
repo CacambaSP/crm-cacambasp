@@ -1310,6 +1310,10 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item" id="dm_nf_wrap" style="display:none"><span style="color:var(--mut2)" id="dm_nf_label">Imposto NF</span><span id="dm_nf" style="color:#f97316;font-weight:600">—</span></div>
         <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
+        <details id="dm_nfcomp" style="display:none;margin-top:8px;border-top:1px dashed var(--bor);padding-top:6px">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--acc)">🧾 Composição da NF — passo a passo</summary>
+          <div id="dm_nfcomp_body" style="margin-top:6px;font-size:12px"></div>
+        </details>
       </div>
       <div class="fi" style="max-width:240px">
         <label>Nº Nota Fiscal</label>
@@ -4514,6 +4518,7 @@ function fillDetail(c){
     const mEl=document.getElementById('dm_m');
     mEl.textContent=(rec||cst)?'R$ '+fmt(mg):'-';
     mEl.style.color=mg>=0?'var(--g)':'var(--r)';
+    try{ _renderNFComposicao(c); }catch(e){ console.warn('composição NF',e); }
   }
   document.getElementById('d_nf').value=c.nf_num||'';
   {
@@ -6839,6 +6844,65 @@ function salvarTaxaAdmin(){
   _syncComissaoSupabase();
   toast('✅ Taxa administrativa salva: R$ '+fmt(v)+' por ordem');
   renderComissaoView();
+}
+
+// ── COMPOSIÇÃO DA NF POR PEDIDO (detalhe da OS, só admin) ──
+function _comissaoEstimada(c, ll){
+  const u=usuarios.find(x=>x.id===c.usuario_id); const m=_modeloComissao(u); const nome=(u&&u.nome)||'Vendedor';
+  switch(m){
+    case 'luciana': return {nome, v:ll, txt:'100% do lucro líquido'};
+    case 'ricardo': return {nome, v:15, txt:'R$ 15 fixo por OS'};
+    case 'gustavo': case 'pc': return {nome, v:40, txt:'R$ 40 fixo por OS'};
+    case 'claudia': return {nome, v:ll*0.5, txt:'≈ 50% do lucro (no fechamento ainda entram o fixo de R$ 1.000 e o desconto do anúncio)'};
+    case 'sandra': return {nome, v:ll*0.4, txt:'≈ 40% do lucro (no fechamento: fixo de R$ 300 e desconto do anúncio)'};
+    case 'douglas': return {nome, v:ll*0.6, txt:'60% do lucro líquido — os outros 40% ficam no caixa da empresa', caixa:true};
+    default: return {nome, v:0, txt:'sem modelo de comissão'};
+  }
+}
+function _renderNFComposicao(c){
+  const box=document.getElementById('dm_nfcomp'), body=document.getElementById('dm_nfcomp_body');
+  if(!box||!body) return;
+  if(!c||!c.nf_num){ box.style.display='none'; body.innerHTML=''; return; }
+  const r2=v=>Math.round(v*100)/100;
+  const rec=parseFloat(c.rec)||0, acr=_nfAcrescimo||0, valorNF=r2(rec+acr);
+  const pSimples=_impPct(c), pIss=_issFrac(c)*100;
+  const issRet=c.desconta_iss?r2(valorNF*pIss/100):0;
+  const clientePaga=r2(valorNF-issRet);
+  const cst=parseFloat(c.cst)||0;
+  const simples=r2(valorNF*pSimples/100), das=r2(simples-issRet);
+  const lucro=r2(valorNF-cst-simples), adm=_taxaAdmin||0, ll=r2(lucro-adm);
+  const com=_comissaoEstimada(c, ll), comV=r2(com.v), sobra=r2(ll-comV);
+  const pct=v=>valorNF?(' <span style="color:var(--mut2);font-size:10px">('+(v/valorNF*100).toFixed(1).replace('.',',')+'%)</span>'):'';
+  const row=(lbl,val,cor,neg,extra)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span style="color:var(--mut2)">'+lbl+'</span><span style="font-weight:600;white-space:nowrap;color:'+(cor||'inherit')+'">'+(neg?'− ':'')+'R$ '+fmt(val)+(extra||'')+'</span></div>';
+  const sec=t=>'<div style="font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--mut2);margin:8px 0 2px;text-transform:uppercase">'+t+'</div>';
+  const tot=(lbl,val,cor)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--bor);font-weight:800"><span>'+lbl+'</span><span style="color:'+(cor||'inherit')+'">R$ '+fmt(val)+'</span></div>';
+  const mes=_mesRef(c), ref=(_nfAliqHist&&_nfAliqHist[mes])?mes:'(último mês cadastrado)';
+  let h='';
+  h+=sec('Valor da nota');
+  h+=row('Preço da caçamba',rec)+row('Acréscimo de NF',acr,'var(--g)')+tot('Valor da NF',valorNF,'var(--acc)');
+  h+=sec('O que o cliente paga');
+  if(c.desconta_iss) h+=row('ISS retido pelo cliente ('+pIss.toFixed(2).replace('.',',')+'%)',issRet,'#f97316',true);
+  else h+='<div style="color:var(--mut2);padding:2px 0">Sem retenção de ISS — cliente paga o valor cheio</div>';
+  h+=tot('Cliente paga',clientePaga,'var(--acc)');
+  h+=sec('Resultado');
+  h+=row('Fornecedor',cst,'var(--r)',true,pct(cst));
+  h+=row('Simples Nacional ('+pSimples.toString().replace('.',',')+'%)',simples,'#f97316',true,pct(simples));
+  if(issRet>0) h+='<div style="color:var(--mut2);font-size:11px;padding:0 0 2px 10px">↳ R$ '+fmt(issRet)+' já pagos pelo cliente (ISS retido) + R$ '+fmt(das)+' no DAS</div>';
+  h+=tot('Lucro da caçamba',lucro,lucro>=0?'var(--g)':'var(--r)');
+  h+=row('Taxa administrativa',adm,'var(--mut2)',true);
+  h+=tot('Lucro líquido',ll,ll>=0?'var(--g)':'var(--r)');
+  h+=row('Comissão — '+com.nome,comV,'var(--r)',true);
+  h+='<div style="color:var(--mut2);font-size:11px;padding:0 0 2px 10px">↳ '+com.txt+'</div>';
+  h+=tot(com.caixa?'Sobra para o caixa da empresa (40%)':'Sobra para o caixa da empresa',sobra,sobra>=0?'var(--g)':'var(--r)');
+  h+='<div style="color:var(--mut2);font-size:10px;margin-top:6px">Alíquotas de '+ref+' · '+(_semNF(c.nf_num)?'NF ainda não emitida (solicitada)':'NF '+c.nf_num)+(c.pago?' · cliente pagou R$ '+fmt(parseFloat(c.pago_valor)||0):' · cliente ainda não pagou')+'</div>';
+  if(!_semNF(c.nf_num)){
+    const grupo=ordens.filter(o=>o.nf_num===c.nf_num&&!o.cancel_motivo);
+    if(grupo.length>1){
+      const totNF=grupo.reduce((s,o)=>s+(parseFloat(o.rec)||0)+acr,0);
+      h+='<div style="color:var(--mut2);font-size:10px">Nota agrupada com '+grupo.length+' OS · total da NF R$ '+fmt(totNF)+' (valores acima são só desta OS)</div>';
+    }
+  }
+  body.innerHTML=h; box.style.display='block';
 }
 
 // ── Lucro líquido de uma ordem (base para cálculo) ──
