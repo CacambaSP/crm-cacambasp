@@ -3749,12 +3749,35 @@ async function toggleDescontaISS(id){
   }catch(e){ toast('Erro ao salvar','err'); }
 }
 
+// Comissão de UMA OS (regras do fechamento: imposto fixo 11% na NF, taxa adm R$10)
+function _comissaoOS(o){
+  const rec=parseFloat(o.rec)||0, cst=parseFloat(o.cst)||0;
+  if(!rec||!cst||o.cancel_motivo) return null;            // sem custo lançado ainda: não dá para calcular
+  const recNF=rec+(o.nf_num?(_nfAcrescimo||40):0);
+  const ll=recNF-cst-10-(o.nf_num?recNF*0.11:0);
+  const u=_usuarios.find(x=>x.id===o.usuario_id);
+  let v;
+  switch(_modeloComMob(u)){
+    case 'luciana': v=ll; break;
+    case 'claudia': v=ll*0.5; break;
+    case 'sandra':  v=ll*0.4; break;
+    case 'douglas': v=ll*0.6; break;
+    case 'ricardo': v=15; break;
+    case 'gustavo': case 'pc': v=40; break;
+    default: return null;
+  }
+  // cor pelo lucro líquido da OS: bom ≥ R$50 · médio ≥ R$20 · fraco abaixo disso
+  const cor = ll>=50?'#4ade80':ll>=20?'#fbbf24':'#f87171';
+  return {v, ll, cor};
+}
 function cardHTML(o, tipo='neutral') {
   const d = diasAberto(o);
   const forn = _forns.find(f=>f.id===o.forn_id);
   const mg = (parseFloat(o.rec||0)-parseFloat(o.cst||0));
   const chips = [];
   if(o.nome) chips.push(`<span class="chip" style="font-size:12px;font-weight:700;color:#e6e8f0;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.06)">${o.nome.split(' ')[0]}</span>`);
+  const _com = (isAdmin()||o.usuario_id===uid()) ? _comissaoOS(o) : null;
+  if(_com) chips.push(`<span class="chip" style="font-size:12px;font-weight:800;color:${_com.cor};border-color:${_com.cor}88;background:${_com.cor}22" title="Comissão desta OS${o.nf_num?' (já descontados 11% de imposto da NF)':''}">💰 R$${fmt(_com.v)}</span>`);
   if(isAdmin()&&o.rec) chips.push(`<span class="chip acc">↑ R$${fmts(o.rec)}</span>`);
   if(isAdmin()&&o.cst) chips.push(`<span class="chip r" style="background:rgba(160,30,30,.5);color:#ffb3b3;border-color:rgba(239,68,68,.6);font-weight:700">↓ R$${fmts(o.cst)}</span>`);
   if(o.pago) chips.push(`<span class="chip g">Pago</span>`);
