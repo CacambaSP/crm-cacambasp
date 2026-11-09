@@ -1001,6 +1001,14 @@ input[type=checkbox]:checked::after{
                   style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--acc);text-align:center;outline:none">
                 <button class="btn btn-sm btn-acc" onclick="salvarTaxaAdmin()">Salvar</button>
               </div>
+              <div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 12px">Imposto descontado na comiss&#227;o (NF)</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-size:13px;color:var(--mut2)">% do valor da NF</span>
+                <input type="number" id="taxaComInput" min="0" max="30" step="0.5"
+                  style="width:80px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;font-family:var(--mono);font-size:15px;font-weight:700;color:#f97316;text-align:center;outline:none">
+                <button class="btn btn-sm btn-acc" onclick="salvarTaxaCom()">Salvar</button>
+              </div>
+              <div id="taxaComInfo" style="font-size:12px;color:var(--mut2);margin-top:8px;line-height:1.6"></div>
             </div>
             <div id="comissaoVendedores"></div>
           </div>
@@ -1849,13 +1857,16 @@ async function track(evento, detalhe=''){
     }, tok());
   }catch(e){} // silencioso — nunca quebra o fluxo
 }
-let _taxaNF=11; // Taxa de imposto sobre NF em % — carregada do banco (usada só para meses sem alíquota real cadastrada)
+let _taxaNF=11; // Imposto descontado na comissão (%) — config nf_taxa. Também é o imposto real de reserva p/ meses sem alíquota cadastrada
 // Alíquotas reais por mês (contadora): config nf_aliquotas_hist = {"2026-10":{"simples":9.96,"iss":3.24}, ...}
 let _nfAliqHist={};
 function _mesRef(o){ return String((o&&(o.data||o.criado_em))||new Date().toISOString()).slice(0,7); }
 function _aliqMes(o){ const m=_mesRef(o); const ks=Object.keys(_nfAliqHist).filter(k=>k<=m).sort(); return ks.length?_nfAliqHist[ks[ks.length-1]]:null; }
 function _impPct(o){ const a=_aliqMes(o); return (a&&a.simples)?a.simples:_taxaNF; }      // % do Simples sobre o valor da NF
 function _issFrac(o){ const a=_aliqMes(o); return (a&&a.iss)?a.iss/100:0.024; }           // ISS retido pelo cliente (fração)
+// Imposto descontado na COMISSÃO dos vendedores: taxa fixa (config nf_taxa, padrão 11%), igual à planilha.
+// A diferença para o imposto real do mês (_impPct) é a "reserva de imposto" e fica no caixa da empresa.
+function _impComPct(o){ return _taxaNF||11; }
 function _issPctTxt(o){ return (_issFrac(o)*100).toFixed(2).replace('.',','); }
 let _nfAcrescimo=40;
 // Valida nf_num: vazio, '000', 3+ dígitos, ou dígitos+letra (ex.: 121C)
@@ -2291,7 +2302,7 @@ let _histSelected=new Set(), _histSelMode=false;
 let _ordemEditId=null;
 
 const isAdmin=()=>_perfil?.nivel==='admin';
-function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function _nrm(s){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 // aliases checklist
 function renderCobr(){return renderCobrancaAuto();}
@@ -6881,7 +6892,10 @@ function _renderNFComposicao(c){
   const cst=parseFloat(c.cst)||0;
   const simples=r2(valorNF*pSimples/100), das=r2(simples-issRet);
   const lucro=r2(valorNF-cst-simples), adm=_taxaAdmin||0, ll=r2(lucro-adm);
-  const com=_comissaoEstimada(c, ll), comV=r2(com.v), sobra=r2(ll-comV);
+  // Comissão: calculada com o imposto fixo do vendedor (11%), igual à planilha
+  const pCom=_impComPct(c), impCom=r2(valorNF*pCom/100), llCom=r2(valorNF-cst-impCom-adm);
+  const reserva=r2(impCom-simples);   // diferença entre o imposto da comissão e o real → caixa da empresa
+  const com=_comissaoEstimada(c, llCom), comV=r2(com.v), sobra=r2(ll-comV);
   const pct=v=>valorNF?(' <span style="color:var(--mut2);font-size:10px">('+(v/valorNF*100).toFixed(1).replace('.',',')+'%)</span>'):'';
   const row=(lbl,val,cor,neg,extra)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span style="color:var(--mut2)">'+lbl+'</span><span style="font-weight:600;white-space:nowrap;color:'+(cor||'inherit')+'">'+(neg?'− ':'')+'R$ '+fmt(val)+(extra||'')+'</span></div>';
   const sec=t=>'<div style="font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--mut2);margin:8px 0 2px;text-transform:uppercase">'+t+'</div>';
@@ -6901,9 +6915,15 @@ function _renderNFComposicao(c){
   h+=tot('Lucro da caçamba',lucro,lucro>=0?'var(--g)':'var(--r)');
   h+=row('Taxa administrativa',adm,'var(--mut2)',true);
   h+=tot('Lucro líquido',ll,ll>=0?'var(--g)':'var(--r)');
+  const pTxt=v=>String(v).replace('.',',');
   h+=row('Comissão — '+com.nome,comV,'var(--r)',true);
-  h+='<div style="color:var(--mut2);font-size:11px;padding:0 0 2px 10px">↳ '+com.txt+'</div>';
-  h+=tot(com.caixa?'Sobra para o caixa da empresa (40%)':'Sobra para o caixa da empresa',sobra,sobra>=0?'var(--g)':'var(--r)');
+  h+='<div style="color:var(--mut2);font-size:11px;padding:0 0 2px 10px">↳ '+com.txt+' — calculado com imposto de '+pTxt(pCom)+'% (R$ '+fmt(impCom)+'): lucro de R$ '+fmt(llCom)+'</div>';
+  h+=sec('Caixa da empresa');
+  if(com.caixa) h+=row('40% do lucro (Douglas)',r2(llCom-comV),'var(--g)');
+  else if(r2(llCom-comV)!==0) h+=row('Sobra do lucro após comissão',r2(llCom-comV),'var(--g)');
+  h+=row('Reserva de imposto ('+pTxt(pCom)+'% − '+pTxt(pSimples)+'%)',reserva,reserva>=0?'var(--g)':'var(--r)',reserva<0);
+  h+=tot('Sobra para o caixa da empresa',sobra,sobra>=0?'var(--g)':'var(--r)');
+  if(reserva<0) h+='<div style="color:var(--r);font-size:11px;padding:2px 0">⚠️ O imposto real ('+pTxt(pSimples)+'%) passou do imposto da comissão ('+pTxt(pCom)+'%). Suba a taxa em Comissões → Modelos.</div>';
   h+='<div style="color:var(--mut2);font-size:10px;margin-top:6px">Alíquotas de '+ref+' · '+(_semNF(c.nf_num)?'NF ainda não emitida (solicitada)':'NF '+c.nf_num)+(c.pago?' · cliente pagou R$ '+fmt(parseFloat(c.pago_valor)||0):' · cliente ainda não pagou')+'</div>';
   if(!_semNF(c.nf_num)){
     const grupo=ordens.filter(o=>o.nf_num===c.nf_num&&!o.cancel_motivo);
@@ -6919,7 +6939,7 @@ function _renderNFComposicao(c){
 function calcLucroLiquido(c){
   const rec  = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
   const cst  = parseFloat(c.cst)||0;
-  const taxa = c.nf_num ? _impPct(c)/100 : 0;
+  const taxa = c.nf_num ? _impComPct(c)/100 : 0;   // comissão: imposto fixo do vendedor
   const imp  = rec * taxa;
   return rec - cst - _taxaAdmin - imp;
 }
@@ -6961,7 +6981,7 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
   function ll(c){
     const rec = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
     const cst = parseFloat(c.cst)||0;
-    const imp = c.nf_num ? rec * (_impPct(c)/100) : 0;
+    const imp = c.nf_num ? rec * (_impComPct(c)/100) : 0;   // imposto fixo do vendedor (11%)
     return rec - cst - TAXA_ADM - imp;
   }
 
@@ -7586,7 +7606,7 @@ async function calcularFechamento(){
 
     const _tdExtra = (c) => {
       if(isRicardo) return '';
-      const nf = c.nf_num ? ((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impPct(c)/100) : 0;
+      const nf = c.nf_num ? ((parseFloat(c.rec)||0)+_nfAcrescimo)*(_impComPct(c)/100) : 0;
       return `<td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">-R$ ${fmt(TAXA_ADM)}</td>
               <td style="padding:6px 6px;text-align:right;color:var(--mut2);font-family:var(--mono);font-size:10px">${nf>0?'-R$ '+fmt(nf):'—'}</td>`;
     };
@@ -7637,7 +7657,7 @@ async function calcularFechamento(){
         ${ords.map(({c,ll,comissao})=>{
           const recVal = (parseFloat(c.rec)||0) + (c.nf_num ? _nfAcrescimo : 0);
           const cstVal = parseFloat(c.cst)||0;
-          const nf = c.nf_num ? recVal*(_impPct(c)/100) : 0;
+          const nf = c.nf_num ? recVal*(_impComPct(c)/100) : 0;
           // Linha de cálculo visual: rec - cst - adm - nf = ll
           const calcStr = isRicardo
             ? `${fmt(recVal)} − ${fmt(cstVal)} − ${fmt(TAXA_ADM)}${nf>0?` − ${fmt(nf)}`:''} = ${fmt(ll)}`
@@ -8444,7 +8464,7 @@ async function _renderDetalheOrdens(usuarioId, mes){
     const rows = ords.map(o=>{
       const rec=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0);
       const cst=parseFloat(o.cst)||0;
-      const taxa=o.nf_num?_impPct(o):0;
+      const taxa=o.nf_num?_impComPct(o):0;
       const nf=o.nf_num?rec*(taxa/100):0;
       const lucro=rec-cst-nf-10; // taxa adm R$10
       totalRec+=rec; totalCst+=cst; totalNF+=nf; totalLucro+=lucro;
@@ -8514,7 +8534,7 @@ function imprimirDetalheOrdens(){
     <thead><tr><th>CRM</th><th>Cliente</th><th>Bairro</th><th>Pago em</th><th class="val">Rec</th><th class="val">Cst</th><th class="val">NF</th><th class="val">Lucro liq.</th></tr></thead>
     <tbody>${c.ords.map(o=>{
       const rec=(parseFloat(o.rec)||0)+(o.nf_num?_nfAcrescimo:0),cst=parseFloat(o.cst)||0;
-      const nf=o.nf_num?rec*(_impPct(o)/100):0;
+      const nf=o.nf_num?rec*(_impComPct(o)/100):0;
       const lucro=rec-cst-nf-10;
       const dp=o.pago_em?new Date(o.pago_em).toLocaleDateString('pt-BR'):'—';
       return `<tr><td>${o.crm_id||'—'}</td><td>${o.nome||'—'}</td><td>${o.bairro||'—'}</td><td>${dp}</td><td class="val">R$ ${fmt(rec)}</td><td class="val">R$ ${fmt(cst)}</td><td class="val">${nf>0?'R$ '+fmt(nf):'—'}</td><td class="val">R$ ${fmt(lucro)}</td></tr>`;
@@ -8727,20 +8747,46 @@ async function marcarComissaoPaga(id, nome){
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
+// Imposto da comissão (config nf_taxa) + reserva de imposto
+function _renderTaxaComInfo(){
+  const inp=document.getElementById('taxaComInput'); if(inp) inp.value=_taxaNF;
+  const info=document.getElementById('taxaComInfo'); if(!info) return;
+  const a=_aliqMes(null), real=(a&&a.simples)?a.simples:null, mes=new Date().toISOString().slice(0,7);
+  const t=v=>String(v).replace('.',',');
+  if(real===null){ info.innerHTML='Usado no cálculo da comissão de todos os vendedores (igual à planilha).'; return; }
+  const dif=Math.round((_taxaNF-real)*100)/100;
+  info.innerHTML='Usado no cálculo da comissão de todos os vendedores (igual à planilha). Imposto real de '+mes+': <b>'+t(real)+'%</b>. '
+    +(dif>=0?'<span style="color:var(--g)">Reserva de imposto: '+t(dif)+'% do valor de cada NF fica no caixa da empresa</span> (ex.: NF de R$ 640 → R$ '+fmt(640*dif/100)+').'
+            :'<span style="color:var(--r)">⚠️ O imposto real passou da taxa da comissão — a empresa está pagando '+t(-dif)+'% de cada NF. Suba a taxa.</span>');
+}
+async function salvarTaxaCom(){
+  const v=parseFloat(document.getElementById('taxaComInput')?.value);
+  if(isNaN(v)||v<0||v>30){toast('Taxa inválida (0-30%)','warn');return;}
+  try{
+    const ex=await api('config?chave=eq.nf_taxa',undefined,undefined,tok());
+    if(ex&&ex.length) await api('config?chave=eq.nf_taxa','PATCH',{valor:String(v)},tok());
+    else await api('config','POST',{chave:'nf_taxa',valor:String(v)},tok());
+    _taxaNF=v; toast('✅ Imposto da comissão salvo: '+String(v).replace('.',',')+'%');
+    _renderTaxaComInfo(); renderComissaoView();
+  }catch(e){toast('Erro ao salvar','err');}
+}
+
 // ── Config (legado mantido) ──
 function _renderConfigComissao(){
   const inp = document.getElementById('taxaAdminInput');
   if(inp) inp.value = _taxaAdmin.toFixed(2);
+  _renderTaxaComInfo();
   const el = document.getElementById('comissaoVendedores');
   if(!el) return;
   el.innerHTML = `<div style="background:var(--b2);border:1px solid var(--b3);border-radius:var(--rad2);padding:14px 16px;font-size:13px;color:var(--txt)">
     <b>ℹ️ Modelos de comissão configurados:</b><br><br>
-    <b>Luciana</b> — 100% do lucro líquido (rec - cst - R$${_taxaAdmin} - NF)<br>
+    <b>Luciana</b> — 100% do lucro líquido (rec - cst - R$${_taxaAdmin} - NF ${String(_taxaNF).replace('.',',')}%)<br>
     <b>Leticia</b> — 100% do lucro líquido (mesmo modelo da Luciana)<br>
     <b>Claudia</b> — R$1.000 fixo + 50% do restante após anúncio<br>
     <b>Ricardo</b> — R$15 fixo por ordem paga<br>
     <b>Sandra</b> — R$300 fixo + 40% do restante após anúncio (30% Claudia, 30% Douglas)<br>
-    <b>Douglas</b> — R$${_taxaAdmin} × todas as ordens + 50% Claudia + 30% Sandra<br><br>
+    <b>Douglas</b> — R$${_taxaAdmin} × todas as ordens + 50% Claudia + 30% Sandra<br>
+    <b>Reserva de imposto</b> — diferença entre os ${String(_taxaNF).replace('.',',')}% descontados na comissão e o imposto real do mês → caixa da empresa<br><br>
     <small style="color:var(--mut2)">Para alterar os modelos, contate o administrador do sistema.</small>
   </div>`;
 }
@@ -9981,13 +10027,13 @@ function renderConfig(){
       <div style="font-size:13px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">🧾 Nota Fiscal</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap">
         <div>
-          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Taxa de imposto (%)</div>
+          <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Imposto descontado na comissão (%)</div>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="number" id="cfg_nf_taxa" value="${_taxaNF}" step="0.5" min="0" max="30"
               style="width:90px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:9px 12px;font-family:var(--mono);font-size:15px;font-weight:700;color:#f97316;text-align:center;outline:none">
             <button class="btn btn-sm btn-acc" onclick="cfgSalvarNF()">Salvar</button>
           </div>
-          <div style="font-size:10px;color:var(--mut2);margin-top:4px">⚠️ Só afeta ordens novas</div>
+          <div style="font-size:10px;color:var(--mut2);margin-top:4px">O imposto real do mês vem das alíquotas da contadora</div>
         </div>
         <div>
           <div style="font-size:11px;color:var(--mut2);margin-bottom:6px">Acréscimo ao cliente (R$)</div>
