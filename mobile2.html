@@ -1195,7 +1195,7 @@ let _pgLoteIds = {}; // safeRef -> [ids das ordens do lote], usado para anexar c
 const isAdmin = () => _perfil?.nivel === 'admin';
 const tok = () => _user?.access_token;
 const uid = () => _user?.user?.id;
-const fmt = v => parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+const fmt = v => parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmts = v => parseFloat(v||0).toLocaleString('pt-BR');
 const dateF = d => d ? new Date(d+'T12:00:00').toLocaleDateString('pt-BR') : '—';
 const nowISO = () => new Date().toISOString();
@@ -4778,24 +4778,10 @@ function renderDashUsuario(userId) {
   const pendMes  = doMes.filter(o=>!o.pago&&o.col!=='concluido').length;
   const inadMes  = doMes.filter(o=>!o.pago&&diasAberto(o)>=COBR_DIAS_CRITICO&&o.col!=='concluido'&&o.col!=='orcamento').length;
 
-  // Comissão
-  function calcComissao(nome, ordens) {
-    const pagas = ordens.filter(o=>o.pago);
-    const lucroLiq = pagas.reduce((s,o)=>{
-      const rec = (parseFloat(o.rec)||0) + (o.nf_num ? 40 : 0);
-      const cst = parseFloat(o.cst)||0;
-      const imp = o.nf_num ? rec*0.11 : 0;
-      return s + (rec - cst - 10 - imp);
-    }, 0);
-    const n = (nome||'').toLowerCase();
-    if(n.includes('luciana')) return { label:'100% lucro líquido', val: lucroLiq };
-    if(n.includes('ricardo')) return { label:'R$15 por ordem paga', val: pagas.length * 15 };
-    if(n.includes('claudia')) return { label:'R$1.000 + 50% lucro', val: 1000 + lucroLiq * 0.5 };
-    if(n.includes('sandra'))  return { label:'R$300 + 40% lucro',  val:  300 + lucroLiq * 0.4 };
-    if(n.includes('douglas')) return { label:'R$10 por ordem', val: ordens.length * 10 };
-    return { label:'—', val: 0 };
-  }
-  const com = calcComissao(u.nome, doMes);
+  // Comissão do mês (estimativa) — mesmas regras do fechamento do desktop:
+  // imposto fixo de 11% sobre a NF (rec + R$40), taxa adm R$10, conta OS pagas ou com comissão liberada.
+  // Entram as OS com data neste mês + OS de meses anteriores pagas neste mês.
+  const com = _comissaoMesEstimada(u, todas, ano, mes);
 
   // Funil ativo
   const COLS = [
@@ -4839,7 +4825,7 @@ function renderDashUsuario(userId) {
   <!-- KPIs do mês -->
   <div style="padding:12px 14px 4px;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px">📅 ${mesNome}/${ano}</div>
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 14px 12px">
-    <div style="background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px;text-align:center">
+    ${isAdmin()?`<div style="background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px;text-align:center">
       <div style="font-size:11px;color:var(--g);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Receita</div>
       <div style="font-size:20px;font-weight:800;color:var(--g);margin-top:4px">R$ ${fmt(recMes)}</div>
       <div style="font-size:10px;color:var(--mut);margin-top:2px">${doMes.filter(o=>o.pago).length} pagas</div>
@@ -4848,7 +4834,7 @@ function renderDashUsuario(userId) {
       <div style="font-size:11px;color:var(--b);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Margem</div>
       <div style="font-size:20px;font-weight:800;color:var(--b);margin-top:4px">R$ ${fmt(mgMes)}</div>
       <div style="font-size:10px;color:var(--mut);margin-top:2px">${doMes.length} ordens</div>
-    </div>
+    </div>`:''}
     <div style="background:${pendMes>0?'rgba(245,166,35,.1)':'var(--sur)'};border:1px solid ${pendMes>0?'rgba(245,166,35,.3)':'var(--bor)'};border-radius:12px;padding:12px;text-align:center">
       <div style="font-size:11px;color:${pendMes>0?'#f5a623':'var(--mut)'};font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pendentes</div>
       <div style="font-size:20px;font-weight:800;color:${pendMes>0?'#f5a623':'var(--mut)'};margin-top:4px">${pendMes}</div>
@@ -4862,12 +4848,16 @@ function renderDashUsuario(userId) {
   </div>
 
   <!-- Comissão -->
-  <div style="margin:0 14px 12px;background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <div style="font-size:12px;color:var(--g);font-weight:700">💰 Comissão estimada</div>
-      <div style="font-size:10px;color:var(--mut);margin-top:2px">${com.label}</div>
+  <div style="margin:0 14px 12px;background:var(--g2);border:1px solid var(--g3);border-radius:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:12px;color:var(--g);font-weight:700">💰 Sua comissão em ${mesNome}/${ano}</div>
+        <div style="font-size:10px;color:var(--mut);margin-top:2px">${com.label} · ${com.qtd} OS ${com.qtd===1?'conta':'contam'}</div>
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--g);white-space:nowrap">R$ ${fmt(com.val)}</div>
     </div>
-    <div style="font-size:22px;font-weight:800;color:var(--g)">R$ ${fmt(com.val)}</div>
+    <div style="font-size:10px;color:var(--mut);margin-top:6px">Estimativa: entram as OS pagas ou liberadas. O valor final sai no fechamento do mês${com.obs?' · '+com.obs:''}.</div>
+    <div id="comUltFech_${userId}" style="font-size:11px;color:var(--mut);margin-top:6px"></div>
   </div>
 
   <!-- Funil -->
@@ -4917,6 +4907,53 @@ function renderDashUsuario(userId) {
   <div style="height:20px"></div>`;
 
   document.getElementById('equipeContent').innerHTML = h;
+  _carregarUltimoFechamento(userId);
+}
+
+// ── Comissão do vendedor (mobile) — espelha o fechamento do desktop ──
+function _modeloComMob(u){
+  const n=(u?.nome||u?.email||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(n.startsWith('luciana')||n.startsWith('leticia')) return 'luciana';
+  if(n.startsWith('claudia')) return 'claudia';
+  if(n.startsWith('ricardo')) return 'ricardo';
+  if(n.startsWith('gustavo')) return 'gustavo';
+  if(n.startsWith('pc')) return 'pc';
+  if(n.startsWith('sandra')) return 'sandra';
+  if(n.startsWith('douglas')) return 'douglas';
+  return 'outro';
+}
+function _comissaoMesEstimada(u, todas, ano, mes){
+  const TAXA_COM=11, ADM=10;   // mesmo imposto fixo da comissão (config nf_taxa) e taxa adm do desktop
+  const ini=new Date(ano,mes,1), fim=new Date(ano,mes+1,1);
+  const conta=o=>o.col!=='orcamento'&&!o.cancel_motivo&&(o.pago||o.comissao_liberada);
+  const ords=todas.filter(o=>{
+    if(!conta(o)) return false;
+    const d=o.data?new Date(o.data+'T12:00:00'):null;
+    if(d&&d>=ini&&d<fim) return true;                       // OS do mês
+    const pg=o.pago_em?new Date(o.pago_em):null;
+    return !!(d&&d<ini&&pg&&pg>=ini&&pg<fim);                // OS antiga paga neste mês
+  });
+  const ll=o=>{ const rec=(parseFloat(o.rec)||0)+(o.nf_num?(_nfAcrescimo||40):0); const cst=parseFloat(o.cst)||0; const imp=o.nf_num?rec*TAXA_COM/100:0; return rec-cst-ADM-imp; };
+  const soma=ords.reduce((s,o)=>s+ll(o),0), qtd=ords.length;
+  switch(_modeloComMob(u)){
+    case 'luciana': return {label:'100% do lucro líquido', val:soma, qtd};
+    case 'claudia': return {label:'R$ 1.000 + 50% do restante', val:1000+Math.max(soma-1000,0)/2, qtd, obs:'antes do desconto do anúncio'};
+    case 'sandra':  return {label:'R$ 300 + 40% do lucro', val:300+Math.max(soma,0)*0.4, qtd, obs:'antes do desconto do anúncio'};
+    case 'ricardo': return {label:'R$ 15 por OS', val:qtd*15, qtd};
+    case 'gustavo': case 'pc': return {label:'R$ 40 por OS', val:qtd*40, qtd};
+    case 'douglas': return {label:'60% do lucro líquido', val:soma*0.6, qtd};
+    default: return {label:'sem modelo de comissão', val:0, qtd};
+  }
+}
+async function _carregarUltimoFechamento(userId){
+  const el=document.getElementById('comUltFech_'+userId); if(!el) return;
+  try{
+    const r=await api('comissoes_fechamento?usuario_id=eq.'+userId+'&select=mes,valor_vendedor,valor_claudia_extra,valor_vales,status&order=mes.desc&limit=1','GET',null,tok());
+    if(!r||!r.length) return;
+    const f=r[0], [a,m]=String(f.mes).split('-');
+    const tot=(parseFloat(f.valor_vendedor)||0)+(parseFloat(f.valor_claudia_extra)||0)-(parseFloat(f.valor_vales)||0);
+    el.innerHTML='📋 Último fechamento ('+m+'/'+a+'): <b style="color:var(--txt)">R$ '+fmt(tot)+'</b> · '+(f.status==='pago'?'✅ pago':'⏳ a pagar');
+  }catch(e){}
 }
 
 function renderFinanceiro() {
