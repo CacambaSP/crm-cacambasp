@@ -977,6 +977,7 @@ input[type=checkbox]:checked::after{
             <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="comMobTab_hist" onclick="setComTab('hist');_comMobTabAtivo('hist')">📋 Histórico</button>
             <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="comMobTab_vales" onclick="setComTab('vales');_comMobTabAtivo('vales')">💵 Vales</button>
             <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font)" id="comMobTab_config" onclick="setComTab('config');_comMobTabAtivo('config')">⚙️ Modelos</button>
+            <button style="flex:1;padding:7px 4px;font-size:11px;font-weight:600;background:none;color:var(--mut2);border:none;border-left:1px solid var(--bor);cursor:pointer;font-family:var(--font);display:none" id="comMobTab_caixa" onclick="setComTab('caixa');_comMobTabAtivo('caixa')">🏦 Caixa</button>
           </div>
           <!-- Tabs desktop -->
           <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--bor);padding-bottom:12px" id="comTabsDesk">
@@ -984,6 +985,7 @@ input[type=checkbox]:checked::after{
             <button class="btn btn-sm" id="comTab_hist" onclick="setComTab('hist')">&#128203; Hist&#243;rico</button>
             <button class="btn btn-sm" id="comTab_vales" onclick="setComTab('vales')">Vales</button>
             <button class="btn btn-sm" id="comTab_config" onclick="setComTab('config')">&#9881;&#65039; Modelos</button>
+            <button class="btn btn-sm" id="comTab_caixa" style="display:none" onclick="setComTab('caixa')">&#127974; Caixa</button>
           </div>
           <!-- Fechamento -->
           <div id="comissaoFechamento"></div>
@@ -991,6 +993,8 @@ input[type=checkbox]:checked::after{
           <div id="comissaoHist" style="display:none"></div>
           <!-- Vales -->
           <div id="comissaoVales" style="display:none"></div>
+          <!-- Caixa da empresa (só Douglas) -->
+          <div id="comissaoCaixa" style="display:none"></div>
           <!-- Config / Modelos -->
           <div id="comissaoConfig" style="display:none">
             <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:16px;margin-bottom:20px">
@@ -7137,13 +7141,113 @@ function _calcFechamento(ordens_mes, anuncioClaudia, anuncioSandra){
 // ══════════════════════════════════════════════════════════════
 
 function _comMobTabAtivo(tab){
-  ['fechamento','hist','vales','config'].forEach(t=>{
+  ['fechamento','hist','vales','config','caixa'].forEach(t=>{
     const b=document.getElementById('comMobTab_'+t);
     if(b){b.style.background=t===tab?'var(--acc2)':'none';b.style.color=t===tab?'var(--acc)':'var(--mut2)';}
   });
 }
+// ══════════════════════════════════════════════════════════════
+// CAIXA DA EMPRESA — conta corrente (só o Douglas vê; RLS na tabela caixa_empresa)
+// Créditos automáticos no fechamento do mês (a partir de 11/2026):
+//   • 40% do lucro das OS do Douglas  • reserva de imposto (11% da comissão − imposto real)
+// Saídas/entradas manuais lançadas pelo Douglas.
+// ══════════════════════════════════════════════════════════════
+function _ehDonoCaixa(){
+  const u=_currentUser?.user; if(!u) return false;
+  const p=usuarios.find(x=>x.id===u.id)||_perfil;
+  return _modeloComissao(p)==='douglas';
+}
+async function _caixaLancarFechamento(f){
+  try{
+    if(!f||!f.mes||f.mes<'2026-11') return;
+    const r2=v=>Math.round(v*100)/100;
+    let reserva=0; const det=[];
+    ['luciana','leticia','ricardo','gustavo','pc','claudia','sandra','douglas'].forEach(k=>{
+      const b=f[k]; if(!b||!Array.isArray(b.ordens)) return;
+      _ordsAtivasFech(b.ordens).forEach(({c})=>{
+        if(!c.nf_num) return;
+        const v=(parseFloat(c.rec)||0)+_nfAcrescimo, pc=_impComPct(c), pr=_impPct(c), r=v*(pc-pr)/100;
+        reserva+=r; det.push({lc:c.crm_id,nf:c.nf_num,valor_nf:r2(v),pct_comissao:pc,pct_real:pr,reserva:r2(r)});
+      });
+    });
+    const dAtiv=f.douglas&&Array.isArray(f.douglas.ordens)?_ordsAtivasFech(f.douglas.ordens):[];
+    const d40=dAtiv.reduce((s,{ll})=>s+ll*0.4,0);
+    await api('rpc/caixa_lancar_fechamento','POST',{p_mes:f.mes+'-01',p_reserva:r2(reserva),p_douglas40:r2(d40),
+      p_detalhe:{reserva:det,douglas:dAtiv.map(({c,ll})=>({lc:c.crm_id,lucro:r2(ll),v40:r2(ll*0.4)}))}},tok());
+  }catch(e){ console.warn('caixa',e); toast('⚠️ Fechamento salvo, mas o lançamento no Caixa falhou: '+e.message,'warn'); }
+}
+async function _renderCaixa(){
+  const el=document.getElementById('comissaoCaixa'); if(!el) return;
+  if(!_ehDonoCaixa()){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--mut2)">Acesso restrito.</div>'; return; }
+  el.innerHTML='<div style="padding:20px;color:var(--mut2);text-align:center">⏳ Carregando...</div>';
+  let rows=[];
+  try{ rows=await api('caixa_empresa?order=data.asc,id.asc',undefined,undefined,tok())||[]; }
+  catch(e){ el.innerHTML='<div style="padding:20px;color:var(--r)">Erro ao carregar o caixa: '+e.message+'</div>'; return; }
+  const sinal=r=>r.tipo==='debito'?-1:1, r2=v=>Math.round(v*100)/100;
+  let saldo=0; const comSaldo=rows.map(r=>{ saldo=r2(saldo+sinal(r)*(parseFloat(r.valor)||0)); return {...r,saldo}; });
+  const ent=rows.filter(r=>r.tipo==='credito').reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
+  const sai=rows.filter(r=>r.tipo==='debito').reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
+  const porMes={};
+  rows.forEach(r=>{ const m=String(r.mes).slice(0,7); const o=porMes[m]=porMes[m]||{res:0,d40:0,man_e:0,sai:0};
+    const v=parseFloat(r.valor)||0;
+    if(r.origem==='reserva_imposto') o.res+=sinal(r)*v; else if(r.origem==='douglas_40') o.d40+=v; else if(r.tipo==='credito') o.man_e+=v; else o.sai+=v; });
+  const dt=d=>d?String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4):'—';
+  const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual'};
+  const hoje=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const card=(l,v,c)=>'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px"><div style="font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.4px">'+l+'</div><div style="font-size:20px;font-weight:800;font-family:var(--mono);color:'+c+'">R$ '+fmt(v)+'</div></div>';
+  const inp='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;color:var(--txt);font-family:var(--font);outline:none';
+  let h='<div style="font-size:12px;color:var(--mut2);margin-bottom:12px">🔒 Só você vê esta conta. Entram automaticamente no fechamento do mês: os <b>40%</b> do lucro das suas OS e a <b>reserva de imposto</b> (11% da comissão − imposto real).</div>';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">'+card('Saldo',r2(ent-sai),r2(ent-sai)>=0?'var(--g)':'var(--r)')+card('Entradas',ent,'var(--g)')+card('Saídas',sai,'var(--r)')+'</div>';
+  h+='<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:16px">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Novo lançamento</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<select id="cx_tipo" style="'+inp+'"><option value="debito">➖ Saída</option><option value="credito">➕ Entrada</option></select>'
+    +'<input type="date" id="cx_data" value="'+hoje+'" style="'+inp+'">'
+    +'<input type="text" id="cx_desc" placeholder="Descrição (ex.: pagamento DAS, retirada)" style="'+inp+';flex:1;min-width:200px">'
+    +'<input type="number" id="cx_valor" placeholder="Valor" step="0.01" min="0" style="'+inp+';width:110px;font-family:var(--mono)">'
+    +'<button class="btn btn-sm btn-acc" onclick="caixaLancar()">Lançar</button></div></div>';
+  const meses=Object.keys(porMes).sort().reverse();
+  if(meses.length){
+    h+='<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">Resumo por mês</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="color:var(--mut2)"><th style="text-align:left;padding:6px">Mês</th><th style="text-align:right;padding:6px">Reserva de imposto</th><th style="text-align:right;padding:6px">40% Douglas</th><th style="text-align:right;padding:6px">Outras entradas</th><th style="text-align:right;padding:6px">Saídas</th><th style="text-align:right;padding:6px">Resultado</th></tr></thead><tbody>'
+      +meses.map(m=>{ const o=porMes[m], res=r2(o.res+o.d40+o.man_e-o.sai);
+        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px">'+m.slice(5)+'/'+m.slice(0,4)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.res)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.d40)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.man_e)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);color:var(--r)">R$ '+fmt(o.sai)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);font-weight:700;color:'+(res>=0?'var(--g)':'var(--r)')+'">R$ '+fmt(res)+'</td></tr>'; }).join('')
+      +'</tbody></table></div>';
+  }
+  h+='<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">Extrato</div>';
+  if(!comSaldo.length) h+='<div style="padding:24px;text-align:center;color:var(--mut2);border:1px dashed var(--bor);border-radius:var(--rad2)">Nenhum lançamento ainda. O primeiro crédito entra quando o fechamento de novembro/2026 for salvo.</div>';
+  else h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--mut2)"><th style="text-align:left;padding:6px">Data</th><th style="text-align:left;padding:6px">Descrição</th><th style="text-align:left;padding:6px">Origem</th><th style="text-align:right;padding:6px">Valor</th><th style="text-align:right;padding:6px">Saldo</th><th></th></tr></thead><tbody>'
+      +comSaldo.slice().reverse().map(r=>{ const deb=r.tipo==='debito';
+        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px;white-space:nowrap">'+dt(r.data)+'</td><td style="padding:6px">'+String(r.descricao||'').replace(/</g,'&lt;')+'</td><td style="padding:6px;color:var(--mut2)">'+(ori[r.origem]||r.origem)+'</td>'
+          +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap;color:'+(deb?'var(--r)':'var(--g)')+'">'+(deb?'− ':'+ ')+'R$ '+fmt(r.valor)+'</td>'
+          +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap">R$ '+fmt(r.saldo)+'</td>'
+          +'<td style="padding:6px;text-align:right">'+(r.origem==='manual'?'<button class="btn btn-sm" title="Excluir" onclick="caixaExcluir('+r.id+')">🗑</button>':'')+'</td></tr>'; }).join('')
+      +'</tbody></table></div>';
+  el.innerHTML=h;
+}
+async function caixaLancar(){
+  if(!_ehDonoCaixa()) return;
+  const tipo=document.getElementById('cx_tipo')?.value, data=document.getElementById('cx_data')?.value;
+  const desc=(document.getElementById('cx_desc')?.value||'').trim(), valor=parseFloat(document.getElementById('cx_valor')?.value);
+  if(!data){toast('Informe a data','warn');return;}
+  if(!desc){toast('Informe a descrição','warn');return;}
+  if(isNaN(valor)||valor<=0){toast('Valor inválido','warn');return;}
+  try{
+    await api('caixa_empresa','POST',{mes:data.slice(0,7)+'-01',data,tipo,origem:'manual',descricao:desc,valor:Math.round(valor*100)/100},tok());
+    toast('✅ Lançamento registrado'); _renderCaixa();
+  }catch(e){ toast('Erro ao lançar: '+e.message,'err'); }
+}
+async function caixaExcluir(id){
+  if(!_ehDonoCaixa()) return;
+  if(!confirm('Excluir este lançamento do caixa?')) return;
+  try{ await api('caixa_empresa?id=eq.'+id+'&origem=eq.manual','DELETE',undefined,tok()); toast('Lançamento excluído'); _renderCaixa(); }
+  catch(e){ toast('Erro ao excluir: '+e.message,'err'); }
+}
+
 function renderComissaoView(){
   _carregarComissoes();
+  const _dono=_ehDonoCaixa();
+  ['comTab_caixa','comMobTab_caixa'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=_dono?'':'none'; });
   setComTab('fechamento');
   // Resumo mobile
   if(window.innerWidth<=700){
@@ -7164,7 +7268,8 @@ function renderComissaoView(){
 }
 
 function setComTab(tab){
-  ['fechamento','hist','vales','config'].forEach(t=>{
+  if(tab==='caixa'&&!_ehDonoCaixa()) tab='fechamento';
+  ['fechamento','hist','vales','config','caixa'].forEach(t=>{
     const btn = document.getElementById('comTab_'+t);
     if(btn) btn.className='btn btn-sm'+(tab===t?' btn-acc':'');
   });
@@ -7172,6 +7277,8 @@ function setComTab(tab){
   document.getElementById('comissaoHist').style.display       = tab==='hist'?'':'none';
   const _elVales = document.getElementById('comissaoVales'); if(_elVales) _elVales.style.display = tab==='vales'?'':'none';
   document.getElementById('comissaoConfig').style.display     = tab==='config'?'':'none';
+  const _elCaixa = document.getElementById('comissaoCaixa'); if(_elCaixa) _elCaixa.style.display = tab==='caixa'?'':'none';
+  if(tab==='caixa')      _renderCaixa();
   if(tab==='fechamento') _renderFechamento();
   if(tab==='hist')       _renderHistComissao();
   if(tab==='vales')      _renderValesComissao();
@@ -8306,6 +8413,7 @@ async function salvarFechamento(){
       }
       await _vincularValesMes(reg.usuario_id, reg.mes);
     }
+    await _caixaLancarFechamento(f);
     toast('✅ Fechamento salvo com sucesso!','ok');
     setComTab('hist');
   }catch(e){
