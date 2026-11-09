@@ -6229,6 +6229,14 @@ async function duplicarOrdem(id) {
         entrega_em: null,
         comissao_liberada: false,
         grp_id: grpId,
+        // Anexos, NF e dados do fornecedor pertencem à OS de origem — não copiar
+        // (antes o PDF/link da NF da origem aparecia na duplicada: ex. NF 004 na LC20268242)
+        anexos: [], anexo_url: '', nf_link: null,
+        forn_comprovante_url: '', forn_visualizado_em: null, forn_status: null,
+        forn_previsao: null, forn_recusado_em: null, forn_followup_confirmado: false,
+        cacamba_num: null,
+        arquivado: false, arquivado_em: null, arquivado_motivo: null,
+        ia_plano: null, ia_plano_passo: 0, ia_plano_em: null,
       };
       // Remove campos undefined explicitamente para o banco gerar/usar default
       delete body.tracking_token;
