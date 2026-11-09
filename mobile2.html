@@ -1162,6 +1162,14 @@ let _nfAcrescimo = 40;
 let _nfAliqHist={}; // alíquotas reais por mês (config nf_aliquotas_hist)
 function _aliqMes(o){ const m=String((o&&(o.data||o.criado_em))||new Date().toISOString()).slice(0,7); const ks=Object.keys(_nfAliqHist).filter(k=>k<=m).sort(); return ks.length?_nfAliqHist[ks[ks.length-1]]:null; }
 function _issFrac(o){ const a=_aliqMes(o); return (a&&a.iss)?a.iss/100:0.024; }
+// Link(s) da NF para mensagens de cobrança: um por nota (várias caçambas na mesma NF compartilham o link)
+function _nfLinksTxt(lista){
+  const vistos=new Set(), itens=[];
+  (lista||[]).forEach(x=>{ if(!x||!x.nf_link||vistos.has(x.nf_link)) return; vistos.add(x.nf_link); itens.push(x); });
+  if(!itens.length) return '';
+  if(itens.length===1) return '\n\n🧾 *Nota Fiscal:* '+itens[0].nf_link;
+  return '\n\n🧾 *Notas Fiscais:*\n'+itens.map(x=>((x.nf_num&&x.nf_num!=='000')?'NF '+x.nf_num:'NF')+' — '+(x.logradouro||x.bairro||'Endereço')+': '+x.nf_link).join('\n');
+}
 
 let _limiteDiurno = '09:00';
 let _limiteNoturno = '16:00';
@@ -6624,7 +6632,7 @@ function enviarWA(id) {
     const refValor = multiplas ? `${listaTxt}💰 *Total: ${valorTotal}*` : valorTotal;
     const prazo = new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     const cpfLine = o.cpf ? `\n📄 CPF/CNPJ: ${o.cpf}` : '';
-    const nfLink = o.nf_link ? `\n\n🧾 *Nota Fiscal:* ${o.nf_link}` : '';
+    const nfLink = _nfLinksTxt(todasOrdens); // um link por NF (todas as pendências do cliente)
     trackLink = trackLink + nfLink;
     if(n.id==='juridico' || n.id==='prejuridico') {
       const vars = [

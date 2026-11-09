@@ -3584,7 +3584,7 @@ function selCobrarAgrupado(){
       const total=ords.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
       const linhas=ords.map((o,idx)=>`*${idx+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
       const trackLink=c0.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?token='+(c0.tracking_token?encodeURIComponent(c0.tracking_token):'id='+encodeURIComponent(c0.crm_id)):'';
-      msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
+      msg='Olá '+(c0.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+_nfLinksTxt(ords)+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+marcaNome+' — '+marcaTel+'_';
     }
     window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
     if(i<entries.length)setTimeout(abrirProximo,1200);
@@ -5453,7 +5453,7 @@ function cobrarOutrasOrdens(ordemAtualId){
   const todas=[c,...extras];
   const total=todas.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const linhas=todas.map((o,i)=>`*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`\n\nQualquer dúvida, estamos à disposição! 😊\n_'+_marcaDe(c)+'_';
+  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`'+_nfLinksTxt(todas)+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+_marcaDe(c)+'_';
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
@@ -6192,6 +6192,14 @@ function enviarTracking(id){
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
+// Link(s) da NF para mensagens de cobrança: um por nota (várias caçambas na mesma NF compartilham o link)
+function _nfLinksTxt(lista){
+  const vistos=new Set(), itens=[];
+  (lista||[]).forEach(x=>{ if(!x||!x.nf_link||vistos.has(x.nf_link)) return; vistos.add(x.nf_link); itens.push(x); });
+  if(!itens.length) return '';
+  if(itens.length===1) return '\n\n🧾 *Nota Fiscal:* '+itens[0].nf_link;
+  return '\n\n🧾 *Notas Fiscais:*\n'+itens.map(x=>((x.nf_num&&x.nf_num!=='000')?'NF '+x.nf_num:'NF')+' — '+(x.logradouro||x.bairro||'Endereço')+': '+x.nf_link).join('\n');
+}
 const _waTpl={
   pedido:(c)=>{
     const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
@@ -6259,7 +6267,7 @@ const _waTpl={
     const prazo=new Date(Date.now()+3*86400000).toLocaleDateString('pt-BR');
     const cpfLine = c.cpf ? `\n📄 CPF/CNPJ: ${c.cpf}` : '';
     const trackLink=c.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+(c.tracking_token?'token='+encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
-    const nfL=c.nf_link?'\n\n🧾 *Nota Fiscal:* '+c.nf_link:'';
+    const nfL=_nfLinksTxt(todasOrdens);
     const pix=(pixPayload?'\n\n📋 *Código Pix (copia e cola):*\n`'+pixPayload+'`':trackLink)+nfL;
     const marcaNome=vend?.marca_nome||_marcaDe(c);
     const ass='\n\n_'+marcaNome+'_';
