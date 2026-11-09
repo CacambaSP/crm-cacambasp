@@ -5453,7 +5453,9 @@ function cobrarOutrasOrdens(ordemAtualId){
   const todas=[c,...extras];
   const total=todas.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   const linhas=todas.map((o,i)=>`*${i+1}.* ${o.logradouro||o.bairro||'Endereço'}${o.bairro?', '+o.bairro:''}`).join('\n');
-  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+'\n\n⚡ Pague via Pix:\nChave: `'+PIX_KEY+'`'+_nfLinksTxt(todas)+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+_marcaDe(c)+'_';
+  // Link de pagamento com QR Code (mesmo das outras cobranças) — a chave Pix do e-mail não vai na mensagem
+  const trackLink=c.crm_id?'\n\n⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?'+(c.tracking_token?'token='+encodeURIComponent(c.tracking_token):'id='+encodeURIComponent(c.crm_id)):'';
+  const msg='Olá '+(c.nome||'')+'! 👋\n\nPassando para informar os pagamentos em aberto:\n\n'+linhas+trackLink+_nfLinksTxt(todas)+'\n\nQualquer dúvida, estamos à disposição! 😊\n_'+_marcaDe(c)+'_';
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
 
