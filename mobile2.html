@@ -3596,7 +3596,15 @@ async function dispararLote() {
 }
 
 // ── ACTION CARD HTML ──
-function actionCardHTML(o, tipoAcao, loteMode=false) {
+// Card da fila de ações + selo de comissão da OS embaixo do valor
+function actionCardHTML(o, ...args){
+  const html=_actionCardHTMLBase(o, ...args);
+  const c=(isAdmin()||o.usuario_id===uid())?_comissaoOS(o):null;
+  if(!c) return html;
+  const selo='<div style="font-size:11px;font-weight:800;margin-top:3px;padding:1px 7px;border-radius:99px;display:inline-block;white-space:nowrap;color:'+c.cor+';border:1px solid '+c.cor+'88;background:'+c.cor+'22" title="Comissão desta OS">💰 R$ '+fmt(c.v)+'</div>';
+  return html.replace(/(<div class="ac-val"[^>]*>)([\s\S]*?)(<\/div>)/, (m,a,b,z)=>a.replace('class="ac-val"','class="ac-val" style="text-align:right"').replace('style="text-align:right" style="','style="text-align:right;')+b+'<br>'+selo+z);
+}
+function _actionCardHTMLBase(o, tipoAcao, loteMode=false) {
   const forn = _forns.find(f=>f.id===o.forn_id);
   const d = diasAberto(o);
   const tel = (o.cel||o.wh||'').replace(/\D/g,'');
