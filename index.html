@@ -1323,7 +1323,7 @@ input[type=checkbox]:checked::after{
         <div class="fin-row-item" id="dm_adm_wrap" style="display:none"><span style="color:var(--mut2)">Taxa adm (Douglas)</span><span id="dm_adm" style="color:var(--mut2);font-weight:600">—</span></div>
         <div class="fin-row-item total"><span>Margem líquida</span><span id="dm_m">—</span></div>
         <details id="dm_nfcomp" style="display:none;margin-top:8px;border-top:1px dashed var(--bor);padding-top:6px">
-          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--acc)">🧾 Composição da NF — passo a passo</summary>
+          <summary id="dm_nfcomp_titulo" style="cursor:pointer;font-size:12px;font-weight:700;color:var(--acc)">🧾 Composição da NF — passo a passo</summary>
           <div id="dm_nfcomp_body" style="margin-top:6px;font-size:12px"></div>
         </details>
       </div>
@@ -6884,10 +6884,40 @@ function _comissaoEstimada(c, ll){
     default: return {nome, v:0, txt:'sem modelo de comissão'};
   }
 }
+// Composição de pedido SEM NF: sem imposto, sem reserva
+function _renderComposicaoSemNF(c, box, body){
+  const r2=v=>Math.round(v*100)/100;
+  const rec=parseFloat(c.rec)||0, cst=parseFloat(c.cst)||0, adm=_taxaAdmin||0;
+  const lucro=r2(rec-cst), ll=r2(lucro-adm);
+  const com=_comissaoEstimada(c, ll), comV=r2(com.v), sobra=r2(ll-comV);
+  const pct=v=>rec?(' <span style="color:var(--mut2);font-size:10px">('+(v/rec*100).toFixed(1).replace('.',',')+'%)</span>'):'';
+  const row=(lbl,val,cor,neg,extra)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span style="color:var(--mut2)">'+lbl+'</span><span style="font-weight:600;white-space:nowrap;color:'+(cor||'inherit')+'">'+(neg?'− ':'')+'R$ '+fmt(val)+(extra||'')+'</span></div>';
+  const sec=t=>'<div style="font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--mut2);margin:8px 0 2px;text-transform:uppercase">'+t+'</div>';
+  const tot=(lbl,val,cor)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--bor);font-weight:800"><span>'+lbl+'</span><span style="color:'+(cor||'inherit')+'">R$ '+fmt(val)+'</span></div>';
+  let h='';
+  h+=sec('Valor do pedido')+tot('Cliente paga (sem NF)',rec,'var(--acc)');
+  h+=sec('Resultado');
+  if(cst) h+=row('Fornecedor',cst,'var(--r)',true,pct(cst));
+  else h+='<div style="color:#f97316;padding:2px 0">⚠️ Custo do fornecedor ainda não lançado — valores abaixo provisórios</div>';
+  h+='<div style="color:var(--mut2);padding:2px 0">Sem NF — sem imposto</div>';
+  h+=tot('Lucro da caçamba',lucro,lucro>=0?'var(--g)':'var(--r)');
+  h+=row('Taxa administrativa',adm,'var(--mut2)',true);
+  h+=tot('Lucro líquido',ll,ll>=0?'var(--g)':'var(--r)');
+  h+=row('Comissão — '+com.nome,comV,'var(--r)',true);
+  h+='<div style="color:var(--mut2);font-size:11px;padding:0 0 2px 10px">↳ '+com.txt+'</div>';
+  h+=sec('Caixa da empresa');
+  if(com.caixa) h+=row('40% do lucro (Douglas)',sobra,'var(--g)');
+  h+=tot('Sobra para o caixa da empresa',sobra,sobra>=0?'var(--g)':'var(--r)');
+  h+='<div style="color:var(--mut2);font-size:10px;margin-top:6px">Pedido sem NF'+(c.pago?' · cliente pagou R$ '+fmt(parseFloat(c.pago_valor)||0):' · cliente ainda não pagou')+'</div>';
+  body.innerHTML=h; box.style.display='block';
+}
 function _renderNFComposicao(c){
   const box=document.getElementById('dm_nfcomp'), body=document.getElementById('dm_nfcomp_body');
   if(!box||!body) return;
-  if(!c||!c.nf_num){ box.style.display='none'; body.innerHTML=''; return; }
+  if(!c||c.col==='orcamento'||c.cancel_motivo){ box.style.display='none'; body.innerHTML=''; return; }
+  const tit=document.getElementById('dm_nfcomp_titulo');
+  if(!c.nf_num){ if(tit) tit.textContent='💰 Composição do pedido — passo a passo'; return _renderComposicaoSemNF(c, box, body); }
+  if(tit) tit.textContent='🧾 Composição da NF — passo a passo';
   const r2=v=>Math.round(v*100)/100;
   const rec=parseFloat(c.rec)||0, acr=_nfAcrescimo||0, valorNF=r2(rec+acr);
   const pSimples=_impPct(c), pIss=_issFrac(c)*100;
