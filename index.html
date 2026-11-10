@@ -3287,6 +3287,7 @@ function cardHTML(c,color){
     ${urg>0?`<div style="font-size:9px;color:${urgBordas[urg]};font-weight:700;margin-bottom:3px">${urgLabels[urg]} ${urgTextos[urg]}${prazoStr?' — limite '+prazoStr:''}</div>`:''}
     ${orfaConcluida?`<div style="font-size:9px;color:#ef4444;font-weight:700;margin-bottom:3px">🚩 Concluída sem valor e sem fornecedor — revisar</div>`:''}
     ${bloq?`<div style="font-size:9px;color:#fff;font-weight:800;margin-bottom:3px;background:#dc2626;padding:2px 6px;border-radius:4px;display:inline-block">🚫 CLIENTE BLOQUEADO — ${bloq.motivo||'ver histórico'}</div>`:''}
+    ${window.Creditos?Creditos.badge(c):''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
     ${c.desconta_iss&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.pago?`<div title="Cliente retém o ISS — cobrança sai com o valor líquido" style="display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-bottom:2px;color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)">🏛️ ISS retido</div>`:''}
     ${!(parseFloat(c.rec||0)>0)&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:var(--r);font-weight:700;margin-bottom:2px">⚠️ Valor do cliente não informado</div>`:''}
@@ -3923,6 +3924,7 @@ function openNovaOrdem(){
   document.getElementById('ordemModalTitle').textContent='Nova Ordem';
   document.getElementById('ordemModalIco').textContent='➕';
   ['o_nome','o_cel','o_cpf','o_email','o_end','o_bairro','o_cidade','o_cep','o_obs','o_obra_ref','o_nf'].forEach(id=>document.getElementById(id).value='');
+  const _credBox=document.getElementById('o_cel_credito'); if(_credBox) _credBox.style.display='none';
   document.getElementById('o_obra_limite').value='';
   const _qtdEl=document.getElementById('o_qtd');if(_qtdEl)_qtdEl.value='1';
   const _resEl=document.getElementById('o_residuo');if(_resEl)_resEl.value='';
@@ -4185,6 +4187,7 @@ function _pendenciaAvisoHTML(cel, excludeId){
 
 // ── AVISO INADIMPLENTE ──
 function verificarInadimplente(cel){
+  if(window.Creditos) Creditos.avisar({cel:'o_cel',cpf:'o_cpf',ancora:'o_inad_aviso',nome:'o_nome'});
   const avisoEl=document.getElementById('o_inad_aviso');
   const nomeAviso=document.getElementById('o_nome_aviso');
   if(!cel||cel.replace(/\D/g,'').length<8){
@@ -5675,7 +5678,7 @@ async function arquivarOrdem(id){
     ? `<div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e">⚠️ <strong>Fornecedor ainda não foi pago!</strong><br>O custo de <strong>R$ ${fmt(parseFloat(c.cst||0))}</strong> ainda está pendente.</div>`
     : '';
   const avisoFundo = !arquivando && c.arquivado
-    ? `<div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e">⚠️ <strong>Essa ordem está marcada no Fundo Compensatório</strong> (${c.arquivado_motivo==='prejuizo'?'prejuízo':c.arquivado_motivo==='compensado_fundo'?'compensado':'não cobrado'}). Desarquivar vai tirá-la do Fundo também.</div>`
+    ? `<div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;color:#92400e">${c.arquivado_motivo==='caixa_nao_cobrado'?'⚠️ <strong>Essa ordem está marcada como \'fornecedor não cobrou\'</strong> e o custo entrou como crédito no Caixa da empresa. Desarquivar tira esse crédito do Caixa.':`⚠️ <strong>Essa ordem está marcada no Fundo Compensatório</strong> (${c.arquivado_motivo==='prejuizo'?'prejuízo':c.arquivado_motivo==='compensado_fundo'?'compensado':'não cobrado'}). Desarquivar vai tirá-la do Fundo também.`}</div>`
     : '';
   const ok=await showConfirm(arquivando?{
     ico:'🏆',title:'Arquivar ordem',
@@ -7227,7 +7230,7 @@ async function _renderCaixa(){
     const v=parseFloat(r.valor)||0;
     if(r.origem==='reserva_imposto') o.res+=sinal(r)*v; else if(r.origem==='douglas_40') o.d40+=v; else if(r.tipo==='credito') o.man_e+=v; else o.sai+=v; });
   const dt=d=>d?String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4):'—';
-  const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual',boleto:'Boleto'};
+  const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual',boleto:'Boleto',forn_nao_cobrou:'Fornecedor não cobrou'};
   const hoje=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   const card=(l,v,c)=>'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px"><div style="font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.4px">'+l+'</div><div style="font-size:20px;font-weight:800;font-family:var(--mono);color:'+c+'">R$ '+fmt(v)+'</div></div>';
   const inp='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;color:var(--txt);font-family:var(--font);outline:none';
@@ -15995,5 +15998,6 @@ function orcSelTipoPrazo(){
   </div>
 </div>
 <script src="/boletos.js"></script>
+<script src="/creditos.js"></script>
 </body>
 </html>
