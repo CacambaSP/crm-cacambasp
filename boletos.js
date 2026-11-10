@@ -148,6 +148,71 @@ function analisarPix(p){
 }
 
 // ══════════════════════════════════════════════════════════════
+// PDF COM SENHA (ex.: fatura da Vivo) — tenta os primeiros dígitos do CNPJ
+// ══════════════════════════════════════════════════════════════
+const CNPJS_EMPRESA = ['44538708000176'];   // CNPJ da empresa — as senhas saem daqui
+function senhasCandidatas(){
+  const lista = [''];
+  CNPJS_EMPRESA.forEach(c => [4, 3, 5, 6, 8, 14].forEach(n => lista.push(c.slice(0, n))));
+  try { JSON.parse(localStorage.getItem('bol_senhas') || '[]').forEach(x => lista.push(x)); } catch(e) {}
+  return [...new Set(lista)];
+}
+function lembrarSenha(x){
+  try { const l = JSON.parse(localStorage.getItem('bol_senhas') || '[]'); if (x && !l.includes(x)) { l.push(x); localStorage.setItem('bol_senhas', JSON.stringify(l.slice(-10))); } } catch(e) {}
+}
+async function pdfEhProtegido(blob){
+  const txt = new TextDecoder('latin1').decode(new Uint8Array(await blob.arrayBuffer()));
+  return /\/Encrypt\b/.test(txt);
+}
+let _pdfjs = null;
+async function carregarPdfJs(){
+  if (_pdfjs) return _pdfjs;
+  if (!window.pdfjsLib) {
+    await new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      sc.onload = res; sc.onerror = () => rej(new Error('não consegui carregar o leitor de PDF'));
+      document.head.appendChild(sc);
+    });
+  }
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  _pdfjs = window.pdfjsLib;
+  return _pdfjs;
+}
+/** Abre um PDF protegido testando as senhas; se nenhuma servir, pergunta. Devolve {doc, senha}. */
+async function abrirPdfProtegido(blob, perguntar = true){
+  const lib = await carregarPdfJs();
+  const dados = new Uint8Array(await blob.arrayBuffer());
+  const tentar = async senha => {
+    try { return await lib.getDocument({ data: dados.slice(), password: senha }).promise; }
+    catch(e) { if (e && (e.name === 'PasswordException' || /password/i.test(e.message || ''))) return null; throw e; }
+  };
+  for (const s of senhasCandidatas()) { const doc = await tentar(s); if (doc) return { doc, senha: s }; }
+  while (perguntar) {
+    const s = prompt('Este PDF tem senha e os primeiros números do CNPJ não abriram.\nDigite a senha do PDF (ou deixe vazio para cancelar):');
+    if (!s) break;
+    const doc = await tentar(s.trim());
+    if (doc) { lembrarSenha(s.trim()); return { doc, senha: s.trim() }; }
+    alert('Senha errada, tente de novo.');
+  }
+  throw new Error('PDF protegido por senha — não foi possível abrir.');
+}
+/** Transforma as primeiras páginas do PDF em imagens JPEG (para a IA ler). */
+async function pdfParaImagens(doc, maxPag = 3){
+  const imgs = [];
+  for (let i = 1; i <= Math.min(doc.numPages, maxPag); i++) {
+    const pg = await doc.getPage(i);
+    const v1 = pg.getViewport({ scale: 1 });
+    const vp = pg.getViewport({ scale: Math.min(2.5, 1700 / v1.width) });
+    const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await pg.render({ canvasContext: ctx, viewport: vp }).promise;
+    imgs.push(await new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.85)));
+  }
+  return imgs;
+}
+
+// ══════════════════════════════════════════════════════════════
 // LEITURA PELA IA (usa o /api/chat que já existe no CRM)
 // ══════════════════════════════════════════════════════════════
 function lerArquivoBase64(blob){
@@ -177,22 +242,32 @@ const PROMPT_USUARIO = 'Leia este documento e devolva exatamente este JSON (use 
 async function lerComIA(file){
   let blob = file, tipo = file.type || '';
   const ehPdf = /pdf/i.test(tipo) || /\.pdf$/i.test(file.name || '');
-  if (!ehPdf) { blob = await reduzirImagem(file); tipo = 'image/jpeg'; }
-  if (blob.size > 3.2 * 1024 * 1024) throw new Error('Arquivo grande demais (máx. 3 MB). Tire um print só da parte do boleto.');
-  const b64 = await lerArquivoBase64(blob);
-  const bloco = ehPdf
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
-    : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } };
+  let blocos, senha = null;
+  if (ehPdf && await pdfEhProtegido(file)) {
+    // PDF com senha: abre aqui no navegador e manda as páginas como imagem para a IA
+    const r = await abrirPdfProtegido(file);
+    senha = r.senha || null;
+    const imgs = await pdfParaImagens(r.doc);
+    blocos = [];
+    for (const im of imgs) blocos.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await lerArquivoBase64(im) } });
+  } else {
+    if (!ehPdf) { blob = await reduzirImagem(file); tipo = 'image/jpeg'; }
+    if (blob.size > 3.2 * 1024 * 1024) throw new Error('Arquivo grande demais (máx. 3 MB). Tire um print só da parte do boleto.');
+    const b64 = await lerArquivoBase64(blob);
+    blocos = [ehPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+      : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }];
+  }
   const res = await fetch('/api/chat', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ system: PROMPT_SISTEMA, max_tokens: 1500, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT_USUARIO }] }] })
+    body: JSON.stringify({ system: PROMPT_SISTEMA, max_tokens: 1500, messages: [{ role: 'user', content: [...blocos, { type: 'text', text: PROMPT_USUARIO }] }] })
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error('A IA não conseguiu ler: ' + (data.error?.message || data.error || res.status));
   const txt = (data.content || []).map(c => c.text || '').join('').trim();
   const ini = txt.indexOf('{'), fim = txt.lastIndexOf('}');
   if (ini < 0 || fim < 0) throw new Error('A IA não devolveu os dados do boleto.');
-  return { dados: JSON.parse(txt.slice(ini, fim + 1)), blob, tipo, ehPdf };
+  return { dados: JSON.parse(txt.slice(ini, fim + 1)), blob, tipo, ehPdf, senha };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -331,7 +406,7 @@ function abrirModal(html){
 }
 function fecharModal(){ document.getElementById('bolModal')?.remove(); }
 
-let _arquivoAtual = null;   // {blob, tipo, ehPdf, nome}
+let _arquivoAtual = null;   // {blob, tipo, ehPdf, nome, senha}
 function escolherArquivo(){ document.getElementById('bolFile')?.click(); }
 async function arquivoEscolhido(inp){
   const file = inp.files && inp.files[0]; inp.value = '';
@@ -339,7 +414,7 @@ async function arquivoEscolhido(inp){
   abrirModal('<h3>🤖 Lendo o boleto...</h3><div style="color:var(--mut2);font-size:13px">A IA está lendo <b>' + esc(file.name || 'arquivo') + '</b>. Leva uns 10 a 20 segundos.</div>');
   try {
     const r = await lerComIA(file);
-    _arquivoAtual = { blob: r.blob, tipo: r.tipo, ehPdf: r.ehPdf, nome: file.name || (r.ehPdf ? 'boleto.pdf' : 'boleto.jpg') };
+    _arquivoAtual = { blob: r.blob, tipo: r.tipo, ehPdf: r.ehPdf, nome: file.name || (r.ehPdf ? 'boleto.pdf' : 'boleto.jpg'), senha: r.senha };
     const d = r.dados || {};
     formulario({
       beneficiario: d.beneficiario || '', cnpj: soDig(d.cnpj_beneficiario) || '', descricao: d.descricao || '',
@@ -375,7 +450,8 @@ function formulario(v, o){
     + '<label class="bol-f">Avisar no celular<select id="bf_avisar"><option value="1"' + (v.avisar === false ? '' : ' selected') + '>Sim (1 dia antes e no dia)</option><option value="0"' + (v.avisar === false ? ' selected' : '') + '>Não</option></select></label>'
     + '</div>';
   if (v.observacoes) h += '<div class="bol-msg warn">📝 ' + esc(v.observacoes) + '</div>';
-  if (_arquivoAtual) h += '<div style="font-size:11px;color:var(--mut2);margin-top:8px">📎 ' + esc(_arquivoAtual.nome) + ' será guardado junto.</div>';
+  if (_arquivoAtual) h += '<div style="font-size:11px;color:var(--mut2);margin-top:8px">📎 ' + esc(_arquivoAtual.nome) + ' será guardado junto' + (_arquivoAtual.senha ? ' (senha do PDF: ' + esc(_arquivoAtual.senha) + ')' : '') + '.</div>';
+  else h += '<label class="bol-f full" style="margin-top:10px">' + (v.arquivo_path ? '📎 Trocar o arquivo (já tem um anexado)' : '📎 Anexar o PDF ou foto (opcional)') + '<input type="file" id="bf_arq" accept="application/pdf,image/*"></label>';
   h += '<div class="bol-foot">'
     + (o.id ? '<button class="bol-btn r" style="margin-right:auto" onclick="Boletos.excluir(\'' + o.id + '\')">🗑 Excluir</button>' : '')
     + '<button class="bol-btn" onclick="Boletos.fechar()">Cancelar</button>'
@@ -428,6 +504,13 @@ async function salvar(id){
   if (linhaD && !analisarLinha(linhaD).ok && !confirm('A linha digitável não passou na conferência. Salvar assim mesmo?')) return;
   if (pix && !analisarPix(pix).ok && !confirm('O Pix copia e cola parece ter erro. Salvar assim mesmo?')) return;
   const btn = g('bf_salvar'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+  const arq = g('bf_arq') && g('bf_arq').files && g('bf_arq').files[0];
+  if (!_arquivoAtual && arq) {
+    const ehPdf = /pdf/i.test(arq.type || '') || /\.pdf$/i.test(arq.name || '');
+    let senha = null;
+    if (ehPdf) { try { if (await pdfEhProtegido(arq)) senha = (await abrirPdfProtegido(arq)).senha || null; } catch(e) {} }
+    _arquivoAtual = { blob: arq, tipo: arq.type || (ehPdf ? 'application/pdf' : 'image/jpeg'), ehPdf, nome: arq.name, senha };
+  }
   const corpo = {
     beneficiario: g('bf_benef').value.trim() || null, categoria: g('bf_cat').value, descricao: g('bf_desc').value.trim() || null,
     valor: Math.round(valor * 100) / 100, vencimento: venc, linha_digitavel: linhaD || null, pix_copia_cola: pix || null,
@@ -435,12 +518,12 @@ async function salvar(id){
   };
   try {
     if (_arquivoAtual) {
-      const ext = _arquivoAtual.ehPdf ? 'pdf' : 'jpg';
+      const ext = _arquivoAtual.ehPdf ? 'pdf' : ((_arquivoAtual.tipo || '').includes('png') ? 'png' : 'jpg');
       const path = 'boletos/' + venc.slice(0,7) + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now()) + '.' + ext;
       const up = await fetch(SUPA_URL + '/storage/v1/object/anexos/' + path, {
         method: 'POST', headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token(), 'Content-Type': _arquivoAtual.tipo || 'application/octet-stream', 'x-upsert': 'true'}, body: _arquivoAtual.blob });
       if (!up.ok) throw new Error('Falha ao guardar o arquivo: ' + (await up.text()));
-      corpo.arquivo_path = path; corpo.arquivo_nome = _arquivoAtual.nome;
+      corpo.arquivo_path = path; corpo.arquivo_nome = _arquivoAtual.nome; corpo.arquivo_senha = _arquivoAtual.senha || null;
     }
     if (id) await rest('contas_pagar?id=eq.' + id, 'PATCH', corpo, 'return=minimal');
     else { if (ST._ia) corpo.ia_bruto = ST._ia; await rest('contas_pagar', 'POST', corpo); }
@@ -504,6 +587,7 @@ async function desfazer(id){
 }
 async function verArquivo(id){
   const c = ST.lista.find(x => x.id === id); if (!c || !c.arquivo_path) return;
+  if (c.arquivo_senha) { aviso('🔑 Senha do PDF: ' + c.arquivo_senha); try { navigator.clipboard.writeText(c.arquivo_senha); } catch(e) {} }
   const w = window.open('', '_blank');
   try {
     const r = await fetch(SUPA_URL + '/storage/v1/object/anexos/' + c.arquivo_path, { headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token()} });
