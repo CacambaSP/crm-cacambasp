@@ -7209,7 +7209,11 @@ async function _caixaLancarFechamento(f){
 }
 async function _renderCaixa(){
   const el=document.getElementById('comissaoCaixa'); if(!el) return;
-  if(!_ehDonoCaixa()){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--mut2)">Acesso restrito.</div>'; return; }
+  if(!_ehDonoCaixa()){
+    // quem tem acesso só às Contas a pagar (ex.: Leticia) vê só a seção de boletos, sem o saldo do caixa
+    if(window.Boletos&&Boletos.ehDono()){ el.innerHTML='<div id="boletosHost"></div>'; Boletos.render('boletosHost',{aoMudar:_renderCaixa}); return; }
+    el.innerHTML='<div style="padding:30px;text-align:center;color:var(--mut2)">Acesso restrito.</div>'; return;
+  }
   el.innerHTML='<div style="padding:20px;color:var(--mut2);text-align:center">⏳ Carregando...</div>';
   let rows=[];
   try{ rows=await api('caixa_empresa?order=data.asc,id.asc',undefined,undefined,tok())||[]; }
@@ -7278,8 +7282,8 @@ async function caixaExcluir(id){
 
 function renderComissaoView(){
   _carregarComissoes();
-  const _dono=_ehDonoCaixa();
-  ['comTab_caixa','comMobTab_caixa'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=_dono?'':'none'; });
+  const _dono=_ehDonoCaixa(), _contas=!_dono&&!!(window.Boletos&&Boletos.ehDono());
+  ['comTab_caixa','comMobTab_caixa'].forEach(id=>{ const b=document.getElementById(id); if(b){ b.style.display=(_dono||_contas)?'':'none'; if(_contas) b.innerHTML='📄 Contas'; } });
   setComTab('fechamento');
   // Resumo mobile
   if(window.innerWidth<=700){
@@ -7300,7 +7304,7 @@ function renderComissaoView(){
 }
 
 function setComTab(tab){
-  if(tab==='caixa'&&!_ehDonoCaixa()) tab='fechamento';
+  if(tab==='caixa'&&!_ehDonoCaixa()&&!(window.Boletos&&Boletos.ehDono())) tab='fechamento';
   ['fechamento','hist','vales','config','caixa'].forEach(t=>{
     const btn = document.getElementById('comTab_'+t);
     if(btn) btn.className='btn btn-sm'+(tab===t?' btn-acc':'');

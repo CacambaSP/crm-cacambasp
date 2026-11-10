@@ -1,8 +1,8 @@
 /* ══════════════════════════════════════════════════════════════
-   BOLETOS — Contas a pagar da empresa (só o Douglas vê)
+   BOLETOS — Contas a pagar da empresa (Douglas + quem tiver perfis.acesso_contas)
    Usado pelo index.html (Comissões → Caixa) e pelo mobile2.html (Financeiro).
    Depende dos globais já existentes nos dois arquivos: SUPA_URL, SUPA_KEY, tok(), toast().
-   Tabela: contas_pagar (RLS caixa_eh_dono). Arquivos: bucket anexos, pasta boletos/.
+   Tabela: contas_pagar (RLS contas_pode_acessar). Arquivos: bucket anexos, pasta boletos/.
    Ao marcar pago → RPC conta_pagar_pagar lança a saída no caixa_empresa (origem 'boleto').
    ══════════════════════════════════════════════════════════════ */
 (function(){
@@ -22,8 +22,10 @@ const soDig = s => String(s || '').replace(/\D/g, '');
 const aviso = (m, t) => { try { toast(m, t || 'ok'); } catch(e) { console.log(m); } };
 const token = () => { try { return tok(); } catch(e) { return null; } };
 
+// Quem pode usar as Contas a pagar: o Douglas e quem tiver perfis.acesso_contas = true (ex.: Leticia).
+// O saldo do Caixa da empresa continua só do Douglas (isso é controlado no index.html / caixa_eh_dono).
 function ehDono(){
-  try { const p = (typeof _perfil !== 'undefined' && _perfil) || null; return !!(p && /^douglas/i.test(p.nome || '')); }
+  try { const p = (typeof _perfil !== 'undefined' && _perfil) || null; return !!(p && (p.acesso_contas === true || /^douglas/i.test(p.nome || ''))); }
   catch(e) { return false; }
 }
 
