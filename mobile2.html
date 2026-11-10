@@ -644,7 +644,7 @@ input,select,textarea,button{font-family:var(--font)}
   <!-- VIEW: ALERTAS -->
   <div class="view" id="view-alertas">
     <div style="padding:10px 14px 4px;font-size:12px;color:var(--mut2)" id="alertasSubtitle"></div>
-    <div class="scroll-area" id="alertasContent"></div>
+    <div class="scroll-area"><div id="boletosAlertaHostMob" style="padding:0 14px"></div><div id="alertasContent"></div></div>
   </div>
 
   <!-- VIEW: ORÇAMENTO GERADOR -->
@@ -5029,7 +5029,9 @@ function renderFinanceiro() {
       </div>`;
     });
   }
-  document.getElementById('finContent').innerHTML = h;
+  const _bolDono = window.Boletos && Boletos.ehDono();
+  document.getElementById('finContent').innerHTML = (_bolDono ? '<div id="boletosHostMob" style="padding:12px 14px 0"></div>' : '') + h;
+  if(_bolDono) Boletos.render('boletosHostMob');
 }
 
 // ── RENDER ALERTAS ── (S30 — 5 seções)
@@ -5037,6 +5039,7 @@ function renderAlertas(){
   setTopbar('Alertas','');
   const el = document.getElementById('alertasContent');
   if(!el) return;
+  if(window.Boletos) Boletos.alerta('boletosAlertaHostMob',"setView('financeiro')");
   const {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, fornNaoPago} = _atualizarAlertasBadge();
 
   const meuid = uid();
@@ -7415,5 +7418,6 @@ async function verificarNotifBtn() {
   if(btn) btn.style.display='flex';
 }
 </script>
+<script src="/boletos.js"></script>
 </body>
 </html>

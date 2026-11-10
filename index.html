@@ -1044,6 +1044,7 @@ input[type=checkbox]:checked::after{
               <button class="btn btn-sm" onclick="renderAlertas()" style="font-size:11px">🔄 Atualizar</button>
             </div>
           </div>
+          <div id="boletosAlertaHost"></div>
           <div id="alertasContent"></div>
         </div>
       </div>
@@ -7222,11 +7223,11 @@ async function _renderCaixa(){
     const v=parseFloat(r.valor)||0;
     if(r.origem==='reserva_imposto') o.res+=sinal(r)*v; else if(r.origem==='douglas_40') o.d40+=v; else if(r.tipo==='credito') o.man_e+=v; else o.sai+=v; });
   const dt=d=>d?String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4):'—';
-  const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual'};
+  const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual',boleto:'Boleto'};
   const hoje=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   const card=(l,v,c)=>'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:12px 14px"><div style="font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.4px">'+l+'</div><div style="font-size:20px;font-weight:800;font-family:var(--mono);color:'+c+'">R$ '+fmt(v)+'</div></div>';
   const inp='background:var(--card);border:1px solid var(--bor);border-radius:var(--rad3);padding:8px 10px;color:var(--txt);font-family:var(--font);outline:none';
-  let h='<div style="font-size:12px;color:var(--mut2);margin-bottom:12px">🔒 Só você vê esta conta. Entram automaticamente no fechamento do mês: os <b>40%</b> do lucro das suas OS e a <b>reserva de imposto</b> (11% da comissão − imposto real).</div>';
+  let h='<div id="boletosHost"></div><div style="font-size:12px;color:var(--mut2);margin-bottom:12px">🔒 Só você vê esta conta. Entram automaticamente no fechamento do mês: os <b>40%</b> do lucro das suas OS e a <b>reserva de imposto</b> (11% da comissão − imposto real).</div>';
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">'+card('Saldo',r2(ent-sai),r2(ent-sai)>=0?'var(--g)':'var(--r)')+card('Entradas',ent,'var(--g)')+card('Saídas',sai,'var(--r)')+'</div>';
   h+='<div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rad2);padding:14px;margin-bottom:16px">'
     +'<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Novo lançamento</div>'
@@ -7254,6 +7255,7 @@ async function _renderCaixa(){
           +'<td style="padding:6px;text-align:right">'+(r.origem==='manual'?'<button class="btn btn-sm" title="Excluir" onclick="caixaExcluir('+r.id+')">🗑</button>':'')+'</td></tr>'; }).join('')
       +'</tbody></table></div>';
   el.innerHTML=h;
+  if(window.Boletos) Boletos.render('boletosHost',{aoMudar:_renderCaixa});
 }
 async function caixaLancar(){
   if(!_ehDonoCaixa()) return;
@@ -14829,6 +14831,7 @@ function _atualizarAlertasBadge(){
 function renderAlertas(){
   const el = document.getElementById('alertasContent');
   if(!el) return;
+  if(window.Boletos) Boletos.alerta('boletosAlertaHost',"setViewMob('comissao');setTimeout(()=>setComTab('caixa'),200)");
   const {inadimp, criticos, orcPend, entregaConf, cobrPend} = _atualizarAlertasBadge();
 
   _popularFiltroVend('alertasFiltroVend');
@@ -15987,5 +15990,6 @@ function orcSelTipoPrazo(){
     <button class="bnb" style="height:64px;border:1px solid var(--bor);border-radius:10px" onclick="setViewMob('perfil');toggleBottomMenu()"><span class="bnb-ico">👤</span>Perfil</button>
   </div>
 </div>
+<script src="/boletos.js"></script>
 </body>
 </html>
