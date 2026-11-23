@@ -71,6 +71,9 @@ function resumo(lista){
 /** Faixa vermelha no card: só quando o cliente tem ordem em aberto há mais de 7 dias.
     Não aparece em ordem já paga (evita parecer que aquela ordem está devendo). */
 function badge(o, mobile){
+  /* 23/11/2026 — Douglas pediu: nada de faixa nos cartões do funil. O aviso de dívida
+     aparece só na hora do pedido (Nova Ordem / Duplicar / Atribuir Fornecedor). */
+  return '';
   if (!o || o.pago || o.cancel_motivo || o.col === 'orcamento' || o.col === 'concluido') return '';
   const r = resumo(doCliente(o.cel || o.wh, null));
   if (!r.vencCount) return '';
@@ -98,6 +101,8 @@ function painelPagamento(o, campoValor){
     wrap.insertAdjacentElement('beforebegin', box);
   }
   box.style.display = 'none'; box.innerHTML = '';
+  /* 23/11/2026 — desligado a pedido do Douglas: a janela de pagamento não lista mais as outras ordens em aberto. */
+  return;
   if (!o) return;
   const lista = doCliente(o.cel || o.wh, o.id);
   if (!lista.length) return;
