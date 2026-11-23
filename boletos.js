@@ -82,7 +82,12 @@ function analisarLinha(entrada){
   if (d.length === 47) {
     r.tipo = 'bancario';
     const c1 = d.slice(0,9), c2 = d.slice(10,20), c3 = d.slice(21,31);
-    if (mod10(c1) !== +d[9] || mod10(c2) !== +d[20] || mod10(c3) !== +d[31]) { r.erro = 'Algum número da linha digitável está errado (os dígitos de conferência não batem).'; return r; }
+    if (mod10(c1) !== +d[9] || mod10(c2) !== +d[20] || mod10(c3) !== +d[31]) {
+      r.erro = d[0] === '8'
+        ? 'Parece uma guia (DAS, DARF, conta de consumo), que tem 48 números — esta linha tem 47, está faltando um número.'
+        : 'Algum número da linha digitável está errado (os dígitos de conferência não batem).';
+      return r;
+    }
     const barras = d.slice(0,4) + d[32] + d.slice(33,47) + d.slice(4,9) + d.slice(10,20) + d.slice(21,31);
     if (mod11Bancario(barras.slice(0,4) + barras.slice(5)) !== +barras[4]) { r.erro = 'Dígito geral do boleto não confere.'; return r; }
     r.barras = barras;
@@ -267,7 +272,80 @@ async function lerComIA(file){
   const txt = (data.content || []).map(c => c.text || '').join('').trim();
   const ini = txt.indexOf('{'), fim = txt.lastIndexOf('}');
   if (ini < 0 || fim < 0) throw new Error('A IA não devolveu os dados do boleto.');
-  return { dados: JSON.parse(txt.slice(ini, fim + 1)), blob, tipo, ehPdf, senha };
+  return { dados: JSON.parse(txt.slice(ini, fim + 1)), blob, tipo, ehPdf, senha, blocos, original: file };
+}
+
+// ══════════════════════════════════════════════════════════════
+// RELEITURA DA LINHA DIGITÁVEL quando os números não batem
+// 1º) PDF: procura a linha direto no texto do PDF (não depende da leitura por imagem)
+// 2º) IA lê de novo só a linha, até 2 vezes, sabendo quais leituras estavam erradas
+// ══════════════════════════════════════════════════════════════
+async function linhaDoTextoPdf(file, senha, valor){
+  try {
+    const lib = await carregarPdfJs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), password: senha || '' }).promise;
+    const toks = [];
+    for (let i = 1; i <= Math.min(doc.numPages, 3); i++) {
+      const tc = await (await doc.getPage(i)).getTextContent();
+      tc.items.forEach(it => (String(it.str || '').match(/\d+/g) || []).forEach(t => toks.push(t)));
+    }
+    const achadas = [];
+    for (let i = 0; i < toks.length; i++) {
+      let s = '';
+      for (let j = i; j < toks.length && s.length < 48; j++) {
+        s += toks[j];
+        if ((s.length === 47 || s.length === 48) && analisarLinha(s).ok) { achadas.push(s); break; }
+      }
+    }
+    if (!achadas.length) return null;
+    // se tiver mais de uma, prefere a que tem o mesmo valor do boleto
+    const v = Number(valor) || 0;
+    return achadas.find(s => { const a = analisarLinha(s); return v && a.valor && Math.abs(a.valor - v) < 0.01; }) || achadas[0];
+  } catch(e) { return null; }
+}
+async function relerLinhaIA(blocos, erradas, erro){
+  const txt = 'Preciso SOMENTE da linha digitável deste documento. ' +
+    'Leitura(s) anterior(es), que estão ERRADAS: ' + erradas.map(x => '"' + x + '" (' + x.length + ' dígitos)').join(', ') + '. Motivo: ' + erro + '\n' +
+    'Lembre: guias de arrecadação (DAS, DARF, GPS, contas de água/luz/telefone — começam com 8) têm 48 dígitos em 4 grupos de 12 (11 números + 1 dígito verificador). Boleto bancário tem 47 dígitos.\n' +
+    'Leia de novo, grupo por grupo, devagar, conferindo cada número no documento. Não invente números. ' +
+    'Responda SOMENTE com JSON: {"grupos":["grupo 1","grupo 2","..."],"linha_digitavel":"todos os números juntos"}';
+  const res = await fetch('/api/chat', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ system: PROMPT_SISTEMA, max_tokens: 500, messages: [{ role: 'user', content: [...blocos, { type: 'text', text: txt }] }] })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) return null;
+  const t = (data.content || []).map(c => c.text || '').join('');
+  const ini = t.indexOf('{'), fim = t.lastIndexOf('}');
+  if (ini < 0 || fim < 0) return null;
+  try { const j = JSON.parse(t.slice(ini, fim + 1)); return soDig(j.linha_digitavel || (j.grupos || []).join('')) || null; } catch(e) { return null; }
+}
+/** Tenta consertar uma linha que não bateu. Devolve {linha, fonte:'pdf'|'ia'|null, falhou}. */
+async function consertarLinha(arq, linha, valor, progresso){
+  const a = analisarLinha(linha);
+  if (a.ok || !arq) return { linha, fonte: null, falhou: !a.ok };
+  if (arq.ehPdf && arq.original) {
+    progresso('🔎 A linha digitável não bateu. Procurando a linha direto no texto do PDF...');
+    const t = await linhaDoTextoPdf(arq.original, arq.senha, valor);
+    if (t) return { linha: t, fonte: 'pdf' };
+  }
+  if (!arq.blocos) return { linha, fonte: null, falhou: true };
+  const erradas = [linha]; let erro = a.erro;
+  for (let i = 1; i <= 2; i++) {
+    progresso('🔄 A linha digitável não bateu. A IA está lendo de novo (tentativa ' + i + ' de 2)...');
+    const nova = await relerLinhaIA(arq.blocos, erradas, erro).catch(() => null);
+    if (!nova) continue;
+    const b = analisarLinha(nova);
+    if (b.ok) return { linha: nova, fonte: 'ia', tentativa: i };
+    if (!erradas.includes(nova)) erradas.push(nova);
+    erro = b.erro;
+  }
+  return { linha, fonte: null, falhou: true };
+}
+function msgReleitura(r){
+  if (r.fonte === 'pdf') return ['ok', '🔄 A IA tinha lido a linha errada. Peguei a linha direto do texto do PDF e agora os números batem.'];
+  if (r.fonte === 'ia') return ['ok', '🔄 A IA tinha lido a linha errada. Ela leu de novo (tentativa ' + r.tentativa + ') e agora os números batem.'];
+  return ['err', '❌ Tentei ler a linha de novo' + (_arquivoAtual && _arquivoAtual.ehPdf ? ' (no texto do PDF e com a IA, 2 vezes)' : ' com a IA, 2 vezes') + ' e não bateu. Copie a linha do boleto e cole no campo abaixo.'];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -414,14 +492,22 @@ async function arquivoEscolhido(inp){
   abrirModal('<h3>🤖 Lendo o boleto...</h3><div style="color:var(--mut2);font-size:13px">A IA está lendo <b>' + esc(file.name || 'arquivo') + '</b>. Leva uns 10 a 20 segundos.</div>');
   try {
     const r = await lerComIA(file);
-    _arquivoAtual = { blob: r.blob, tipo: r.tipo, ehPdf: r.ehPdf, nome: file.name || (r.ehPdf ? 'boleto.pdf' : 'boleto.jpg'), senha: r.senha };
+    _arquivoAtual = { blob: r.blob, tipo: r.tipo, ehPdf: r.ehPdf, nome: file.name || (r.ehPdf ? 'boleto.pdf' : 'boleto.jpg'), senha: r.senha, blocos: r.blocos, original: r.original };
     const d = r.dados || {};
+    // linha digitável lida errada? tenta de novo antes de mostrar o formulário
+    let releitura = null;
+    if (soDig(d.linha_digitavel) && !analisarLinha(d.linha_digitavel).ok) {
+      const prog = m => { const el = document.getElementById('bolProg'); if (el) el.textContent = m; };
+      abrirModal('<h3>🤖 Lendo o boleto...</h3><div id="bolProg" style="color:var(--mut2);font-size:13px"></div>');
+      releitura = await consertarLinha(_arquivoAtual, soDig(d.linha_digitavel), d.valor, prog);
+      d.linha_digitavel = releitura.linha;
+    }
     formulario({
       beneficiario: d.beneficiario || '', cnpj: soDig(d.cnpj_beneficiario) || '', descricao: d.descricao || '',
       categoria: CATEGORIAS.includes(d.categoria) ? d.categoria : 'Outros',
       valor: d.valor != null ? Number(d.valor) : '', vencimento: /^\d{4}-\d{2}-\d{2}$/.test(d.vencimento || '') ? d.vencimento : '',
       linha_digitavel: soDig(d.linha_digitavel), pix_copia_cola: (d.pix_copia_cola || '').trim(), observacoes: d.observacoes || ''
-    }, { ia: d, titulo: '🤖 Lido pela IA — confira antes de salvar' });
+    }, { ia: d, titulo: '🤖 Lido pela IA — confira antes de salvar', releitura });
   } catch(e) {
     _arquivoAtual = null;
     abrirModal('<h3>Não deu para ler</h3><div class="bol-msg err">' + esc(e.message) + '</div><div style="font-size:13px;color:var(--mut2)">Você pode tentar outra foto (mais nítida, só o boleto) ou digitar os dados.</div>'
@@ -447,7 +533,7 @@ function formulario(v, o){
     + '<label class="bol-f full">Linha digitável / código de barras<textarea id="bf_linha" rows="2" placeholder="Cole aqui (só números ou com pontos)" oninput="Boletos.checar()">' + esc(v.linha_digitavel ? formatarLinha(v.linha_digitavel) : '') + '</textarea></label>'
     + '<label class="bol-f full">Pix copia e cola (se tiver)<textarea id="bf_pix" rows="2" placeholder="00020126..." oninput="Boletos.checar()">' + esc(v.pix_copia_cola || '') + '</textarea></label>'
     + '<label class="bol-f">CNPJ do beneficiário<input id="bf_cnpj" inputmode="numeric" value="' + esc(v.cnpj || '') + '"></label>'
-    + '<label class="bol-f">Avisar no celular<select id="bf_avisar"><option value="1"' + (v.avisar === false ? '' : ' selected') + '>Sim (1 dia antes e no dia)</option><option value="0"' + (v.avisar === false ? ' selected' : '') + '>Não</option></select></label>'
+    + '<label class="bol-f">Avisar no celular<select id="bf_avisar"><option value="1"' + (v.avisar === false ? '' : ' selected') + '>Sim (2 dias antes e todo dia até pagar)</option><option value="0"' + (v.avisar === false ? ' selected' : '') + '>Não</option></select></label>'
     + '</div>';
   if (v.observacoes) h += '<div class="bol-msg warn">📝 ' + esc(v.observacoes) + '</div>';
   if (_arquivoAtual) h += '<div style="font-size:11px;color:var(--mut2);margin-top:8px">📎 ' + esc(_arquivoAtual.nome) + ' será guardado junto' + (_arquivoAtual.senha ? ' (senha do PDF: ' + esc(_arquivoAtual.senha) + ')' : '') + '.</div>';
@@ -458,6 +544,19 @@ function formulario(v, o){
     + '<button class="bol-btn acc" id="bf_salvar" onclick="Boletos.salvar(' + (o.id ? '\'' + o.id + '\'' : 'null') + ')">💾 Salvar conta</button></div>';
   abrirModal(h);
   ST._ia = o.ia || null;
+  ST._releitura = o.releitura || null;
+  checar(true);
+}
+
+/** Botão "Tentar ler de novo" (aparece quando a linha não bate e o arquivo ainda está aberto). */
+async function relerAgora(){
+  const box = document.getElementById('bolChecks'), ta = document.getElementById('bf_linha');
+  if (!box || !ta || !_arquivoAtual) return;
+  const prog = m => { box.innerHTML = '<div class="bol-msg warn">' + esc(m) + '</div>'; };
+  const r = await consertarLinha(_arquivoAtual, soDig(ta.value), parseFloat(document.getElementById('bf_valor')?.value) || null, prog);
+  if (!document.getElementById('bf_linha')) return;   // modal foi fechado no meio
+  if (r.fonte) ta.value = formatarLinha(r.linha);
+  ST._releitura = r;
   checar(true);
 }
 
@@ -467,9 +566,11 @@ function checar(primeira){
   const msgs = [];
   const linha = document.getElementById('bf_linha').value, pix = document.getElementById('bf_pix').value;
   const elV = document.getElementById('bf_valor'), elD = document.getElementById('bf_venc');
+  if (primeira && ST._releitura) { msgs.push(msgReleitura(ST._releitura)); ST._releitura = null; }
   if (soDig(linha)) {
     const a = analisarLinha(linha);
-    if (!a.ok) msgs.push(['err', '❌ ' + a.erro + ' Confira com o papel antes de pagar.']);
+    if (!a.ok) msgs.push(['err', '❌ ' + a.erro + ' Confira com o papel antes de pagar.'
+      + (_arquivoAtual && _arquivoAtual.blocos ? ' <button class="bol-btn" style="margin-left:6px" onclick="Boletos.relerAgora()">🤖 Tentar ler de novo</button>' : '')]);
     else {
       msgs.push(['ok', '✅ Linha digitável conferida (os números batem).']);
       if (a.valor) {
@@ -627,7 +728,7 @@ async function alerta(hostId, irPara){
 }
 
 window.Boletos = {
-  ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar,
+  ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar, relerAgora,
   copiar, agendar, desagendar, pagar, desfazer, verArquivo, togglePagos, fechar: fecharModal,
   _teste: { analisarLinha, analisarPix, fatorParaData, formatarLinha, crc16 }
 };
