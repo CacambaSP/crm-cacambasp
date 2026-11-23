@@ -3288,6 +3288,7 @@ function cardHTML(c,color){
     ${orfaConcluida?`<div style="font-size:9px;color:#ef4444;font-weight:700;margin-bottom:3px">🚩 Concluída sem valor e sem fornecedor — revisar</div>`:''}
     ${bloq?`<div style="font-size:9px;color:#fff;font-weight:800;margin-bottom:3px;background:#dc2626;padding:2px 6px;border-radius:4px;display:inline-block">🚫 CLIENTE BLOQUEADO — ${bloq.motivo||'ver histórico'}</div>`:''}
     ${window.Creditos?Creditos.badge(c):''}
+    ${window.Pendencias?Pendencias.badge(c):''}
     ${c.nf_num?`<div style="font-size:9px;color:var(--g);font-weight:700;padding-right:28px;margin-bottom:2px">NF ${c.nf_num}</div>`:''}
     ${c.desconta_iss&&c.col!=='orcamento'&&c.col!=='concluido'&&!c.pago?`<div title="Cliente retém o ISS — cobrança sai com o valor líquido" style="display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-bottom:2px;color:#f97316;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)">🏛️ ISS retido</div>`:''}
     ${!(parseFloat(c.rec||0)>0)&&c.col!=='orcamento'&&c.col!=='concluido'?`<div style="font-size:9px;color:var(--r);font-weight:700;margin-bottom:2px">⚠️ Valor do cliente não informado</div>`:''}
@@ -4182,7 +4183,7 @@ function _pendenciasCliente(cel, excludeId){
 function _pendenciaAvisoHTML(cel, excludeId){
   const p=_pendenciasCliente(cel, excludeId);
   if(!p.count) return '';
-  return `<div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad3);padding:9px 12px;font-size:12px;color:var(--r)">⚠️ Este cliente tem <strong>${p.count} ordem${p.count>1?'s':''} em aberto</strong> — total <strong>R$ ${fmt(p.total)}</strong>. Você pode continuar mesmo assim.</div>`;
+  return `<div style="background:var(--r2);border:1px solid var(--r3);border-radius:var(--rad3);padding:9px 12px;font-size:12px;color:var(--r)">⚠️ Este cliente tem <strong>${p.count} ordem${p.count>1?'s':''} em aberto</strong> — total <strong>R$ ${fmt(p.total)}</strong>${window.Pendencias?Pendencias.detalhe(p.lista):''}. Você pode continuar mesmo assim.</div>`;
 }
 
 // ── AVISO INADIMPLENTE ──
@@ -4204,7 +4205,7 @@ function verificarInadimplente(cel){
     if(devedoras.length){
       const total=devedoras.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
       avisoEl.style.display='block';
-      avisoEl.innerHTML='⚠️ Este cliente tem <strong>'+devedoras.length+' ordem'+(devedoras.length>1?'ns':'')+' em aberto</strong> — total <strong>R$ '+fmt(total)+'</strong>. Você pode continuar mesmo assim.';
+      avisoEl.innerHTML='⚠️ Este cliente tem <strong>'+devedoras.length+' ordem'+(devedoras.length>1?'ns':'')+' em aberto</strong> — total <strong>R$ '+fmt(total)+'</strong>'+(window.Pendencias?Pendencias.detalhe(devedoras):'')+'. Você pode continuar mesmo assim.';
     }else{avisoEl.style.display='none';}
   }
   // Preencher nome automaticamente se campo vazio
@@ -5832,6 +5833,7 @@ function openPagarCli(callback){
   document.getElementById('pc_tipo_parcial').className='btn';
   _pagarCliCallback=!!callback;
   openModal('pagarCliModal');
+  if(window.Pendencias) Pendencias.painelPagamento(c,'pc_val');
   if(window.Creditos) Creditos.painelPagamento(c,{val:'pc_val',obs:'pc_obs'});
 }
 async function salvarPagoCli(){
@@ -16002,5 +16004,6 @@ function orcSelTipoPrazo(){
 </div>
 <script src="/boletos.js"></script>
 <script src="/creditos.js"></script>
+<script src="/pendencias.js"></script>
 </body>
 </html>
