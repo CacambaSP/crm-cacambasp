@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════
    PENDÊNCIAS DO CLIENTE — ordens em aberto (não pagas)
    Mostra o que o cliente deve, com destaque para o que está vencido há mais de 7 dias:
-     • faixa vermelha no card de todas as ordens do cliente (só quando há ordem com +7 dias);
+     • faixa vermelha nos cards ainda não pagos do cliente (só quando há ordem com +7 dias);
      • lista das outras ordens em aberto na janela de registrar pagamento;
      • detalhe "sendo N vencidas há +7 dias" nos avisos de pedido novo, duplicar e fornecedor.
    Valor = o que o cliente paga (com os R$ 40 da NF e o desconto de ISS retido, quando houver).
@@ -68,12 +68,13 @@ function resumo(lista){
   };
 }
 
-/** Faixa vermelha no card: só quando o cliente tem ordem em aberto há mais de 7 dias. */
+/** Faixa vermelha no card: só quando o cliente tem ordem em aberto há mais de 7 dias.
+    Não aparece em ordem já paga (evita parecer que aquela ordem está devendo). */
 function badge(o, mobile){
-  if (!o || o.cancel_motivo || o.col === 'orcamento') return '';
+  if (!o || o.pago || o.cancel_motivo || o.col === 'orcamento' || o.col === 'concluido') return '';
   const r = resumo(doCliente(o.cel || o.wh, null));
   if (!r.vencCount) return '';
-  const txt = '⚠️ DEVE ' + brl(r.vencTotal) + ' · ' + r.vencCount + (r.vencCount > 1 ? ' ordens' : ' ordem') + ' há +' + LIMITE + ' dias';
+  const txt = '⚠️ CLIENTE DEVE ' + brl(r.vencTotal) + ' · ' + r.vencCount + (r.vencCount > 1 ? ' ordens' : ' ordem') + ' há +' + LIMITE + ' dias';
   return mobile
     ? '<div style="margin:4px 14px 0 28px;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:800;text-align:center;color:#ef4444;background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.4)">' + txt + '</div>'
     : '<div style="font-size:9px;color:#fff;font-weight:800;margin-bottom:3px;background:#dc2626;padding:2px 6px;border-radius:4px;display:inline-block">' + txt + '</div>';
