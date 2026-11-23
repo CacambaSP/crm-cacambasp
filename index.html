@@ -5577,7 +5577,7 @@ function abrirDuplicarOrdem(){
     `💰 Receita: R$ ${fmt(c.rec||0)} · Custo: R$ ${fmt(c.cst||0)}`;
   const dupAvisoEl = document.getElementById('dup_pendencia_aviso');
   if(dupAvisoEl){
-    const avisoHtml = _pendenciaAvisoHTML(c.cel, null);
+    const avisoHtml = _pendenciaAvisoHTML(c.cel, null) + (window.Creditos ? Creditos.avisoHTML(c) : '');
     dupAvisoEl.innerHTML = avisoHtml;
     dupAvisoEl.style.display = avisoHtml ? 'block' : 'none';
   }
@@ -5832,6 +5832,7 @@ function openPagarCli(callback){
   document.getElementById('pc_tipo_parcial').className='btn';
   _pagarCliCallback=!!callback;
   openModal('pagarCliModal');
+  if(window.Creditos) Creditos.painelPagamento(c,{val:'pc_val',obs:'pc_obs'});
 }
 async function salvarPagoCli(){
   const c=ordens.find(x=>x.id===_detailId);if(!c)return;
@@ -5859,6 +5860,7 @@ async function salvarPagoCli(){
       setSyncDot('sync');
       await api('ordens?id=eq.'+c.id,'PATCH',{pago:c.pago||false,pago_em:c.pago_em||null,pago_valor:c.pago_valor||null,pago_obs:c.pago_obs,col:c.col,pago_parcial_valor:c.pago_parcial_valor,pago_parcial_data:c.pago_parcial_data},tok());
       setSyncDot('ok');addLog(c.id,'Parcial','R$ '+fmt(val)+' recebido');
+      if(window.Creditos) Creditos.aplicarPagamento(c,val);
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }else{
     c.pago=true;c.pago_em=pagoEmISO;c.pago_valor=val;c.pago_obs=obs;
@@ -5870,6 +5872,7 @@ async function salvarPagoCli(){
       await api('ordens?id=eq.'+c.id,'PATCH',{pago:true,pago_em:c.pago_em,pago_valor:val,pago_obs:obs,col:c.col},tok());
       setSyncDot('ok');toast(c.col==='baixar'?'✅ Tudo pago — ordem arquivada! 🎉':'✅ Pagamento confirmado!');
       addLog(c.id,'Pago','R$ '+fmt(val)+(obs?' – '+obs:''));
+      if(window.Creditos) Creditos.aplicarPagamento(c,val);
     }catch(e){setSyncDot('err');toast('Erro ao salvar','err');}
   }
 }
