@@ -9,7 +9,7 @@
 'use strict';
 
 const CATEGORIAS = ['Impostos','Energia','Água','Telefone/Internet','Aluguel','Contabilidade','Fornecedor','Marketing/Anúncios','Sistemas/Assinaturas','Cartão de crédito','Funcionários','Outros'];
-const ST = { lista: [], carregado: false, hostId: null, opts: {}, verPagos: false };
+const ST = { lista: [], carregado: false, hostId: null, opts: {}, verPagos: false, verFuturos: false };
 
 // ── utilitários ──
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -444,11 +444,28 @@ function desenhar(){
      + '<input type="file" id="bolFile" accept="application/pdf,image/*" style="display:none" onchange="Boletos.arquivoEscolhido(this)"></div>';
   h += '<div class="bol-chips">' + chip('Vencidos', venc, 'var(--r)') + chip('Próx. 7 dias', prox, 'var(--acc)') + chip('Agendados', agend, 'var(--b)') + chip('Pagos no mês', pagasMes, 'var(--g)') + (semComp.length ? chip('Sem comprovante', semComp, 'var(--r)') : '') + '</div>';
   if (!abertas.length && !semComp.length) h += '<div style="padding:18px;text-align:center;color:var(--mut2);font-size:13px;border:1px dashed var(--bor);border-radius:var(--rad3)">Nenhuma conta em aberto. Toque em <b>Enviar boleto</b> e mande o PDF ou a foto: a IA preenche tudo.</div>';
-  abertas.forEach(c => { h += linha(c); });
+  // Compactação: à vista só o que importa agora (este mês ou próximos 7 dias + vencidas + sem comprovante).
+  // Meses seguintes e pagas ficam recolhidos, agrupados por mês.
+  const refData = c => c.status === 'agendado' ? (c.data_agendada || c.vencimento) : c.vencimento;
+  const fimMes = somaDias(hoje().slice(0,8) + '01', 40).slice(0,8) + '01';   // 1º dia do mês seguinte
+  const corte = somaDias(hoje(), 7) >= fimMes ? somaDias(hoje(), 8) : fimMes; // vê até o fim do mês ou 7 dias à frente
+  const agora = abertas.filter(c => refData(c) < corte), futuras = abertas.filter(c => refData(c) >= corte);
   semComp.forEach(c => { h += linha(c); });   // pagas sem comprovante ficam sempre à vista até anexar
+  agora.forEach(c => { h += linha(c); });
+  if (!agora.length && !semComp.length && futuras.length) h += '<div style="padding:10px 0;color:var(--mut2);font-size:12px;border-top:1px solid var(--bor)">Nada vencendo este mês. 🎉</div>';
+  const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const nomeMes = ym => MESES[+ym.slice(5,7) - 1] + '/' + ym.slice(0,4);
+  const porMes = (arr, campo) => { const g = {}; arr.forEach(c => { const k = (campo(c) || '').slice(0,7); (g[k] = g[k] || []).push(c); }); return g; };
+  const grupo = (titulo, arr) => '<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 2px">' + titulo + ' — ' + arr.length + ' · ' + brl(soma(arr)) + '</div>';
+  const botao = (fn, aberto, txt) => '<div style="margin-top:8px"><button class="bol-btn" style="width:100%;text-align:left" onclick="Boletos.' + fn + '()">' + (aberto ? '▼ ' : '▶ ') + txt + '</button></div>';
+  if (futuras.length) {
+    h += botao('toggleFuturos', ST.verFuturos, 'Próximos meses — ' + futuras.length + (futuras.length > 1 ? ' contas' : ' conta') + ' · ' + brl(soma(futuras)));
+    if (ST.verFuturos) { const g = porMes(futuras, refData); Object.keys(g).sort().forEach(k => { h += grupo(nomeMes(k), g[k]); g[k].forEach(c => { h += linha(c); }); }); }
+  }
   if (pagasOk.length) {
-    h += '<div style="margin-top:8px"><button class="bol-btn" style="width:100%" onclick="Boletos.togglePagos()">' + (ST.verPagos ? '▲ Esconder' : '▼ Ver') + ' pagas recentes (' + pagasOk.length + ')</button></div>';
-    if (ST.verPagos) pagasOk.forEach(c => { h += linha(c); });
+    const doMes = pagasOk.filter(c => (c.data_pagamento || '').startsWith(mes)), antes = pagasOk.length - doMes.length;
+    h += botao('togglePagos', ST.verPagos, 'Pagas — ' + nomeMes(mes) + ' (' + doMes.length + ') · meses anteriores (' + antes + ')');
+    if (ST.verPagos) { const g = porMes(pagasOk, c => c.data_pagamento); Object.keys(g).sort().reverse().forEach(k => { h += grupo('Pagas em ' + nomeMes(k), g[k]); g[k].forEach(c => { h += linha(c); }); }); }
   }
   h += '</div>';
   el.innerHTML = h;
@@ -760,6 +777,7 @@ async function abrirAnexo(path){
   } catch(e) { if (w) w.close(); aviso('Erro ao abrir arquivo: ' + e.message, 'err'); }
 }
 function togglePagos(){ ST.verPagos = !ST.verPagos; desenhar(); }
+function toggleFuturos(){ ST.verFuturos = !ST.verFuturos; desenhar(); }
 async function atualizar(){
   ST.ts = 0;   // força buscar de novo
   if (typeof ST.opts.aoMudar === 'function') { try { await ST.opts.aoMudar(); return; } catch(e) {} }
@@ -797,7 +815,7 @@ async function alerta(hostId, irPara){
 
 window.Boletos = {
   ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar, relerAgora,
-  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, anexarComprovante, togglePagos, fechar: fecharModal,
+  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, anexarComprovante, togglePagos, toggleFuturos, fechar: fecharModal,
   _teste: { analisarLinha, analisarPix, fatorParaData, formatarLinha, crc16 }
 };
 })();
