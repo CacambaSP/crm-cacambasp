@@ -353,11 +353,12 @@ function msgReleitura(r){
 // ══════════════════════════════════════════════════════════════
 async function carregar(){
   const desde = somaDias(hoje(), -60);
-  ST.lista = await rest('contas_pagar?select=*&or=(status.in.(pendente,agendado),and(status.eq.pago,data_pagamento.gte.' + desde + '))&order=vencimento.asc') || [];
+  ST.lista = await rest('contas_pagar?select=*&or=(status.in.(pendente,agendado),and(status.eq.pago,data_pagamento.gte.' + desde + '),and(status.eq.pago,comprovante_path.is.null))&order=vencimento.asc') || [];
   ST.carregado = true; ST.ts = Date.now();
   return ST.lista;
 }
 function situacao(c){
+  if (c.status === 'pago' && !c.comprovante_path) return { cor: 'var(--r)', fundo: 'var(--r2)', txt: '📎 Falta comprovante · pago ' + dtBR(c.data_pagamento).slice(0,5) };
   if (c.status === 'pago') return { cor: 'var(--g)', fundo: 'var(--g2)', txt: 'Pago ' + dtBR(c.data_pagamento).slice(0,5) };
   if (c.status === 'agendado') return { cor: 'var(--b)', fundo: 'var(--b2)', txt: 'Agendado ' + dtBR(c.data_agendada || c.vencimento).slice(0,5) };
   const n = diasAte(c.vencimento);
@@ -427,6 +428,7 @@ function desenhar(){
   const el = document.getElementById(ST.hostId); if (!el) return;
   const abertas = ST.lista.filter(c => c.status === 'pendente' || c.status === 'agendado');
   const pagas = ST.lista.filter(c => c.status === 'pago').sort((a,b) => (b.data_pagamento||'').localeCompare(a.data_pagamento||''));
+  const semComp = pagas.filter(c => !c.comprovante_path), pagasOk = pagas.filter(c => c.comprovante_path);
   const pend = abertas.filter(c => c.status === 'pendente');
   const venc = pend.filter(c => diasAte(c.vencimento) < 0);
   const prox = pend.filter(c => { const n = diasAte(c.vencimento); return n >= 0 && n <= 7; });
@@ -440,12 +442,13 @@ function desenhar(){
      + '<button class="bol-btn" onclick="Boletos.novoManual()">⌨️ Digitar</button>'
      + '<button class="bol-btn acc" onclick="Boletos.escolherArquivo()">📤 Enviar boleto</button>'
      + '<input type="file" id="bolFile" accept="application/pdf,image/*" style="display:none" onchange="Boletos.arquivoEscolhido(this)"></div>';
-  h += '<div class="bol-chips">' + chip('Vencidos', venc, 'var(--r)') + chip('Próx. 7 dias', prox, 'var(--acc)') + chip('Agendados', agend, 'var(--b)') + chip('Pagos no mês', pagasMes, 'var(--g)') + '</div>';
-  if (!abertas.length) h += '<div style="padding:18px;text-align:center;color:var(--mut2);font-size:13px;border:1px dashed var(--bor);border-radius:var(--rad3)">Nenhuma conta em aberto. Toque em <b>Enviar boleto</b> e mande o PDF ou a foto: a IA preenche tudo.</div>';
+  h += '<div class="bol-chips">' + chip('Vencidos', venc, 'var(--r)') + chip('Próx. 7 dias', prox, 'var(--acc)') + chip('Agendados', agend, 'var(--b)') + chip('Pagos no mês', pagasMes, 'var(--g)') + (semComp.length ? chip('Sem comprovante', semComp, 'var(--r)') : '') + '</div>';
+  if (!abertas.length && !semComp.length) h += '<div style="padding:18px;text-align:center;color:var(--mut2);font-size:13px;border:1px dashed var(--bor);border-radius:var(--rad3)">Nenhuma conta em aberto. Toque em <b>Enviar boleto</b> e mande o PDF ou a foto: a IA preenche tudo.</div>';
   abertas.forEach(c => { h += linha(c); });
-  if (pagas.length) {
-    h += '<div style="margin-top:8px"><button class="bol-btn" style="width:100%" onclick="Boletos.togglePagos()">' + (ST.verPagos ? '▲ Esconder' : '▼ Ver') + ' pagas recentes (' + pagas.length + ')</button></div>';
-    if (ST.verPagos) pagas.forEach(c => { h += linha(c); });
+  semComp.forEach(c => { h += linha(c); });   // pagas sem comprovante ficam sempre à vista até anexar
+  if (pagasOk.length) {
+    h += '<div style="margin-top:8px"><button class="bol-btn" style="width:100%" onclick="Boletos.togglePagos()">' + (ST.verPagos ? '▲ Esconder' : '▼ Ver') + ' pagas recentes (' + pagasOk.length + ')</button></div>';
+    if (ST.verPagos) pagasOk.forEach(c => { h += linha(c); });
   }
   h += '</div>';
   el.innerHTML = h;
@@ -461,6 +464,9 @@ function linha(c){
       : '<button class="bol-btn" onclick="Boletos.agendar(\'' + c.id + '\')">📅 Agendar</button>';
     acts += '<button class="bol-btn g" onclick="Boletos.pagar(\'' + c.id + '\')">✅ Pago</button>';
   } else {
+    acts += c.comprovante_path
+      ? '<button class="bol-btn g" onclick="Boletos.verComprovante(\'' + c.id + '\')">🧾 Comprovante</button>'
+      : '<button class="bol-btn acc" onclick="Boletos.anexarComprovante(\'' + c.id + '\')">📎 Anexar comprovante</button>';
     acts += '<button class="bol-btn" onclick="Boletos.desfazer(\'' + c.id + '\')">↩️ Desfazer</button>';
   }
   if (c.arquivo_path) acts += '<button class="bol-btn" title="Ver arquivo" onclick="Boletos.verArquivo(\'' + c.id + '\')">📎</button>';
@@ -676,22 +682,78 @@ async function desagendar(id){
 }
 function pagar(id){
   const c = ST.lista.find(x => x.id === id); if (!c) return;
-  pedirData('✅ Marcar como pago', '<b>' + esc(c.beneficiario || '') + '</b> · ' + brl(c.valor) + '<br>Vai entrar como <b>saída</b> no Caixa da empresa.',
-    (c.status === 'agendado' && c.data_agendada) ? c.data_agendada : hoje(), 'Data do pagamento',
-    async d => { await rest('rpc/conta_pagar_pagar', 'POST', { p_id: id, p_data: d }, 'return=minimal'); aviso('✅ Pago e lançado no Caixa'); });
+  const padrao = (c.status === 'agendado' && c.data_agendada && c.data_agendada <= hoje()) ? c.data_agendada : hoje();
+  abrirModal('<h3>✅ Marcar como pago</h3><div style="font-size:13px;color:var(--mut2);margin-bottom:10px"><b>' + esc(c.beneficiario || '') + '</b> · ' + brl(c.valor) + '<br>Vai entrar como <b>saída</b> no Caixa da empresa.</div>'
+    + '<div class="bol-grid"><label class="bol-f">Data do pagamento<input type="date" id="bf_data" value="' + padrao + '"></label>'
+    + '<label class="bol-f">Comprovante (PDF ou foto)<input type="file" id="bf_comp" accept="application/pdf,image/*"></label></div>'
+    + '<div style="font-size:11px;color:var(--mut2);margin-top:8px">Sem o comprovante agora? Use <b>Anexar depois</b>: a baixa é feita, mas vou cobrar todo dia até anexar.</div>'
+    + '<div class="bol-foot"><button class="bol-btn" onclick="Boletos.fechar()">Cancelar</button>'
+    + '<button class="bol-btn" id="bf_depois">⏰ Anexar depois</button>'
+    + '<button class="bol-btn acc" id="bf_ok">✅ Confirmar com comprovante</button></div>');
+  const go = async comArquivo => {
+    const d = document.getElementById('bf_data').value; if (!d) { aviso('Informe a data', 'warn'); return; }
+    if (d > hoje()) { aviso('A data do pagamento não pode ser no futuro. Se ainda vai pagar, use Agendar.', 'warn'); return; }
+    const arq = document.getElementById('bf_comp').files[0];
+    if (comArquivo && !arq) { aviso('Escolha o arquivo do comprovante — ou use "Anexar depois"', 'warn'); return; }
+    const bOk = document.getElementById('bf_ok'), bDp = document.getElementById('bf_depois');
+    bOk.disabled = bDp.disabled = true; (comArquivo ? bOk : bDp).textContent = '⏳...';
+    try { await rest('rpc/conta_pagar_pagar', 'POST', { p_id: id, p_data: d }, 'return=minimal'); }
+    catch(e) { aviso('Erro: ' + e.message, 'err'); bOk.disabled = bDp.disabled = false; bOk.textContent = '✅ Confirmar com comprovante'; bDp.textContent = '⏰ Anexar depois'; return; }
+    if (comArquivo) {
+      try { await gravarComprovante(id, arq); aviso('✅ Pago, lançado no Caixa e comprovante guardado'); }
+      catch(e) { aviso('Pago e lançado no Caixa, mas o comprovante não subiu (' + e.message + '). Anexe de novo pelo botão 📎.', 'err'); }
+    } else aviso('✅ Pago e lançado no Caixa. Falta o comprovante — vou cobrar todo dia até anexar.', 'warn');
+    fecharModal(); await atualizar();
+  };
+  document.getElementById('bf_ok').onclick = () => go(true);
+  document.getElementById('bf_depois').onclick = () => go(false);
+}
+async function gravarComprovante(id, arq){
+  const ehPdf = /pdf/i.test(arq.type || '') || /\.pdf$/i.test(arq.name || '');
+  let blob = arq, tipo = arq.type || (ehPdf ? 'application/pdf' : 'image/jpeg');
+  if (!ehPdf) { try { blob = await reduzirImagem(arq); tipo = 'image/jpeg'; } catch(e) {} }
+  const ext = ehPdf ? 'pdf' : (tipo.includes('png') ? 'png' : 'jpg');
+  const path = 'boletos/comprovantes/' + hoje().slice(0,7) + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now()) + '.' + ext;
+  const up = await fetch(SUPA_URL + '/storage/v1/object/anexos/' + path, {
+    method: 'POST', headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token(), 'Content-Type': tipo, 'x-upsert': 'true'}, body: blob });
+  if (!up.ok) throw new Error('falha ao guardar o arquivo');
+  await rest('contas_pagar?id=eq.' + id, 'PATCH', { comprovante_path: path, comprovante_nome: arq.name || ('comprovante.' + ext), comprovante_em: new Date().toISOString() }, 'return=minimal');
+}
+function anexarComprovante(id){
+  const c = ST.lista.find(x => x.id === id); if (!c) return;
+  abrirModal('<h3>📎 Anexar comprovante</h3><div style="font-size:13px;color:var(--mut2);margin-bottom:10px"><b>' + esc(c.beneficiario || '') + '</b> · ' + brl(c.valor) + ' · pago em ' + dtBR(c.data_pagamento) + '</div>'
+    + '<label class="bol-f">Comprovante (PDF ou foto)<input type="file" id="bf_comp" accept="application/pdf,image/*"></label>'
+    + '<div class="bol-foot"><button class="bol-btn" onclick="Boletos.fechar()">Cancelar</button><button class="bol-btn acc" id="bf_ok">📎 Guardar comprovante</button></div>');
+  document.getElementById('bf_ok').onclick = async () => {
+    const arq = document.getElementById('bf_comp').files[0]; if (!arq) { aviso('Escolha o arquivo do comprovante', 'warn'); return; }
+    const b = document.getElementById('bf_ok'); b.disabled = true; b.textContent = '⏳ Enviando...';
+    try { await gravarComprovante(id, arq); fecharModal(); aviso('✅ Comprovante guardado'); await atualizar(); }
+    catch(e) { aviso('Erro: ' + e.message, 'err'); b.disabled = false; b.textContent = '📎 Guardar comprovante'; }
+  };
 }
 async function desfazer(id){
   const c = ST.lista.find(x => x.id === id); if (!c) return;
-  if (!confirm('Desfazer o pagamento de "' + (c.beneficiario || '') + '"? A saída de ' + brl(c.valor) + ' sai do Caixa da empresa.')) return;
-  try { await rest('rpc/conta_pagar_desfazer', 'POST', { p_id: id }, 'return=minimal'); aviso('Pagamento desfeito'); await atualizar(); }
+  if (!confirm('Desfazer o pagamento de "' + (c.beneficiario || '') + '"? A saída de ' + brl(c.valor) + ' sai do Caixa da empresa' + (c.comprovante_path ? ' e o comprovante anexado é apagado' : '') + '.')) return;
+  try {
+    await rest('rpc/conta_pagar_desfazer', 'POST', { p_id: id }, 'return=minimal');
+    if (c.comprovante_path) fetch(SUPA_URL + '/storage/v1/object/anexos/' + c.comprovante_path, { method: 'DELETE', headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token()} }).catch(() => {});
+    aviso('Pagamento desfeito'); await atualizar();
+  }
   catch(e) { aviso('Erro: ' + e.message, 'err'); }
 }
 async function verArquivo(id){
   const c = ST.lista.find(x => x.id === id); if (!c || !c.arquivo_path) return;
   if (c.arquivo_senha) { aviso('🔑 Senha do PDF: ' + c.arquivo_senha); try { navigator.clipboard.writeText(c.arquivo_senha); } catch(e) {} }
+  await abrirAnexo(c.arquivo_path);
+}
+async function verComprovante(id){
+  const c = ST.lista.find(x => x.id === id); if (!c || !c.comprovante_path) return;
+  await abrirAnexo(c.comprovante_path);
+}
+async function abrirAnexo(path){
   const w = window.open('', '_blank');
   try {
-    const r = await fetch(SUPA_URL + '/storage/v1/object/anexos/' + c.arquivo_path, { headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token()} });
+    const r = await fetch(SUPA_URL + '/storage/v1/object/anexos/' + path, { headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token()} });
     if (!r.ok) throw new Error('não foi possível abrir');
     const url = URL.createObjectURL(await r.blob());
     if (w) w.location = url; else window.open(url, '_blank');
@@ -714,22 +776,28 @@ async function alerta(hostId, irPara){
   try { if (!ST.carregado || Date.now() - (ST.ts || 0) > 60000) await carregar(); } catch(e) { el.innerHTML = ''; return; }
   const lim = somaDias(hoje(), 3);
   const lst = ST.lista.filter(c => c.status === 'pendente' && c.vencimento <= lim).sort((a,b) => a.vencimento.localeCompare(b.vencimento));
-  if (!lst.length) { el.innerHTML = ''; return; }
+  const semComp = ST.lista.filter(c => c.status === 'pago' && !c.comprovante_path);
+  if (!lst.length && !semComp.length) { el.innerHTML = ''; return; }
   const total = lst.reduce((s,c) => s + Number(c.valor||0), 0);
   let h = '<div class="bol-wrap" style="border-color:var(--r3,var(--r));margin:0 0 14px">'
-    + '<div class="bol-top" style="margin-bottom:4px"><div class="bol-tit" style="color:var(--r)">💸 Contas a pagar — ' + lst.length + ' · ' + brl(total) + '</div>'
+    + '<div class="bol-top" style="margin-bottom:4px"><div class="bol-tit" style="color:var(--r)">💸 Contas a pagar' + (lst.length ? ' — ' + lst.length + ' · ' + brl(total) : '') + (semComp.length ? ' · 📎 ' + semComp.length + ' sem comprovante' : '') + '</div>'
     + (irPara ? '<button class="bol-btn" onclick="' + irPara + '">Abrir contas</button>' : '') + '</div>';
   lst.slice(0, 6).forEach(c => {
     const s = situacao(c);
     h += '<div class="bol-row"><span class="bol-st" style="color:' + s.cor + ';background:' + s.fundo + '">' + s.txt + '</span><div class="bol-info"><div class="n">' + esc(c.beneficiario || '') + '</div><div class="d">' + esc(c.descricao || '') + '</div></div><div class="bol-val">' + brl(c.valor) + '</div>'
       + '<div class="bol-acts">' + (c.linha_digitavel ? '<button class="bol-btn" onclick="Boletos.copiar(\'' + c.id + '\',\'linha\')">📋 Linha</button>' : '') + (c.pix_copia_cola ? '<button class="bol-btn" onclick="Boletos.copiar(\'' + c.id + '\',\'pix\')">📋 Pix</button>' : '') + '</div></div>';
   });
+  semComp.forEach(c => {
+    const s = situacao(c);
+    h += '<div class="bol-row"><span class="bol-st" style="color:' + s.cor + ';background:' + s.fundo + '">' + s.txt + '</span><div class="bol-info"><div class="n">' + esc(c.beneficiario || '') + '</div><div class="d">' + esc(c.descricao || '') + '</div></div><div class="bol-val">' + brl(c.valor) + '</div>'
+      + '<div class="bol-acts"><button class="bol-btn acc" onclick="Boletos.anexarComprovante(\'' + c.id + '\')">📎 Anexar comprovante</button></div></div>';
+  });
   el.innerHTML = h + '</div>';
 }
 
 window.Boletos = {
   ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar, relerAgora,
-  copiar, agendar, desagendar, pagar, desfazer, verArquivo, togglePagos, fechar: fecharModal,
+  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, anexarComprovante, togglePagos, fechar: fecharModal,
   _teste: { analisarLinha, analisarPix, fatorParaData, formatarLinha, crc16 }
 };
 })();
