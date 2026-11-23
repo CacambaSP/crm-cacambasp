@@ -4,6 +4,7 @@
      • faixa vermelha no card de todas as ordens do cliente (só quando há ordem com +7 dias);
      • lista das outras ordens em aberto na janela de registrar pagamento;
      • detalhe "sendo N vencidas há +7 dias" nos avisos de pedido novo, duplicar e fornecedor.
+   Valor = o que o cliente paga (com os R$ 40 da NF e o desconto de ISS retido, quando houver).
    Dias contados a partir da data da ordem (mesma regra do "Atrasado" do CRM).
    Em aberto = não paga, não cancelada, fora de Concluído e de Orçamento.
    Usado pelo index.html (lista `ordens`) e pelo mobile2.html (lista `_ordens`). Só leitura: não altera dados.
@@ -29,7 +30,15 @@ function dias(o){
   return Math.max(0, Math.floor((Date.now() - dt.getTime()) / 86400000));
 }
 const emAberto = o => o && !o.pago && !o.cancel_motivo && o.col !== 'concluido' && o.col !== 'orcamento';
-const valor = o => Math.max(0, (parseFloat(o.rec) || 0) - (parseFloat(o.pago_parcial_valor) || 0));
+/* Valor que o cliente paga: rec + acréscimo da NF (rec é gravado sem os R$ 40) e, se o cliente retém ISS,
+   já com o desconto — igual à janela de registrar pagamento. Menos a entrada já recebida, se houver. */
+function valor(o){
+  let nf = 40; try { if (typeof _nfAcrescimo !== 'undefined' && _nfAcrescimo) nf = Number(_nfAcrescimo); } catch(e) {}
+  let v = (parseFloat(o.rec) || 0) + (o.nf_num ? nf : 0);
+  if (o.desconta_iss) { let f = 0.024; try { if (typeof _issFrac === 'function') f = _issFrac(o); } catch(e) {} v = v * (1 - f); }
+  v = Math.round(v * 100) / 100;
+  return Math.max(0, v - (parseFloat(o.pago_parcial_valor) || 0));
+}
 
 /* Índice por telefone, refeito a cada ciclo de tela (o funil desenha todos os cards de uma vez). */
 let IDX = null;
@@ -105,5 +114,6 @@ function painelPagamento(o, campoValor){
   box.style.display = 'block';
 }
 
-window.Pendencias = { doCliente, resumo, badge, detalhe, painelPagamento, dias, LIMITE };
+const totalDe = lista => (lista || []).reduce((s, o) => s + valor(o), 0);
+window.Pendencias = { doCliente, resumo, badge, detalhe, painelPagamento, dias, valor, totalDe, LIMITE };
 })();

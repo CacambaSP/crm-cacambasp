@@ -4177,7 +4177,7 @@ function _pendenciasCliente(cel, excludeId){
   const telLimpo=(cel||'').replace(/\D/g,'');
   if(telLimpo.length<8) return {count:0,total:0,lista:[]};
   const lista=ordens.filter(c=>c.id!==excludeId&&c.col!=='concluido'&&c.col!=='orcamento'&&!c.pago&&(c.cel||'').replace(/\D/g,'')===telLimpo);
-  const total=lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const total=window.Pendencias?Pendencias.totalDe(lista):lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   return {count:lista.length,total,lista};
 }
 function _pendenciaAvisoHTML(cel, excludeId){
@@ -4203,7 +4203,7 @@ function verificarInadimplente(cel){
   const devedoras=ordensDoTel.filter(c=>!c.pago);
   if(avisoEl){
     if(devedoras.length){
-      const total=devedoras.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+      const total=window.Pendencias?Pendencias.totalDe(devedoras):devedoras.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
       avisoEl.style.display='block';
       avisoEl.innerHTML='⚠️ Este cliente tem <strong>'+devedoras.length+' ordem'+(devedoras.length>1?'ns':'')+' em aberto</strong> — total <strong>R$ '+fmt(total)+'</strong>'+(window.Pendencias?Pendencias.detalhe(devedoras):'')+'. Você pode continuar mesmo assim.';
     }else{avisoEl.style.display='none';}

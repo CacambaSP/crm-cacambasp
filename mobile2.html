@@ -5847,7 +5847,7 @@ function _pendenciasCliente(cel, excludeId){
   const telLimpo=(cel||'').replace(/\D/g,'');
   if(telLimpo.length<8) return {count:0,total:0,lista:[]};
   const lista=_ordens.filter(o=>o.id!==excludeId&&o.col!=='concluido'&&o.col!=='orcamento'&&!o.pago&&(o.cel||o.wh||'').replace(/\D/g,'')===telLimpo);
-  const total=lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
+  const total=window.Pendencias?Pendencias.totalDe(lista):lista.reduce((s,o)=>s+(parseFloat(o.rec)||0),0);
   return {count:lista.length,total,lista};
 }
 function _pendenciaAvisoHTML(cel, excludeId){
@@ -5879,7 +5879,7 @@ function verificarCelular(cel) {
   const devedoras = ordensDoTel.filter(o=>!o.pago);
   if(inadEl) {
     if(devedoras.length) {
-      const total = devedoras.reduce((s,o)=>s+parseFloat(o.rec||0),0);
+      const total = window.Pendencias ? Pendencias.totalDe(devedoras) : devedoras.reduce((s,o)=>s+parseFloat(o.rec||0),0);
       inadEl.style.display='block';
       inadEl.innerHTML=`⚠️ Cliente com <strong>${devedoras.length} ordem${devedoras.length>1?'ns':''} em aberto</strong> — total R$ ${fmt(total)}${window.Pendencias?Pendencias.detalhe(devedoras):''}`;
     } else {
