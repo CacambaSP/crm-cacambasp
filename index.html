@@ -3088,10 +3088,13 @@ function _nfProntasGrupos(fv){
   return Array.from(mapa.values()).map(lista=>{
     lista.sort((a,b)=>(a.crm_id||'').localeCompare(b.crm_id||''));
     const c0=lista[0];
-    const abertas=lista.filter(x=>!x.pago); // valor a pagar = só as caçambas ainda não pagas
-    const bruto=abertas.reduce((s,x)=>s+(parseFloat(x.rec)||0)+(_nfAcrescimo||0),0);
+    const abertas=lista.filter(x=>!x.pago);
+    // valor a pagar = líquido da NF inteira (ISS retido sobre o total) menos o que já foi pago nas caçambas quitadas
+    const bruto=lista.reduce((s,x)=>s+(parseFloat(x.rec)||0)+(_nfAcrescimo||0),0);
     const iss=lista.some(x=>x.desconta_iss);
-    const liquido=iss?Math.round(bruto*(1-_issFrac(c0))*100)/100:bruto;
+    const liqNF=iss?bruto*(1-_issFrac(c0)):bruto;
+    const jaPago=lista.filter(x=>x.pago).reduce((s,x)=>s+(parseFloat(x.pago_valor)||((parseFloat(x.rec)||0)+(_nfAcrescimo||0))),0);
+    const liquido=Math.max(0,Math.round((liqNF-jaPago)*100)/100);
     return {c0,lista,nf:c0.nf_num,bruto,iss,liquido,pago:!abertas.length,parcial:abertas.length>0&&abertas.length<lista.length};
   }).sort((a,b)=>(a.nf||'').localeCompare(b.nf||''));
 }
@@ -3144,7 +3147,7 @@ async function enviarNFCliente(id){
   if(g.pago){
     msg+=`\n✅ Pagamento já recebido — obrigado!\n`;
   } else {
-    msg+=`💰 *Valor a pagar:* R$ ${fmt(g.liquido)}${g.iss?' (já descontado o ISS retido)':''}${g.parcial?' — saldo das caçambas ainda em aberto':''}\n\n`
+    msg+=`💰 *Valor a pagar:* R$ ${fmt(g.liquido)}${g.iss?' (já descontado o ISS retido)':''}${g.parcial?' — saldo, já descontado o que foi pago':''}\n\n`
        +`⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?${tParam}\n`;
   }
   msg+=`\n_${_marcaDe(c)}_`;
