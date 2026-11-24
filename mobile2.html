@@ -240,6 +240,12 @@ input,select,textarea,button{font-family:var(--font)}
 .ac-btn-r{background:#FCEBEB;color:#791F1F;border-color:#F09595}
 .ac-btn-b{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
 .ac-btn-g{background:#EAF3DE;color:#27500A;border-color:#97C459}
+.ag-nf .ag-header{background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border-color:rgba(34,197,94,.4);box-shadow:0 0 20px rgba(34,197,94,.1),inset 0 0 20px rgba(34,197,94,.03)}
+.ag-nf .ag-header::before{background:linear-gradient(90deg,transparent,rgba(74,222,128,.5),transparent)}
+.ag-nf .ag-icon{background:rgba(34,197,94,.15);border-color:rgba(74,222,128,.4);box-shadow:0 0 14px rgba(34,197,94,.25)}
+.ag-nf .ag-title{color:#4ade80;text-shadow:0 0 10px rgba(34,197,94,.4)}
+.ag-nf .ag-count{background:rgba(34,197,94,.15);color:#4ade80;box-shadow:0 0 8px rgba(34,197,94,.2)}
+.nf-tag{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:99px;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(74,222,128,.4);margin-bottom:3px}
 .ac-urgency{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--r2);color:var(--r);display:inline-flex;align-items:center;gap:3px;margin-right:4px}
 
 /* ── SEÇÃO "VER TUDO" ── */
@@ -3368,6 +3374,10 @@ function renderFilaAcoes(ordens) {
   let h = '';
   let algumGrupo = false;
 
+  // NFs prontas: NF emitida e ainda não enviada ao cliente (primeiro envio) — sempre no topo
+  const _nfH = _nfProntasHTML();
+  if(_nfH){ h += _nfH; algumGrupo = true; }
+
   GRUPOS.forEach((g, idx) => {
     const lista = grupos[g.key];
     // Na coluna contratar: separar ativos (hoje/amanhã) dos futuros (+2 dias)
@@ -3460,6 +3470,112 @@ function renderFilaAcoes(ordens) {
   document.getElementById('inicioContent').innerHTML = h;
   atualizarLoteBar();
   atualizarAlertBadge();
+}
+
+// ── NFs PRONTAS (primeiro envio da NF ao cliente) ──
+// Uma entrada por NF (várias caçambas na mesma NF compartilham nf_link). Vendedor vê só as suas; admin vê todas (respeita o filtro de vendedores).
+function _nfProntasGrupos(){
+  const mapa = new Map();
+  _ordens.forEach(o=>{
+    if(!o.nf_num || o.nf_num==='000' || !o.nf_link || o.nf_enviada_em) return;
+    if(o.cancel_motivo || o.arquivado) return;
+    if(!isAdmin()){ if(o.usuario_id!==uid()) return; }
+    else if(_filtroVendedores && _filtroVendedores.length && !_filtroVendedores.includes(o.usuario_id)) return;
+    if(!mapa.has(o.nf_link)) mapa.set(o.nf_link, []);
+    mapa.get(o.nf_link).push(o);
+  });
+  return Array.from(mapa.values()).map(lista=>{
+    lista.sort((a,b)=>(a.crm_id||'').localeCompare(b.crm_id||''));
+    const o0 = lista[0];
+    const bruto = lista.reduce((s,x)=>s+(parseFloat(x.rec)||0)+(_nfAcrescimo||0),0);
+    const iss = lista.some(x=>x.desconta_iss);
+    const liquido = iss ? Math.round(bruto*(1-_issFrac(o0))*100)/100 : bruto;
+    return { o0, lista, nf:o0.nf_num, bruto, iss, liquido, pago: lista.every(x=>x.pago) };
+  }).sort((a,b)=>(a.nf||'').localeCompare(b.nf||''));
+}
+
+function _nfProntasHTML(){
+  const grupos = _nfProntasGrupos();
+  if(!grupos.length) return '';
+  const key = 'nf_prontas';
+  if(_groupStates[key] === undefined) _groupStates[key] = false; // aberto por padrão
+  const collapsed = _groupStates[key];
+  let h = `<div class="action-group ag-nf">
+    <div class="ag-header${collapsed?' collapsed':''}" id="ag-header-${key}" onclick="toggleGrupo('${key}')">
+      <span class="ag-icon">🧾</span>
+      <span class="ag-title">NFs prontas — enviar ao cliente</span>
+      <span class="ag-count">${grupos.length}</span>
+      <span class="ag-chevron${collapsed?'':' open'}" id="ag-chevron-${key}">▼</span>
+    </div>
+    <div class="ag-body${collapsed?' collapsed':''}" id="ag-body-${key}">`;
+  grupos.forEach(g=>{
+    const o = g.o0;
+    const vend = isAdmin() ? (_usuarios.find(u=>u.id===o.usuario_id)?.nome||'').split(' ')[0] : '';
+    const lcs = g.lista.map(x=>x.crm_id||'—').join(' · ');
+    h += `<div class="action-card" onclick="abrirDetalhe('${o.id}')">
+      <div class="ac-row">
+        <div class="ac-main">
+          <div class="ac-name">${o.nome||'—'}</div>
+          <div class="ac-addr">${lcs}${vend?' · 👤 '+vend:''}</div>
+        </div>
+        <div class="ac-val" style="text-align:right"><span class="nf-tag">NF ${g.nf}</span><br>${g.pago?'<span style="font-size:11px;color:#97C459">✅ pago</span>':'R$ '+fmt(g.liquido)}</div>
+      </div>
+      <div class="ac-actions">
+        <button class="ac-btn ac-btn-g" onclick="event.stopPropagation();enviarNFCliente('${o.id}')">📲 WhatsApp</button>
+        <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();abrirDetalhe('${o.id}')">Abrir card</button>
+        <button class="ac-btn ac-btn-ghost" onclick="event.stopPropagation();marcarNFEnviada('${o.id}')">✅ Enviada</button>
+      </div>
+    </div>`;
+  });
+  h += `</div></div>`;
+  return h;
+}
+
+function _nfGrupoDe(id){
+  const o = _ordens.find(x=>x.id===id); if(!o) return null;
+  return _nfProntasGrupos().find(g=>g.lista.some(x=>x.id===id))
+    || { o0:o, lista:[o], nf:o.nf_num, bruto:0, iss:false, liquido:0, pago:!!o.pago };
+}
+
+async function enviarNFCliente(id){
+  const g = _nfGrupoDe(id); if(!g) return;
+  const o = g.o0;
+  const tel = (o.cel||o.wh||'').replace(/\D/g,'');
+  if(!tel){ toast('Celular não cadastrado','warn'); return; }
+  const nome = (o.nome||'').split(' ')[0];
+  const multi = g.lista.length > 1;
+  const lcs = g.lista.map(x=>x.crm_id).filter(Boolean).join(', ');
+  const end = [o.logradouro, o.bairro].filter(Boolean).join(', ');
+  const tParam = o.tracking_token ? 'token='+encodeURIComponent(o.tracking_token) : 'id='+encodeURIComponent(o.crm_id||'');
+  let msg = `Olá ${nome}! 😊\n\nSegue a Nota Fiscal ${g.nf} referente ${multi?'às caçambas':'à caçamba'} ${lcs}${end?' ('+end+')':''}.\n\n`
+          + `🧾 *Nota Fiscal:* ${o.nf_link}\n`;
+  if(g.pago){
+    msg += `\n✅ Pagamento já recebido — obrigado!\n`;
+  } else {
+    msg += `💰 *Valor a pagar:* R$ ${fmt(g.liquido)}${g.iss?' (já descontado o ISS retido)':''}\n\n`
+         + `⚡ *Pague pelo link abaixo — QR Code já está pronto:*\nhttps://cacambasp-crm.vercel.app/tracking.html?${tParam}\n`;
+  }
+  msg += `\n_${_marcaDe(o)}_`;
+  window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
+  setTimeout(async()=>{
+    const ok = await showConfirm({ico:'🧾',title:'Enviou a NF '+g.nf+'?',body:`${o.nome||''}\nMarcar como enviada tira a NF da lista. Daqui pra frente segue a cobrança normal.`,ok:'✅ Marcar enviada',okClass:'acc',cancel:'Ainda não'});
+    if(ok) marcarNFEnviada(id, true);
+  }, 1200);
+}
+
+async function marcarNFEnviada(id, semConfirmar=false){
+  const g = _nfGrupoDe(id); if(!g) return;
+  if(!semConfirmar){
+    const ok = await showConfirm({ico:'✅',title:'Marcar NF '+g.nf+' como enviada?',body:`${g.o0.nome||''}\nA NF sai da lista de NFs prontas.`,ok:'✅ Enviada',okClass:'acc',cancel:'Cancelar'});
+    if(!ok) return;
+  }
+  const agora = new Date().toISOString();
+  try{
+    await Promise.all(g.lista.map(x=>api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok())));
+    g.lista.forEach(x=>x.nf_enviada_em=agora);
+    toast('✅ NF '+g.nf+' marcada como enviada','ok');
+    renderCurrentView();
+  }catch(e){ toast('Erro ao marcar: '+(e.message||e),'err'); }
 }
 
 function renderVerTudo(ordens) {
