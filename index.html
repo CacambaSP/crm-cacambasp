@@ -672,7 +672,6 @@ input[type=checkbox]:checked::after{
           <button class="btn btn-sm" onclick="clearFilter()" style="color:var(--mut2)">✕ Limpar</button>
           <button class="btn btn-sm" id="btnToggleDetalhes" onclick="toggleDetalhesCards()" style="color:var(--mut2)" title="Alternar visão simples/detalhada">👁 Simples</button>
           <button class="btn btn-sm" id="btnAgendaContratar" onclick="toggleAgendaContratar()" style="color:var(--mut2)" title="Agenda de contratações">📅 Agenda <span id="agendaContratarBadge" style="display:none;background:#f59e0b;color:#000;border-radius:20px;padding:0 6px;font-size:10px;font-weight:700;margin-left:2px">0</span></button>
-          <button class="btn btn-sm" id="btnNFProntas" onclick="toggleNFProntas()" style="color:var(--mut2)" title="NFs emitidas ainda não enviadas ao cliente">🧾 NFs prontas <span id="nfProntasBadge" style="display:none;background:#22c55e;color:#04210f;border-radius:20px;padding:0 6px;font-size:10px;font-weight:700;margin-left:2px">0</span></button>
           <span id="filterInd" style="display:none;font-size:11px;color:var(--acc);font-weight:700">● Filtros ativos</span>
         </div>
         <div class="stats-bar" id="statsBar"></div>
@@ -684,15 +683,6 @@ input[type=checkbox]:checked::after{
             <button class="btn btn-sm" onclick="toggleAgendaContratar()" style="margin-left:auto;color:var(--mut2)">✕ Fechar</button>
           </div>
           <div id="agendaContratarBody"></div>
-        </div>
-        <!-- NFs PRONTAS (primeiro envio da NF ao cliente) -->
-        <div id="nfProntasPanel" style="display:none;padding:12px 16px;border-bottom:1px solid var(--bor);background:var(--bg)">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-            <div style="font-size:14px;font-weight:700;color:var(--txt)">🧾 NFs prontas — enviar ao cliente</div>
-            <div id="nfProntasSub" style="font-size:12px;color:var(--mut2)"></div>
-            <button class="btn btn-sm" onclick="toggleNFProntas()" style="margin-left:auto;color:var(--mut2)">✕ Fechar</button>
-          </div>
-          <div id="nfProntasBody" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
         <div class="kanban-wrap">
           <div class="board" id="board"></div>
@@ -3080,13 +3070,12 @@ function clearFilter(){
 }
 
 // ── STATS ──
-// ── NFs PRONTAS (primeiro envio da NF ao cliente) ──
+// ── NFs PRONTAS (primeiro envio da NF ao cliente) — seção no topo dos Alertas ──
 // Mesma regra do mobile: NF emitida (nf_link) e ordens.nf_enviada_em nulo. Uma linha por NF.
-// Vendedor vê só as suas; admin vê todas (respeita o filtro de vendedor do Kanban).
-let _nfProntasAberto=false;
-function _nfProntasGrupos(){
+// Vendedor vê só as suas; admin vê todas (ou só as do vendedor escolhido no filtro dos Alertas).
+function _nfProntasGrupos(fv){
   const meu=_currentUser?.user?.id;
-  const fv=document.getElementById('filterVend')?.value||'';
+  fv=fv||'';
   const mapa=new Map();
   ordens.forEach(c=>{
     if(!c.nf_num||c.nf_num==='000'||!c.nf_link||c.nf_enviada_em) return;
@@ -3106,49 +3095,34 @@ function _nfProntasGrupos(){
     return {c0,lista,nf:c0.nf_num,bruto,iss,liquido,pago:!abertas.length,parcial:abertas.length>0&&abertas.length<lista.length};
   }).sort((a,b)=>(a.nf||'').localeCompare(b.nf||''));
 }
-function _atualizarNFProntas(){
-  const grupos=_nfProntasGrupos();
-  const badge=document.getElementById('nfProntasBadge');
-  const btn=document.getElementById('btnNFProntas');
-  if(badge){ badge.textContent=grupos.length; badge.style.display=grupos.length?'inline':'none'; }
-  if(btn&&!_nfProntasAberto) btn.style.color=grupos.length?'#22c55e':'var(--mut2)';
-  if(_nfProntasAberto) renderNFProntas(grupos);
+function _nfProntasAlertaHTML(grupos){
+  if(!grupos.length) return '';
+  return `<div class="alerta-sec">
+    <div class="alerta-sec-hd" style="color:#22c55e">🧾 NFs prontas — enviar ao cliente <span class="alerta-cnt">${grupos.length}</span></div>
+    ${grupos.map(g=>{
+      const c=g.c0;
+      const vend=isAdmin()?((usuarios.find(u=>u.id===c.usuario_id)?.nome)||'').split(' ')[0]:'';
+      const lcs=g.lista.map(x=>x.crm_id||'—').join(' · ');
+      return `<div class="alerta-card" style="border-color:rgba(34,197,94,.35)" onclick="abrirDetalhe('${c.id}')">
+        <div class="alerta-card-top">
+          <span class="alerta-nome">${c.nome||'—'}</span>
+          <span class="alerta-val">${g.pago?'✅ pago':'R$ '+fmt(g.liquido)}</span>
+        </div>
+        <div class="alerta-card-bot">
+          <span class="alerta-tag" style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.4)">NF ${g.nf}</span>
+          <span class="alerta-sub">${lcs}${vend?' · 👤 '+vend:''}</span>
+        </div>
+        <div class="alerta-actions">
+          <button class="btn btn-sm" onclick="event.stopPropagation();enviarNFCliente('${c.id}')" style="font-size:11px;padding:4px 10px;color:#22c55e;border-color:rgba(34,197,94,.5)">📲 WhatsApp</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();abrirDetalhe('${c.id}')" style="font-size:11px;padding:4px 10px">Abrir card</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();marcarNFEnviada('${c.id}')" style="font-size:11px;padding:4px 10px">☐ Marcar enviada</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
-function toggleNFProntas(){
-  _nfProntasAberto=!_nfProntasAberto;
-  const panel=document.getElementById('nfProntasPanel');
-  const btn=document.getElementById('btnNFProntas');
-  if(!panel||!btn) return;
-  panel.style.display=_nfProntasAberto?'block':'none';
-  btn.style.borderColor=_nfProntasAberto?'#22c55e':'var(--bor)';
-  _atualizarNFProntas();
-}
-function renderNFProntas(grupos){
-  grupos=grupos||_nfProntasGrupos();
-  const body=document.getElementById('nfProntasBody');
-  const sub=document.getElementById('nfProntasSub');
-  if(!body) return;
-  if(sub) sub.textContent=grupos.length?grupos.length+' NF'+(grupos.length>1?'s':'')+' para enviar':'';
-  if(!grupos.length){ body.innerHTML='<div style="font-size:13px;color:var(--mut2);padding:6px 2px">✅ Nenhuma NF esperando envio.</div>'; return; }
-  body.innerHTML=grupos.map(g=>{
-    const c=g.c0;
-    const vend=isAdmin()?((usuarios.find(u=>u.id===c.usuario_id)?.nome)||'').split(' ')[0]:'';
-    const lcs=g.lista.map(x=>x.crm_id||'—').join(' · ');
-    return `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--bor);border-radius:var(--rad2);padding:10px 12px">
-      <span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.4);white-space:nowrap">NF ${g.nf}</span>
-      <div style="flex:1;min-width:200px;cursor:pointer" onclick="openDetail('${c.id}')">
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nome||'—'}</div>
-        <div style="font-size:11px;color:var(--mut2)">${lcs}${vend?' · 👤 '+vend:''}</div>
-      </div>
-      <div style="font-size:13px;font-weight:700;font-family:var(--mono);white-space:nowrap">${g.pago?'<span style="color:#22c55e">✅ pago</span>':'R$ '+fmt(g.liquido)}</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-sm" style="color:#22c55e;border-color:rgba(34,197,94,.5)" onclick="enviarNFCliente('${c.id}')">📲 WhatsApp</button>
-        <button class="btn btn-sm" onclick="openDetail('${c.id}')">Abrir card</button>
-        <button class="btn btn-sm" onclick="marcarNFEnviada('${c.id}')">✅ Enviada</button>
-      </div>
-    </div>`;
-  }).join('');
-}
+// Os cards da tela de Alertas chamam abrirDetalhe (nome usado no mobile), que não existia no desktop.
+function abrirDetalhe(id){ return openDetail(id); }
 function _nfGrupoDe(id){
   const c=ordens.find(x=>x.id===id); if(!c) return null;
   return _nfProntasGrupos().find(g=>g.lista.some(x=>x.id===id))
@@ -3176,14 +3150,14 @@ async function enviarNFCliente(id){
   msg+=`\n_${_marcaDe(c)}_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
   setTimeout(async()=>{
-    const ok=await showConfirm({ico:'🧾',title:'Enviou a NF '+g.nf+'?',body:`${c.nome||''}\nMarcar como enviada tira a NF da lista. Daqui pra frente segue a cobrança normal.`,ok:'✅ Marcar enviada',cancel:'Ainda não'});
+    const ok=await showConfirm({ico:'🧾',title:'Enviou a NF '+g.nf+'?',body:`${c.nome||''}\nMarcar como enviada tira a NF da lista. Daqui pra frente segue a cobrança normal.`,ok:'Sim, marcar enviada',cancel:'Ainda não'});
     if(ok) marcarNFEnviada(id,true);
   },1200);
 }
 async function marcarNFEnviada(id,semConfirmar=false){
   const g=_nfGrupoDe(id); if(!g) return;
   if(!semConfirmar){
-    const ok=await showConfirm({ico:'✅',title:'Marcar NF '+g.nf+' como enviada?',body:`${g.c0.nome||''}\nA NF sai da lista de NFs prontas.`,ok:'✅ Enviada',cancel:'Cancelar'});
+    const ok=await showConfirm({ico:'✅',title:'Marcar NF '+g.nf+' como enviada?',body:`${g.c0.nome||''}\nA NF sai da lista de NFs prontas.`,ok:'Marcar enviada',cancel:'Cancelar'});
     if(!ok) return;
   }
   const agora=new Date().toISOString();
@@ -3191,12 +3165,11 @@ async function marcarNFEnviada(id,semConfirmar=false){
     await Promise.all(g.lista.map(x=>api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok())));
     g.lista.forEach(x=>x.nf_enviada_em=agora);
     toast('✅ NF '+g.nf+' marcada como enviada','ok');
-    _atualizarNFProntas();
+    try{ renderAlertas(); }catch(e){ _atualizarAlertasBadge(); }
   }catch(e){ toast('Erro ao marcar: '+(e.message||e),'err'); }
 }
 
 function renderStats(){
-  try{ _atualizarNFProntas(); }catch(e){ console.warn('nfProntas',e); }
   const src=_filteredOrdens!==null?_filteredOrdens:ordens.filter(c=>c.col!=='concluido'&&c.col!=='orcamento');
   const tr=src.reduce((s,c)=>s+(parseFloat(c.rec)||0),0);
   const tc=src.reduce((s,c)=>s+(parseFloat(c.cst)||0),0);
@@ -14949,7 +14922,8 @@ function _atualizarAlertasBadge(){
   const cobrPend   = ordens.filter(c=>!c.pago&&c.col!=='concluido'&&c.col!=='orcamento'&&c.rec>0&&diasEmAberto(c)>=COBR_DIAS_ALERTA&&!foiCobradoHoje(c)).length;
   // Ordens na coluna "contratar" sem fornecedor atribuído (visível só para admin)
   const semForn    = isAdmin() ? ordens.filter(c=>c.col==='contratar'&&!c.forn_id&&c.col!=='concluido').length : 0;
-  const total = inadimp + criticos + orcPend + entregaConf + cobrPend + semForn;
+  const nfProntas  = (()=>{ try{ return _nfProntasGrupos().length; }catch(e){ return 0; } })();
+  const total = inadimp + criticos + orcPend + entregaConf + cobrPend + semForn + nfProntas;
   // Badge no bottom nav
   const bnbB = document.getElementById('alertasBnbBadge');
   if(bnbB){ bnbB.textContent=total>99?'99+':total; bnbB.classList.toggle('show',total>0); }
@@ -14963,7 +14937,7 @@ function _atualizarAlertasBadge(){
     return {uid, nome:u?.nome||'?', n:alertaOrdens.filter(o=>o.usuario_id===uid).length};
   });
   _renderVendBadges('alertasVendBadges', counts);
-  return {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, total};
+  return {inadimp, criticos, orcPend, entregaConf, cobrPend, semForn, nfProntas, total};
 }
 
 function renderAlertas(){
@@ -15005,7 +14979,9 @@ function renderAlertas(){
   const totalOutros = listaInadOut.length + listaCritOut.length + listaCobrOut.length + listaEntregaOut.length;
   // Ordens sem fornecedor (só admin vê)
   const listaSemForn = isAdmin() ? ordens.filter(c=>c.col==='contratar'&&!c.forn_id).sort((a,b)=>(a.criado_em||'').localeCompare(b.criado_em||'')) : [];
-  const total = listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length;
+  // NFs prontas (primeiro envio da NF ao cliente) — admin com filtro vê só as do vendedor escolhido
+  const gruposNF = _nfProntasGrupos(isAdmin()?filtroVend:'');
+  const total = gruposNF.length + listaInad.length + listaCrit.length + listaCobr.length + listaOrc.length + listaEntrega.length + listaSemForn.length;
 
   const sub = document.getElementById('alertasSubtitle');
   if(sub) sub.textContent = total === 0 ? 'Nenhuma pendência' : `${total} pendência${total>1?'s':''} encontrada${total>1?'s':''}`;
@@ -15028,6 +15004,9 @@ function renderAlertas(){
   };
 
   let html = '';
+
+  // ── Seção 0: NFs prontas — enviar ao cliente ──
+  html += _nfProntasAlertaHTML(gruposNF);
 
   // ── Seção 1: Inadimplentes ──
   if(listaInad.length){
