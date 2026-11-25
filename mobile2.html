@@ -3563,13 +3563,11 @@ async function enviarNFCliente(id){
   }
   msg += `\n_${_marcaDe(o)}_`;
   window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg));
-  setTimeout(async()=>{
-    const ok = await showConfirm({ico:'🧾',title:'Enviou a NF '+g.nf+'?',body:`${o.nome||''}\nMarcar como enviada tira a NF da lista. Daqui pra frente segue a cobrança normal.`,ok:'Sim, marcar enviada',okClass:'acc',cancel:'Ainda não'});
-    if(ok) marcarNFEnviada(id, true);
-  }, 1200);
+  // envio pelo WhatsApp já marca como enviada (sem perguntar) e registra no histórico de cada OS
+  marcarNFEnviada(id, true, 'NF '+g.nf+' enviada ao cliente pelo WhatsApp (NFs prontas)');
 }
 
-async function marcarNFEnviada(id, semConfirmar=false){
+async function marcarNFEnviada(id, semConfirmar=false, acaoLog=''){
   const g = _nfGrupoDe(id); if(!g) return;
   if(!semConfirmar){
     const ok = await showConfirm({ico:'✅',title:'Marcar NF '+g.nf+' como enviada?',body:`${g.o0.nome||''}\nA NF sai da lista de NFs prontas.`,ok:'Marcar enviada',okClass:'acc',cancel:'Cancelar'});
@@ -3579,6 +3577,8 @@ async function marcarNFEnviada(id, semConfirmar=false){
   try{
     await Promise.all(g.lista.map(x=>api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok())));
     g.lista.forEach(x=>x.nf_enviada_em=agora);
+    const acao = acaoLog || ('NF '+g.nf+' marcada como enviada ao cliente (NFs prontas)');
+    g.lista.forEach(x=>{ try{ addLog(x.id, acao, 'NF '+g.nf+' · OS '+g.lista.map(y=>y.crm_id).join(', ')); }catch(_){} });
     toast('✅ NF '+g.nf+' marcada como enviada','ok');
     renderCurrentView();
   }catch(e){ toast('Erro ao marcar: '+(e.message||e),'err'); }
@@ -6656,7 +6656,7 @@ function enviarNFWA(id){
   try{ addLog(o.id,'NF enviada ao cliente (WA mobile)','NF '+(o.nf_num||'')); }catch(_){}
   // primeiro envio feito: tira a NF da lista "NFs prontas"
   const agora=new Date().toISOString();
-  grupo.filter(x=>!x.nf_enviada_em).forEach(x=>{ x.nf_enviada_em=agora; api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok()).catch(()=>{}); });
+  grupo.filter(x=>!x.nf_enviada_em).forEach(x=>{ x.nf_enviada_em=agora; api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok()).catch(()=>{}); if(x.id!==o.id){ try{ addLog(x.id,'NF enviada ao cliente (WA mobile)','NF '+(o.nf_num||'')+' · enviada pela OS '+(o.crm_id||'')); }catch(_){} } });
   if(tel){ window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank'); return; }
   const ok=()=>toast('📋 Cliente sem WhatsApp cadastrado — texto copiado, cole na conversa','ok');
   if(navigator.clipboard) navigator.clipboard.writeText(msg).then(ok).catch(()=>prompt('Copie o texto:',msg));
