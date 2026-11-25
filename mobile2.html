@@ -6648,8 +6648,15 @@ function enviarNFWA(id){
   const tel=(o.cel||o.wh||'').replace(/\D/g,'');
   const end=[o.logradouro,o.bairro,o.cidade].filter(Boolean).join(', ');
   const num=_nfReal(o.nf_num)?' nº '+o.nf_num:'';
-  const msg='Olá'+(o.nome?', '+o.nome:'')+'! Segue a Nota Fiscal'+num+' da locação de caçamba'+(end?' em '+end:'')+(o.crm_id?' (OS '+o.crm_id+')':'')+':\n🧾 '+o.nf_link;
+  // todas as caçambas da mesma NF (mesmo nf_link), não só a OS aberta
+  const grupo=_ordens.filter(x=>x.nf_link===o.nf_link && !x.cancel_motivo).sort((a,b)=>(a.crm_id||'').localeCompare(b.crm_id||''));
+  const lcs=grupo.map(x=>x.crm_id).filter(Boolean);
+  const refOS=lcs.length?' ('+'OS '+lcs.join(', ')+')':'';
+  const msg='Olá'+(o.nome?', '+o.nome:'')+'! Segue a Nota Fiscal'+num+' da locação de '+(lcs.length>1?lcs.length+' caçambas':'caçamba')+(end?' em '+end:'')+refOS+':\n🧾 '+o.nf_link;
   try{ addLog(o.id,'NF enviada ao cliente (WA mobile)','NF '+(o.nf_num||'')); }catch(_){}
+  // primeiro envio feito: tira a NF da lista "NFs prontas"
+  const agora=new Date().toISOString();
+  grupo.filter(x=>!x.nf_enviada_em).forEach(x=>{ x.nf_enviada_em=agora; api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok()).catch(()=>{}); });
   if(tel){ window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank'); return; }
   const ok=()=>toast('📋 Cliente sem WhatsApp cadastrado — texto copiado, cole na conversa','ok');
   if(navigator.clipboard) navigator.clipboard.writeText(msg).then(ok).catch(()=>prompt('Copie o texto:',msg));

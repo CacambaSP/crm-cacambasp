@@ -14332,7 +14332,10 @@ async function copiarLinkClienteAnexo(idx){
   const ehNF=a.tipo==='nf'||/^NF[\s_\-]/i.test(nome);
   const end=[c.logradouro,c.bairro,c.cidade].filter(Boolean).join(', ');
   const ola='Olá'+(c.nome?', '+c.nome:'')+'!';
-  const ref=(end?' em '+end:'')+(c.crm_id?' (OS '+c.crm_id+')':'');
+  // NF: lista todas as caçambas da mesma NF (mesmo nf_link), não só a OS aberta
+  const grupoNF=(ehNF&&c.nf_link)?ordens.filter(x=>x.nf_link===c.nf_link&&!x.cancel_motivo).sort((a,b)=>(a.crm_id||'').localeCompare(b.crm_id||'')):[c];
+  const lcsNF=grupoNF.map(x=>x.crm_id).filter(Boolean);
+  const ref=(end?' em '+end:'')+(lcsNF.length?' (OS '+lcsNF.join(', ')+')':'');
   try{
     let link=(ehNF&&c.nf_link)?c.nf_link:'';
     if(!link){
@@ -14342,9 +14345,13 @@ async function copiarLinkClienteAnexo(idx){
     }
     const numNF=(c.nf_num&&c.nf_num!=='000')?' nº '+c.nf_num:'';
     const texto=ehNF
-      ? ola+' Segue a Nota Fiscal'+numNF+' da locação de caçamba'+ref+':\n🧾 '+link
+      ? ola+' Segue a Nota Fiscal'+numNF+' da locação de '+(lcsNF.length>1?lcsNF.length+' caçambas':'caçamba')+ref+':\n🧾 '+link
       : ola+' Segue o arquivo '+nome+' da locação de caçamba'+ref+':\n📎 '+link;
     addLog(c.id,'Link de anexo copiado p/ cliente',nome);
+    if(ehNF){ // primeiro envio feito: tira a NF da lista "NFs prontas"
+      const agora=new Date().toISOString();
+      grupoNF.filter(x=>!x.nf_enviada_em).forEach(x=>{ x.nf_enviada_em=agora; api('ordens?id=eq.'+x.id,'PATCH',{nf_enviada_em:agora},tok()).catch(()=>{}); });
+    }
     if(navigator.clipboard){
       navigator.clipboard.writeText(texto).then(()=>toast('📋 Texto com o link copiado! Cole no WhatsApp','ok')).catch(()=>_copiarFallback(texto));
     } else { _copiarFallback(texto); }
