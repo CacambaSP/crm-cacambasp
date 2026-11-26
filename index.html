@@ -7328,6 +7328,9 @@ async function _renderCaixa(){
   let rows=[];
   try{ rows=await api('caixa_empresa?order=data.asc,id.asc',undefined,undefined,tok())||[]; }
   catch(e){ el.innerHTML='<div style="padding:20px;color:var(--r)">Erro ao carregar o caixa: '+e.message+'</div>'; return; }
+  // contas a pagar ligadas aos lançamentos "Boleto" → botão do comprovante no extrato
+  const compPorCaixa={};
+  try{ (await api('contas_pagar?select=caixa_id,comprovante_path&caixa_id=not.is.null',undefined,undefined,tok())||[]).forEach(c=>{ compPorCaixa[c.caixa_id]=!!c.comprovante_path; }); }catch(e){}
   const sinal=r=>r.tipo==='debito'?-1:1, r2=v=>Math.round(v*100)/100;
   let saldo=0; const comSaldo=rows.map(r=>{ saldo=r2(saldo+sinal(r)*(parseFloat(r.valor)||0)); return {...r,saldo}; });
   const ent=rows.filter(r=>r.tipo==='credito').reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
@@ -7366,7 +7369,9 @@ async function _renderCaixa(){
         return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px;white-space:nowrap">'+dt(r.data)+'</td><td style="padding:6px">'+String(r.descricao||'').replace(/</g,'&lt;')+'</td><td style="padding:6px;color:var(--mut2)">'+(ori[r.origem]||r.origem)+'</td>'
           +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap;color:'+(deb?'var(--r)':'var(--g)')+'">'+(deb?'− ':'+ ')+'R$ '+fmt(r.valor)+'</td>'
           +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap">R$ '+fmt(r.saldo)+'</td>'
-          +'<td style="padding:6px;text-align:right">'+(r.origem==='manual'?'<button class="btn btn-sm" title="Excluir" onclick="caixaExcluir('+r.id+')">🗑</button>':'')+'</td></tr>'; }).join('')
+          +'<td style="padding:6px;text-align:right;white-space:nowrap">'+(r.origem==='manual'?'<button class="btn btn-sm" title="Excluir" onclick="caixaExcluir('+r.id+')">🗑</button>'
+            :(r.origem==='boleto'&&(r.id in compPorCaixa))?(compPorCaixa[r.id]?'<button class="btn btn-sm" title="Ver comprovante" onclick="Boletos.comprovanteDoCaixa('+r.id+')">🧾</button>'
+            :'<button class="btn btn-sm" title="Falta comprovante — anexar" style="color:var(--r)" onclick="Boletos.comprovanteDoCaixa('+r.id+')">📎</button>'):'')+'</td></tr>'; }).join('')
       +'</tbody></table></div>';
   el.innerHTML=h;
   if(window.Boletos) Boletos.render('boletosHost',{aoMudar:_renderCaixa});

@@ -483,6 +483,7 @@ function linha(c){
   } else {
     acts += c.comprovante_path
       ? '<button class="bol-btn g" onclick="Boletos.verComprovante(\'' + c.id + '\')">🧾 Comprovante</button>'
+        + '<button class="bol-btn" title="Trocar comprovante (anexou o arquivo errado)" onclick="Boletos.anexarComprovante(\'' + c.id + '\',true)">🔄 Trocar</button>'
       : '<button class="bol-btn acc" onclick="Boletos.anexarComprovante(\'' + c.id + '\')">📎 Anexar comprovante</button>';
     acts += '<button class="bol-btn" onclick="Boletos.desfazer(\'' + c.id + '\')">↩️ Desfazer</button>';
   }
@@ -736,15 +737,28 @@ async function gravarComprovante(id, arq){
   if (!up.ok) throw new Error('falha ao guardar o arquivo');
   await rest('contas_pagar?id=eq.' + id, 'PATCH', { comprovante_path: path, comprovante_nome: arq.name || ('comprovante.' + ext), comprovante_em: new Date().toISOString() }, 'return=minimal');
 }
-function anexarComprovante(id){
-  const c = ST.lista.find(x => x.id === id); if (!c) return;
-  abrirModal('<h3>📎 Anexar comprovante</h3><div style="font-size:13px;color:var(--mut2);margin-bottom:10px"><b>' + esc(c.beneficiario || '') + '</b> · ' + brl(c.valor) + ' · pago em ' + dtBR(c.data_pagamento) + '</div>'
+// Conta da lista carregada ou, se for antiga (fora dos últimos 60 dias), busca no banco
+async function buscarConta(id){
+  let c = ST.lista.find(x => x.id === id);
+  if (!c) { try { c = ((await rest('contas_pagar?select=*&id=eq.' + id)) || [])[0]; } catch(e) {} }
+  return c || null;
+}
+async function anexarComprovante(id, trocar){
+  const c = await buscarConta(id); if (!c) { aviso('Conta não encontrada', 'err'); return; }
+  css();
+  const antigo = trocar ? c.comprovante_path : null;
+  abrirModal('<h3>' + (trocar ? '🔄 Trocar comprovante' : '📎 Anexar comprovante') + '</h3><div style="font-size:13px;color:var(--mut2);margin-bottom:10px"><b>' + esc(c.beneficiario || '') + '</b> · ' + brl(c.valor) + ' · pago em ' + dtBR(c.data_pagamento) + '</div>'
+    + (antigo ? '<div style="font-size:12px;color:var(--mut2);margin-bottom:10px">Arquivo atual: <b>' + esc(c.comprovante_nome || 'comprovante') + '</b> — será substituído. O pagamento e o Caixa não mudam.</div>' : '')
     + '<label class="bol-f">Comprovante (PDF ou foto)<input type="file" id="bf_comp" accept="application/pdf,image/*"></label>'
     + '<div class="bol-foot"><button class="bol-btn" onclick="Boletos.fechar()">Cancelar</button><button class="bol-btn acc" id="bf_ok">📎 Guardar comprovante</button></div>');
   document.getElementById('bf_ok').onclick = async () => {
     const arq = document.getElementById('bf_comp').files[0]; if (!arq) { aviso('Escolha o arquivo do comprovante', 'warn'); return; }
     const b = document.getElementById('bf_ok'); b.disabled = true; b.textContent = '⏳ Enviando...';
-    try { await gravarComprovante(id, arq); fecharModal(); aviso('✅ Comprovante guardado'); await atualizar(); }
+    try {
+      await gravarComprovante(id, arq);
+      if (antigo) fetch(SUPA_URL + '/storage/v1/object/anexos/' + antigo, { method: 'DELETE', headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token()} }).catch(() => {});
+      fecharModal(); aviso(antigo ? '✅ Comprovante trocado' : '✅ Comprovante guardado'); await atualizar();
+    }
     catch(e) { aviso('Erro: ' + e.message, 'err'); b.disabled = false; b.textContent = '📎 Guardar comprovante'; }
   };
 }
@@ -764,8 +778,15 @@ async function verArquivo(id){
   await abrirAnexo(c.arquivo_path);
 }
 async function verComprovante(id){
-  const c = ST.lista.find(x => x.id === id); if (!c || !c.comprovante_path) return;
+  const c = await buscarConta(id); if (!c || !c.comprovante_path) { aviso('Essa conta ainda não tem comprovante', 'warn'); return; }
   await abrirAnexo(c.comprovante_path);
+}
+// Extrato do Caixa: abre o comprovante da conta ligada ao lançamento (ou pede para anexar)
+async function comprovanteDoCaixa(caixaId){
+  let c = ST.lista.find(x => String(x.caixa_id) === String(caixaId));
+  if (!c) { try { c = ((await rest('contas_pagar?select=*&caixa_id=eq.' + caixaId)) || [])[0]; } catch(e) {} }
+  if (!c) { aviso('Nenhuma conta ligada a esse lançamento', 'warn'); return; }
+  if (c.comprovante_path) await abrirAnexo(c.comprovante_path); else await anexarComprovante(c.id);
 }
 async function abrirAnexo(path){
   const w = window.open('', '_blank');
@@ -815,7 +836,7 @@ async function alerta(hostId, irPara){
 
 window.Boletos = {
   ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar, relerAgora,
-  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, anexarComprovante, togglePagos, toggleFuturos, fechar: fecharModal,
+  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, comprovanteDoCaixa, anexarComprovante, togglePagos, toggleFuturos, fechar: fecharModal,
   _teste: { analisarLinha, analisarPix, fatorParaData, formatarLinha, crc16 }
 };
 })();
