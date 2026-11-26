@@ -7329,16 +7329,17 @@ async function _renderCaixa(){
   try{ rows=await api('caixa_empresa?order=data.asc,id.asc',undefined,undefined,tok())||[]; }
   catch(e){ el.innerHTML='<div style="padding:20px;color:var(--r)">Erro ao carregar o caixa: '+e.message+'</div>'; return; }
   // contas a pagar ligadas aos lançamentos "Boleto" → botão do comprovante no extrato
-  const compPorCaixa={};
-  try{ (await api('contas_pagar?select=caixa_id,comprovante_path&caixa_id=not.is.null',undefined,undefined,tok())||[]).forEach(c=>{ compPorCaixa[c.caixa_id]=!!c.comprovante_path; }); }catch(e){}
+  const compPorCaixa={}, centroPorCaixa={};
+  try{ (await api('contas_pagar?select=caixa_id,comprovante_path,centro_custo&caixa_id=not.is.null',undefined,undefined,tok())||[]).forEach(c=>{ compPorCaixa[c.caixa_id]=!!c.comprovante_path; centroPorCaixa[c.caixa_id]=c.centro_custo==='casa'?'casa':'empresa'; }); }catch(e){}
   const sinal=r=>r.tipo==='debito'?-1:1, r2=v=>Math.round(v*100)/100;
   let saldo=0; const comSaldo=rows.map(r=>{ saldo=r2(saldo+sinal(r)*(parseFloat(r.valor)||0)); return {...r,saldo}; });
   const ent=rows.filter(r=>r.tipo==='credito').reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
   const sai=rows.filter(r=>r.tipo==='debito').reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
   const porMes={};
-  rows.forEach(r=>{ const m=String(r.mes).slice(0,7); const o=porMes[m]=porMes[m]||{res:0,d40:0,man_e:0,sai:0};
+  rows.forEach(r=>{ const m=String(r.mes).slice(0,7); const o=porMes[m]=porMes[m]||{res:0,d40:0,man_e:0,sai:0,casa:0};
     const v=parseFloat(r.valor)||0;
-    if(r.origem==='reserva_imposto') o.res+=sinal(r)*v; else if(r.origem==='douglas_40') o.d40+=v; else if(r.tipo==='credito') o.man_e+=v; else o.sai+=v; });
+    if(r.origem==='reserva_imposto') o.res+=sinal(r)*v; else if(r.origem==='douglas_40') o.d40+=v; else if(r.tipo==='credito') o.man_e+=v; else { o.sai+=v; if(centroPorCaixa[r.id]==='casa') o.casa+=v; } });
+  const tagCentro=r=>(r.origem==='boleto'&&centroPorCaixa[r.id])?' <span style="font-size:10px;font-weight:700;border:1px solid '+(centroPorCaixa[r.id]==='casa'?'var(--acc);color:var(--acc)':'var(--bor);color:var(--mut2)')+';border-radius:20px;padding:0 6px;white-space:nowrap">'+(centroPorCaixa[r.id]==='casa'?'🏠 Casa':'🏢 Empresa')+'</span>':'';
   const dt=d=>d?String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4):'—';
   const ori={reserva_imposto:'Reserva de imposto',douglas_40:'40% Douglas',manual:'Manual',boleto:'Boleto',forn_nao_cobrou:'Fornecedor não cobrou'};
   const hoje=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -7357,16 +7358,16 @@ async function _renderCaixa(){
   const meses=Object.keys(porMes).sort().reverse();
   if(meses.length){
     h+='<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">Resumo por mês</div><div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-      +'<thead><tr style="color:var(--mut2)"><th style="text-align:left;padding:6px">Mês</th><th style="text-align:right;padding:6px">Reserva de imposto</th><th style="text-align:right;padding:6px">40% Douglas</th><th style="text-align:right;padding:6px">Outras entradas</th><th style="text-align:right;padding:6px">Saídas</th><th style="text-align:right;padding:6px">Resultado</th></tr></thead><tbody>'
+      +'<thead><tr style="color:var(--mut2)"><th style="text-align:left;padding:6px">Mês</th><th style="text-align:right;padding:6px">Reserva de imposto</th><th style="text-align:right;padding:6px">40% Douglas</th><th style="text-align:right;padding:6px">Outras entradas</th><th style="text-align:right;padding:6px">Saídas</th><th style="text-align:right;padding:6px" title="Contas a pagar marcadas como Casa (já incluídas em Saídas)">das quais 🏠 Casa</th><th style="text-align:right;padding:6px">Resultado</th></tr></thead><tbody>'
       +meses.map(m=>{ const o=porMes[m], res=r2(o.res+o.d40+o.man_e-o.sai);
-        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px">'+m.slice(5)+'/'+m.slice(0,4)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.res)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.d40)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.man_e)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);color:var(--r)">R$ '+fmt(o.sai)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);font-weight:700;color:'+(res>=0?'var(--g)':'var(--r)')+'">R$ '+fmt(res)+'</td></tr>'; }).join('')
+        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px">'+m.slice(5)+'/'+m.slice(0,4)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.res)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.d40)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono)">R$ '+fmt(o.man_e)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);color:var(--r)">R$ '+fmt(o.sai)+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);color:var(--acc)">'+(o.casa?'R$ '+fmt(o.casa):'—')+'</td><td style="padding:6px;text-align:right;font-family:var(--mono);font-weight:700;color:'+(res>=0?'var(--g)':'var(--r)')+'">R$ '+fmt(res)+'</td></tr>'; }).join('')
       +'</tbody></table></div>';
   }
   h+='<div style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">Extrato</div>';
   if(!comSaldo.length) h+='<div style="padding:24px;text-align:center;color:var(--mut2);border:1px dashed var(--bor);border-radius:var(--rad2)">Nenhum lançamento ainda. O primeiro crédito entra quando o fechamento de novembro/2026 for salvo.</div>';
   else h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--mut2)"><th style="text-align:left;padding:6px">Data</th><th style="text-align:left;padding:6px">Descrição</th><th style="text-align:left;padding:6px">Origem</th><th style="text-align:right;padding:6px">Valor</th><th style="text-align:right;padding:6px">Saldo</th><th></th></tr></thead><tbody>'
       +comSaldo.slice().reverse().map(r=>{ const deb=r.tipo==='debito';
-        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px;white-space:nowrap">'+dt(r.data)+'</td><td style="padding:6px">'+String(r.descricao||'').replace(/</g,'&lt;')+'</td><td style="padding:6px;color:var(--mut2)">'+(ori[r.origem]||r.origem)+'</td>'
+        return '<tr style="border-top:1px solid var(--bor)"><td style="padding:6px;white-space:nowrap">'+dt(r.data)+'</td><td style="padding:6px">'+String(r.descricao||'').replace(/</g,'&lt;')+'</td><td style="padding:6px;color:var(--mut2)">'+(ori[r.origem]||r.origem)+tagCentro(r)+'</td>'
           +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap;color:'+(deb?'var(--r)':'var(--g)')+'">'+(deb?'− ':'+ ')+'R$ '+fmt(r.valor)+'</td>'
           +'<td style="padding:6px;text-align:right;font-family:var(--mono);white-space:nowrap">R$ '+fmt(r.saldo)+'</td>'
           +'<td style="padding:6px;text-align:right;white-space:nowrap">'+(r.origem==='manual'?'<button class="btn btn-sm" title="Excluir" onclick="caixaExcluir('+r.id+')">🗑</button>'

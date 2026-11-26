@@ -9,7 +9,10 @@
 'use strict';
 
 const CATEGORIAS = ['Impostos','Energia','Água','Telefone/Internet','Aluguel','Contabilidade','Fornecedor','Marketing/Anúncios','Sistemas/Assinaturas','Cartão de crédito','Funcionários','Outros'];
-const ST = { lista: [], carregado: false, hostId: null, opts: {}, verPagos: false, verFuturos: false };
+// Centro de custo: só classifica a conta (o lançamento no Caixa da empresa continua igual)
+const CENTROS = { empresa: '🏢 Empresa', casa: '🏠 Casa' };
+const centroDe = c => c && c.centro_custo === 'casa' ? 'casa' : 'empresa';
+const ST = { lista: [], carregado: false, hostId: null, opts: {}, verPagos: false, verFuturos: false, centro: 'todas' };
 
 // ── utilitários ──
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -392,6 +395,8 @@ function css(){
 .bol-info{flex:1;min-width:150px}
 .bol-info .n{font-size:13px;font-weight:600}
 .bol-info .d{font-size:11px;color:var(--mut2)}
+.bol-cc{font-size:10px;font-weight:700;border:1px solid var(--bor);background:var(--card);color:var(--mut2);border-radius:20px;padding:1px 7px;margin-left:4px;cursor:pointer;vertical-align:middle;font-family:var(--font)}
+.bol-cc.casa{color:var(--acc);border-color:var(--acc);background:var(--acc2)}
 .bol-val{font-family:var(--mono);font-weight:700;font-size:13px;white-space:nowrap}
 .bol-acts{display:flex;gap:6px;flex-wrap:wrap}
 .bol-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px}
@@ -426,8 +431,9 @@ async function render(hostId, opts){
 }
 function desenhar(){
   const el = document.getElementById(ST.hostId); if (!el) return;
-  const abertas = ST.lista.filter(c => c.status === 'pendente' || c.status === 'agendado');
-  const pagas = ST.lista.filter(c => c.status === 'pago').sort((a,b) => (b.data_pagamento||'').localeCompare(a.data_pagamento||''));
+  const lista = ST.centro === 'todas' ? ST.lista : ST.lista.filter(c => centroDe(c) === ST.centro);
+  const abertas = lista.filter(c => c.status === 'pendente' || c.status === 'agendado');
+  const pagas = lista.filter(c => c.status === 'pago').sort((a,b) => (b.data_pagamento||'').localeCompare(a.data_pagamento||''));
   const semComp = pagas.filter(c => !c.comprovante_path), pagasOk = pagas.filter(c => c.comprovante_path);
   const pend = abertas.filter(c => c.status === 'pendente');
   const venc = pend.filter(c => diasAte(c.vencimento) < 0);
@@ -442,6 +448,13 @@ function desenhar(){
      + '<button class="bol-btn" onclick="Boletos.novoManual()">⌨️ Digitar</button>'
      + '<button class="bol-btn acc" onclick="Boletos.escolherArquivo()">📤 Enviar boleto</button>'
      + '<input type="file" id="bolFile" accept="application/pdf,image/*" style="display:none" onchange="Boletos.arquivoEscolhido(this)"></div>';
+  const fBtn = (k, txt) => '<button class="bol-btn' + (ST.centro === k ? ' acc' : '') + '" onclick="Boletos.filtrarCentro(\'' + k + '\')">' + txt + '</button>';
+  const pagasMesTodas = ST.lista.filter(c => c.status === 'pago' && (c.data_pagamento||'').startsWith(mes));
+  const somaC = k => soma(pagasMesTodas.filter(c => centroDe(c) === k));
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+     + '<span style="font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.4px;margin-right:2px">Centro de custo</span>'
+     + fBtn('todas', 'Todas') + fBtn('empresa', CENTROS.empresa) + fBtn('casa', CENTROS.casa)
+     + '<span style="font-size:12px;color:var(--mut2);margin-left:auto">Pagos no mês: 🏢 <b style="color:var(--txt)">' + brl(somaC('empresa')) + '</b> · 🏠 <b style="color:var(--txt)">' + brl(somaC('casa')) + '</b></span></div>';
   h += '<div class="bol-chips">' + chip('Vencidos', venc, 'var(--r)') + chip('Próx. 7 dias', prox, 'var(--acc)') + chip('Agendados', agend, 'var(--b)') + chip('Pagos no mês', pagasMes, 'var(--g)') + (semComp.length ? chip('Sem comprovante', semComp, 'var(--r)') : '') + '</div>';
   if (!abertas.length && !semComp.length) h += '<div style="padding:18px;text-align:center;color:var(--mut2);font-size:13px;border:1px dashed var(--bor);border-radius:var(--rad3)">Nenhuma conta em aberto. Toque em <b>Enviar boleto</b> e mande o PDF ou a foto: a IA preenche tudo.</div>';
   // Compactação: à vista só o que importa agora (este mês ou próximos 7 dias + vencidas + sem comprovante).
@@ -490,7 +503,8 @@ function linha(c){
   if (c.arquivo_path) acts += '<button class="bol-btn" title="Ver arquivo" onclick="Boletos.verArquivo(\'' + c.id + '\')">📎</button>';
   if (!pago) acts += '<button class="bol-btn" title="Editar" onclick="Boletos.editar(\'' + c.id + '\')">✏️</button>';
   return '<div class="bol-row"><span class="bol-st" style="color:' + s.cor + ';background:' + s.fundo + '">' + s.txt + '</span>'
-    + '<div class="bol-info"><div class="n">' + esc(c.beneficiario || 'Sem beneficiário') + '</div><div class="d">' + esc([c.descricao, c.categoria].filter(Boolean).join(' · ')) + (pago ? '' : ' · venc. ' + dtBR(c.vencimento)) + '</div></div>'
+    + '<div class="bol-info"><div class="n">' + esc(c.beneficiario || 'Sem beneficiário')
+    + ' <button class="bol-cc' + (centroDe(c) === 'casa' ? ' casa' : '') + '" title="Centro de custo — clique para trocar" onclick="Boletos.trocarCentro(\'' + c.id + '\')">' + CENTROS[centroDe(c)] + '</button></div><div class="d">' + esc([c.descricao, c.categoria].filter(Boolean).join(' · ')) + (pago ? '' : ' · venc. ' + dtBR(c.vencimento)) + '</div></div>'
     + '<div class="bol-val" style="' + (pago ? 'color:var(--mut2);text-decoration:line-through' : '') + '">' + brl(c.valor) + '</div>'
     + '<div class="bol-acts">' + acts + '</div></div>';
 }
@@ -528,7 +542,7 @@ async function arquivoEscolhido(inp){
     }
     formulario({
       beneficiario: d.beneficiario || '', cnpj: soDig(d.cnpj_beneficiario) || '', descricao: d.descricao || '',
-      categoria: CATEGORIAS.includes(d.categoria) ? d.categoria : 'Outros',
+      categoria: CATEGORIAS.includes(d.categoria) ? d.categoria : 'Outros', centro_custo: ST.centro === 'casa' ? 'casa' : 'empresa',
       valor: d.valor != null ? Number(d.valor) : '', vencimento: /^\d{4}-\d{2}-\d{2}$/.test(d.vencimento || '') ? d.vencimento : '',
       linha_digitavel: soDig(d.linha_digitavel), pix_copia_cola: (d.pix_copia_cola || '').trim(), observacoes: d.observacoes || ''
     }, { ia: d, titulo: '🤖 Lido pela IA — confira antes de salvar', releitura });
@@ -538,7 +552,7 @@ async function arquivoEscolhido(inp){
       + '<div class="bol-foot"><button class="bol-btn" onclick="Boletos.fechar()">Fechar</button><button class="bol-btn acc" onclick="Boletos.novoManual()">⌨️ Digitar</button></div>');
   }
 }
-function novoManual(){ _arquivoAtual = null; formulario({ categoria: 'Outros' }, { titulo: '⌨️ Nova conta a pagar' }); }
+function novoManual(){ _arquivoAtual = null; formulario({ categoria: 'Outros', centro_custo: ST.centro === 'casa' ? 'casa' : 'empresa' }, { titulo: '⌨️ Nova conta a pagar' }); }
 function editar(id){
   const c = ST.lista.find(x => x.id === id); if (!c) return;
   _arquivoAtual = null;
@@ -557,6 +571,7 @@ function formulario(v, o){
     + '<label class="bol-f full">Linha digitável / código de barras<textarea id="bf_linha" rows="2" placeholder="Cole aqui (só números ou com pontos)" oninput="Boletos.checar()">' + esc(v.linha_digitavel ? formatarLinha(v.linha_digitavel) : '') + '</textarea></label>'
     + '<label class="bol-f full">Pix copia e cola (se tiver)<textarea id="bf_pix" rows="2" placeholder="00020126..." oninput="Boletos.checar()">' + esc(v.pix_copia_cola || '') + '</textarea></label>'
     + '<label class="bol-f">CNPJ do beneficiário<input id="bf_cnpj" inputmode="numeric" value="' + esc(v.cnpj || '') + '"></label>'
+    + '<label class="bol-f">Centro de custo<select id="bf_centro">' + Object.keys(CENTROS).map(k => '<option value="' + k + '"' + (centroDe(v) === k ? ' selected' : '') + '>' + CENTROS[k] + '</option>').join('') + '</select></label>'
     + '<label class="bol-f">Avisar no celular<select id="bf_avisar"><option value="1"' + (v.avisar === false ? '' : ' selected') + '>Sim (2 dias antes e todo dia até pagar)</option><option value="0"' + (v.avisar === false ? ' selected' : '') + '>Não</option></select></label>'
     + '</div>';
   if (v.observacoes) h += '<div class="bol-msg warn">📝 ' + esc(v.observacoes) + '</div>';
@@ -639,7 +654,8 @@ async function salvar(id){
   const corpo = {
     beneficiario: g('bf_benef').value.trim() || null, categoria: g('bf_cat').value, descricao: g('bf_desc').value.trim() || null,
     valor: Math.round(valor * 100) / 100, vencimento: venc, linha_digitavel: linhaD || null, pix_copia_cola: pix || null,
-    cnpj: soDig(g('bf_cnpj').value) || null, avisar: g('bf_avisar').value === '1'
+    cnpj: soDig(g('bf_cnpj').value) || null, avisar: g('bf_avisar').value === '1',
+    centro_custo: g('bf_centro') && g('bf_centro').value === 'casa' ? 'casa' : 'empresa'
   };
   try {
     if (_arquivoAtual) {
@@ -797,6 +813,19 @@ async function abrirAnexo(path){
     if (w) w.location = url; else window.open(url, '_blank');
   } catch(e) { if (w) w.close(); aviso('Erro ao abrir arquivo: ' + e.message, 'err'); }
 }
+function filtrarCentro(k){ ST.centro = ['empresa','casa'].includes(k) ? k : 'todas'; desenhar(); }
+// Troca Casa ⇄ Empresa (vale também para conta paga: é só classificação, o Caixa não muda)
+async function trocarCentro(id){
+  const c = await buscarConta(id); if (!c) return;
+  const novo = centroDe(c) === 'casa' ? 'empresa' : 'casa';
+  try {
+    await rest('contas_pagar?id=eq.' + id, 'PATCH', { centro_custo: novo }, 'return=minimal');
+    c.centro_custo = novo; const l = ST.lista.find(x => x.id === id); if (l) l.centro_custo = novo;
+    aviso('Centro de custo: ' + CENTROS[novo]);
+    desenhar();
+    if (typeof ST.opts.aoMudar === 'function') { try { await ST.opts.aoMudar(); } catch(e) {} }
+  } catch(e) { aviso('Erro: ' + e.message, 'err'); }
+}
 function togglePagos(){ ST.verPagos = !ST.verPagos; desenhar(); }
 function toggleFuturos(){ ST.verFuturos = !ST.verFuturos; desenhar(); }
 async function atualizar(){
@@ -836,7 +865,7 @@ async function alerta(hostId, irPara){
 
 window.Boletos = {
   ehDono, render, alerta, escolherArquivo, arquivoEscolhido, novoManual, editar, salvar, excluir, checar, relerAgora,
-  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, comprovanteDoCaixa, anexarComprovante, togglePagos, toggleFuturos, fechar: fecharModal,
+  copiar, agendar, desagendar, pagar, desfazer, verArquivo, verComprovante, comprovanteDoCaixa, anexarComprovante, filtrarCentro, trocarCentro, togglePagos, toggleFuturos, fechar: fecharModal,
   _teste: { analisarLinha, analisarPix, fatorParaData, formatarLinha, crc16 }
 };
 })();
