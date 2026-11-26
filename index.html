@@ -10465,7 +10465,33 @@ function parseBrFloat(s){if(!s)return 0;return parseFloat(String(s).replace(/\.(
 // ── Casamento por NF: tenta achar um grupo de pedidos com a MESMA nota fiscal cujo total bata
 //    exatamente com o valor pago. Isso evita que o método antigo (soma por ordem de criação)
 //    troque pedidos de notas fiscais diferentes só porque têm o mesmo valor individual. ──
+// Valor de uma ordem em centavos: rec + acréscimo da NF; com liquido=true desconta o ISS retido
+// pelo cliente (desconta_iss) — é o que o cliente PJ realmente transfere.
+function _valorOrdemCent(o,liquido){
+  const temNF=o.nf_num&&String(o.nf_num).trim()!=='';
+  const bruto=(parseFloat(o.rec)||0)+(temNF?(_nfAcrescimo||0):0);
+  return Math.round(bruto*(liquido&&o.desconta_iss?(1-_issFrac(o)):1)*100);
+}
+// Tolerância: 1 centavo por ordem (arredondamento do ISS feito pelo cliente)
+function _bateValor(somaCent,vPagoCent,nOrdens){ return Math.abs(somaCent-vPagoCent)<=Math.max(1,nOrdens); }
+// Soma sequencial por ordem de criação — tenta valor cheio e depois líquido de ISS
+function _selSequencial(pend,vPago){
+  const sorted=[...pend].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
+  for(const liq of [false,true]){
+    let acc=0;const sel=[];
+    for(const o of sorted){
+      const v=_valorOrdemCent(o,liq);
+      if(acc+v<=vPago+sel.length+1){sel.push(o);acc+=v;}
+      if(sel.length&&_bateValor(acc,vPago,sel.length))return sel;
+    }
+  }
+  return null;
+}
 function matchGrupoPorNF(pendentes,vPagoCentavos){
+  for(const liq of [false,true]){ const r=_matchGrupoPorNF(pendentes,vPagoCentavos,liq); if(r) return r; }
+  return null;
+}
+function _matchGrupoPorNF(pendentes,vPagoCentavos,liq){
   const porNF={};
   pendentes.forEach(o=>{
     const nf=(o.nf_num&&String(o.nf_num).trim()!=='')?String(o.nf_num).trim():null;
@@ -10475,11 +10501,11 @@ function matchGrupoPorNF(pendentes,vPagoCentavos){
   const nfs=Object.keys(porNF);
   const grupos=nfs.map(nf=>{
     const ordensGrupo=porNF[nf];
-    const total=ordensGrupo.reduce((s,o)=>s+Math.round(((parseFloat(o.rec)||0)+(_nfAcrescimo||0))*100),0);
+    const total=ordensGrupo.reduce((s,o)=>s+_valorOrdemCent(o,liq),0);
     return{nf,ordens:ordensGrupo,total};
   });
   // 1) Tenta uma única NF que bata sozinha (caso mais comum)
-  const unica=grupos.find(g=>g.total===vPagoCentavos);
+  const unica=grupos.find(g=>_bateValor(g.total,vPagoCentavos,g.ordens.length));
   if(unica) return unica.ordens;
   // 2) Tenta combinações de NFs completas somando o valor pago — cobre o caso de um
   //    Pix único que paga mais de uma nota fiscal ao mesmo tempo (ex.: NF 2373 + NF 2409).
@@ -10487,9 +10513,9 @@ function matchGrupoPorNF(pendentes,vPagoCentavos){
   const n=grupos.length;
   if(n>1&&n<=20){
     for(let mask=1;mask<(1<<n);mask++){
-      let soma=0;
-      for(let i=0;i<n;i++){ if(mask&(1<<i)) soma+=grupos[i].total; }
-      if(soma===vPagoCentavos){
+      let soma=0,qtd=0;
+      for(let i=0;i<n;i++){ if(mask&(1<<i)){ soma+=grupos[i].total; qtd+=grupos[i].ordens.length; } }
+      if(_bateValor(soma,vPagoCentavos,qtd)){
         const combo=[];
         for(let i=0;i<n;i++){ if(mask&(1<<i)) combo.push(...grupos[i].ordens); }
         return combo;
@@ -10595,15 +10621,11 @@ function renderExtratoRevisao(){
           if(porNF){
             pendGrp=porNF;
           } else {
-            // 2) Fallback: soma sequencial por ordem de criação (comportamento original)
-            const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
-            let acc=0;const sel=[];
-            for(const o of sorted){
-              const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
-              if(acc+v<=vPago){sel.push(o);acc+=v;}
-              if(acc===vPago)break;
-            }
-            if(acc===vPago&&sel.length>0)pendGrp=sel;
+            // 2) Fallback: soma sequencial por ordem de criação (valor cheio e líquido de ISS)
+            const sel=_selSequencial(pendGrp,vPago);
+            if(sel) pendGrp=sel;
+            // 3) Nada bate: NÃO marca todas as ordens do cliente — deixa para escolher na tela
+            else if(pendGrp.length>1) linha._sem_match=true;
           }
         }
         if(pendGrp.length>0){
@@ -10657,7 +10679,7 @@ function renderExtratoRevisao(){
         // Verifica divergência de valor considerando rec + acréscimo fixo da NF (R$)
         const _temNF=_rcMatch.nf_num&&String(_rcMatch.nf_num).trim()!=='';
         const _recTotal=(parseFloat(_rcMatch.rec)||0)+(_temNF?(_nfAcrescimo||0):0);
-        const _difRC=Math.abs(linha.valorPago-_recTotal);
+        const _difRC=Math.min(Math.abs(linha.valorPago-_recTotal), Math.abs(Math.round(linha.valorPago*100)-_valorOrdemCent(_rcMatch,true))/100);
         if(_difRC>0.01){
           // ── Fallback: o pagamento pode ser a soma de várias ordens do mesmo cliente ──
           // (mesma lógica de seleção exata já usada no fluxo GRP)
@@ -10670,15 +10692,9 @@ function renderExtratoRevisao(){
               // 1) Tenta bater com uma NF inteira primeiro (mesmo motivo do fluxo GRP)
               let sel=matchGrupoPorNF(pendGrp,vPago);
               if(!sel){
-                // 2) Fallback: soma sequencial por ordem de criação (comportamento original)
-                const sorted=[...pendGrp].sort((a,b)=>parseInt((a.crm_id||'').replace(/\D/g,''),10)-parseInt((b.crm_id||'').replace(/\D/g,''),10));
-                let acc=0;const _sel=[];
-                for(const o of sorted){
-                  const v=Math.round(((parseFloat(o.rec)||0)+(o.nf_num&&String(o.nf_num).trim()!==''?(_nfAcrescimo||0):0))*100);
-                  if(acc+v<=vPago){_sel.push(o);acc+=v;}
-                  if(acc===vPago)break;
-                }
-                if(acc===vPago&&_sel.length>1) sel=_sel;
+                // 2) Fallback: soma sequencial por ordem de criação (valor cheio e líquido de ISS)
+                const _sel=_selSequencial(pendGrp,vPago);
+                if(_sel&&_sel.length>1) sel=_sel;
               }
               if(sel&&sel.length>1){
                 ordemMatch=sel;
@@ -10726,8 +10742,11 @@ function renderExtratoRevisao(){
         const _ordsGrp = (r.ordens||[r.ordem]).filter(Boolean).filter(o=>!o.pago);
         const _ordsExcl = (r.ordensExcluidas||[]);
         const _somaAutosel = _ordsGrp.reduce((s,o)=>{const _nfVal=(o.nf_num&&String(o.nf_num).trim()!=='')?(_nfAcrescimo||0):0;return s+(parseFloat(o.rec)||0)+_nfVal;},0);
-        const _difValor = Math.abs(r.valorPago - _somaAutosel);
-        const _avisoValor = r.tipo==='grp' && _difValor > 0.01
+        const _somaAutoselLiq = _ordsGrp.reduce((s,o)=>s+_valorOrdemCent(o,true),0)/100;
+        const _difValor = Math.min(Math.abs(r.valorPago - _somaAutosel), Math.abs(r.valorPago - _somaAutoselLiq));
+        const _avisoValor = r._sem_match
+          ? `<div style="font-size:11px;font-weight:700;color:var(--r);padding:4px 0 4px 28px">⚠️ Nenhuma combinação das ordens deste cliente bate com o Pix (R$ ${fmt(r.valorPago)}). Marque manualmente quais ordens ele paga.</div>`
+          : r.tipo==='grp' && _difValor > 0.02
           ? `<div style="font-size:10px;color:var(--acc);padding:2px 0 4px 28px">⚠️ Soma das ordens (R$ ${fmt(_somaAutosel)}) difere do Pix (R$ ${fmt(r.valorPago)}) — revise manualmente</div>`
           : (r.tipo==='grp' && _ordsExcl.length>0 ? `<div style="font-size:10px;color:var(--g);padding:2px 0 4px 28px">✅ Valor exato · ${_ordsExcl.length} ordem${_ordsExcl.length>1?'ns':''} com pagamento futuro mantida${_ordsExcl.length>1?'s':''} pendente${_ordsExcl.length>1?'s':''}</div>` : '');
         const _avisoValorRC = r.tipo!=='grp' && r._aviso_valor_rc
@@ -10736,7 +10755,7 @@ function renderExtratoRevisao(){
         const _subOrdens = r.tipo==='grp' && (_ordsGrp.length > 1 || _ordsExcl.length > 0)
           ? [
               ..._ordsGrp.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 28px;cursor:pointer">
-              <input type="checkbox" data-grpid="${r.id}" data-ordid="${o.id}" checked style="accent-color:var(--g);width:14px;height:14px;flex-shrink:0">
+              <input type="checkbox" data-grpid="${r.id}" data-ordid="${o.id}" ${r._sem_match?'':'checked'} style="accent-color:var(--g);width:14px;height:14px;flex-shrink:0">
               <span style="font-size:11px;color:var(--txt);flex:1">${o.crm_id||'—'} · ${o.logradouro||o.bairro||'—'} · ${o.nf_num&&String(o.nf_num).trim()!==''?'NF '+o.nf_num:'sem nf'}</span>
               <span style="font-size:11px;font-family:var(--mono);color:var(--g)">R$ ${fmt(o.rec)}</span>
             </label>`),
